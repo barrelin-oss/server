@@ -17,6 +17,10 @@
 #include <atomic>
 #include <chrono>
 
+namespace hb::bridge {
+    class message_router;
+}
+
 namespace hb::network {
 
 // Network events (published to event bus)
@@ -43,6 +47,7 @@ struct network_config {
     size_t max_connections{2000};
     std::chrono::milliseconds idle_timeout{std::chrono::minutes{5}};
     std::chrono::milliseconds poll_interval{std::chrono::milliseconds{10}};
+    bool use_message_router{true};  // Use bridge::message_router for message dispatch
 };
 
 // Main network subsystem
@@ -83,6 +88,11 @@ public:
     using message_callback = std::function<void(connection_id, std::span<const uint8_t>)>;
     void set_message_callback(message_callback callback);
 
+    // Message router integration (preferred over callback for modern code)
+    void set_message_router(bridge::message_router* router);
+    [[nodiscard]] auto message_router() -> bridge::message_router*;
+    [[nodiscard]] auto uses_message_router() const -> bool;
+
 private:
     void network_thread_func();
     void accept_connections();
@@ -98,6 +108,7 @@ private:
     std::atomic<bool> running_{false};
 
     message_callback message_callback_;
+    bridge::message_router* message_router_{nullptr};
     std::mutex callback_mutex_;
 
     // Stats

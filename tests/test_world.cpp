@@ -421,3 +421,110 @@ TEST_F(world_subsystem_test, is_walkable) {
     // Invalid map should not be walkable
     EXPECT_FALSE(world_.is_walkable(map_id{999}, position{10, 10}));
 }
+
+// Map file loading tests
+
+TEST(map_file_test, load_from_file_not_found) {
+    map m;
+    auto result = m.load_from_file("nonexistent_map.amd");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_TRUE(result.error().find("not found") != std::string::npos);
+}
+
+TEST(map_file_test, load_from_real_file) {
+    // Try to load a real map file from the build directory
+    std::filesystem::path map_path = "mapdata/bsmith.amd";  // Small shop map
+
+    // Skip if map file doesn't exist (test runs from build directory)
+    if (!std::filesystem::exists(map_path)) {
+        // Try alternative paths
+        map_path = "Debug/mapdata/bsmith.amd";
+        if (!std::filesystem::exists(map_path)) {
+            map_path = "../mapdata/bsmith.amd";
+            if (!std::filesystem::exists(map_path)) {
+                GTEST_SKIP() << "Map file not found - skipping real file test";
+            }
+        }
+    }
+
+    map m;
+    map_config config;
+    config.name = "bsmith";
+    m.initialize(map_id{1}, config);
+
+    auto result = m.load_from_file(map_path);
+    ASSERT_TRUE(result.is_ok()) << "Failed to load map: " << result.error();
+
+    // Verify map dimensions are reasonable (bsmith is a small shop)
+    EXPECT_GT(m.width(), 0);
+    EXPECT_GT(m.height(), 0);
+    EXPECT_LT(m.width(), 1000);   // Reasonable upper bound
+    EXPECT_LT(m.height(), 1000);
+}
+
+TEST(map_file_test, load_parses_tile_flags) {
+    // Try to load a map with varied terrain
+    std::filesystem::path map_path = "mapdata/aresden.amd";
+
+    if (!std::filesystem::exists(map_path)) {
+        map_path = "Debug/mapdata/aresden.amd";
+        if (!std::filesystem::exists(map_path)) {
+            map_path = "../mapdata/aresden.amd";
+            if (!std::filesystem::exists(map_path)) {
+                GTEST_SKIP() << "Map file not found - skipping tile flags test";
+            }
+        }
+    }
+
+    map m;
+    map_config config;
+    config.name = "aresden";
+    m.initialize(map_id{1}, config);
+
+    auto result = m.load_from_file(map_path);
+    ASSERT_TRUE(result.is_ok()) << "Failed to load map: " << result.error();
+
+    // Just verify we can query tiles
+    auto* tile = m.get_static_tile(position{10, 10});
+    ASSERT_NE(tile, nullptr);
+
+    // Count blocked tiles - a city map should have buildings/walls
+    int blocked_count = 0;
+    for (int16_t y = 0; y < m.height() && y < 100; ++y) {
+        for (int16_t x = 0; x < m.width() && x < 100; ++x) {
+            auto* t = m.get_static_tile(x, y);
+            if (t && !t->is_walkable()) {
+                ++blocked_count;
+            }
+        }
+    }
+
+    // A city map should have some blocked tiles (walls, buildings)
+    EXPECT_GT(blocked_count, 0) << "Expected some blocked tiles in city map";
+}
+
+TEST_F(world_subsystem_test, load_map_from_file) {
+    std::filesystem::path map_path = "mapdata/bsmith.amd";
+
+    if (!std::filesystem::exists(map_path)) {
+        map_path = "Debug/mapdata/bsmith.amd";
+        if (!std::filesystem::exists(map_path)) {
+            map_path = "../mapdata/bsmith.amd";
+            if (!std::filesystem::exists(map_path)) {
+                GTEST_SKIP() << "Map file not found - skipping world subsystem load test";
+            }
+        }
+    }
+
+    auto result = world_.load_map(map_path);
+    ASSERT_TRUE(result.is_ok()) << "Failed to load map: " << result.error();
+
+    auto id = result.value();
+    EXPECT_TRUE(id.is_valid());
+
+    // Get the loaded map
+    auto* m = world_.get_map(id);
+    ASSERT_NE(m, nullptr);
+    EXPECT_GT(m->width(), 0);
+    EXPECT_GT(m->height(), 0);
+}

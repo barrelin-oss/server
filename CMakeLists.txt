@@ -142,6 +142,16 @@ set(ADMIN_SOURCES
     src/admin/admin_system.cpp
 )
 
+set(BRIDGE_SOURCES
+    src/bridge/message_router.cpp
+    src/bridge/handler_registry.cpp
+    src/bridge/handlers/wave1_handlers.cpp
+    src/bridge/handlers/wave2_handlers.cpp
+    src/bridge/handlers/wave3_handlers.cpp
+    src/bridge/handlers/wave4_handlers.cpp
+    src/bridge/handlers/wave5_handlers.cpp
+)
+
 set(APP_SOURCES
     src/main.cpp
     src/application.cpp
@@ -171,6 +181,7 @@ add_library(hgserver_core STATIC
     ${WAR_SOURCES}
     ${PERSISTENCE_SOURCES}
     ${ADMIN_SOURCES}
+    ${BRIDGE_SOURCES}
 )
 
 target_include_directories(hgserver_core PUBLIC
@@ -247,6 +258,8 @@ add_executable(hgserver_tests
     tests/test_war.cpp
     tests/test_persistence.cpp
     tests/test_admin.cpp
+    tests/test_bridge.cpp
+    tests/test_integration.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

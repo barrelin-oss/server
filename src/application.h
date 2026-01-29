@@ -14,15 +14,11 @@
 #include <functional>
 #include <vector>
 
-// Forward declaration of legacy game class (disabled until legacy code is ported)
-// class CGame;
-
 namespace hb {
 
 // Application configuration
 struct application_config {
     std::string config_file = "GServer.cfg";
-    bool enable_legacy_game = true;  // Enable legacy CGame for backward compatibility
     uint32_t tick_interval_ms = 100; // Game tick interval
 };
 
@@ -46,10 +42,6 @@ public:
 
     // Get application config
     [[nodiscard]] auto config() const -> const application_config&;
-
-    // Get the legacy game instance (for backward compatibility)
-    // Disabled until legacy code is ported
-    // [[nodiscard]] auto legacy_game() -> CGame*;
 
 private:
     application();
@@ -79,7 +71,6 @@ private:
     std::string shutdown_reason_;
 
     std::unique_ptr<platform::timer> game_timer_;
-    // std::unique_ptr<CGame> legacy_game_;  // Disabled until legacy code is ported
 
     bool initialized_ = false;
     uint64_t tick_count_ = 0;

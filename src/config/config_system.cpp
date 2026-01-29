@@ -12,9 +12,6 @@
 #include <algorithm>
 #include <cctype>
 
-// Legacy game header (when integrating)
-// #include "Game.h"
-
 namespace hb {
 
 namespace {
@@ -249,27 +246,6 @@ auto config_system::game() const -> const game_config& {
 
 auto config_system::admin() const -> const admin_config& {
     return admin_config_;
-}
-
-void config_system::populate_legacy_fields(CGame* game) const {
-    if (!game) return;
-
-    // TODO: Implement when integrating with CGame
-    // This will copy our modern config values back to CGame's legacy fields
-    // for backward compatibility with existing code
-
-    /*
-    std::strncpy(game->m_cServerName, server_config_.server_name.c_str(), 10);
-    std::strncpy(game->m_cLogServerAddr, server_config_.log_server_addr.c_str(), 15);
-    game->m_iLogServerPort = server_config_.log_server_port;
-    std::strncpy(game->m_cGateServerAddr, server_config_.gate_server_addr.c_str(), 15);
-    game->m_iGateServerPort = server_config_.gate_server_port;
-    game->m_iGameServerMode = server_config_.game_server_mode;
-    game->m_iGameServerPort = server_config_.game_server_port;
-    // ... etc
-    */
-
-    LOG_DEBUG(config, "Populated legacy CGame fields from modern config");
 }
 
 void config_system::on_config_changed(config_changed_callback callback) {

@@ -11,9 +11,6 @@
 #include <memory>
 #include <functional>
 
-// Forward declaration of legacy game class
-class CGame;
-
 namespace hb {
 
 class config_system : public subsystem {
@@ -38,9 +35,6 @@ public:
     [[nodiscard]] auto server() const -> const server_config&;
     [[nodiscard]] auto game() const -> const game_config&;
     [[nodiscard]] auto admin() const -> const admin_config&;
-
-    // Populate legacy CGame fields for backward compatibility
-    void populate_legacy_fields(CGame* game) const;
 
     // Register callback for config changes
     using config_changed_callback = std::function<void()>;

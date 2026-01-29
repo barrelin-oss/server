@@ -14,8 +14,34 @@
 #include "platform/clock.h"
 #include "platform/platform.h"
 
-// Legacy game header (will be included when integrating)
-// #include "Game.h"
+// Network and session subsystems
+#include "network/network_subsystem.h"
+#include "session/session_manager.h"
+
+// Game subsystems
+#include "world/world_subsystem.h"
+#include "entity/entity_manager.h"
+#include "player/player_system.h"
+#include "npc/npc_system.h"
+#include "item/item_system.h"
+#include "combat/combat_system.h"
+#include "magic/magic_system.h"
+#include "inventory/inventory_system.h"
+#include "skill/skill_system.h"
+#include "quest/quest_system.h"
+#include "social/social_system.h"
+#include "war/war_system.h"
+#include "persistence/persistence_system.h"
+#include "admin/admin_system.h"
+
+// Protocol bridge
+#include "bridge/message_router.h"
+#include "bridge/handler_registry.h"
+#include "bridge/handlers/wave1_handlers.h"
+#include "bridge/handlers/wave2_handlers.h"
+#include "bridge/handlers/wave3_handlers.h"
+#include "bridge/handlers/wave4_handlers.h"
+#include "bridge/handlers/wave5_handlers.h"
 
 #include <csignal>
 #include <iostream>
@@ -106,15 +132,54 @@ void application::initialize() {
     // Set up signal handlers for graceful shutdown
     setup_signal_handlers();
 
-    // Register subsystems
+    // Register core subsystems
     auto& config_sys = subsystems().create_subsystem<config_system>();
     subsystems().create_subsystem<scheduler>();
     subsystems().create_subsystem<item_registry>();
     subsystems().create_subsystem<npc_registry>();
     subsystems().create_subsystem<magic_registry>();
 
+    // Register network and session subsystems
+    auto& network = subsystems().create_subsystem<network::network_subsystem>();
+    subsystems().create_subsystem<session::session_manager>();
+
+    // Register game subsystems
+    subsystems().create_subsystem<world::world_subsystem>();
+    subsystems().create_subsystem<entity::entity_manager>();
+    subsystems().create_subsystem<player::player_system>();
+    subsystems().create_subsystem<npc::npc_system>();
+    subsystems().create_subsystem<item::item_system>();
+    subsystems().create_subsystem<combat::combat_system>();
+    subsystems().create_subsystem<magic::magic_system>();
+    subsystems().create_subsystem<inventory::inventory_system>();
+    subsystems().create_subsystem<skill::skill_system>();
+    subsystems().create_subsystem<quest::quest_system>();
+    subsystems().create_subsystem<social::social_system>();
+    subsystems().create_subsystem<war::war_system>();
+    subsystems().create_subsystem<persistence::persistence_system>();
+    subsystems().create_subsystem<admin::admin_system>();
+
     // Initialize subsystems
     subsystems().initialize_all();
+
+    // Initialize protocol bridge and register wave handlers
+    LOG_INFO(general, "Initializing protocol bridge...");
+    auto& router = bridge::router();
+
+    // Register all wave handlers
+    auto wave1_count = bridge::wave1::register_wave1_handlers();
+    auto wave2_count = bridge::wave2::register_wave2_handlers();
+    auto wave3_count = bridge::wave3::register_wave3_handlers();
+    auto wave4_count = bridge::wave4::register_wave4_handlers();
+    auto wave5_count = bridge::wave5::register_wave5_handlers();
+
+    LOG_INFO(general, "Protocol bridge handlers registered: {} total ({} wave1, {} wave2, {} wave3, {} wave4, {} wave5)",
+        wave1_count + wave2_count + wave3_count + wave4_count + wave5_count,
+        wave1_count, wave2_count, wave3_count, wave4_count, wave5_count);
+
+    // Wire the message router to the network subsystem
+    network.set_message_router(&router);
+    LOG_INFO(general, "Message router connected to network subsystem");
 
     // Load configuration
     auto config_path = std::filesystem::path(config_.config_file);
@@ -140,14 +205,6 @@ void application::initialize() {
         std::chrono::milliseconds{config_.tick_interval_ms},
         [this]() { on_tick(); }
     );
-
-    // Initialize legacy game (when integrating)
-    if (config_.enable_legacy_game) {
-        LOG_INFO(general, "Legacy game integration pending...");
-        // TODO: Initialize CGame here when integrating
-        // legacy_game_ = std::make_unique<CGame>();
-        // legacy_game_->bInit();
-    }
 
     last_tick_time_ = platform::clock::now();
     initialized_ = true;
@@ -193,12 +250,13 @@ void application::shutdown() {
         .timestamp = std::chrono::system_clock::now()
     });
 
-    // Shutdown legacy game (disabled until legacy code is ported)
-    // if (legacy_game_) {
-    //     LOG_INFO(general, "Shutting down legacy game...");
-    //     legacy_game_->bOnClose();
-    //     legacy_game_.reset();
-    // }
+    // Unregister protocol bridge handlers
+    LOG_INFO(general, "Unregistering protocol bridge handlers...");
+    bridge::wave5::unregister_wave5_handlers();
+    bridge::wave4::unregister_wave4_handlers();
+    bridge::wave3::unregister_wave3_handlers();
+    bridge::wave2::unregister_wave2_handlers();
+    bridge::wave1::unregister_wave1_handlers();
 
     // Shutdown subsystems
     subsystems().shutdown_all();
@@ -234,11 +292,6 @@ void application::on_tick() {
         .tick_count = tick_count_,
         .delta_time = delta_time
     });
-
-    // Call legacy game timer (when integrating)
-    // if (legacy_game_) {
-    //     legacy_game_->OnTimer();
-    // }
 }
 
 void application::request_shutdown(std::string_view reason) {
@@ -259,11 +312,6 @@ auto application::shutdown_reason() const -> std::string_view {
 auto application::config() const -> const application_config& {
     return config_;
 }
-
-// Disabled until legacy code is ported
-// auto application::legacy_game() -> CGame* {
-//     return legacy_game_.get();
-// }
 
 void application::setup_signal_handlers() {
     std::signal(SIGINT, signal_handler);   // Ctrl+C

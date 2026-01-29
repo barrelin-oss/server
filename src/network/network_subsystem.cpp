@@ -2,6 +2,7 @@
 // Main network orchestrator implementation
 
 #include "network/network_subsystem.h"
+#include "bridge/message_router.h"
 #include "core/logger.h"
 #include "core/event_bus.h"
 
@@ -145,6 +146,22 @@ void network_subsystem::set_message_callback(message_callback callback) {
     message_callback_ = std::move(callback);
 }
 
+void network_subsystem::set_message_router(bridge::message_router* router) {
+    std::lock_guard lock{callback_mutex_};
+    message_router_ = router;
+    if (router) {
+        LOG_INFO(network, "Message router attached to network subsystem");
+    }
+}
+
+auto network_subsystem::message_router() -> bridge::message_router* {
+    return message_router_;
+}
+
+auto network_subsystem::uses_message_router() const -> bool {
+    return config_.use_message_router && message_router_ != nullptr;
+}
+
 void network_subsystem::network_thread_func() {
     accept_connections();
     process_connections();
@@ -223,11 +240,17 @@ void network_subsystem::process_connections() {
                 break;
             }
 
-            // Dispatch via callback or event
+            // Dispatch via message router, callback, or event (in priority order)
             std::lock_guard lock{callback_mutex_};
-            if (message_callback_) {
+
+            if (config_.use_message_router && message_router_) {
+                // Use modern message router for dispatch
+                message_router_->route(conn.id(), message);
+            } else if (message_callback_) {
+                // Use callback for dispatch
                 message_callback_(conn.id(), message);
             } else {
+                // Fall back to event bus
                 event_bus().publish(data_received_event{
                     .id = conn.id(),
                     .data = std::move(message)
@@ -266,6 +289,11 @@ void network_subsystem::handle_disconnect(connection_id id, std::string_view rea
 
     LOG_INFO(network, "Client disconnected: {} ({}:{}) - {}",
         id.value, address.ip, address.port, reason);
+
+    // Notify message router to clean up session/player mappings
+    if (message_router_) {
+        message_router_->clear_connection(id);
+    }
 
     // Publish event before removal
     event_bus().publish(client_disconnected_event{

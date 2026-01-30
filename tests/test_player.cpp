@@ -8,6 +8,7 @@
 #include "player/equipment.h"
 #include "player/player.h"
 #include "player/player_system.h"
+#include "world/position.h"
 
 using hb::item_id;
 using namespace hb::player;
@@ -321,4 +322,118 @@ TEST_F(player_system_test, status_effects) {
 
     system_.remove_status(id, player_status::poisoned);
     EXPECT_FALSE(p->has_status(player_status::poisoned));
+}
+
+// Movement tests
+
+TEST_F(player_system_test, can_move_to_invalid_player) {
+    // Non-existent player should return invalid_player
+    using move_result = player_system::move_result;
+    auto result = system_.can_move_to(hb::player_id{9999}, hb::world::position{10, 10});
+    EXPECT_EQ(result, move_result::invalid_player);
+}
+
+TEST_F(player_system_test, can_move_to_dead_player) {
+    player_create_info info;
+    info.name = "DeadPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->hp = 0;  // Make player dead
+
+    using move_result = player_system::move_result;
+    auto move_check = system_.can_move_to(id, hb::world::position{10, 10});
+    EXPECT_EQ(move_check, move_result::blocked_dead);
+}
+
+TEST_F(player_system_test, can_move_to_paralyzed_player) {
+    player_create_info info;
+    info.name = "ParalyzedPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    system_.add_status(id, player_status::paralyzed);
+
+    using move_result = player_system::move_result;
+    auto move_check = system_.can_move_to(id, hb::world::position{10, 10});
+    EXPECT_EQ(move_check, move_result::blocked_status);
+}
+
+TEST_F(player_system_test, can_move_to_frozen_player) {
+    player_create_info info;
+    info.name = "FrozenPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    system_.add_status(id, player_status::frozen);
+
+    using move_result = player_system::move_result;
+    auto move_check = system_.can_move_to(id, hb::world::position{10, 10});
+    EXPECT_EQ(move_check, move_result::blocked_status);
+}
+
+TEST_F(player_system_test, can_move_to_stunned_player) {
+    player_create_info info;
+    info.name = "StunnedPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    system_.add_status(id, player_status::stunned);
+
+    using move_result = player_system::move_result;
+    auto move_check = system_.can_move_to(id, hb::world::position{10, 10});
+    EXPECT_EQ(move_check, move_result::blocked_status);
+}
+
+TEST_F(player_system_test, try_move_without_world_succeeds) {
+    // Without world system registered, movement should succeed (basic mode)
+    player_create_info info;
+    info.name = "MovePlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->hp = 100;
+    p->computed.max_hp = 100;
+
+    // Try to move without world system
+    auto move_info = system_.try_move(id, hb::world::position{50, 50}, hb::world::direction::east);
+
+    using move_result = player_system::move_result;
+    EXPECT_EQ(move_info.result, move_result::success);
+    EXPECT_EQ(p->pos.x, 50);
+    EXPECT_EQ(p->pos.y, 50);
+    EXPECT_EQ(p->facing, hb::world::direction::east);
+}
+
+TEST_F(player_system_test, try_move_dead_player_fails) {
+    player_create_info info;
+    info.name = "DeadMovePlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->hp = 0;  // Dead
+
+    auto move_info = system_.try_move(id, hb::world::position{50, 50}, hb::world::direction::east);
+
+    using move_result = player_system::move_result;
+    EXPECT_EQ(move_info.result, move_result::blocked_dead);
+}
+
+TEST_F(player_system_test, get_player_at_returns_nullopt_without_world) {
+    // Without world system, should return nullopt
+    auto result = system_.get_player_at(hb::map_id{1}, hb::world::position{10, 10});
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(player_system_test, get_players_in_range_returns_empty_without_world) {
+    player_create_info info;
+    info.name = "RangePlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto players = system_.get_players_in_range(id, 10);
+    EXPECT_TRUE(players.empty());
 }

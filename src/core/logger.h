@@ -35,7 +35,9 @@ enum class log_category {
     chat,
     player,
     map,
-    proto_bridge  // Protocol bridge for legacy migration
+    proto_bridge,  // Protocol bridge for legacy migration
+    auth,          // Authentication system
+    bridge         // Message bridge/handlers
 };
 
 // Convert category to string
@@ -59,6 +61,8 @@ enum class log_category {
         case log_category::player:   return "player";
         case log_category::map:          return "map";
         case log_category::proto_bridge: return "proto_bridge";
+        case log_category::auth:         return "auth";
+        case log_category::bridge:       return "bridge";
         default:                     return "unknown";
     }
 }

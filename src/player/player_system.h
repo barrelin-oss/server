@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <functional>
+#include <optional>
 
 namespace hb::player {
 
@@ -88,9 +89,42 @@ public:
     auto unequip_item(player_id id, equip_slot slot) -> equipped_item;
     void recalculate_equipment_modifiers(player_id id);
 
-    // Location
+    // Location and Movement
     void set_position(player_id id, map_id map, hb::world::position pos, hb::world::direction facing);
     void set_facing(player_id id, hb::world::direction facing);
+
+    // Movement with collision detection
+    enum class move_result : uint8_t {
+        success,
+        blocked_terrain,      // Tile is not walkable
+        blocked_occupied,     // Tile is occupied by another entity
+        blocked_out_of_bounds, // Position outside map
+        blocked_status,       // Player has movement-blocking status
+        blocked_dead,         // Player is dead
+        teleport,             // Stepped on teleport tile
+        invalid_map,          // Map doesn't exist
+        invalid_player,       // Player doesn't exist
+    };
+
+    struct move_info {
+        move_result result{move_result::success};
+        std::string teleport_dest_map;
+        hb::world::position teleport_dest_pos{};
+        hb::world::direction teleport_dest_dir{hb::world::direction::south};
+    };
+
+    // Attempt to move player with full collision checking
+    [[nodiscard]] auto try_move(player_id id, hb::world::position target_pos,
+                                 hb::world::direction facing) -> move_info;
+
+    // Check if player can move to position (doesn't actually move)
+    [[nodiscard]] auto can_move_to(player_id id, hb::world::position target_pos) const -> move_result;
+
+    // Get players in range on same map
+    [[nodiscard]] auto get_players_in_range(player_id id, int radius) const -> std::vector<player_id>;
+
+    // Get players at specific position
+    [[nodiscard]] auto get_player_at(map_id map, hb::world::position pos) const -> std::optional<player_id>;
 
     // Combat
     void set_target(player_id id, entity::entity target);

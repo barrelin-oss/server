@@ -1,0 +1,39 @@
+# Helbreath Game Server Configuration
+# Copy this file to GServer.cfg and edit as needed
+
+# Server Identity
+game-server-name = HGServer
+game-server-port = 2848
+
+# Self-Contained Mode (uses built-in auth with PostgreSQL)
+# Set to true to use integrated auth, false for legacy external auth servers
+self-contained = true
+
+# Database Configuration (required for self-contained mode)
+db-host = localhost
+db-port = 5432
+db-name = helbreath
+db-user = hgserver
+db-password = your_password_here
+db-pool-size = 10
+
+# WebSocket Configuration (for self-contained mode)
+ws-bind = 0.0.0.0
+ws-port = 2848
+ws-max-connections = 2000
+
+# Authentication Settings
+max-characters = 4
+allow-registration = true
+session-timeout = 3600
+
+# Legacy Protocol (optional - for backwards compatibility with old clients)
+enable-legacy-protocol = false
+legacy-port = 2849
+
+# Legacy External Servers (only used if self-contained = false)
+log-server-address = 127.0.0.1
+log-server-port = 3000
+gate-server-address = 127.0.0.1
+gate-server-port = 4000
+game-server-mode = 0

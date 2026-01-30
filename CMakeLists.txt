@@ -74,6 +74,8 @@ set(NETWORK_SOURCES
     src/network/socket.cpp
     src/network/connection.cpp
     src/network/network_subsystem.cpp
+    src/network/websocket_server.cpp
+    src/network/json_protocol.cpp
 )
 
 set(SESSION_SOURCES
@@ -142,6 +144,17 @@ set(ADMIN_SOURCES
     src/admin/admin_system.cpp
 )
 
+set(DATABASE_SOURCES
+    src/database/connection_pool.cpp
+    src/database/database_system.cpp
+)
+
+set(AUTH_SOURCES
+    src/auth/password_hash.cpp
+    src/auth/session_token.cpp
+    src/auth/auth_system.cpp
+)
+
 set(BRIDGE_SOURCES
     src/bridge/message_router.cpp
     src/bridge/handler_registry.cpp
@@ -150,6 +163,8 @@ set(BRIDGE_SOURCES
     src/bridge/handlers/wave3_handlers.cpp
     src/bridge/handlers/wave4_handlers.cpp
     src/bridge/handlers/wave5_handlers.cpp
+    src/bridge/handlers/auth_handlers.cpp
+    src/bridge/handlers/game_handlers.cpp
 )
 
 set(APP_SOURCES
@@ -181,6 +196,8 @@ add_library(hgserver_core STATIC
     ${WAR_SOURCES}
     ${PERSISTENCE_SOURCES}
     ${ADMIN_SOURCES}
+    ${DATABASE_SOURCES}
+    ${AUTH_SOURCES}
     ${BRIDGE_SOURCES}
 )
 
@@ -259,6 +276,7 @@ add_executable(hgserver_tests
     tests/test_persistence.cpp
     tests/test_admin.cpp
     tests/test_bridge.cpp
+    tests/test_auth.cpp
     tests/test_integration.cpp
 )
 

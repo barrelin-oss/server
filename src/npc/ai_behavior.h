@@ -36,6 +36,7 @@ enum class ai_flags : uint16_t {
     boss = 1 << 8,          // Boss monster behavior
     guard = 1 << 9,         // Town guard behavior
     merchant = 1 << 10,     // Shop NPC
+    detect_invisible = 1 << 11, // Can see invisible players
 };
 
 inline auto operator|(ai_flags a, ai_flags b) -> ai_flags {

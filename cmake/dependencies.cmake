@@ -10,23 +10,27 @@ find_package(nlohmann_json CONFIG REQUIRED)
 # GTest - unit testing framework
 find_package(GTest CONFIG REQUIRED)
 
-# OpenSSL - cryptography (for future use)
+# OpenSSL - cryptography
 find_package(OpenSSL REQUIRED)
 
-# libsodium - cryptographic library (for future use)
+# libsodium - cryptographic library (password hashing, token generation)
 find_package(unofficial-sodium CONFIG REQUIRED)
 
-# zlib - compression (for future use)
+# zlib - compression
 find_package(ZLIB REQUIRED)
 
-# libpqxx - PostgreSQL client (for future use)
+# libpqxx - PostgreSQL client
 find_package(libpqxx CONFIG REQUIRED)
+
+# ixwebsocket - WebSocket server
+find_package(ixwebsocket CONFIG REQUIRED)
 
 # Platform-specific libraries
 if(WIN32)
     set(PLATFORM_LIBS
         ws2_32      # Winsock2
         winmm       # Multimedia (timers)
+        bcrypt      # Windows cryptographic API (required by mbedtls/ixwebsocket)
     )
 else()
     set(PLATFORM_LIBS
@@ -38,6 +42,12 @@ endif()
 set(COMMON_LIBS
     spdlog::spdlog
     nlohmann_json::nlohmann_json
+    libpqxx::pqxx
+    unofficial-sodium::sodium
+    ixwebsocket::ixwebsocket
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    ZLIB::ZLIB
     ${PLATFORM_LIBS}
 )
 

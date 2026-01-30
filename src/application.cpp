@@ -42,6 +42,14 @@
 #include "bridge/handlers/wave3_handlers.h"
 #include "bridge/handlers/wave4_handlers.h"
 #include "bridge/handlers/wave5_handlers.h"
+#include "bridge/handlers/auth_handlers.h"
+#include "bridge/handlers/game_handlers.h"
+
+// Database and authentication
+#include "database/database_system.h"
+#include "auth/auth_system.h"
+#include "auth/password_hash.h"
+#include "network/websocket_server.h"
 
 #include <csignal>
 #include <iostream>
@@ -101,12 +109,23 @@ auto application::parse_args(int argc, char* argv[]) -> bool {
 
         if (arg == "--config" && i + 1 < argc) {
             config_.config_file = argv[++i];
+        } else if (arg == "--hash-password" && i + 1 < argc) {
+            // Utility mode: hash a password and exit
+            std::string password = argv[++i];
+            auto result = auth::hash_password(password);
+            if (result.is_ok()) {
+                std::cout << result.value() << std::endl;
+            } else {
+                std::cerr << "Error: " << result.error() << std::endl;
+            }
+            std::exit(result.is_ok() ? 0 : 1);
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "Helbreath Game Server\n"
                       << "Usage: hgserver [options]\n"
                       << "Options:\n"
-                      << "  --config <file>  Configuration file (default: GServer.cfg)\n"
-                      << "  --help, -h       Show this help message\n";
+                      << "  --config <file>      Configuration file (default: GServer.cfg)\n"
+                      << "  --hash-password <pw> Hash a password and exit (for SQL insertion)\n"
+                      << "  --help, -h           Show this help message\n";
             return false;
         }
     }
@@ -139,6 +158,12 @@ void application::initialize() {
     subsystems().create_subsystem<npc_registry>();
     subsystems().create_subsystem<magic_registry>();
 
+    // Register database subsystem (for self-contained auth)
+    auto& db_sys = subsystems().create_subsystem<database::database_system>();
+
+    // Register auth subsystem
+    auto& auth_sys = subsystems().create_subsystem<auth::auth_system>();
+
     // Register network and session subsystems
     auto& network = subsystems().create_subsystem<network::network_subsystem>();
     subsystems().create_subsystem<session::session_manager>();
@@ -159,7 +184,53 @@ void application::initialize() {
     subsystems().create_subsystem<persistence::persistence_system>();
     subsystems().create_subsystem<admin::admin_system>();
 
-    // Initialize subsystems
+    // Load configuration BEFORE initializing subsystems
+    auto config_path = std::filesystem::path(config_.config_file);
+    if (std::filesystem::exists(config_path)) {
+        auto load_result = config_sys.load_server_config(config_path);
+        if (load_result.is_ok()) {
+            LOG_INFO(general, "Configuration loaded from: {}", config_path.string());
+        } else {
+            LOG_WARN(general, "Failed to load config: {}", load_result.error());
+        }
+    } else {
+        LOG_WARN(general, "Config file not found: {}", config_path.string());
+    }
+
+    // Configure subsystems that need config BEFORE initialize_all()
+    auto& server_cfg = config_sys.server();
+    if (server_cfg.self_contained) {
+        LOG_INFO(general, "Self-contained auth mode enabled");
+
+        // Configure database BEFORE initialization
+        database::database_config db_config{
+            .host = server_cfg.database.host,
+            .port = server_cfg.database.port,
+            .database = server_cfg.database.database,
+            .username = server_cfg.database.username,
+            .password = server_cfg.database.password,
+            .pool_size = server_cfg.database.pool_size,
+            .connection_timeout = server_cfg.database.connection_timeout,
+            .query_timeout = server_cfg.database.query_timeout
+        };
+        db_sys.set_config(db_config);
+        LOG_INFO(general, "Database configured: {}@{}:{}/{}",
+            db_config.username, db_config.host, db_config.port, db_config.database);
+
+        // Configure auth BEFORE initialization
+        auth::auth_config auth_cfg{
+            .max_characters_per_account = server_cfg.auth.max_characters_per_account,
+            .session_duration = server_cfg.auth.session_duration,
+            .session_max_duration = server_cfg.auth.session_max_duration,
+            .allow_registration = server_cfg.auth.allow_registration,
+            .max_login_attempts = server_cfg.auth.max_login_attempts,
+            .lockout_duration = server_cfg.auth.lockout_duration
+        };
+        auth_sys.set_config(auth_cfg);
+        auth_sys.set_database(&db_sys);
+    }
+
+    // NOW initialize subsystems (database will use the configured settings)
     subsystems().initialize_all();
 
     // Initialize protocol bridge and register wave handlers
@@ -181,17 +252,81 @@ void application::initialize() {
     network.set_message_router(&router);
     LOG_INFO(general, "Message router connected to network subsystem");
 
-    // Load configuration
-    auto config_path = std::filesystem::path(config_.config_file);
-    if (std::filesystem::exists(config_path)) {
-        auto result = config_sys.load_server_config(config_path);
-        if (result.is_ok()) {
-            LOG_INFO(general, "Configuration loaded from: {}", config_path.string());
+    // Start self-contained auth services (WebSocket server)
+    if (server_cfg.self_contained) {
+        // Create and configure WebSocket server
+        ws_server_ = std::make_unique<network::websocket_server>();
+        network::websocket_config ws_config{
+            .bind_address = server_cfg.websocket.bind_address,
+            .port = server_cfg.websocket.port,
+            .max_connections = server_cfg.websocket.max_connections,
+            .enable_ping = server_cfg.websocket.enable_ping,
+            .ping_interval_seconds = server_cfg.websocket.ping_interval_seconds
+        };
+        ws_server_->set_config(ws_config);
+
+        // Create and initialize auth handlers with all dependencies
+        auth_handlers_ = std::make_unique<bridge::auth_handlers>();
+        auth_handlers_->initialize(
+            ws_server_.get(),
+            &auth_sys,
+            subsystems().get<player::player_system>(),
+            subsystems().get<world::world_subsystem>()
+        );
+
+        // Create and initialize game handlers
+        game_handlers_ = std::make_unique<bridge::game_handlers>();
+        game_handlers_->initialize(
+            ws_server_.get(),
+            subsystems().get<player::player_system>(),
+            subsystems().get<world::world_subsystem>()
+        );
+
+        // Set up WebSocket message routing - dispatch to appropriate handler
+        ws_server_->on_message([this](connection_id conn_id, const network::json_message& msg) {
+            // Route based on message type
+            switch (msg.type) {
+                // Auth/session messages
+                case network::json_message_type::login_request:
+                case network::json_message_type::logout_request:
+                case network::json_message_type::create_account_request:
+                case network::json_message_type::get_characters_request:
+                case network::json_message_type::create_character_request:
+                case network::json_message_type::delete_character_request:
+                case network::json_message_type::enter_game_request:
+                case network::json_message_type::ping:
+                    auth_handlers_->handle_message(conn_id, msg);
+                    break;
+
+                // In-game messages
+                case network::json_message_type::player_move_request:
+                    game_handlers_->handle_message(conn_id, msg);
+                    break;
+
+                default:
+                    LOG_WARN(network, "Unknown message type: {}", network::to_string(msg.type));
+                    break;
+            }
+        });
+
+        ws_server_->on_connect([](connection_id conn_id, const std::string& remote) {
+            LOG_INFO(network, "WebSocket client connected: {} from {}", conn_id.value, remote);
+        });
+
+        ws_server_->on_disconnect([this](connection_id conn_id, const std::string& reason) {
+            LOG_INFO(network, "WebSocket client disconnected: {} ({})", conn_id.value, reason);
+            // Handle disconnect - save player state and clean up
+            auth_handlers_->handle_player_disconnect(conn_id);
+        });
+
+        // Start WebSocket server
+        auto ws_result = ws_server_->start();
+        if (ws_result.is_ok()) {
+            LOG_INFO(general, "WebSocket server started on {}:{}",
+                ws_config.bind_address, ws_config.port);
         } else {
-            LOG_WARN(general, "Failed to load config: {}", result.error());
+            LOG_ERROR(general, "Failed to start WebSocket server: {}", ws_result.error());
         }
-    } else {
-        LOG_WARN(general, "Config file not found: {}", config_path.string());
     }
 
     // Publish server starting event
@@ -249,6 +384,17 @@ void application::shutdown() {
         .reason = shutdown_reason_,
         .timestamp = std::chrono::system_clock::now()
     });
+
+    // Stop WebSocket server if running
+    if (ws_server_) {
+        LOG_INFO(general, "Stopping WebSocket server...");
+        ws_server_->stop();
+        ws_server_.reset();
+    }
+
+    // Clean up handlers
+    auth_handlers_.reset();
+    game_handlers_.reset();
 
     // Unregister protocol bridge handlers
     LOG_INFO(general, "Unregistering protocol bridge handlers...");

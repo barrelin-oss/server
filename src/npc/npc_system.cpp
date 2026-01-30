@@ -3,8 +3,30 @@
 
 #include "npc/npc_system.h"
 #include "core/logger.h"
+#include "core/subsystem.h"
+#include "player/player_system.h"
+#include "combat/combat_system.h"
+#include "world/world_subsystem.h"
+#include "registry/npc_registry.h"
+
+#include <random>
 
 namespace hb::npc {
+
+namespace {
+    // Random movement helper
+    thread_local std::mt19937 rng{std::random_device{}()};
+
+    auto random_direction() -> hb::world::direction {
+        std::uniform_int_distribution<int> dist(0, 7);
+        return static_cast<hb::world::direction>(dist(rng));
+    }
+
+    auto random_int(int min, int max) -> int {
+        std::uniform_int_distribution<int> dist(min, max);
+        return dist(rng);
+    }
+}
 
 npc_system::npc_system() = default;
 
@@ -279,80 +301,27 @@ void npc_system::process_ai_state(npc& npc_ref) {
 
     switch (state.state) {
         case ai_state::idle:
-            // Check for enemies in aggro range
-            if (npc_ref.ai.has_flag(ai_flags::aggressive)) {
-                // Would check for nearby players/enemies
-                // If found, set target and switch to chase
-            }
-
-            // Random chance to wander
-            if (!npc_ref.ai.has_flag(ai_flags::stationary)) {
-                // Would randomly switch to wander state
-            }
+            process_idle_state(npc_ref);
             break;
 
         case ai_state::wander:
-            // Move randomly within wander range
-            // After some time, return to idle
-            if (state.time_in_state_ms() > 5000) {
-                state.set_state(ai_state::idle);
-            }
+            process_wander_state(npc_ref);
             break;
 
         case ai_state::chase:
-            if (!state.target.is_valid()) {
-                state.set_state(ai_state::return_home);
-                break;
-            }
-
-            // Check distance to spawn point
-            {
-                int spawn_dist = npc_ref.pos.chebyshev_distance(state.spawn_point);
-                if (spawn_dist > npc_ref.ai.chase_range) {
-                    // Too far from spawn, give up
-                    state.clear_target();
-                    state.set_state(ai_state::return_home);
-                    break;
-                }
-            }
-
-            // Would check distance to target and move towards it
-            // If in attack range, switch to attack
+            process_chase_state(npc_ref);
             break;
 
         case ai_state::attack:
-            if (!state.target.is_valid()) {
-                state.set_state(ai_state::return_home);
-                break;
-            }
-
-            // Check flee condition
-            if (npc_ref.ai.has_flag(ai_flags::cowardly) &&
-                npc_ref.hp_percent() < npc_ref.ai.flee_hp_percent) {
-                state.set_state(ai_state::flee);
-                break;
-            }
-
-            // Perform attack if cooldown is ready
-            // Would trigger attack event
+            process_attack_state(npc_ref);
             break;
 
         case ai_state::flee:
-            // Move away from target
-            if (npc_ref.hp_percent() > npc_ref.ai.flee_hp_percent + 10) {
-                // HP recovered, stop fleeing
-                state.set_state(ai_state::return_home);
-            }
+            process_flee_state(npc_ref);
             break;
 
         case ai_state::return_home:
-            // Move towards spawn point
-            {
-                int spawn_dist = npc_ref.pos.chebyshev_distance(state.spawn_point);
-                if (spawn_dist <= 1) {
-                    state.set_state(ai_state::idle);
-                }
-            }
+            process_return_home_state(npc_ref);
             break;
 
         case ai_state::dead:
@@ -363,6 +332,289 @@ void npc_system::process_ai_state(npc& npc_ref) {
             // Follow scripted behavior
             break;
     }
+}
+
+void npc_system::process_idle_state(npc& npc_ref) {
+    auto& state = npc_ref.ai_state;
+
+    // Check for enemies in aggro range
+    if (npc_ref.ai.has_flag(ai_flags::aggressive) && npc_ref.is_monster()) {
+        auto target = find_aggro_target(npc_ref);
+        if (target.is_valid()) {
+            state.target = target;
+            state.set_state(ai_state::chase);
+            LOG_DEBUG(general, "NPC {} acquired target {}", npc_ref.entity_id.id, target.id);
+            return;
+        }
+    }
+
+    // Random chance to wander
+    if (!npc_ref.ai.has_flag(ai_flags::stationary)) {
+        if (random_int(1, 100) <= 10) {  // 10% chance per think tick
+            state.set_state(ai_state::wander);
+        }
+    }
+}
+
+void npc_system::process_wander_state(npc& npc_ref) {
+    auto& state = npc_ref.ai_state;
+
+    // Check for aggro while wandering
+    if (npc_ref.ai.has_flag(ai_flags::aggressive) && npc_ref.is_monster()) {
+        auto target = find_aggro_target(npc_ref);
+        if (target.is_valid()) {
+            state.target = target;
+            state.set_state(ai_state::chase);
+            return;
+        }
+    }
+
+    // After some time, return to idle
+    if (state.time_in_state_ms() > 5000) {
+        state.set_state(ai_state::idle);
+        return;
+    }
+
+    // Move randomly within wander range
+    auto dir = random_direction();
+    auto new_pos = hb::world::move_in_direction(npc_ref.pos, dir);
+
+    // Check wander range from spawn
+    int spawn_dist = new_pos.chebyshev_distance(state.spawn_point);
+    if (spawn_dist <= npc_ref.ai.wander_range) {
+        try_move_npc(npc_ref, new_pos);
+    }
+}
+
+void npc_system::process_chase_state(npc& npc_ref) {
+    auto& state = npc_ref.ai_state;
+
+    if (!state.target.is_valid()) {
+        state.set_state(ai_state::return_home);
+        return;
+    }
+
+    // Check distance to spawn point
+    int spawn_dist = npc_ref.pos.chebyshev_distance(state.spawn_point);
+    if (spawn_dist > npc_ref.ai.chase_range) {
+        // Too far from spawn, give up
+        state.clear_target();
+        state.set_state(ai_state::return_home);
+        return;
+    }
+
+    // Get target position
+    auto target_pos = get_entity_position(state.target);
+    if (!target_pos.has_value()) {
+        // Target no longer exists
+        state.clear_target();
+        state.set_state(ai_state::return_home);
+        return;
+    }
+
+    // Check if target is on same map
+    auto target_map = get_entity_map(state.target);
+    if (!target_map.has_value() || target_map.value() != npc_ref.current_map) {
+        state.clear_target();
+        state.set_state(ai_state::return_home);
+        return;
+    }
+
+    // Calculate distance to target
+    int target_dist = npc_ref.pos.chebyshev_distance(target_pos.value());
+
+    // If in attack range, switch to attack
+    if (target_dist <= npc_ref.ai.attack_range) {
+        state.set_state(ai_state::attack);
+        return;
+    }
+
+    // Move towards target
+    move_towards(npc_ref, target_pos.value());
+}
+
+void npc_system::process_attack_state(npc& npc_ref) {
+    auto& state = npc_ref.ai_state;
+
+    if (!state.target.is_valid()) {
+        state.set_state(ai_state::return_home);
+        return;
+    }
+
+    // Check flee condition
+    if (npc_ref.ai.has_flag(ai_flags::cowardly) &&
+        npc_ref.hp_percent() < npc_ref.ai.flee_hp_percent) {
+        state.set_state(ai_state::flee);
+        return;
+    }
+
+    // Get target position
+    auto target_pos = get_entity_position(state.target);
+    if (!target_pos.has_value()) {
+        state.clear_target();
+        state.set_state(ai_state::return_home);
+        return;
+    }
+
+    // Check if still in range
+    int target_dist = npc_ref.pos.chebyshev_distance(target_pos.value());
+    if (target_dist > npc_ref.ai.attack_range) {
+        state.set_state(ai_state::chase);
+        return;
+    }
+
+    // Perform attack if cooldown is ready
+    auto now = std::chrono::steady_clock::now();
+    auto time_since_attack = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - state.last_attack_time).count();
+
+    int attack_cooldown = 1000 * 100 / npc_ref.attack_speed;  // Attack speed affects cooldown
+
+    if (time_since_attack >= attack_cooldown) {
+        perform_npc_attack(npc_ref, state.target);
+        state.last_attack_time = now;
+    }
+}
+
+void npc_system::process_flee_state(npc& npc_ref) {
+    auto& state = npc_ref.ai_state;
+
+    // If HP recovered, stop fleeing
+    if (npc_ref.hp_percent() > npc_ref.ai.flee_hp_percent + 20) {
+        state.set_state(ai_state::return_home);
+        return;
+    }
+
+    // Move away from target or towards spawn
+    if (state.target.is_valid()) {
+        auto target_pos = get_entity_position(state.target);
+        if (target_pos.has_value()) {
+            // Move away from target
+            auto dir = hb::world::direction_to(target_pos.value(), npc_ref.pos);
+            auto new_pos = hb::world::move_in_direction(npc_ref.pos, dir);
+            try_move_npc(npc_ref, new_pos);
+            return;
+        }
+    }
+
+    // Otherwise move towards spawn
+    move_towards(npc_ref, state.spawn_point);
+}
+
+void npc_system::process_return_home_state(npc& npc_ref) {
+    auto& state = npc_ref.ai_state;
+
+    int spawn_dist = npc_ref.pos.chebyshev_distance(state.spawn_point);
+    if (spawn_dist <= 1) {
+        state.set_state(ai_state::idle);
+        // Heal when returning home
+        npc_ref.heal(npc_ref.max_hp / 10);
+        return;
+    }
+
+    // Move towards spawn point
+    move_towards(npc_ref, state.spawn_point);
+}
+
+auto npc_system::find_aggro_target(const npc& npc_ref) -> entity::entity {
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (!player_sys) return entity::entity::null();
+
+    entity::entity closest_target = entity::entity::null();
+    int closest_dist = npc_ref.ai.aggro_range + 1;
+
+    player_sys->for_each_player([&](player_id id, const player::player& p) {
+        // Skip dead players
+        if (p.is_dead()) return;
+
+        // Skip players on different maps
+        if (p.current_map != npc_ref.current_map) return;
+
+        // Skip invisible players (unless NPC can detect)
+        if (p.has_status(player::player_status::invisible) &&
+            !npc_ref.ai.has_flag(ai_flags::detect_invisible)) {
+            return;
+        }
+
+        // Check distance
+        int dist = npc_ref.pos.chebyshev_distance(p.pos);
+        if (dist <= npc_ref.ai.aggro_range && dist < closest_dist) {
+            closest_dist = dist;
+            closest_target = entity::entity{id.value, 0};
+        }
+    });
+
+    return closest_target;
+}
+
+auto npc_system::get_entity_position(entity::entity e) const -> std::optional<hb::world::position> {
+    // Check if it's a player
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{e.id})) {
+            return p->pos;
+        }
+    }
+
+    // Check if it's an NPC
+    if (auto* n = get_npc(e)) {
+        return n->pos;
+    }
+
+    return std::nullopt;
+}
+
+auto npc_system::get_entity_map(entity::entity e) const -> std::optional<map_id> {
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{e.id})) {
+            return p->current_map;
+        }
+    }
+
+    if (auto* n = get_npc(e)) {
+        return n->current_map;
+    }
+
+    return std::nullopt;
+}
+
+void npc_system::move_towards(npc& npc_ref, hb::world::position target_pos) {
+    auto dir = hb::world::direction_to(npc_ref.pos, target_pos);
+    if (dir == hb::world::direction::none) return;
+
+    auto new_pos = hb::world::move_in_direction(npc_ref.pos, dir);
+    try_move_npc(npc_ref, new_pos);
+}
+
+void npc_system::try_move_npc(npc& npc_ref, hb::world::position new_pos) {
+    // Check if position is walkable
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (world && !world->can_move_to(npc_ref.current_map, new_pos)) {
+        return;
+    }
+
+    // Update position
+    npc_ref.pos = new_pos;
+    npc_ref.facing = hb::world::direction_to(npc_ref.pos, new_pos);
+}
+
+void npc_system::perform_npc_attack(npc& npc_ref, entity::entity target) {
+    auto* combat_sys = subsystems().get<combat::combat_system>();
+    if (!combat_sys) return;
+
+    // Create attack event
+    combat::attack_event attack;
+    attack.attacker = npc_ref.entity_id;
+    attack.defender = target;
+    attack.type = combat::damage_type::physical;
+    attack.base_damage = npc_ref.roll_damage();
+
+    // Process attack through combat system
+    auto result = combat_sys->process_attack(attack);
+
+    LOG_DEBUG(general, "NPC {} attacked {} for {} damage",
+        npc_ref.entity_id.id, target.id, result.hit.final_damage);
 }
 
 }  // namespace hb::npc

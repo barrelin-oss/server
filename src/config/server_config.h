@@ -9,28 +9,76 @@
 #include <filesystem>
 #include <cstdint>
 #include <optional>
+#include <chrono>
 
 namespace hb {
+
+// Database configuration
+struct database_config {
+    std::string host = "localhost";
+    uint16_t port = 5432;
+    std::string database = "helbreath";
+    std::string username = "hgserver";
+    std::string password;
+    uint32_t pool_size = 10;
+    std::chrono::milliseconds connection_timeout{5000};
+    std::chrono::milliseconds query_timeout{30000};
+};
+
+// WebSocket configuration
+struct websocket_config {
+    std::string bind_address = "0.0.0.0";
+    uint16_t port = 2848;
+    int max_connections = 2000;
+    bool enable_ping = true;
+    int ping_interval_seconds = 30;
+};
+
+// Authentication configuration
+struct auth_config {
+    uint32_t max_characters_per_account = 4;
+    std::chrono::seconds session_duration{3600};      // 1 hour
+    std::chrono::seconds session_max_duration{86400}; // 24 hours
+    bool allow_registration = true;
+    uint32_t max_login_attempts = 5;
+    std::chrono::seconds lockout_duration{300};       // 5 minutes
+};
 
 // Main server configuration
 struct server_config {
     // Server identity
     std::string server_name = "HGServer";
 
-    // Game server settings
+    // Game server settings (legacy)
     std::string game_server_addr;  // Auto-detected if empty
     uint16_t game_server_port = 2848;
 
-    // Log server connection
+    // Log server connection (legacy - optional with self-contained auth)
     std::string log_server_addr = "127.0.0.1";
     uint16_t log_server_port = 3000;
 
-    // Gate server connection
+    // Gate server connection (legacy - optional with self-contained auth)
     std::string gate_server_addr = "127.0.0.1";
     uint16_t gate_server_port = 4000;
 
     // Server mode
     int game_server_mode = 0;
+
+    // Self-contained mode (uses database for auth instead of external servers)
+    bool self_contained = true;
+
+    // Database configuration
+    database_config database;
+
+    // WebSocket configuration
+    websocket_config websocket;
+
+    // Authentication configuration
+    auth_config auth;
+
+    // Enable legacy protocol (for backwards compatibility)
+    bool enable_legacy_protocol = false;
+    uint16_t legacy_port = 2849;
 
     // Load from legacy INI-style config file
     static auto load_from_file(const std::filesystem::path& path) -> result<server_config, std::string>;

@@ -199,6 +199,20 @@ struct entity_id {
     [[nodiscard]] constexpr auto is_valid() const -> bool { return value != 0; }
 };
 
+struct account_id {
+    uint32_t value{0};
+
+    constexpr account_id() = default;
+    constexpr explicit account_id(uint32_t v) : value(v) {}
+    constexpr account_id(int v) : value(static_cast<uint32_t>(v)) {}
+
+    constexpr auto operator<=>(const account_id&) const = default;
+    constexpr explicit operator uint32_t() const { return value; }
+    constexpr explicit operator int() const { return static_cast<int>(value); }
+
+    [[nodiscard]] constexpr auto is_valid() const -> bool { return value != 0; }
+};
+
 // Spatial types
 
 struct position {
@@ -343,6 +357,13 @@ template<>
 struct hash<hb::guild_id> {
     auto operator()(const hb::guild_id& id) const noexcept -> size_t {
         return hash<uint16_t>{}(id.value);
+    }
+};
+
+template<>
+struct hash<hb::account_id> {
+    auto operator()(const hb::account_id& id) const noexcept -> size_t {
+        return hash<uint32_t>{}(id.value);
     }
 };
 

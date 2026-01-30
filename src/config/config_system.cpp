@@ -120,10 +120,65 @@ auto config_system::load_server_config(const std::filesystem::path& path)
         server_config_.game_server_mode = std::stoi(it->second);
     }
 
+    // Self-contained mode
+    if (auto it = config.find("self-contained"); it != config.end()) {
+        server_config_.self_contained = (it->second == "1" || it->second == "true");
+    }
+
+    // Database configuration
+    if (auto it = config.find("db-host"); it != config.end()) {
+        server_config_.database.host = it->second;
+    }
+    if (auto it = config.find("db-port"); it != config.end()) {
+        server_config_.database.port = static_cast<uint16_t>(std::stoi(it->second));
+    }
+    if (auto it = config.find("db-name"); it != config.end()) {
+        server_config_.database.database = it->second;
+    }
+    if (auto it = config.find("db-user"); it != config.end()) {
+        server_config_.database.username = it->second;
+    }
+    if (auto it = config.find("db-password"); it != config.end()) {
+        server_config_.database.password = it->second;
+    }
+    if (auto it = config.find("db-pool-size"); it != config.end()) {
+        server_config_.database.pool_size = static_cast<uint32_t>(std::stoi(it->second));
+    }
+
+    // WebSocket configuration
+    if (auto it = config.find("ws-bind"); it != config.end()) {
+        server_config_.websocket.bind_address = it->second;
+    }
+    if (auto it = config.find("ws-port"); it != config.end()) {
+        server_config_.websocket.port = static_cast<uint16_t>(std::stoi(it->second));
+    }
+    if (auto it = config.find("ws-max-connections"); it != config.end()) {
+        server_config_.websocket.max_connections = std::stoi(it->second);
+    }
+
+    // Auth configuration
+    if (auto it = config.find("max-characters"); it != config.end()) {
+        server_config_.auth.max_characters_per_account = static_cast<uint32_t>(std::stoi(it->second));
+    }
+    if (auto it = config.find("allow-registration"); it != config.end()) {
+        server_config_.auth.allow_registration = (it->second == "1" || it->second == "true");
+    }
+    if (auto it = config.find("session-timeout"); it != config.end()) {
+        server_config_.auth.session_duration = std::chrono::seconds{std::stoi(it->second)};
+    }
+
+    // Legacy protocol
+    if (auto it = config.find("enable-legacy-protocol"); it != config.end()) {
+        server_config_.enable_legacy_protocol = (it->second == "1" || it->second == "true");
+    }
+    if (auto it = config.find("legacy-port"); it != config.end()) {
+        server_config_.legacy_port = static_cast<uint16_t>(std::stoi(it->second));
+    }
+
     server_config_path_ = path;
 
-    LOG_INFO(config, "Server config loaded: name={}, port={}",
-        server_config_.server_name, server_config_.game_server_port);
+    LOG_INFO(config, "Server config loaded: name={}, port={}, self_contained={}",
+        server_config_.server_name, server_config_.game_server_port, server_config_.self_contained);
 
     // Publish config loaded event
     event_bus().publish(events::config_loaded_event{

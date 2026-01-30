@@ -3,6 +3,9 @@
 
 #include "combat/combat_system.h"
 #include "core/logger.h"
+#include "core/subsystem.h"
+#include "player/player_system.h"
+#include "npc/npc_system.h"
 
 #include <chrono>
 
@@ -51,25 +54,16 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
         return result;
     }
 
-    // Build combat context
-    // In a real implementation, this would query player/NPC systems for stats
-    combat_context ctx;
-    ctx.attacker = attack.attacker;
-    ctx.defender = attack.defender;
-    ctx.type = attack.type;
-    ctx.attack_power = attack.base_damage;
-    ctx.critical_rate = 10;
-    ctx.critical_damage = 150;
-    ctx.defense = 0;
-    ctx.dodge_rate = 0;
+    // Build combat context from entity stats
+    combat_context ctx = build_combat_context(attack.attacker, attack.defender, attack.type);
 
-    // Apply PvP modifier if applicable
-    // Would check if both are players
-    bool is_pvp = false;  // Would be determined by entity types
-    if (is_pvp) {
-        ctx.damage_multiplier = config_.pvp_damage_modifier;
-    } else {
-        ctx.damage_multiplier = config_.pve_damage_modifier;
+    // Override with base damage if provided
+    if (attack.base_damage > 0) {
+        if (attack.type == damage_type::physical) {
+            ctx.attack_power = attack.base_damage;
+        } else {
+            ctx.magic_power = attack.base_damage;
+        }
     }
 
     // Resolve the hit
@@ -78,14 +72,135 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
     if (result.hit.is_hit()) {
         apply_damage(attack.defender, result.hit, attack.attacker);
 
-        // Check for kill (would query entity health)
-        if (result.hit.caused_death()) {
+        // Check if target died
+        bool target_killed = check_entity_dead(attack.defender);
+        if (target_killed) {
+            result.hit.flags = result.hit.flags | hit_flags::killed;
             result.target_killed = true;
-            // Calculate rewards based on target
+
+            // Queue death event
+            death_event death;
+            death.victim = attack.defender;
+            death.killer = attack.attacker;
+            death.is_pvp = is_player_entity(attack.attacker) && is_player_entity(attack.defender);
+            pending_deaths_.push_back(death);
+
+            // Calculate rewards from NPC kills
+            if (!is_player_entity(attack.defender)) {
+                auto rewards = calculate_kill_rewards(attack.defender);
+                result.exp_reward = rewards.first;
+                result.gold_reward = rewards.second;
+            }
         }
     }
 
     return result;
+}
+
+auto combat_system::build_combat_context(hb::entity::entity attacker, hb::entity::entity defender,
+                                          damage_type type) -> combat_context {
+    combat_context ctx;
+    ctx.attacker = attacker;
+    ctx.defender = defender;
+    ctx.type = type;
+
+    // Get attacker stats
+    auto* player_sys = subsystems().get<player::player_system>();
+    auto* npc_sys = subsystems().get<npc::npc_system>();
+
+    bool attacker_is_player = false;
+    bool defender_is_player = false;
+
+    // Get attacker stats
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{attacker.id})) {
+            attacker_is_player = true;
+            ctx.attack_power = p->computed.attack_power;
+            ctx.magic_power = p->computed.magic_power;
+            ctx.hit_rate = p->computed.hit_rate;
+            ctx.critical_rate = p->computed.critical_rate;
+            ctx.critical_damage = p->computed.critical_damage;
+        }
+    }
+
+    if (!attacker_is_player && npc_sys) {
+        if (auto* n = npc_sys->get_npc(attacker)) {
+            // Calculate attack power from dice (average damage)
+            ctx.attack_power = n->attack_dice * (n->attack_sides / 2 + 1) + n->attack_bonus;
+            ctx.magic_power = ctx.attack_power;  // NPCs use same for magic
+            ctx.hit_rate = n->hit_rate;
+            ctx.critical_rate = 5;  // NPCs have lower base crit
+            ctx.critical_damage = 150;
+        }
+    }
+
+    // Get defender stats
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{defender.id})) {
+            defender_is_player = true;
+            ctx.defense = p->computed.defense;
+            ctx.magic_defense = p->computed.magic_defense;
+            ctx.dodge_rate = p->computed.dodge_rate;
+            ctx.block_rate = 0;  // TODO: Calculate from shield
+            ctx.damage_reduction = p->computed.physical_resist;
+        }
+    }
+
+    if (!defender_is_player && npc_sys) {
+        if (auto* n = npc_sys->get_npc(defender)) {
+            ctx.defense = n->defense;
+            ctx.magic_defense = n->magic_defense;
+            ctx.dodge_rate = n->dodge_rate;
+            ctx.block_rate = 0;
+            ctx.damage_reduction = 0;
+        }
+    }
+
+    // Apply PvP modifier
+    bool is_pvp = attacker_is_player && defender_is_player;
+    ctx.damage_multiplier = is_pvp ? config_.pvp_damage_modifier : config_.pve_damage_modifier;
+
+    return ctx;
+}
+
+auto combat_system::is_player_entity(hb::entity::entity e) const -> bool {
+    auto* player_sys = subsystems().get<player::player_system>();
+    return player_sys && player_sys->player_exists(player_id{e.id});
+}
+
+auto combat_system::check_entity_dead(hb::entity::entity e) const -> bool {
+    auto* player_sys = subsystems().get<player::player_system>();
+    auto* npc_sys = subsystems().get<npc::npc_system>();
+
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{e.id})) {
+            return p->is_dead();
+        }
+    }
+
+    if (npc_sys) {
+        if (auto* n = npc_sys->get_npc(e)) {
+            return n->is_dead();
+        }
+    }
+
+    return false;
+}
+
+auto combat_system::calculate_kill_rewards(hb::entity::entity target) const -> std::pair<int32_t, int32_t> {
+    auto* npc_sys = subsystems().get<npc::npc_system>();
+    if (!npc_sys) return {0, 0};
+
+    auto* n = npc_sys->get_npc(target);
+    if (!n) return {0, 0};
+
+    int32_t exp = n->exp_reward;
+
+    // Gold based on NPC level (would normally come from loot table)
+    int32_t gold_base = n->level * 5;
+    int32_t gold = random_int(gold_base / 2, gold_base);
+
+    return {exp, gold};
 }
 
 auto combat_system::resolve_hit(const combat_context& ctx) -> hit_result {

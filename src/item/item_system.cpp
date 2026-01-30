@@ -3,6 +3,8 @@
 
 #include "item/item_system.h"
 #include "core/logger.h"
+#include "core/subsystem.h"
+#include "registry/item_registry.h"
 
 namespace hb::item {
 
@@ -189,16 +191,141 @@ void item_system::update_durability_decay(float delta_time) {
 }
 
 void item_system::populate_from_template(item& itm, item_id template_id) {
-    // This would query the item registry for template data
-    // For now, set some defaults
-    itm.name = "Item";
-    itm.type = item_type::consumable;
-    itm.max_stack = 99;
-    itm.stackable = true;
-    itm.weight = 1;
-    itm.price = 10;
-    itm.max_durability = 100;
-    itm.durability = 100;
+    auto* registry = subsystems().get<item_registry>();
+    if (!registry) {
+        LOG_WARN(general, "Item registry not available, using defaults for item {}", template_id.value);
+        itm.name = "Unknown Item";
+        itm.type = item_type::consumable;
+        itm.max_stack = 99;
+        itm.stackable = true;
+        itm.weight = 1;
+        itm.price = 10;
+        itm.max_durability = 100;
+        itm.durability = 100;
+        return;
+    }
+
+    auto* tmpl = registry->get(template_id);
+    if (!tmpl) {
+        LOG_WARN(general, "Item template {} not found, using defaults", template_id.value);
+        itm.name = "Unknown Item";
+        itm.type = item_type::consumable;
+        itm.max_stack = 99;
+        itm.stackable = true;
+        itm.weight = 1;
+        itm.price = 10;
+        itm.max_durability = 100;
+        itm.durability = 100;
+        return;
+    }
+
+    // Copy template data to item instance
+    itm.name = tmpl->name;
+
+    // Map template type to item type using numeric comparison
+    auto tmpl_type_val = static_cast<int8_t>(tmpl->type);
+    if (tmpl_type_val == static_cast<int8_t>(hb::item_type::weapon)) {
+        itm.type = item_type::weapon;
+    } else if (tmpl_type_val == static_cast<int8_t>(hb::item_type::armor)) {
+        itm.type = item_type::armor;
+    } else if (tmpl_type_val == static_cast<int8_t>(hb::item_type::accessory)) {
+        itm.type = item_type::accessory;
+    } else if (tmpl_type_val == static_cast<int8_t>(hb::item_type::potion) ||
+               tmpl_type_val == static_cast<int8_t>(hb::item_type::scroll) ||
+               tmpl_type_val == static_cast<int8_t>(hb::item_type::eat) ||
+               tmpl_type_val == static_cast<int8_t>(hb::item_type::consume)) {
+        itm.type = item_type::consumable;
+    } else if (tmpl_type_val == static_cast<int8_t>(hb::item_type::material)) {
+        itm.type = item_type::material;
+    } else {
+        itm.type = item_type::none;
+    }
+
+    // Map equip position using numeric comparison
+    auto equip_val = static_cast<uint8_t>(tmpl->equip_pos);
+    if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::head)) {
+        itm.equip_position = equip_pos::head;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::body)) {
+        itm.equip_position = equip_pos::body;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::arms)) {
+        itm.equip_position = equip_pos::arms;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::pants)) {
+        itm.equip_position = equip_pos::pants;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::boots)) {
+        itm.equip_position = equip_pos::boots;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::left_hand) ||
+               equip_val == static_cast<uint8_t>(hb::item_equip_pos::right_hand)) {
+        itm.equip_position = equip_pos::weapon;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::two_hand)) {
+        itm.equip_position = equip_pos::twohand;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::ring_left) ||
+               equip_val == static_cast<uint8_t>(hb::item_equip_pos::ring_right)) {
+        itm.equip_position = equip_pos::ring;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::neck)) {
+        itm.equip_position = equip_pos::amulet;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::back)) {
+        itm.equip_position = equip_pos::cape;
+    } else {
+        itm.equip_position = equip_pos::none;
+    }
+
+    // Basic properties
+    itm.weight = tmpl->weight;
+    itm.price = tmpl->price;
+    itm.level_requirement = tmpl->level_limit;
+
+    // Combat stats - calculate attack power from dice roll average
+    if (tmpl->attack_sides > 0) {
+        itm.attack_power = static_cast<int16_t>(tmpl->attack_dice * ((tmpl->attack_sides + 1) / 2) + tmpl->attack_bonus);
+    } else {
+        itm.attack_power = tmpl->attack_bonus;
+    }
+    itm.magic_power = tmpl->magic_power;
+    itm.defense = tmpl->defense;
+    itm.magic_defense = 0;  // Template doesn't have this, default to 0
+
+    // Requirements
+    itm.str_requirement = tmpl->str_req;
+    itm.dex_requirement = tmpl->dex_req;
+    itm.int_requirement = tmpl->int_req;
+    itm.mag_requirement = tmpl->mag_req;
+
+    // Durability
+    itm.max_durability = tmpl->max_durability;
+    itm.durability = tmpl->max_durability;
+    itm.indestructible = (tmpl->max_durability <= 0);
+
+    // Stacking
+    itm.max_stack = tmpl->max_stack;
+    itm.stackable = tmpl->is_stackable;
+
+    // Flags
+    itm.tradeable = tmpl->is_tradeable;
+    itm.droppable = tmpl->is_droppable;
+    itm.two_handed = tmpl->is_two_handed;
+
+    // Apply stat bonuses from template as effects
+    size_t effect_idx = 0;
+    auto add_effect = [&](item_effect_type type, int16_t value) {
+        if (value == 0 || effect_idx >= itm.effects.size()) return;
+        itm.effects[effect_idx].type = type;
+        itm.effects[effect_idx].value = value;
+        ++effect_idx;
+    };
+
+    add_effect(item_effect_type::str_bonus, tmpl->str_bonus);
+    add_effect(item_effect_type::dex_bonus, tmpl->dex_bonus);
+    add_effect(item_effect_type::int_bonus, tmpl->int_bonus);
+    add_effect(item_effect_type::mag_bonus, tmpl->mag_bonus);
+    add_effect(item_effect_type::vit_bonus, tmpl->vit_bonus);
+    add_effect(item_effect_type::chr_bonus, tmpl->cha_bonus);
+    add_effect(item_effect_type::hp_bonus, tmpl->hp_bonus);
+    add_effect(item_effect_type::mp_bonus, tmpl->mp_bonus);
+    add_effect(item_effect_type::sp_bonus, tmpl->sp_bonus);
+    add_effect(item_effect_type::hit_bonus, tmpl->hit_prob_bonus);
+    add_effect(item_effect_type::dodge_bonus, tmpl->dodge_prob_bonus);
+
+    LOG_DEBUG(general, "Populated item from template: {} ({})", itm.name, template_id.value);
 }
 
 }  // namespace hb::item

@@ -94,6 +94,22 @@ private:
     void update_all_ai(float delta_time);
     void process_ai_state(npc& npc_ref);
 
+    // AI state handlers
+    void process_idle_state(npc& npc_ref);
+    void process_wander_state(npc& npc_ref);
+    void process_chase_state(npc& npc_ref);
+    void process_attack_state(npc& npc_ref);
+    void process_flee_state(npc& npc_ref);
+    void process_return_home_state(npc& npc_ref);
+
+    // AI helpers
+    [[nodiscard]] auto find_aggro_target(const npc& npc_ref) -> entity::entity;
+    [[nodiscard]] auto get_entity_position(entity::entity e) const -> std::optional<hb::world::position>;
+    [[nodiscard]] auto get_entity_map(entity::entity e) const -> std::optional<map_id>;
+    void move_towards(npc& npc_ref, hb::world::position target_pos);
+    void try_move_npc(npc& npc_ref, hb::world::position new_pos);
+    void perform_npc_attack(npc& npc_ref, entity::entity target);
+
     [[nodiscard]] auto next_entity_id() -> entity::entity {
         return entity::entity{next_id_++, 0};
     }

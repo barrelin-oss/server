@@ -9,6 +9,7 @@
 #include "player/player_system.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
+#include "world/world_subsystem.h"
 #include "protocol/message_reader.h"
 #include "protocol/message_writer.h"
 #include "network/network_subsystem.h"
@@ -147,21 +148,77 @@ auto handle_motion_move(const handler_context& ctx, int16_t x, int16_t y,
     }
 
     // Validate movement (basic bounds check)
-    // Full validation would check map bounds, walkability, speed hacks, etc.
     if (x < 0 || y < 0) {
         LOG_WARN(proto_bridge, "Invalid move position ({},{}) for player {}",
                  x, y, ctx.player.value);
         return handle_result::error;
     }
 
-    // Update player position
+    // Attempt move with full collision detection
     auto facing = static_cast<world::direction>(dir);
-    player_sys->set_position(ctx.player, player->current_map, world::position{x, y}, facing);
+    auto move_info = player_sys->try_move(ctx.player, world::position{x, y}, facing);
 
-    // Acknowledge the move
-    send_motion_response(ctx, run_mode ? motion_type::run : motion_type::move, x, y, dir);
+    using move_result = player::player_system::move_result;
 
-    return handle_result::handled;
+    switch (move_info.result) {
+        case move_result::success:
+            // Movement succeeded, acknowledge it
+            send_motion_response(ctx, run_mode ? motion_type::run : motion_type::move, x, y, dir);
+            return handle_result::handled;
+
+        case move_result::teleport: {
+            // Player stepped on teleport - send acknowledge first
+            send_motion_response(ctx, run_mode ? motion_type::run : motion_type::move, x, y, dir);
+
+            // Then send teleport notification
+            // The client will need to handle map change separately
+            LOG_INFO(proto_bridge, "Player {} teleporting to {} at ({},{})",
+                ctx.player.value, move_info.teleport_dest_map,
+                move_info.teleport_dest_pos.x, move_info.teleport_dest_pos.y);
+
+            // TODO: Handle cross-map teleport via session/map change system
+            return handle_result::handled;
+        }
+
+        case move_result::blocked_terrain:
+            LOG_DEBUG(proto_bridge, "Move blocked (terrain) for player {} at ({},{})",
+                ctx.player.value, x, y);
+            // Send player back to original position
+            send_motion_response(ctx, motion_type::stop,
+                player->pos.x, player->pos.y, static_cast<int8_t>(player->facing));
+            return handle_result::handled;
+
+        case move_result::blocked_occupied:
+            LOG_DEBUG(proto_bridge, "Move blocked (occupied) for player {} at ({},{})",
+                ctx.player.value, x, y);
+            send_motion_response(ctx, motion_type::stop,
+                player->pos.x, player->pos.y, static_cast<int8_t>(player->facing));
+            return handle_result::handled;
+
+        case move_result::blocked_out_of_bounds:
+            LOG_DEBUG(proto_bridge, "Move blocked (out of bounds) for player {} at ({},{})",
+                ctx.player.value, x, y);
+            send_motion_response(ctx, motion_type::stop,
+                player->pos.x, player->pos.y, static_cast<int8_t>(player->facing));
+            return handle_result::handled;
+
+        case move_result::blocked_status:
+            LOG_DEBUG(proto_bridge, "Move blocked (status effect) for player {}",
+                ctx.player.value);
+            // Send stop at current position - player is frozen/stunned/paralyzed
+            send_motion_response(ctx, motion_type::stop,
+                player->pos.x, player->pos.y, static_cast<int8_t>(player->facing));
+            return handle_result::handled;
+
+        case move_result::blocked_dead:
+            LOG_DEBUG(proto_bridge, "Move blocked (dead) for player {}", ctx.player.value);
+            return handle_result::handled;
+
+        case move_result::invalid_map:
+        case move_result::invalid_player:
+        default:
+            return handle_result::not_handled;
+    }
 }
 
 auto handle_motion_stop(const handler_context& ctx, int16_t x, int16_t y,

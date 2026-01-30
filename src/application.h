@@ -16,6 +16,15 @@
 
 namespace hb {
 
+// Forward declarations
+namespace network {
+    class websocket_server;
+}
+namespace bridge {
+    class auth_handlers;
+    class game_handlers;
+}
+
 // Application configuration
 struct application_config {
     std::string config_file = "GServer.cfg";
@@ -77,6 +86,11 @@ private:
 
     // For measuring delta time
     time_point last_tick_time_;
+
+    // Self-contained auth mode (WebSocket + JSON protocol)
+    std::unique_ptr<network::websocket_server> ws_server_;
+    std::unique_ptr<bridge::auth_handlers> auth_handlers_;
+    std::unique_ptr<bridge::game_handlers> game_handlers_;
 };
 
 }  // namespace hb

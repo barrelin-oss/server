@@ -10,7 +10,8 @@
     "libpqxx",
     "nlohmann-json",
     "spdlog",
-    "gtest"
+    "gtest",
+    "ixwebsocket"
   ],
   "builtin-baseline": "f9b54c1c539dda8d61c3001bb30eb9f0c5032086"
 }

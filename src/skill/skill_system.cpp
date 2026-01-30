@@ -3,6 +3,9 @@
 
 #include "skill/skill_system.h"
 #include "core/logger.h"
+#include "core/subsystem.h"
+#include "item/item_system.h"
+#include "item/item.h"
 
 namespace hb::skill {
 
@@ -136,10 +139,50 @@ auto skill_system::can_train(player_id player, skill_type /*skill*/) const -> bo
     return player_skills_.contains(player);
 }
 
-auto skill_system::get_weapon_skill_for_item(player_id player, item_id /*weapon*/) const -> int16_t {
-    // Would query the item system to determine weapon type
-    // For now, return a default
-    return get_skill_level(player, skill_type::sword);
+auto skill_system::get_weapon_skill_for_item(player_id player, item_id weapon) const -> int16_t {
+    auto* item_sys = subsystems().get<item::item_system>();
+    if (!item_sys) {
+        // Default to sword skill if no item system
+        return get_skill_level(player, skill_type::sword);
+    }
+
+    auto* itm = item_sys->get_item(weapon);
+    if (!itm || itm->type != item::item_type::weapon) {
+        // If not a weapon or doesn't exist, use fist skill
+        return get_skill_level(player, skill_type::fist);
+    }
+
+    // Map weapon type to skill type
+    skill_type weapon_skill = skill_type::fist;
+    switch (itm->weapon) {
+        case item::weapon_type::sword:
+            weapon_skill = skill_type::sword;
+            break;
+        case item::weapon_type::axe:
+            weapon_skill = skill_type::axe;
+            break;
+        case item::weapon_type::hammer:
+            weapon_skill = skill_type::hammer;
+            break;
+        case item::weapon_type::staff:
+            weapon_skill = skill_type::staff;
+            break;
+        case item::weapon_type::wand:
+            weapon_skill = skill_type::wand;
+            break;
+        case item::weapon_type::bow:
+            weapon_skill = skill_type::bow;
+            break;
+        case item::weapon_type::dagger:
+            weapon_skill = skill_type::dagger;
+            break;
+        case item::weapon_type::fist:
+        default:
+            weapon_skill = skill_type::fist;
+            break;
+    }
+
+    return get_skill_level(player, weapon_skill);
 }
 
 auto skill_system::calculate_damage_bonus(player_id player, skill_type weapon_skill) const -> int16_t {

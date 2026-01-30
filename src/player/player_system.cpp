@@ -3,6 +3,10 @@
 
 #include "player/player_system.h"
 #include "core/logger.h"
+#include "core/subsystem.h"
+#include "item/item_system.h"
+#include "item/item_effect.h"
+#include "world/world_subsystem.h"
 
 namespace hb::player {
 
@@ -267,9 +271,35 @@ void player_system::recalculate_equipment_modifiers(player_id id) {
     auto* p = get_player(id);
     if (!p) return;
 
-    // Clear equipment modifiers and recalculate from items
-    // This would query the item system for each equipped item's stats
-    // For now, just recalculate the computed stats
+    // Clear equipment modifiers - start fresh
+    p->modifiers = stat_modifiers{};
+
+    auto* item_sys = subsystems().get<item::item_system>();
+    if (!item_sys) {
+        // No item system available, just recalculate with zeroed modifiers
+        p->recalculate_stats();
+        return;
+    }
+
+    // Iterate through all equipment slots and apply their effects
+    for (size_t i = 0; i < equip_slot_count; ++i) {
+        const auto& equipped = p->equipment.slots[i];
+        if (equipped.is_empty()) continue;
+
+        // Get the item from the item system
+        auto* equipped_item = item_sys->get_item(equipped.id);
+        if (!equipped_item) continue;
+
+        // Skip broken items
+        if (equipped_item->is_broken()) continue;
+
+        // Apply item base stats and effects
+        item::apply_item_base_stats(*equipped_item, p->modifiers);
+    }
+
+    LOG_DEBUG(general, "Recalculated equipment modifiers for player '{}'", p->name);
+
+    // Now recalculate computed stats with the new modifiers
     p->recalculate_stats();
 }
 
@@ -350,6 +380,205 @@ void player_system::update_pk_decay(float delta_time) {
             p->pk.decay_points(1);
         }
     }
+}
+
+auto player_system::try_move(player_id id, hb::world::position target_pos,
+                              hb::world::direction facing) -> move_info {
+    move_info info;
+
+    auto* p = get_player(id);
+    if (!p) {
+        info.result = move_result::invalid_player;
+        return info;
+    }
+
+    // Check if player is dead
+    if (p->is_dead()) {
+        info.result = move_result::blocked_dead;
+        return info;
+    }
+
+    // Check for movement-blocking status effects
+    if (p->has_status(player_status::paralyzed) ||
+        p->has_status(player_status::frozen) ||
+        p->has_status(player_status::stunned)) {
+        info.result = move_result::blocked_status;
+        return info;
+    }
+
+    auto* world_sys = subsystems().get<world::world_subsystem>();
+    if (!world_sys) {
+        // No world system, just update position
+        p->pos = target_pos;
+        p->facing = facing;
+        info.result = move_result::success;
+        return info;
+    }
+
+    auto* map = world_sys->get_map(p->current_map);
+    if (!map) {
+        info.result = move_result::invalid_map;
+        return info;
+    }
+
+    // Check bounds
+    if (!map->is_valid_position(target_pos)) {
+        info.result = move_result::blocked_out_of_bounds;
+        return info;
+    }
+
+    // Check if tile is walkable
+    if (!map->is_walkable(target_pos)) {
+        info.result = move_result::blocked_terrain;
+        return info;
+    }
+
+    // Check if tile is occupied
+    auto occupant = map->get_occupant(target_pos);
+    if (occupant.has_value() && occupant.value().value != 0) {
+        info.result = move_result::blocked_occupied;
+        return info;
+    }
+
+    // Clear old occupant
+    map->clear_occupant(p->pos);
+
+    // Update player position
+    hb::world::position old_pos = p->pos;
+    p->pos = target_pos;
+    p->facing = facing;
+
+    // Set new occupant
+    map->set_occupant(target_pos, entity_id{id.value}, world::owner_type::player);
+
+    // Update spatial index
+    map->spatial().update(entity_id{id.value}, target_pos);
+
+    // Check for teleport
+    if (map->is_teleport(target_pos)) {
+        auto teleport = map->get_teleport_dest(target_pos);
+        if (teleport.has_value()) {
+            info.result = move_result::teleport;
+            info.teleport_dest_map = teleport->dest_map;
+            info.teleport_dest_pos = {teleport->dest_x, teleport->dest_y};
+            info.teleport_dest_dir = teleport->dest_dir;
+
+            LOG_DEBUG(general, "Player '{}' triggered teleport to {} at ({},{})",
+                p->name, info.teleport_dest_map, info.teleport_dest_pos.x, info.teleport_dest_pos.y);
+        }
+    }
+
+    if (info.result != move_result::teleport) {
+        info.result = move_result::success;
+    }
+
+    LOG_TRACE(general, "Player '{}' moved from ({},{}) to ({},{})",
+        p->name, old_pos.x, old_pos.y, target_pos.x, target_pos.y);
+
+    return info;
+}
+
+auto player_system::can_move_to(player_id id, hb::world::position target_pos) const -> move_result {
+    auto* p = get_player(id);
+    if (!p) {
+        return move_result::invalid_player;
+    }
+
+    if (p->is_dead()) {
+        return move_result::blocked_dead;
+    }
+
+    if (p->has_status(player_status::paralyzed) ||
+        p->has_status(player_status::frozen) ||
+        p->has_status(player_status::stunned)) {
+        return move_result::blocked_status;
+    }
+
+    auto* world_sys = subsystems().get<world::world_subsystem>();
+    if (!world_sys) {
+        return move_result::success;  // No world system, allow move
+    }
+
+    auto* map = world_sys->get_map(p->current_map);
+    if (!map) {
+        return move_result::invalid_map;
+    }
+
+    if (!map->is_valid_position(target_pos)) {
+        return move_result::blocked_out_of_bounds;
+    }
+
+    if (!map->is_walkable(target_pos)) {
+        return move_result::blocked_terrain;
+    }
+
+    auto occupant = map->get_occupant(target_pos);
+    if (occupant.has_value() && occupant.value().value != 0) {
+        return move_result::blocked_occupied;
+    }
+
+    return move_result::success;
+}
+
+auto player_system::get_players_in_range(player_id id, int radius) const -> std::vector<player_id> {
+    std::vector<player_id> result;
+
+    auto* p = get_player(id);
+    if (!p) {
+        return result;
+    }
+
+    auto* world_sys = subsystems().get<world::world_subsystem>();
+    if (!world_sys) {
+        return result;
+    }
+
+    auto* map = world_sys->get_map(p->current_map);
+    if (!map) {
+        return result;
+    }
+
+    // Get entities in range from spatial index
+    auto entities = map->get_entities_in_range(p->pos, radius);
+
+    // Filter for players
+    for (auto entity : entities) {
+        player_id pid{entity.value};
+        if (player_exists(pid) && pid != id) {
+            result.push_back(pid);
+        }
+    }
+
+    return result;
+}
+
+auto player_system::get_player_at(map_id map, hb::world::position pos) const -> std::optional<player_id> {
+    auto* world_sys = subsystems().get<world::world_subsystem>();
+    if (!world_sys) {
+        return std::nullopt;
+    }
+
+    auto* m = world_sys->get_map(map);
+    if (!m) {
+        return std::nullopt;
+    }
+
+    auto occupant = m->get_occupant(pos);
+    if (!occupant.has_value()) {
+        return std::nullopt;
+    }
+
+    auto occupant_type = m->get_occupant_type(pos);
+    if (occupant_type != world::owner_type::player) {
+        return std::nullopt;
+    }
+
+    player_id pid{occupant.value().value};
+    if (player_exists(pid)) {
+        return pid;
+    }
+
+    return std::nullopt;
 }
 
 }  // namespace hb::player

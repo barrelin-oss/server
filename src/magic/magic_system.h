@@ -7,6 +7,7 @@
 #include "core/result.h"
 #include "core/subsystem.h"
 #include "magic/spell.h"
+#include "combat/combat_events.h"
 
 #include <unordered_map>
 #include <vector>
@@ -90,6 +91,14 @@ private:
     auto apply_spell_effect(hb::entity::entity caster, const spell_template& spell, const cast_target& target)
         -> spell_effect_result;
     void notify_spell_cast(hb::entity::entity caster, const spell_template& spell, const spell_effect_result& result);
+
+    // Helper functions for spell effects
+    auto find_aoe_targets(hb::entity::entity caster, const spell_template& spell, const cast_target& target) const
+        -> std::vector<hb::entity::entity>;
+    auto element_to_damage_type(spell_element element) const -> combat::damage_type;
+    void apply_buff(hb::entity::entity target, const spell_template& spell);
+    void apply_debuff(hb::entity::entity target, const spell_template& spell);
+    void handle_utility_spell(hb::entity::entity caster, const spell_template& spell, const cast_target& target);
 
     int64_t get_current_time_ms() const;
 

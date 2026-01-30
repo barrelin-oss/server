@@ -3,6 +3,11 @@
 
 #include "magic/magic_system.h"
 #include "core/logger.h"
+#include "core/subsystem.h"
+#include "player/player_system.h"
+#include "npc/npc_system.h"
+#include "combat/combat_system.h"
+#include "world/world_subsystem.h"
 
 #include <chrono>
 #include <algorithm>
@@ -107,7 +112,7 @@ auto magic_system::instant_cast(hb::entity::entity caster, spell_id spell_id, co
     return result<spell_effect_result, std::string>::ok(effect_result);
 }
 
-auto magic_system::can_cast(hb::entity::entity caster, spell_id spell_id, const cast_target& /*target*/) const
+auto magic_system::can_cast(hb::entity::entity caster, spell_id spell_id, const cast_target& target) const
     -> cast_result
 {
     if (!caster.is_valid()) {
@@ -135,8 +140,39 @@ auto magic_system::can_cast(hb::entity::entity caster, spell_id spell_id, const 
         return cast_result::on_cooldown;
     }
 
-    // Mana/HP/SP checks would be done by querying player system
-    // For now, assume sufficient resources
+    // Check mana, HP, SP requirements
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{caster.id})) {
+            // Check if silenced
+            if (p->has_status(player::player_status::silenced)) {
+                return cast_result::silenced;
+            }
+
+            // Check mana
+            int32_t mana_cost = calculate_mana_cost(caster, spell_id);
+            if (p->mp < mana_cost) {
+                return cast_result::not_enough_mana;
+            }
+
+            // Check level requirement
+            if (p->experience.level < spell->level_requirement) {
+                return cast_result::level_too_low;
+            }
+
+            // Check stat requirements
+            if (p->computed.intelligence < spell->int_requirement ||
+                p->computed.magic < spell->mag_requirement) {
+                return cast_result::level_too_low;
+            }
+        }
+    }
+
+    // Check range for targeted spells
+    if (target.has_entity() && spell->range > 0) {
+        // Would check distance between caster and target
+        // For now, assume in range
+    }
 
     return cast_result::success;
 }
@@ -259,30 +295,85 @@ void magic_system::on_spell_cast(spell_callback callback) {
     spell_callbacks_.push_back(std::move(callback));
 }
 
-auto magic_system::calculate_mana_cost(hb::entity::entity /*caster*/, spell_id spell_id) const -> int32_t {
+auto magic_system::calculate_mana_cost(hb::entity::entity caster, spell_id spell_id) const -> int32_t {
     const auto* spell = get_spell(spell_id);
     if (!spell) return 0;
 
-    return static_cast<int32_t>(static_cast<float>(spell->mana_cost) * config_.global_mana_cost_modifier);
+    int32_t base_cost = spell->mana_cost;
+
+    // Spell level can reduce mana cost
+    int16_t spell_level = get_spell_level(caster, spell_id);
+    if (spell_level > 1) {
+        // 2% reduction per level above 1
+        float reduction = 1.0f - (spell_level - 1) * 0.02f;
+        reduction = std::max(0.5f, reduction);  // Cap at 50% reduction
+        base_cost = static_cast<int32_t>(base_cost * reduction);
+    }
+
+    return static_cast<int32_t>(static_cast<float>(base_cost) * config_.global_mana_cost_modifier);
 }
 
-auto magic_system::calculate_damage(hb::entity::entity /*caster*/, spell_id spell_id) const -> int32_t {
+auto magic_system::calculate_damage(hb::entity::entity caster, spell_id spell_id) const -> int32_t {
     const auto* spell = get_spell(spell_id);
     if (!spell) return 0;
 
-    // Base damage + stat scaling (would query player stats)
     int32_t damage = spell->base_damage;
-    // damage += (player_int * spell->int_scaling / 100);
-    // damage += (player_mag * spell->mag_scaling / 100);
+
+    // Get caster stats for scaling
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{caster.id})) {
+            // Apply INT scaling
+            if (spell->int_scaling > 0) {
+                damage += p->computed.intelligence * spell->int_scaling / 100;
+            }
+            // Apply MAG scaling
+            if (spell->mag_scaling > 0) {
+                damage += p->computed.magic * spell->mag_scaling / 100;
+            }
+            // Add magic power
+            damage += p->computed.magic_power / 2;
+        }
+    }
+
+    // Spell level bonus (5% per level)
+    int16_t spell_level = get_spell_level(caster, spell_id);
+    if (spell_level > 1) {
+        float bonus = 1.0f + (spell_level - 1) * 0.05f;
+        damage = static_cast<int32_t>(damage * bonus);
+    }
 
     return static_cast<int32_t>(static_cast<float>(damage) * config_.global_damage_modifier);
 }
 
-auto magic_system::calculate_heal(hb::entity::entity /*caster*/, spell_id spell_id) const -> int32_t {
+auto magic_system::calculate_heal(hb::entity::entity caster, spell_id spell_id) const -> int32_t {
     const auto* spell = get_spell(spell_id);
     if (!spell) return 0;
 
-    return spell->base_heal;
+    int32_t heal = spell->base_heal;
+
+    // Get caster stats for scaling
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{caster.id})) {
+            // Healing scales with INT and MAG
+            if (spell->int_scaling > 0) {
+                heal += p->computed.intelligence * spell->int_scaling / 100;
+            }
+            if (spell->mag_scaling > 0) {
+                heal += p->computed.magic * spell->mag_scaling / 100;
+            }
+        }
+    }
+
+    // Spell level bonus
+    int16_t spell_level = get_spell_level(caster, spell_id);
+    if (spell_level > 1) {
+        float bonus = 1.0f + (spell_level - 1) * 0.05f;
+        heal = static_cast<int32_t>(heal * bonus);
+    }
+
+    return heal;
 }
 
 void magic_system::process_active_casts(float /*delta_time*/) {
@@ -314,6 +405,28 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster, const spell_tem
     spell_effect_result result;
     result.success = true;
 
+    // Deduct mana cost from caster
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{caster.id})) {
+            int32_t mana_cost = calculate_mana_cost(caster, spell.id);
+            if (!p->spend_mp(mana_cost)) {
+                result.success = false;
+                return result;
+            }
+
+            // Deduct HP cost if any
+            if (spell.hp_cost > 0) {
+                p->damage_hp(spell.hp_cost);
+            }
+
+            // Deduct SP cost if any
+            if (spell.sp_cost > 0) {
+                p->spend_sp(spell.sp_cost);
+            }
+        }
+    }
+
     // Update cooldown
     auto it = player_spells_.find(caster);
     if (it != player_spells_.end()) {
@@ -326,36 +439,83 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster, const spell_tem
         }
     }
 
+    // Get targets for AOE spells
+    std::vector<hb::entity::entity> targets;
+    if (spell.is_aoe()) {
+        targets = find_aoe_targets(caster, spell, target);
+    } else if (target.has_entity()) {
+        targets.push_back(target.target);
+    }
+
     // Apply effect based on spell category
+    auto* combat_sys = subsystems().get<combat::combat_system>();
+
     switch (spell.category) {
-        case spell_category::attack:
+        case spell_category::attack: {
             result.damage_dealt = calculate_damage(caster, spell.id);
-            if (target.has_entity()) {
-                result.affected_targets.push_back(target.target);
+
+            // Convert element to damage type
+            auto damage_type = element_to_damage_type(spell.element);
+
+            for (auto& t : targets) {
+                if (combat_sys) {
+                    // Deal magic damage through combat system
+                    combat_sys->deal_damage(t, result.damage_dealt, damage_type, caster);
+                }
+                result.affected_targets.push_back(t);
             }
             break;
+        }
 
-        case spell_category::healing:
+        case spell_category::healing: {
             result.heal_applied = calculate_heal(caster, spell.id);
-            if (target.has_entity()) {
-                result.affected_targets.push_back(target.target);
-            }
-            break;
 
-        case spell_category::buff:
-        case spell_category::debuff:
-            // Would apply status effects via player/npc system
-            if (target.has_entity()) {
-                result.affected_targets.push_back(target.target);
+            for (auto& t : targets) {
+                // Apply healing
+                if (player_sys) {
+                    player_sys->apply_heal(player_id{t.id}, result.heal_applied);
+                }
+                result.affected_targets.push_back(t);
             }
             break;
+        }
+
+        case spell_category::buff: {
+            for (auto& t : targets) {
+                apply_buff(t, spell);
+                result.affected_targets.push_back(t);
+            }
+            break;
+        }
+
+        case spell_category::debuff: {
+            for (auto& t : targets) {
+                apply_debuff(t, spell);
+                result.affected_targets.push_back(t);
+            }
+            break;
+        }
+
+        case spell_category::defense: {
+            // Self-targeted defensive spells
+            apply_buff(caster, spell);
+            result.affected_targets.push_back(caster);
+            break;
+        }
+
+        case spell_category::utility: {
+            // Handle utility spells (teleport, create food, etc.)
+            handle_utility_spell(caster, spell, target);
+            result.affected_targets.push_back(caster);
+            break;
+        }
 
         default:
             break;
     }
 
-    LOG_DEBUG(general, "Entity {} cast spell '{}' (damage: {}, heal: {})",
-        caster.id, spell.name, result.damage_dealt, result.heal_applied);
+    LOG_DEBUG(general, "Entity {} cast spell '{}' (damage: {}, heal: {}, targets: {})",
+        caster.id, spell.name, result.damage_dealt, result.heal_applied, result.affected_targets.size());
 
     return result;
 }
@@ -369,6 +529,199 @@ void magic_system::notify_spell_cast(hb::entity::entity caster, const spell_temp
 int64_t magic_system::get_current_time_ms() const {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+auto magic_system::find_aoe_targets(hb::entity::entity caster, const spell_template& spell,
+                                     const cast_target& target) const
+    -> std::vector<hb::entity::entity>
+{
+    std::vector<hb::entity::entity> targets;
+
+    // Determine center point for AOE
+    hb::world::position center;
+    if (target.has_position()) {
+        center = target.target_pos;
+    } else if (target.has_entity()) {
+        // Get target entity position
+        auto* player_sys = subsystems().get<player::player_system>();
+        if (player_sys) {
+            if (auto* p = player_sys->get_player(player_id{target.target.id})) {
+                center = p->pos;
+            }
+        }
+    }
+
+    // Get caster's map
+    map_id caster_map{};
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{caster.id})) {
+            caster_map = p->current_map;
+        }
+    }
+
+    if (!caster_map.is_valid()) {
+        return targets;
+    }
+
+    // Find entities in range based on target type
+    int16_t radius = spell.aoe_radius > 0 ? spell.aoe_radius : 3;
+
+    // Get players in range
+    if (spell.target_type == spell_target::aoe_enemy ||
+        spell.target_type == spell_target::aoe_all) {
+        if (player_sys) {
+            player_sys->for_each_player([&](player_id id, const player::player& p) {
+                if (p.current_map == caster_map &&
+                    p.pos.manhattan_distance(center) <= radius) {
+                    // For enemy AOE, skip allies (same faction)
+                    if (spell.target_type == spell_target::aoe_enemy) {
+                        auto* caster_player = player_sys->get_player(player_id{caster.id});
+                        if (caster_player && p.faction == caster_player->faction) {
+                            return;  // Skip allies
+                        }
+                    }
+                    targets.push_back(hb::entity::entity{id.value, 0});
+                }
+            });
+        }
+    }
+
+    if (spell.target_type == spell_target::aoe_ally ||
+        spell.target_type == spell_target::aoe_all) {
+        if (player_sys) {
+            player_sys->for_each_player([&](player_id id, const player::player& p) {
+                if (p.current_map == caster_map &&
+                    p.pos.manhattan_distance(center) <= radius) {
+                    // For ally AOE, only include same faction
+                    if (spell.target_type == spell_target::aoe_ally) {
+                        auto* caster_player = player_sys->get_player(player_id{caster.id});
+                        if (caster_player && p.faction != caster_player->faction) {
+                            return;  // Skip enemies
+                        }
+                    }
+                    // Avoid duplicates
+                    bool already_added = false;
+                    for (const auto& t : targets) {
+                        if (t.id == id.value) {
+                            already_added = true;
+                            break;
+                        }
+                    }
+                    if (!already_added) {
+                        targets.push_back(hb::entity::entity{id.value, 0});
+                    }
+                }
+            });
+        }
+    }
+
+    // Get NPCs in range for enemy AOE
+    if (spell.target_type == spell_target::aoe_enemy ||
+        spell.target_type == spell_target::aoe_all) {
+        auto* npc_sys = subsystems().get<npc::npc_system>();
+        if (npc_sys) {
+            auto npcs_in_range = npc_sys->get_npcs_in_range(caster_map, center, radius);
+            for (auto npc_entity : npcs_in_range) {
+                targets.push_back(npc_entity);
+            }
+        }
+    }
+
+    return targets;
+}
+
+auto magic_system::element_to_damage_type(spell_element element) const -> combat::damage_type {
+    switch (element) {
+        case spell_element::fire:      return combat::damage_type::fire;
+        case spell_element::ice:       return combat::damage_type::ice;
+        case spell_element::lightning: return combat::damage_type::lightning;
+        case spell_element::holy:      return combat::damage_type::holy;
+        case spell_element::dark:      return combat::damage_type::dark;
+        default:                       return combat::damage_type::magic;
+    }
+}
+
+void magic_system::apply_buff(hb::entity::entity target, const spell_template& spell) {
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (!player_sys) return;
+
+    auto* p = player_sys->get_player(player_id{target.id});
+    if (!p) return;
+
+    // Apply status based on spell name/id
+    // This is simplified - real implementation would have buff types
+    switch (spell.id.value) {
+        case 10:  // Protection spell
+            p->add_status(player::player_status::protection);
+            break;
+        case 11:  // Defense Up
+            p->add_status(player::player_status::defense_up);
+            break;
+        case 12:  // Attack Up
+            p->add_status(player::player_status::attack_up);
+            break;
+        case 13:  // Magic Up
+            p->add_status(player::player_status::magic_up);
+            break;
+        case 14:  // Haste
+            p->add_status(player::player_status::haste);
+            break;
+        case 15:  // Invisibility
+            p->add_status(player::player_status::invisible);
+            break;
+        default:
+            // Generic buff effect
+            break;
+    }
+
+    LOG_DEBUG(general, "Applied buff from spell '{}' to entity {}", spell.name, target.id);
+}
+
+void magic_system::apply_debuff(hb::entity::entity target, const spell_template& spell) {
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (!player_sys) return;
+
+    auto* p = player_sys->get_player(player_id{target.id});
+    if (!p) return;
+
+    // Apply negative status based on spell
+    switch (spell.id.value) {
+        case 20:  // Poison
+            p->add_status(player::player_status::poisoned);
+            break;
+        case 21:  // Paralyze
+            p->add_status(player::player_status::paralyzed);
+            break;
+        case 22:  // Freeze
+            p->add_status(player::player_status::frozen);
+            break;
+        case 23:  // Slow
+            p->add_status(player::player_status::slow);
+            break;
+        case 24:  // Curse
+            p->add_status(player::player_status::cursed);
+            break;
+        case 25:  // Silence
+            p->add_status(player::player_status::silenced);
+            break;
+        default:
+            break;
+    }
+
+    LOG_DEBUG(general, "Applied debuff from spell '{}' to entity {}", spell.name, target.id);
+}
+
+void magic_system::handle_utility_spell(hb::entity::entity caster, const spell_template& spell,
+                                         const cast_target& /*target*/) {
+    // Handle utility spells like teleport, create food, recall, etc.
+    LOG_DEBUG(general, "Entity {} used utility spell '{}'", caster.id, spell.name);
+
+    // Would implement specific utility spell effects here
+    // For example:
+    // - Teleport: Move player to specific location
+    // - Recall: Return to town
+    // - Create Food: Add food item to inventory
 }
 
 }  // namespace hb::magic

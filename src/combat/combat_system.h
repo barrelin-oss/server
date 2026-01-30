@@ -85,6 +85,13 @@ private:
     void notify_damage(const damage_event& event);
     void notify_death(const death_event& event);
 
+    // Helper methods for building combat context
+    auto build_combat_context(hb::entity::entity attacker, hb::entity::entity defender,
+                              damage_type type) -> combat_context;
+    [[nodiscard]] auto is_player_entity(hb::entity::entity e) const -> bool;
+    [[nodiscard]] auto check_entity_dead(hb::entity::entity e) const -> bool;
+    [[nodiscard]] auto calculate_kill_rewards(hb::entity::entity target) const -> std::pair<int32_t, int32_t>;
+
     combat_system_config config_;
 
     std::vector<damage_callback> damage_callbacks_;

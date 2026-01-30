@@ -38,8 +38,19 @@ public:
     void handle_message(connection_id conn_id, const network::json_message& msg);
 
 private:
-    // Individual message handlers
+    // Individual message handlers - Movement
     void handle_player_move(connection_id conn_id, const network::json_message& msg);
+    void handle_player_run(connection_id conn_id, const network::json_message& msg);
+    void handle_player_stop(connection_id conn_id, const network::json_message& msg);
+
+    // Combat
+    void handle_player_attack(connection_id conn_id, const network::json_message& msg);
+
+    // Actions
+    void handle_player_magic(connection_id conn_id, const network::json_message& msg);
+    void handle_player_skill(connection_id conn_id, const network::json_message& msg);
+    void handle_player_pickup(connection_id conn_id, const network::json_message& msg);
+    void handle_player_interact(connection_id conn_id, const network::json_message& msg);
 
     // Helper to send error response
     void send_error(connection_id conn_id, uint32_t seq,
@@ -53,7 +64,8 @@ private:
         -> network::ws_connection*;
 
     // Broadcast position update to nearby players
-    void broadcast_position_update(player_id moved_player, int16_t x, int16_t y, int16_t direction);
+    void broadcast_position_update(player_id moved_player, int16_t x, int16_t y,
+                                    int16_t direction, bool is_running = false);
 
     // Handle entity visibility changes after movement
     void update_entity_visibility(player_id moved_player,

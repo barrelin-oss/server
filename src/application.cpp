@@ -298,8 +298,17 @@ void application::initialize() {
                     auth_handlers_->handle_message(conn_id, msg);
                     break;
 
-                // In-game messages
+                // In-game movement
                 case network::json_message_type::player_move_request:
+                case network::json_message_type::player_run_request:
+                case network::json_message_type::player_stop_request:
+                // In-game combat
+                case network::json_message_type::player_attack_request:
+                // In-game actions
+                case network::json_message_type::player_magic_request:
+                case network::json_message_type::player_skill_request:
+                case network::json_message_type::player_pickup_request:
+                case network::json_message_type::player_interact_request:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 

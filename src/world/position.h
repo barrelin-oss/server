@@ -10,6 +10,9 @@
 
 namespace hb::world {
 
+// Forward declare direction enum for position::move()
+enum class direction : uint8_t;
+
 // Constexpr-compatible abs function
 template<typename T>
 [[nodiscard]] constexpr auto constexpr_abs(T x) -> T {
@@ -74,6 +77,9 @@ struct position {
     [[nodiscard]] constexpr auto is_in_rect(int16_t min_x, int16_t min_y, int16_t max_x, int16_t max_y) const -> bool {
         return x >= min_x && x <= max_x && y >= min_y && y <= max_y;
     }
+
+    // Move in a direction (forward declaration - implemented after direction enum)
+    [[nodiscard]] constexpr auto move(direction dir) const -> position;
 };
 
 // Direction enum (8 directions + none)
@@ -107,6 +113,11 @@ constexpr position direction_offset(direction dir) {
 // Move position in direction
 [[nodiscard]] constexpr auto move_in_direction(position pos, direction dir) -> position {
     return pos + direction_offset(dir);
+}
+
+// Implementation of position::move (after direction_offset is defined)
+constexpr auto position::move(direction dir) const -> position {
+    return *this + direction_offset(dir);
 }
 
 // Get direction from one position to another

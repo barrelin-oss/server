@@ -548,7 +548,8 @@ auto auth_system::load_character_full(player_id char_id, account_id owner)
                   pk_count, hunger_level,
                   COALESCE(hp_max, 100) as hp_max,
                   COALESCE(mp_max, 50) as mp_max,
-                  COALESCE(sp_max, 50) as sp_max
+                  COALESCE(sp_max, 50) as sp_max,
+                  skills_data, inventory_data, equipment_data, bank_data
            FROM characters WHERE id = $1)",
         static_cast<int>(char_id.value)
     );
@@ -602,7 +603,11 @@ auto auth_system::load_character_full(player_id char_id, account_id owner)
         .skin_color = static_cast<int16_t>(row["skin_color"].as<int>()),
         .underwear_color = row["underwear_color"].is_null() ? static_cast<int16_t>(0) : static_cast<int16_t>(row["underwear_color"].as<int>()),
         .pk_count = row["pk_count"].is_null() ? 0 : row["pk_count"].as<int>(),
-        .hunger_level = row["hunger_level"].is_null() ? 100 : row["hunger_level"].as<int>()
+        .hunger_level = row["hunger_level"].is_null() ? 100 : row["hunger_level"].as<int>(),
+        .skills_data = row["skills_data"].is_null() ? "" : row["skills_data"].as<std::string>(),
+        .inventory_data = row["inventory_data"].is_null() ? "" : row["inventory_data"].as<std::string>(),
+        .equipment_data = row["equipment_data"].is_null() ? "" : row["equipment_data"].as<std::string>(),
+        .bank_data = row["bank_data"].is_null() ? "" : row["bank_data"].as<std::string>()
     };
 
     LOG_DEBUG(auth, "Loaded full character data for '{}' (id: {})", data.name, data.id.value);
@@ -616,6 +621,12 @@ auto auth_system::save_character(const character_full_data& data)
     if (!database_) {
         return result<void, auth_error>::err(auth_error::database_error);
     }
+
+    // Ensure JSONB fields have valid JSON (PostgreSQL rejects empty strings for JSONB)
+    auto skills_json = data.skills_data.empty() ? "[]" : data.skills_data;
+    auto inventory_json = data.inventory_data.empty() ? "[]" : data.inventory_data;
+    auto equipment_json = data.equipment_data.empty() ? "[]" : data.equipment_data;
+    auto bank_json = data.bank_data.empty() ? "[]" : data.bank_data;
 
     auto db_result = database_->execute_params(
         R"(UPDATE characters SET
@@ -639,8 +650,12 @@ auto auth_system::save_character(const character_full_data& data)
                hp_max = $18,
                mp_max = $19,
                sp_max = $20,
+               skills_data = $21,
+               inventory_data = $22,
+               equipment_data = $23,
+               bank_data = $24,
                last_played = NOW()
-           WHERE id = $21)",
+           WHERE id = $25)",
         data.map_name,
         static_cast<int>(data.pos_x),
         static_cast<int>(data.pos_y),
@@ -661,6 +676,10 @@ auto auth_system::save_character(const character_full_data& data)
         data.max_hp,
         data.max_mp,
         data.max_sp,
+        skills_json,
+        inventory_json,
+        equipment_json,
+        bank_json,
         static_cast<int>(data.id.value)
     );
 

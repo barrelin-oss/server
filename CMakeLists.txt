@@ -153,6 +153,7 @@ set(AUTH_SOURCES
     src/auth/password_hash.cpp
     src/auth/session_token.cpp
     src/auth/auth_system.cpp
+    src/auth/character_serialization.cpp
 )
 
 set(BRIDGE_SOURCES

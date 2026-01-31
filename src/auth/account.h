@@ -115,6 +115,12 @@ struct character_full_data {
     // Status
     int32_t pk_count{0};
     int32_t hunger_level{100};
+
+    // Serialized data (JSON strings stored in BYTEA columns)
+    std::string skills_data;      // JSON: [{type, level, exp}, ...]
+    std::string inventory_data;   // JSON: [{slot, item_id, count}, ...]
+    std::string equipment_data;   // JSON: [{slot, item_id, durability, max_durability}, ...]
+    std::string bank_data;        // JSON: [{slot, item_id, count}, ...]
 };
 
 // Authentication errors

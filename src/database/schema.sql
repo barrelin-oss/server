@@ -1,6 +1,15 @@
 -- schema.sql
 -- PostgreSQL schema for Helbreath server authentication and persistence
 -- Run this file to set up the database: psql -U hgserver -d helbreath -f schema.sql
+--
+-- MIGRATION: If upgrading from BYTEA to JSONB columns, run:
+--   ALTER TABLE characters
+--     ALTER COLUMN skills_data TYPE JSONB USING COALESCE(skills_data::text::jsonb, '[]'::jsonb),
+--     ALTER COLUMN inventory_data TYPE JSONB USING COALESCE(inventory_data::text::jsonb, '[]'::jsonb),
+--     ALTER COLUMN equipment_data TYPE JSONB USING COALESCE(equipment_data::text::jsonb, '[]'::jsonb),
+--     ALTER COLUMN bank_data TYPE JSONB USING COALESCE(bank_data::text::jsonb, '[]'::jsonb),
+--     ALTER COLUMN quest_data TYPE JSONB USING COALESCE(quest_data::text::jsonb, '[]'::jsonb),
+--     ALTER COLUMN magic_data TYPE JSONB USING COALESCE(magic_data::text::jsonb, '[]'::jsonb);
 
 -- Enable UUID extension for session tokens
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -68,13 +77,16 @@ CREATE TABLE IF NOT EXISTS characters (
     reward_gold     INTEGER DEFAULT 0,
     hunger_level    SMALLINT DEFAULT 100,
 
-    -- Binary data blobs for complex serialized data
-    skills_data     BYTEA,
-    inventory_data  BYTEA,
-    equipment_data  BYTEA,
-    bank_data       BYTEA,
-    quest_data      BYTEA,
-    magic_data      BYTEA,
+    -- JSON data for complex serialized data (JSONB for queryability)
+    -- skills_data: [{"type":5,"level":45,"exp":1200}, ...]
+    -- inventory_data: [{"slot":0,"item_id":123,"count":1}, ...]
+    -- equipment_data: [{"slot":5,"item_id":123,"durability":80,"max_durability":100}, ...]
+    skills_data     JSONB DEFAULT '[]'::jsonb,
+    inventory_data  JSONB DEFAULT '[]'::jsonb,
+    equipment_data  JSONB DEFAULT '[]'::jsonb,
+    bank_data       JSONB DEFAULT '[]'::jsonb,
+    quest_data      JSONB DEFAULT '[]'::jsonb,
+    magic_data      JSONB DEFAULT '[]'::jsonb,
 
     -- Timestamps
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -171,6 +183,12 @@ CREATE INDEX IF NOT EXISTS idx_item_log_character ON item_log(character_id);
 CREATE INDEX IF NOT EXISTS idx_item_log_time ON item_log(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_log_character ON chat_log(character_id);
 CREATE INDEX IF NOT EXISTS idx_chat_log_time ON chat_log(timestamp DESC);
+
+-- GIN indexes for JSONB columns (enables fast containment queries)
+-- Example: SELECT * FROM characters WHERE skills_data @> '[{"type":5}]'
+CREATE INDEX IF NOT EXISTS idx_characters_skills ON characters USING GIN (skills_data);
+CREATE INDEX IF NOT EXISTS idx_characters_inventory ON characters USING GIN (inventory_data);
+CREATE INDEX IF NOT EXISTS idx_characters_equipment ON characters USING GIN (equipment_data);
 
 -- Function to clean up expired sessions
 CREATE OR REPLACE FUNCTION cleanup_expired_sessions()

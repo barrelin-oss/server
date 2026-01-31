@@ -46,6 +46,35 @@ struct teleport_dest {
     direction dest_dir{direction::none};
 };
 
+// Initial spawn point for new characters
+struct initial_point {
+    int16_t id{0};
+    int16_t x{0};
+    int16_t y{0};
+};
+
+// No-attack area (safe zone)
+struct safe_zone {
+    rect area;
+};
+
+// Spot mob generator - defines NPC spawn areas
+struct spot_mob_generator {
+    int16_t id{0};
+    int16_t type{0};              // 1 = rect area, 2 = waypoint path
+    rect area;                     // Spawn bounding box
+    int16_t npc_type{0};          // NPC template ID to spawn
+    int16_t max_count{0};         // Maximum NPCs to spawn
+    bool enabled{true};
+};
+
+// Waypoint for NPC pathing
+struct waypoint {
+    int16_t id{0};
+    int16_t x{0};
+    int16_t y{0};
+};
+
 // Weather status
 enum class weather_type : uint8_t {
     clear = 0,
@@ -76,6 +105,9 @@ public:
 
     // Load from file
     auto load_from_file(const std::filesystem::path& path) -> result<void, std::string>;
+
+    // Load configuration file (.txt) with teleports, spawn points, etc.
+    auto load_config_file(const std::filesystem::path& path) -> result<void, std::string>;
 
     // Identity
     [[nodiscard]] auto id() const -> map_id { return id_; }
@@ -120,6 +152,22 @@ public:
     // Teleport lookup
     [[nodiscard]] auto get_teleport_dest(const position& pos) const -> std::optional<teleport_dest>;
     void add_teleport(const position& pos, const teleport_dest& dest);
+
+    // Initial spawn points
+    [[nodiscard]] auto get_initial_point(int16_t id) const -> std::optional<position>;
+    [[nodiscard]] auto get_random_initial_point() const -> std::optional<position>;
+    [[nodiscard]] auto initial_point_count() const -> size_t { return initial_points_.size(); }
+
+    // Safe zones (no-attack areas)
+    [[nodiscard]] auto is_safe_zone(const position& pos) const -> bool;
+    [[nodiscard]] auto safe_zone_count() const -> size_t { return safe_zones_.size(); }
+
+    // Mob spawners
+    [[nodiscard]] auto get_mob_spawners() const -> const std::vector<spot_mob_generator>& { return mob_spawners_; }
+    [[nodiscard]] auto mob_spawner_count() const -> size_t { return mob_spawners_.size(); }
+
+    // Waypoints
+    [[nodiscard]] auto get_waypoint(int16_t id) const -> std::optional<position>;
 
     // Occupancy management
     void set_occupant(const position& pos, entity_id id, owner_type type);
@@ -170,6 +218,18 @@ private:
 
     // Teleport destinations
     std::unordered_map<position, teleport_dest> teleports_;
+
+    // Initial spawn points
+    std::vector<initial_point> initial_points_;
+
+    // Safe zones (no-attack areas)
+    std::vector<safe_zone> safe_zones_;
+
+    // Mob spawners
+    std::vector<spot_mob_generator> mob_spawners_;
+
+    // Waypoints for NPC pathing
+    std::unordered_map<int16_t, waypoint> waypoints_;
 
     // Current weather
     weather_type weather_{weather_type::clear};

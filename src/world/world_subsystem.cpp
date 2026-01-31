@@ -80,9 +80,33 @@ auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_
 
     new_map->initialize(id, config);
 
+    // Load the binary map data (.amd file)
     auto load_result = new_map->load_from_file(path);
     if (load_result.is_err()) {
         return result<map_id, std::string>::err(load_result.error());
+    }
+
+    // Load the configuration file (.txt file with same name)
+    // Config files contain teleports, spawn points, safe zones, etc.
+    auto config_path = path;
+    config_path.replace_extension(".txt");
+
+    if (std::filesystem::exists(config_path)) {
+        auto config_result = new_map->load_config_file(config_path);
+        if (config_result.is_err()) {
+            LOG_WARN(general, "Failed to load config for map '{}': {}",
+                     config.name, config_result.error());
+            // Continue anyway - map data is loaded, just missing config
+        } else {
+            LOG_DEBUG(general, "Loaded config for map '{}' ({} initial points, {} safe zones, {} spawners)",
+                      config.name,
+                      new_map->initial_point_count(),
+                      new_map->safe_zone_count(),
+                      new_map->mob_spawner_count());
+        }
+    } else {
+        LOG_DEBUG(general, "No config file found for map '{}' at {}",
+                  config.name, config_path.string());
     }
 
     name_to_id_[config.name] = id;

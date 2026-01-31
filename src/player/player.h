@@ -10,6 +10,7 @@
 #include "player/stats.h"
 #include "player/experience.h"
 #include "player/equipment.h"
+#include "skill/skill.h"
 
 #include <string>
 #include <array>
@@ -137,6 +138,9 @@ struct player {
 
     // Equipment
     equipment_state equipment;
+
+    // Skills
+    skill::player_skills skills;
 
     // Status
     player_status status{player_status::none};

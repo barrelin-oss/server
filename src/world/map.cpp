@@ -5,6 +5,10 @@
 #include "core/logger.h"
 
 #include <fstream>
+#include <sstream>
+#include <algorithm>
+#include <cctype>
+#include <random>
 
 namespace hb::world {
 
@@ -270,6 +274,255 @@ auto map::get_entities_in_range(const position& center, int radius) const -> std
 
 auto map::get_entities_in_rect(const rect& area) const -> std::vector<entity_id> {
     return spatial_index_.get_in_rect(area);
+}
+
+// Helper: trim whitespace from string
+static auto trim(std::string_view sv) -> std::string {
+    auto start = sv.find_first_not_of(" \t\r\n");
+    if (start == std::string_view::npos) return "";
+    auto end = sv.find_last_not_of(" \t\r\n");
+    return std::string(sv.substr(start, end - start + 1));
+}
+
+// Helper: check if string is a number
+static auto is_number(const std::string& s) -> bool {
+    if (s.empty()) return false;
+    size_t start = 0;
+    if (s[0] == '-' || s[0] == '+') start = 1;
+    if (start >= s.length()) return false;
+    return std::all_of(s.begin() + start, s.end(), ::isdigit);
+}
+
+// Helper: tokenize a line
+static auto tokenize(const std::string& line) -> std::vector<std::string> {
+    std::vector<std::string> tokens;
+    std::istringstream iss(line);
+    std::string token;
+    while (iss >> token) {
+        // Remove '=' if present
+        if (token == "=") continue;
+        auto eq_pos = token.find('=');
+        if (eq_pos != std::string::npos) {
+            if (eq_pos > 0) tokens.push_back(token.substr(0, eq_pos));
+            if (eq_pos + 1 < token.length()) tokens.push_back(token.substr(eq_pos + 1));
+        } else {
+            tokens.push_back(token);
+        }
+    }
+    return tokens;
+}
+
+auto map::load_config_file(const std::filesystem::path& path) -> result<void, std::string> {
+    if (!std::filesystem::exists(path)) {
+        // Config file is optional - not an error if missing
+        LOG_DEBUG(general, "No config file for map {}: {}", config_.name, path.string());
+        return result<void, std::string>::ok();
+    }
+
+    std::ifstream file(path);
+    if (!file) {
+        return result<void, std::string>::err("Failed to open config file: " + path.string());
+    }
+
+    LOG_DEBUG(general, "Loading map config: {}", path.string());
+
+    // Auto-detect map properties from name (like legacy code)
+    if (config_.name.find("fightzone") == 0) {
+        config_.is_fight_zone = true;
+    }
+    if (config_.name == "icebound") {
+        config_.is_snow_enabled = true;
+    }
+
+    std::string line;
+    int teleport_count = 0;
+    int initial_point_count = 0;
+    int safe_zone_count = 0;
+    int spawner_count = 0;
+    int waypoint_count = 0;
+
+    while (std::getline(file, line)) {
+        // Skip comments and empty lines
+        line = trim(line);
+        if (line.empty() || line[0] == '/' || line[0] == ';' || line[0] == '#') {
+            continue;
+        }
+        if (line[0] == '[') {
+            continue;  // Section header like [MAP-INFO]
+        }
+
+        auto tokens = tokenize(line);
+        if (tokens.empty()) continue;
+
+        const auto& key = tokens[0];
+
+        // teleport-loc = srcX srcY destMap destX destY dir
+        // Legacy format: teleport-loc = 127 78 elvine 186 183 5
+        if (key == "teleport-loc" && tokens.size() >= 7) {
+            if (!is_number(tokens[1]) || !is_number(tokens[2])) continue;
+
+            position src{
+                static_cast<int16_t>(std::stoi(tokens[1])),
+                static_cast<int16_t>(std::stoi(tokens[2]))
+            };
+
+            teleport_dest dest{
+                .dest_map = tokens[3],
+                .dest_x = static_cast<int16_t>(std::stoi(tokens[4])),
+                .dest_y = static_cast<int16_t>(std::stoi(tokens[5])),
+                .dest_dir = static_cast<direction>(std::stoi(tokens[6]))
+            };
+
+            add_teleport(src, dest);
+            ++teleport_count;
+        }
+        // map-location = name
+        else if (key == "map-location" && tokens.size() >= 2) {
+            config_.location_name = tokens[1];
+        }
+        // initial-point = id x y
+        else if (key == "initial-point" && tokens.size() >= 4) {
+            if (!is_number(tokens[1]) || !is_number(tokens[2]) || !is_number(tokens[3])) continue;
+
+            initial_point ip{
+                .id = static_cast<int16_t>(std::stoi(tokens[1])),
+                .x = static_cast<int16_t>(std::stoi(tokens[2])),
+                .y = static_cast<int16_t>(std::stoi(tokens[3]))
+            };
+            initial_points_.push_back(ip);
+            ++initial_point_count;
+        }
+        // upper-level-limit = level
+        else if (key == "upper-level-limit" && tokens.size() >= 2) {
+            if (is_number(tokens[1])) {
+                config_.upper_level_limit = std::stoi(tokens[1]);
+            }
+        }
+        // level-limit = level
+        else if (key == "level-limit" && tokens.size() >= 2) {
+            if (is_number(tokens[1])) {
+                config_.level_limit = std::stoi(tokens[1]);
+            }
+        }
+        // no-attack-area = num left top right bottom
+        // Legacy: no-attack-area = 1 131 35 138 40
+        else if (key == "no-attack-area" && tokens.size() >= 6) {
+            if (!is_number(tokens[2]) || !is_number(tokens[3]) ||
+                !is_number(tokens[4]) || !is_number(tokens[5])) continue;
+
+            safe_zone sz{
+                .area = rect{
+                    static_cast<int16_t>(std::stoi(tokens[2])),  // left -> min_x
+                    static_cast<int16_t>(std::stoi(tokens[3])),  // top -> min_y
+                    static_cast<int16_t>(std::stoi(tokens[4])),  // right -> max_x
+                    static_cast<int16_t>(std::stoi(tokens[5]))   // bottom -> max_y
+                }
+            };
+            safe_zones_.push_back(sz);
+            ++safe_zone_count;
+
+            // Also mark tiles with safe zone flag
+            for (int16_t y = sz.area.min_y; y <= sz.area.max_y; ++y) {
+                for (int16_t x = sz.area.min_x; x <= sz.area.max_x; ++x) {
+                    if (is_valid_position(x, y)) {
+                        auto& tile = static_tiles_[tile_index(x, y)];
+                        tile.flags = tile.flags | tile_flags::is_safe_zone;
+                    }
+                }
+            }
+        }
+        // spot-mob-generator = num type x1 y1 x2 y2 npcType maxCount
+        // Legacy: spot-mob-generator = 1 1 81 72 82 73 26 1
+        else if (key == "spot-mob-generator" && tokens.size() >= 9) {
+            if (!is_number(tokens[1]) || !is_number(tokens[2]) ||
+                !is_number(tokens[3]) || !is_number(tokens[4]) ||
+                !is_number(tokens[5]) || !is_number(tokens[6]) ||
+                !is_number(tokens[7]) || !is_number(tokens[8])) continue;
+
+            spot_mob_generator smg{
+                .id = static_cast<int16_t>(std::stoi(tokens[1])),
+                .type = static_cast<int16_t>(std::stoi(tokens[2])),
+                .area = rect{
+                    static_cast<int16_t>(std::stoi(tokens[3])),  // x1
+                    static_cast<int16_t>(std::stoi(tokens[4])),  // y1
+                    static_cast<int16_t>(std::stoi(tokens[5])),  // x2
+                    static_cast<int16_t>(std::stoi(tokens[6]))   // y2
+                },
+                .npc_type = static_cast<int16_t>(std::stoi(tokens[7])),
+                .max_count = static_cast<int16_t>(std::stoi(tokens[8])),
+                .enabled = true
+            };
+            mob_spawners_.push_back(smg);
+            ++spawner_count;
+        }
+        // waypoint = num x y
+        else if (key == "waypoint" && tokens.size() >= 4) {
+            if (!is_number(tokens[1]) || !is_number(tokens[2]) || !is_number(tokens[3])) continue;
+
+            waypoint wp{
+                .id = static_cast<int16_t>(std::stoi(tokens[1])),
+                .x = static_cast<int16_t>(std::stoi(tokens[2])),
+                .y = static_cast<int16_t>(std::stoi(tokens[3]))
+            };
+            waypoints_[wp.id] = wp;
+            ++waypoint_count;
+        }
+        // maximum-object = count
+        else if (key == "maximum-object" && tokens.size() >= 2) {
+            // Store for reference but not currently used
+            if (is_number(tokens[1])) {
+                // config_.max_dynamic_objects = std::stoi(tokens[1]);
+            }
+        }
+        // fixed-day-mode = 1
+        else if (key == "fixed-day-mode" && tokens.size() >= 2) {
+            config_.is_fixed_day_mode = (tokens[1] == "1" || tokens[1] == "true");
+        }
+        // attack-mode = 0 (0 = disabled, 1 = enabled)
+        else if (key == "attack-mode" && tokens.size() >= 2) {
+            config_.is_attack_enabled = (tokens[1] != "0");
+        }
+    }
+
+    LOG_INFO(general, "Map {} config loaded: {} teleports, {} initial points, {} safe zones, {} spawners, {} waypoints",
+        config_.name, teleport_count, initial_point_count, safe_zone_count, spawner_count, waypoint_count);
+
+    return result<void, std::string>::ok();
+}
+
+auto map::get_initial_point(int16_t id) const -> std::optional<position> {
+    for (const auto& ip : initial_points_) {
+        if (ip.id == id) {
+            return position{ip.x, ip.y};
+        }
+    }
+    return std::nullopt;
+}
+
+auto map::get_random_initial_point() const -> std::optional<position> {
+    if (initial_points_.empty()) {
+        return std::nullopt;
+    }
+
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_int_distribution<size_t> dist(0, initial_points_.size() - 1);
+
+    const auto& ip = initial_points_[dist(gen)];
+    return position{ip.x, ip.y};
+}
+
+auto map::is_safe_zone(const position& pos) const -> bool {
+    auto* tile = get_static_tile(pos);
+    return tile && tile->is_safe_zone();
+}
+
+auto map::get_waypoint(int16_t id) const -> std::optional<position> {
+    auto it = waypoints_.find(id);
+    if (it != waypoints_.end()) {
+        return position{it->second.x, it->second.y};
+    }
+    return std::nullopt;
 }
 
 }  // namespace hb::world

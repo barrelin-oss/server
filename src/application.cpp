@@ -271,7 +271,8 @@ void application::initialize() {
             ws_server_.get(),
             &auth_sys,
             subsystems().get<player::player_system>(),
-            subsystems().get<world::world_subsystem>()
+            subsystems().get<world::world_subsystem>(),
+            subsystems().get<inventory::inventory_system>()
         );
 
         // Create and initialize game handlers

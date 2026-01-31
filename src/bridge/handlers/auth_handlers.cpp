@@ -7,7 +7,9 @@
 #include "bridge/handlers/auth_handlers.h"
 #include "network/websocket_server.h"
 #include "auth/auth_system.h"
+#include "auth/character_serialization.h"
 #include "player/player_system.h"
+#include "inventory/inventory_system.h"
 #include "world/world_subsystem.h"
 #include "world/map.h"
 #include "core/logger.h"
@@ -20,14 +22,17 @@ auth_handlers::~auth_handlers() = default;
 void auth_handlers::initialize(network::websocket_server* ws_server,
                                 auth::auth_system* auth,
                                 player::player_system* players,
-                                world::world_subsystem* world) {
+                                world::world_subsystem* world,
+                                inventory::inventory_system* inventory) {
     ws_server_ = ws_server;
     auth_ = auth;
     players_ = players;
     world_ = world;
-    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {})",
+    inventory_ = inventory;
+    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {})",
         players_ != nullptr ? "yes" : "no",
-        world_ != nullptr ? "yes" : "no");
+        world_ != nullptr ? "yes" : "no",
+        inventory_ != nullptr ? "yes" : "no");
 }
 
 void auth_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
@@ -145,6 +150,11 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
 
             // Remove player from system
             players_->remove_player(pid);
+        }
+
+        // Clean up inventory
+        if (inventory_) {
+            inventory_->destroy_inventory(entity_id{pid.value});
         }
     }
 
@@ -378,6 +388,51 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             player->hunger.level = static_cast<int8_t>(char_data.hunger_level);
             player->pk.count = char_data.pk_count;
 
+            // Deserialize and apply skills
+            if (!char_data.skills_data.empty()) {
+                player->skills = auth::deserialize_skills(char_data.skills_data);
+                LOG_DEBUG(bridge, "Loaded skills for player {}", live_player_id.value);
+            }
+
+            // Deserialize and apply equipment
+            if (!char_data.equipment_data.empty()) {
+                player->equipment = auth::deserialize_equipment(char_data.equipment_data);
+                LOG_DEBUG(bridge, "Loaded equipment for player {}", live_player_id.value);
+            }
+
+            // Create and populate inventory
+            if (inventory_) {
+                auto entity = entity_id{live_player_id.value};
+
+                // Create inventory for this player
+                inventory_->create_inventory(entity);
+
+                // Deserialize inventory from DB
+                if (!char_data.inventory_data.empty()) {
+                    auto* inv = inventory_->get_inventory(entity);
+                    if (inv) {
+                        auth::deserialize_inventory(char_data.inventory_data, *inv);
+                        LOG_DEBUG(bridge, "Loaded inventory for player {} ({} items)",
+                            live_player_id.value, inv->used_slots());
+                    }
+                }
+
+                // Create and populate bank
+                inventory_->create_bank(entity);
+                if (!char_data.bank_data.empty()) {
+                    auto* bank = inventory_->get_bank(entity);
+                    if (bank) {
+                        auth::deserialize_inventory(char_data.bank_data, *bank);
+                        LOG_DEBUG(bridge, "Loaded bank for player {} ({} items)",
+                            live_player_id.value, bank->used_slots());
+                    }
+                }
+
+                // Set gold from character data
+                inventory_->add_gold(entity, char_data.gold);
+                LOG_DEBUG(bridge, "Set gold for player {}: {}", live_player_id.value, char_data.gold);
+            }
+
             // Recalculate computed stats
             player->base.level_bonus = char_data.level;
             player->recalculate_stats();
@@ -414,6 +469,62 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     LOG_INFO(bridge, "Player {} (character '{}') entering game from account {}",
         live_player_id.value, char_data.name, conn->account().value);
 
+    // Build inventory data for network message
+    std::vector<network::inventory_item_msg> inventory_list;
+    int32_t player_gold = char_data.gold;
+    if (inventory_) {
+        auto entity = entity_id{live_player_id.value};
+        auto* inv = inventory_->get_inventory(entity);
+        if (inv) {
+            for (int16_t i = 0; i < inv->capacity(); ++i) {
+                const auto* slot = inv->get_slot(i);
+                if (slot && !slot->is_empty()) {
+                    inventory_list.push_back({
+                        .slot = static_cast<uint8_t>(i),
+                        .item_id = slot->item.value,
+                        .name = "",  // TODO: Get from item registry
+                        .count = slot->count
+                    });
+                }
+            }
+        }
+        player_gold = static_cast<int32_t>(inventory_->get_gold(entity));
+    }
+
+    // Build equipment data for network message
+    std::vector<network::equipment_item_msg> equipment_list;
+    if (players_) {
+        auto* player = players_->get_player(live_player_id);
+        if (player) {
+            for (size_t i = 0; i < player::equip_slot_count; ++i) {
+                const auto& item = player->equipment.slots[i];
+                if (!item.is_empty()) {
+                    equipment_list.push_back({
+                        .slot = static_cast<uint8_t>(i),
+                        .item_id = item.id.value,
+                        .name = "",  // TODO: Get from item registry
+                        .durability = static_cast<int16_t>(item.durability),
+                        .max_durability = static_cast<int16_t>(item.max_durability)
+                    });
+                }
+            }
+        }
+    }
+
+    // Build skills data for network message
+    std::vector<std::pair<uint8_t, int16_t>> skills_list;
+    if (players_) {
+        auto* player = players_->get_player(live_player_id);
+        if (player) {
+            for (size_t i = 0; i < skill::max_skills; ++i) {
+                const auto& sk = player->skills.skills[i];
+                if (sk.level > 0) {
+                    skills_list.emplace_back(static_cast<uint8_t>(i), sk.level);
+                }
+            }
+        }
+    }
+
     // Build full game state message
     network::game_state_msg game_state{
         .character = network::character_data_msg{
@@ -446,11 +557,11 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             .pk_count = char_data.pk_count,
             .hunger_level = char_data.hunger_level
         },
-        .inventory = {},  // TODO: Load from database
-        .equipment = {},  // TODO: Load from database
-        .skills = {},     // TODO: Load from database
+        .inventory = inventory_list,
+        .equipment = equipment_list,
+        .skills = skills_list,
         .entities = build_visible_entities(live_player_id),
-        .gold = char_data.gold
+        .gold = player_gold
     };
 
     // Send combined enter game response with full game state
@@ -459,6 +570,42 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
     LOG_DEBUG(bridge, "Sent game state to player {}: {} visible entities",
         live_player_id.value, game_state.entities.size());
+
+    // Notify nearby players of the new spawn
+    if (players_ && ws_server_) {
+        auto* player = players_->get_player(live_player_id);
+        if (player) {
+            constexpr int visibility_radius = 20;
+            auto nearby = players_->get_players_in_range(live_player_id, visibility_radius);
+
+            // Build spawn message for this player
+            auto spawn_entity = network::visible_entity_msg{
+                .entity_id = live_player_id.value,
+                .type = "player",
+                .name = player->name,
+                .x = player->pos.x,
+                .y = player->pos.y,
+                .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
+                .direction = static_cast<int16_t>(player->facing)
+            };
+            auto spawn_msg = network::make_entity_spawn(0, spawn_entity);
+
+            for (auto other_id : nearby) {
+                if (other_id == live_player_id) continue;
+
+                auto* other = players_->get_player(other_id);
+                if (!other || other->connection.value == 0) continue;
+
+                auto* other_conn = ws_server_->get_connection(other->connection);
+                if (other_conn && other_conn->is_open()) {
+                    other_conn->send(spawn_msg);
+                }
+            }
+
+            LOG_DEBUG(bridge, "Notified {} nearby players of spawn for {}",
+                nearby.size() > 0 ? nearby.size() - 1 : 0, player->name);
+        }
+    }
 }
 
 auto auth_handlers::build_visible_entities(player_id player_id)
@@ -558,6 +705,39 @@ void auth_handlers::save_player_state(player_id pid) {
         return;
     }
 
+    // Serialize skills and equipment
+    auto skills_json = auth::serialize_skills(player->skills);
+    auto equipment_json = auth::serialize_equipment(player->equipment);
+
+    // Serialize inventory, bank, and get gold
+    // Initialize with valid empty JSON arrays (PostgreSQL JSONB requires valid JSON, not empty strings)
+    std::string inventory_json = "[]";
+    std::string bank_json = "[]";
+    int32_t player_gold = 0;
+
+    if (inventory_) {
+        auto entity = entity_id{pid.value};
+
+        // Serialize inventory
+        auto* inv = inventory_->get_inventory(entity);
+        if (inv) {
+            inventory_json = auth::serialize_inventory(*inv);
+            LOG_DEBUG(bridge, "Saving inventory for player {} ({} items)",
+                pid.value, inv->used_slots());
+        }
+
+        // Serialize bank
+        auto* bank = inventory_->get_bank(entity);
+        if (bank) {
+            bank_json = auth::serialize_inventory(*bank);
+            LOG_DEBUG(bridge, "Saving bank for player {} ({} items)",
+                pid.value, bank->used_slots());
+        }
+
+        // Get gold
+        player_gold = static_cast<int32_t>(inventory_->get_gold(entity));
+    }
+
     // Build character data from current player state
     auth::character_full_data data{
         .id = pid,
@@ -577,7 +757,7 @@ void auth_handlers::save_player_state(player_id pid) {
         .max_mp = player->computed.max_mp,
         .sp = player->sp,
         .max_sp = player->computed.max_sp,
-        .gold = 0,  // TODO: Get from inventory system
+        .gold = player_gold,
         .strength = player->base.strength,
         .dexterity = player->base.dexterity,
         .vitality = player->base.vitality,
@@ -589,7 +769,11 @@ void auth_handlers::save_player_state(player_id pid) {
         .skin_color = 0,
         .underwear_color = 0,
         .pk_count = player->pk.count,
-        .hunger_level = player->hunger.level
+        .hunger_level = player->hunger.level,
+        .skills_data = skills_json,
+        .inventory_data = inventory_json,
+        .equipment_data = equipment_json,
+        .bank_data = bank_json
     };
 
     // Get map name
@@ -656,6 +840,11 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
 
         // Remove player from system
         players_->remove_player(pid);
+    }
+
+    // Clean up inventory
+    if (inventory_) {
+        inventory_->destroy_inventory(entity_id{pid.value});
     }
 
     LOG_INFO(bridge, "Player {} cleanup complete", pid.value);

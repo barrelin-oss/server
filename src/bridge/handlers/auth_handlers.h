@@ -23,6 +23,10 @@ namespace hb::world {
     class world_subsystem;
 }
 
+namespace hb::inventory {
+    class inventory_system;
+}
+
 namespace hb::bridge {
 
 // Authentication message handler
@@ -36,7 +40,8 @@ public:
     void initialize(network::websocket_server* ws_server,
                     auth::auth_system* auth,
                     player::player_system* players = nullptr,
-                    world::world_subsystem* world = nullptr);
+                    world::world_subsystem* world = nullptr,
+                    inventory::inventory_system* inventory = nullptr);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -78,6 +83,7 @@ private:
     auth::auth_system* auth_{nullptr};
     player::player_system* players_{nullptr};
     world::world_subsystem* world_{nullptr};
+    inventory::inventory_system* inventory_{nullptr};
 };
 
 }  // namespace hb::bridge

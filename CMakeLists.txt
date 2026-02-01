@@ -6,6 +6,11 @@ project(hgserver
     LANGUAGES CXX
 )
 
+# Output directories - all binaries go to bin/
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/bin)
+
 # Include our cmake modules
 include(cmake/compiler_settings.cmake)
 include(cmake/dependencies.cmake)
@@ -298,6 +303,28 @@ install(TARGETS hgserver
     RUNTIME DESTINATION bin
 )
 
-# Copy config files to build directory for testing
+# Copy config files to bin directory
 file(GLOB CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.cfg")
-file(COPY ${CONFIG_FILES} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CONFIG_FILES} DESTINATION ${CMAKE_SOURCE_DIR}/bin)
+
+# Copy DLLs to bin directory after build (Windows only)
+if(WIN32)
+    # Post-build command to copy DLLs from vcpkg
+    add_custom_command(TARGET hgserver POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:spdlog::spdlog>
+            ${CMAKE_SOURCE_DIR}/bin
+        COMMAND_EXPAND_LISTS
+    )
+
+    # Copy all required vcpkg DLLs
+    set(VCPKG_BIN_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin")
+    if(EXISTS ${VCPKG_BIN_DIR})
+        add_custom_command(TARGET hgserver POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${VCPKG_BIN_DIR}
+                ${CMAKE_SOURCE_DIR}/bin
+            COMMENT "Copying vcpkg DLLs to bin directory"
+        )
+    endif()
+endif()

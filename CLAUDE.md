@@ -11,6 +11,78 @@ This is a classic late-1990s/early-2000s MMO game server being modernized to C++
 
 ---
 
+## Building the Project
+
+### Prerequisites
+
+- **CMake** 3.20 or later
+- **Visual Studio 2022** (or another C++20-capable compiler)
+- **vcpkg** (for dependency management)
+
+### Quick Build (Windows)
+
+```bash
+# Configure (first time or after CMakeLists.txt changes)
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+# Build (Debug)
+cmake --build build --config Debug
+
+# Build (Release)
+cmake --build build --config Release
+```
+
+### Using MSBuild Directly
+
+After configuring with CMake:
+
+```bash
+# Build from the build directory
+msbuild build/hgserver.sln /p:Configuration=Debug /m
+
+# Or use the /build skill which does this automatically
+```
+
+### Output Location
+
+All binaries, DLLs, and config files are output to the `bin/` directory:
+
+```
+bin/
+├── hgserver.exe          # Main server executable
+├── hgserver_tests.exe    # Test executable
+├── *.dll                 # Required runtime DLLs
+└── *.cfg                 # Configuration files
+```
+
+### Running the Server
+
+```bash
+cd bin
+./hgserver.exe
+```
+
+### Running Tests
+
+```bash
+cd bin
+./hgserver_tests.exe
+```
+
+### Dependencies (via vcpkg)
+
+The following packages are installed automatically via vcpkg.json:
+- **spdlog** - Structured logging
+- **nlohmann-json** - JSON parsing
+- **libpqxx** - PostgreSQL client
+- **libsodium** - Cryptography (password hashing)
+- **ixwebsocket** - WebSocket server
+- **openssl** - TLS/SSL
+- **zlib** - Compression
+- **gtest** - Unit testing
+
+---
+
 ## Project Documentation
 
 **Always check these documents before starting work:**
@@ -913,40 +985,7 @@ src/
 
 ---
 
-## Coding Standards
-
-### Naming Conventions
-
-```cpp
-// Types: PascalCase
-class PlayerSystem;
-struct DamageResult;
-enum class ItemType;
-
-// Functions/Methods: camelCase
-void processMessage();
-int32_t calculateDamage();
-
-// Variables: camelCase
-int32_t playerCount;
-std::string playerName;
-
-// Member variables: m_ prefix
-int32_t m_health;
-std::string m_name;
-
-// Constants: SCREAMING_SNAKE_CASE
-constexpr auto MAX_PLAYERS = 2000;
-constexpr auto TICK_RATE_MS = 100;
-
-// Namespaces: lowercase
-namespace helbreath::combat { }
-
-// Files: PascalCase.h/cpp matching primary class
-PlayerSystem.h  // Contains class PlayerSystem
-```
-
-### File Organization
+## File Organization
 
 ```cpp
 // Header file structure
@@ -954,32 +993,29 @@ PlayerSystem.h  // Contains class PlayerSystem
 
 #include <standard_library>     // Standard library first
 #include <third_party/lib.h>   // Third-party second
-#include "project/Header.h"     // Project headers last
+#include "project/header.h"     // Project headers last
 
-namespace helbreath::subsystem {
+namespace hb::subsystem {
 
 // Forward declarations
-class OtherClass;
+class other_class;
 
 // Type aliases
-using PlayerId = uint32_t;
+using player_id = uint32_t;
 
 // Class declaration
-class MyClass {
+class my_class {
 public:
-    // Constructors/destructor
-    MyClass();
-    ~MyClass();
+    my_class();
+    ~my_class();
 
-    // Public interface
-    void publicMethod();
+    void public_method();
 
 private:
-    // Private members
-    int32_t m_member;
+    int32_t member;  // No m_ prefix
 };
 
-} // namespace helbreath::subsystem
+} // namespace hb::subsystem
 ```
 
 ### Documentation
@@ -989,8 +1025,7 @@ private:
 /// @param param1 Description of first parameter
 /// @param param2 Description of second parameter
 /// @return Description of return value
-/// @throws ExceptionType Description of when thrown
-Result<Item, ItemError> createItem(ItemTemplateId templateId, int32_t quantity);
+auto create_item(item_template_id template_id, int32_t quantity) -> result<item, std::string>;
 ```
 
 ---
@@ -1050,40 +1085,29 @@ Result<Item, ItemError> createItem(ItemTemplateId templateId, int32_t quantity);
 
 ## Build System (CMake)
 
-```cmake
-cmake_minimum_required(VERSION 3.20)
-project(HelbreathServer VERSION 3.0.0 LANGUAGES CXX)
+The project uses CMake with vcpkg for dependency management. Key files:
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+| File | Purpose |
+|------|---------|
+| `CMakeLists.txt` | Main build configuration |
+| `cmake/compiler_settings.cmake` | C++20 compiler flags |
+| `cmake/dependencies.cmake` | vcpkg package discovery |
+| `vcpkg.json` | Dependency manifest |
 
-# Dependencies
-find_package(fmt REQUIRED)
-find_package(spdlog REQUIRED)
-find_package(Catch2 REQUIRED)  # For testing
+### Build Targets
 
-# Main executable
-add_executable(hgserver
-    src/main.cpp
-    # ... source files
-)
+| Target | Description |
+|--------|-------------|
+| `hgserver` | Main server executable |
+| `hgserver_core` | Static library with all game logic |
+| `hgserver_tests` | Google Test executable |
 
-target_link_libraries(hgserver PRIVATE
-    fmt::fmt
-    spdlog::spdlog
-    ws2_32  # Windows sockets
-)
+### Output Directories
 
-# Tests
-add_executable(hgserver_tests
-    tests/main.cpp
-    # ... test files
-)
-
-target_link_libraries(hgserver_tests PRIVATE
-    Catch2::Catch2WithMain
-)
-```
+All outputs go to `bin/` for easy deployment:
+- Executables (Debug and Release)
+- Runtime DLLs (copied from vcpkg)
+- Configuration files
 
 ---
 
@@ -1092,26 +1116,26 @@ target_link_libraries(hgserver_tests PRIVATE
 Replace DEF_* macros with constexpr:
 
 ```cpp
-namespace helbreath::constants {
+namespace hb::constants {
 
 // Server limits
-constexpr auto MAX_CLIENTS = 2000;
-constexpr auto MAX_NPCS = 5000;
-constexpr auto MAX_MAPS = 100;
-constexpr auto MAX_ITEMS = 6000;
-constexpr auto MAX_GUILDS = 1000;
+inline constexpr auto max_clients = 2000;
+inline constexpr auto max_npcs = 5000;
+inline constexpr auto max_maps = 100;
+inline constexpr auto max_items = 6000;
+inline constexpr auto max_guilds = 1000;
 
 // Player limits
-constexpr auto MAX_LEVEL = 180;
-constexpr auto MAX_INVENTORY_SLOTS = 50;
-constexpr auto MAX_BANK_SLOTS = 200;
-constexpr auto MAX_EQUIPMENT_SLOTS = 15;
+inline constexpr auto max_level = 180;
+inline constexpr auto max_inventory_slots = 50;
+inline constexpr auto max_bank_slots = 200;
+inline constexpr auto max_equipment_slots = 15;
 
 // Game balance
-constexpr auto BASE_TICK_RATE_MS = 100;
-constexpr auto SAVE_INTERVAL_MS = 300000;  // 5 minutes
+inline constexpr auto base_tick_rate_ms = 100;
+inline constexpr auto save_interval_ms = 300000;  // 5 minutes
 
-} // namespace helbreath::constants
+} // namespace hb::constants
 ```
 
 ---

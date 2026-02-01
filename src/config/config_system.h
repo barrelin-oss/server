@@ -41,6 +41,10 @@ public:
     void on_config_changed(config_changed_callback callback);
 
 private:
+    // Config loading helpers
+    auto load_yaml_config(const std::filesystem::path& path) -> result<void, std::string>;
+    auto load_ini_config(const std::filesystem::path& path) -> result<void, std::string>;
+
     server_config server_config_;
     game_config game_config_;
     admin_config admin_config_;

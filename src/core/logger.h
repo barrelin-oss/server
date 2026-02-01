@@ -67,14 +67,27 @@ enum class log_category {
     }
 }
 
+// Parse log level from string
+inline auto parse_log_level(std::string_view level) -> spdlog::level::level_enum
+{
+    if (level == "trace") return spdlog::level::trace;
+    if (level == "debug") return spdlog::level::debug;
+    if (level == "info") return spdlog::level::info;
+    if (level == "warn" || level == "warning") return spdlog::level::warn;
+    if (level == "error" || level == "err") return spdlog::level::err;
+    if (level == "critical" || level == "fatal") return spdlog::level::critical;
+    if (level == "off" || level == "none") return spdlog::level::off;
+    return spdlog::level::info;  // default
+}
+
 // Logger configuration
 struct logger_config {
     std::filesystem::path log_directory = "logs";
     std::string log_file_name = "hgserver.log";
     size_t max_file_size = 10 * 1024 * 1024;  // 10 MB
     size_t max_files = 5;
-    spdlog::level::level_enum console_level = spdlog::level::info;
-    spdlog::level::level_enum file_level = spdlog::level::debug;
+    spdlog::level::level_enum console_level = spdlog::level::trace;
+    spdlog::level::level_enum file_level = spdlog::level::trace;
     bool enable_console = true;
     bool enable_file = true;
 };
@@ -84,6 +97,9 @@ class logger {
 public:
     // Initialize the logging system
     static void initialize(const logger_config& config = {});
+
+    // Reconfigure log levels (can be called after initialize)
+    static void set_levels(spdlog::level::level_enum console_level, spdlog::level::level_enum file_level);
 
     // Shutdown the logging system
     static void shutdown();

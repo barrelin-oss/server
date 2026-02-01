@@ -7,6 +7,9 @@ find_package(spdlog CONFIG REQUIRED)
 # nlohmann_json - JSON parsing for config files
 find_package(nlohmann_json CONFIG REQUIRED)
 
+# yaml-cpp - YAML parsing for config files
+find_package(yaml-cpp CONFIG REQUIRED)
+
 # GTest - unit testing framework
 find_package(GTest CONFIG REQUIRED)
 
@@ -42,6 +45,7 @@ endif()
 set(COMMON_LIBS
     spdlog::spdlog
     nlohmann_json::nlohmann_json
+    yaml-cpp::yaml-cpp
     libpqxx::pqxx
     unofficial-sodium::sodium
     ixwebsocket::ixwebsocket

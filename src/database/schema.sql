@@ -10,6 +10,12 @@
 --     ALTER COLUMN bank_data TYPE JSONB USING COALESCE(bank_data::text::jsonb, '[]'::jsonb),
 --     ALTER COLUMN quest_data TYPE JSONB USING COALESCE(quest_data::text::jsonb, '[]'::jsonb),
 --     ALTER COLUMN magic_data TYPE JSONB USING COALESCE(magic_data::text::jsonb, '[]'::jsonb);
+--
+-- MIGRATION: If upgrading pos_x/pos_y defaults from 0 to -1 (map initial point), run:
+--   ALTER TABLE characters ALTER COLUMN pos_x SET DEFAULT -1;
+--   ALTER TABLE characters ALTER COLUMN pos_y SET DEFAULT -1;
+--   -- Optionally reset existing characters at (0,0) to use initial spawn:
+--   -- UPDATE characters SET pos_x = -1, pos_y = -1 WHERE pos_x = 0 AND pos_y = 0;
 
 -- Enable UUID extension for session tokens
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -41,9 +47,10 @@ CREATE TABLE IF NOT EXISTS characters (
     gender          SMALLINT NOT NULL CHECK (gender >= 0 AND gender <= 1),
 
     -- Location
+    -- Note: pos_x/pos_y = -1 indicates "use map's initial spawn point"
     map_name        VARCHAR(32) DEFAULT 'default',
-    pos_x           SMALLINT DEFAULT 0,
-    pos_y           SMALLINT DEFAULT 0,
+    pos_x           SMALLINT DEFAULT -1,
+    pos_y           SMALLINT DEFAULT -1,
 
     -- Experience and progression
     experience      BIGINT DEFAULT 0 CHECK (experience >= 0),

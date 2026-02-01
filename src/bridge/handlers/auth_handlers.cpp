@@ -333,6 +333,62 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     LOG_DEBUG(bridge, "Enter game request for character {} by account {}",
         char_id.value, conn->account().value);
 
+    // Check if this account already has another connection in-game
+    auto* existing_conn = ws_server_->get_connection_by_account(conn->account());
+    if (existing_conn && existing_conn->id() != conn_id &&
+        existing_conn->state() == network::ws_connection_state::in_game)
+    {
+        if (!data.force_disconnect) {
+            // Reject with error - client should prompt user to force disconnect
+            LOG_INFO(bridge, "Account {} already in game from connection {}, rejecting new entry",
+                conn->account().value, existing_conn->id().value);
+
+            auto response = network::make_enter_game_response(
+                msg.seq, false, nullptr, "account_already_in_game");
+            conn->send(response);
+            return;
+        }
+
+        // Force disconnect the existing session
+        LOG_INFO(bridge, "Force disconnecting existing session {} for account {}",
+            existing_conn->id().value, conn->account().value);
+
+        // Save and clean up the existing player before disconnecting
+        auto existing_player_id = existing_conn->player();
+        if (existing_player_id.value != 0) {
+            save_player_state(existing_player_id);
+
+            // Notify nearby players of despawn
+            if (players_) {
+                auto* player = players_->get_player(existing_player_id);
+                if (player) {
+                    constexpr int visibility_radius = 20;
+                    auto nearby = players_->get_players_in_range(existing_player_id, visibility_radius);
+                    auto despawn_msg = network::make_entity_despawn(0, existing_player_id.value);
+
+                    for (auto other_id : nearby) {
+                        if (other_id == existing_player_id) continue;
+                        auto* other = players_->get_player(other_id);
+                        if (!other || other->connection.value == 0) continue;
+                        auto* other_conn = ws_server_->get_connection(other->connection);
+                        if (other_conn && other_conn->is_open()) {
+                            other_conn->send(despawn_msg);
+                        }
+                    }
+                }
+                players_->remove_player(existing_player_id);
+            }
+
+            // Clean up inventory
+            if (inventory_) {
+                inventory_->destroy_inventory(entity_id{existing_player_id.value});
+            }
+        }
+
+        // Disconnect the old connection
+        ws_server_->disconnect(existing_conn->id(), "Disconnected: Another session logged in");
+    }
+
     // Load full character data with ownership verification
     auto char_result = auth_->load_character_full(char_id, conn->account());
     if (char_result.is_err()) {
@@ -441,13 +497,42 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             if (world_) {
                 auto* target_map = world_->get_map_by_name(char_data.map_name);
                 if (!target_map) {
-                    // Try to get a default map
+                    // Try to get a default map (first loaded map)
                     world_->for_each_map([&target_map](map_id, world::map& m) {
                         if (!target_map) target_map = &m;
                     });
+                    if (target_map) {
+                        // Update map name to the actual map we're using
+                        char_data.map_name = std::string(target_map->name());
+                    }
                 }
                 if (target_map) {
                     world::position spawn_pos{char_data.pos_x, char_data.pos_y};
+
+                    // Check for invalid/default position marker (-1, -1)
+                    // This indicates the player should spawn at the map's initial point
+                    if (char_data.pos_x == -1 || char_data.pos_y == -1) {
+                        auto initial_pos = target_map->get_random_initial_point();
+                        if (initial_pos) {
+                            spawn_pos = *initial_pos;
+                            // Update char_data so the client receives correct position
+                            char_data.pos_x = spawn_pos.x;
+                            char_data.pos_y = spawn_pos.y;
+                            LOG_DEBUG(bridge, "Player {} using map initial point: ({}, {})",
+                                live_player_id.value, spawn_pos.x, spawn_pos.y);
+                        } else {
+                            // Fallback to center of map if no initial points defined
+                            spawn_pos = world::position{
+                                static_cast<int16_t>(target_map->width() / 2),
+                                static_cast<int16_t>(target_map->height() / 2)
+                            };
+                            char_data.pos_x = spawn_pos.x;
+                            char_data.pos_y = spawn_pos.y;
+                            LOG_WARN(bridge, "Map '{}' has no initial points, using center: ({}, {})",
+                                target_map->name(), spawn_pos.x, spawn_pos.y);
+                        }
+                    }
+
                     players_->set_position(live_player_id, target_map->id(),
                         spawn_pos, world::direction::south);
                 }

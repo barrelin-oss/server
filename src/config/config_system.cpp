@@ -7,6 +7,7 @@
 #include "core/event_bus.h"
 
 #include <nlohmann/json.hpp>
+#include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -16,6 +17,20 @@ namespace hb {
 
 namespace {
 
+// Helper to safely get YAML values with defaults
+template<typename T>
+auto yaml_get(const YAML::Node& node, const std::string& key, T default_value) -> T
+{
+    if (node[key]) {
+        try {
+            return node[key].as<T>();
+        } catch (...) {
+            return default_value;
+        }
+    }
+    return default_value;
+}
+
 // Trim whitespace from string
 auto trim(std::string_view str) -> std::string {
     auto start = str.find_first_not_of(" \t\n\r");
@@ -24,7 +39,7 @@ auto trim(std::string_view str) -> std::string {
     return std::string(str.substr(start, end - start + 1));
 }
 
-// Parse INI-style config file (key = value format)
+// Parse INI-style config file (legacy format, key = value)
 auto parse_ini_file(const std::filesystem::path& path)
     -> result<std::unordered_map<std::string, std::string>, std::string>
 {
@@ -90,6 +105,112 @@ auto config_system::load_server_config(const std::filesystem::path& path)
 {
     LOG_INFO(config, "Loading server config from: {}", path.string());
 
+    // Check file extension to determine format
+    auto ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+
+    if (ext == ".yaml" || ext == ".yml") {
+        return load_yaml_config(path);
+    }
+
+    // Legacy INI format
+    return load_ini_config(path);
+}
+
+auto config_system::load_yaml_config(const std::filesystem::path& path)
+    -> result<void, std::string>
+{
+    try {
+        YAML::Node config = YAML::LoadFile(path.string());
+
+        // Server section
+        if (auto server = config["server"]) {
+            server_config_.server_name = yaml_get<std::string>(server, "name", "HGServer");
+            server_config_.game_server_port = yaml_get<uint16_t>(server, "port", 2848);
+            server_config_.game_server_mode = yaml_get<int>(server, "mode", 0);
+        }
+
+        // Self-contained mode
+        server_config_.self_contained = yaml_get<bool>(config, "self_contained", true);
+
+        // Database section
+        if (auto db = config["database"]) {
+            server_config_.database.host = yaml_get<std::string>(db, "host", "localhost");
+            server_config_.database.port = yaml_get<uint16_t>(db, "port", 5432);
+            server_config_.database.database = yaml_get<std::string>(db, "name", "helbreath");
+            server_config_.database.username = yaml_get<std::string>(db, "user", "hgserver");
+            server_config_.database.password = yaml_get<std::string>(db, "password", "");
+            server_config_.database.pool_size = yaml_get<uint32_t>(db, "pool_size", 10);
+        }
+
+        // WebSocket section
+        if (auto ws = config["websocket"]) {
+            server_config_.websocket.bind_address = yaml_get<std::string>(ws, "bind", "0.0.0.0");
+            server_config_.websocket.port = yaml_get<uint16_t>(ws, "port", 2848);
+            server_config_.websocket.max_connections = yaml_get<int>(ws, "max_connections", 2000);
+        }
+
+        // Auth section
+        if (auto auth = config["auth"]) {
+            server_config_.auth.max_characters_per_account = yaml_get<uint32_t>(auth, "max_characters", 4);
+            server_config_.auth.allow_registration = yaml_get<bool>(auth, "allow_registration", true);
+            server_config_.auth.session_duration = std::chrono::seconds{
+                yaml_get<int>(auth, "session_timeout", 3600)};
+        }
+
+        // Logging section
+        if (auto logging = config["logging"]) {
+            server_config_.logging.console_level = yaml_get<std::string>(logging, "console_level", "trace");
+            server_config_.logging.file_level = yaml_get<std::string>(logging, "file_level", "trace");
+            server_config_.logging.log_directory = yaml_get<std::string>(logging, "directory", "logs");
+            server_config_.logging.log_file = yaml_get<std::string>(logging, "file", "hgserver.log");
+            server_config_.logging.max_file_size_mb = yaml_get<uint32_t>(logging, "max_size_mb", 10);
+            server_config_.logging.max_files = yaml_get<uint32_t>(logging, "max_files", 3);
+        }
+
+        // Legacy protocol section
+        if (auto legacy = config["legacy"]) {
+            server_config_.enable_legacy_protocol = yaml_get<bool>(legacy, "enabled", false);
+            server_config_.legacy_port = yaml_get<uint16_t>(legacy, "port", 2849);
+        }
+
+        // External servers section (legacy)
+        if (auto ext = config["external_servers"]) {
+            if (auto log_srv = ext["log_server"]) {
+                server_config_.log_server_addr = yaml_get<std::string>(log_srv, "address", "127.0.0.1");
+                server_config_.log_server_port = yaml_get<uint16_t>(log_srv, "port", 3000);
+            }
+            if (auto gate_srv = ext["gate_server"]) {
+                server_config_.gate_server_addr = yaml_get<std::string>(gate_srv, "address", "127.0.0.1");
+                server_config_.gate_server_port = yaml_get<uint16_t>(gate_srv, "port", 4000);
+            }
+        }
+
+        server_config_path_ = path;
+
+        LOG_INFO(config, "Server config loaded (YAML): name={}, port={}, self_contained={}",
+            server_config_.server_name, server_config_.game_server_port, server_config_.self_contained);
+
+        // Publish config loaded event
+        event_bus().publish(events::config_loaded_event{
+            .config_path = path.string(),
+            .success = true,
+            .error_message = ""
+        });
+
+        return result<void, std::string>::ok();
+
+    } catch (const YAML::Exception& e) {
+        return result<void, std::string>::err(std::string("YAML parse error: ") + e.what());
+    } catch (const std::exception& e) {
+        return result<void, std::string>::err(std::string("Config load error: ") + e.what());
+    }
+}
+
+auto config_system::load_ini_config(const std::filesystem::path& path)
+    -> result<void, std::string>
+{
     auto parse_result = parse_ini_file(path);
     if (parse_result.is_err()) {
         return result<void, std::string>::err(parse_result.error());
@@ -175,9 +296,29 @@ auto config_system::load_server_config(const std::filesystem::path& path)
         server_config_.legacy_port = static_cast<uint16_t>(std::stoi(it->second));
     }
 
+    // Logging configuration
+    if (auto it = config.find("log-console-level"); it != config.end()) {
+        server_config_.logging.console_level = it->second;
+    }
+    if (auto it = config.find("log-file-level"); it != config.end()) {
+        server_config_.logging.file_level = it->second;
+    }
+    if (auto it = config.find("log-directory"); it != config.end()) {
+        server_config_.logging.log_directory = it->second;
+    }
+    if (auto it = config.find("log-file"); it != config.end()) {
+        server_config_.logging.log_file = it->second;
+    }
+    if (auto it = config.find("log-max-size-mb"); it != config.end()) {
+        server_config_.logging.max_file_size_mb = static_cast<uint32_t>(std::stoi(it->second));
+    }
+    if (auto it = config.find("log-max-files"); it != config.end()) {
+        server_config_.logging.max_files = static_cast<uint32_t>(std::stoi(it->second));
+    }
+
     server_config_path_ = path;
 
-    LOG_INFO(config, "Server config loaded: name={}, port={}, self_contained={}",
+    LOG_INFO(config, "Server config loaded (INI): name={}, port={}, self_contained={}",
         server_config_.server_name, server_config_.game_server_port, server_config_.self_contained);
 
     // Publish config loaded event

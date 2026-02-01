@@ -329,12 +329,13 @@ if(WIN32)
         COMMAND_EXPAND_LISTS
     )
 
-    # Copy all required vcpkg DLLs
+    # Copy all required vcpkg DLLs (use debug DLLs for Debug builds)
     set(VCPKG_BIN_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin")
+    set(VCPKG_DEBUG_BIN_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/debug/bin")
     if(EXISTS ${VCPKG_BIN_DIR})
         add_custom_command(TARGET hgserver POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${VCPKG_BIN_DIR}
+                $<IF:$<CONFIG:Debug>,${VCPKG_DEBUG_BIN_DIR},${VCPKG_BIN_DIR}>
                 ${CMAKE_SOURCE_DIR}/bin
             COMMENT "Copying vcpkg DLLs to bin directory"
         )

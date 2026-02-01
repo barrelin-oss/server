@@ -27,7 +27,7 @@ namespace bridge {
 
 // Application configuration
 struct application_config {
-    std::string config_file = "GServer.cfg";
+    std::string config_file = "server.yaml";
     uint32_t tick_interval_ms = 100; // Game tick interval
 };
 
@@ -67,6 +67,10 @@ private:
     void initialize();
     void main_loop();
     void shutdown();
+
+    // Initialization helpers
+    void load_maps();
+    void load_game_configs();
 
     // Timer callback
     void on_tick();

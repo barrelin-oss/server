@@ -106,8 +106,15 @@ public:
     // Load from file
     auto load_from_file(const std::filesystem::path& path) -> result<void, std::string>;
 
-    // Load configuration file (.txt) with teleports, spawn points, etc.
+    // Load configuration file with teleports, spawn points, etc.
+    // Tries .yaml first, falls back to .txt
     auto load_config_file(const std::filesystem::path& path) -> result<void, std::string>;
+
+    // Load YAML format config
+    auto load_config_yaml(const std::filesystem::path& path) -> result<void, std::string>;
+
+    // Load legacy TXT format config
+    auto load_config_txt(const std::filesystem::path& path) -> result<void, std::string>;
 
     // Identity
     [[nodiscard]] auto id() const -> map_id { return id_; }

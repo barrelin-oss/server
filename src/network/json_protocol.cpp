@@ -269,6 +269,11 @@ auto enter_game_request_data::from_json(const nlohmann::json& j)
         }
         data.character_id = j["character_id"].get<uint32_t>();
 
+        // Optional: force_disconnect to kick existing session
+        if (j.contains("force_disconnect") && j["force_disconnect"].is_boolean()) {
+            data.force_disconnect = j["force_disconnect"].get<bool>();
+        }
+
         return result<enter_game_request_data, std::string>::ok(std::move(data));
 
     } catch (const nlohmann::json::exception& e) {

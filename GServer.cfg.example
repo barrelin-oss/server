@@ -31,6 +31,15 @@ session-timeout = 3600
 enable-legacy-protocol = false
 legacy-port = 2849
 
+# Logging Configuration
+# Levels: trace, debug, info, warn, error, critical, off
+log-console-level = trace
+log-file-level = trace
+log-directory = logs
+log-file = hgserver.log
+log-max-size-mb = 10
+log-max-files = 3
+
 # Legacy External Servers (only used if self-contained = false)
 log-server-address = 127.0.0.1
 log-server-port = 3000

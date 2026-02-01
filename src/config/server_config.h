@@ -44,6 +44,16 @@ struct auth_config {
     std::chrono::seconds lockout_duration{300};       // 5 minutes
 };
 
+// Logging configuration
+struct logging_config {
+    std::string console_level = "trace";  // trace, debug, info, warn, error, critical, off
+    std::string file_level = "trace";
+    std::string log_directory = "logs";
+    std::string log_file = "hgserver.log";
+    uint32_t max_file_size_mb = 10;
+    uint32_t max_files = 3;
+};
+
 // Main server configuration
 struct server_config {
     // Server identity
@@ -75,6 +85,9 @@ struct server_config {
 
     // Authentication configuration
     auth_config auth;
+
+    // Logging configuration
+    logging_config logging;
 
     // Enable legacy protocol (for backwards compatibility)
     bool enable_legacy_protocol = false;

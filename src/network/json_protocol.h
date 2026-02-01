@@ -211,6 +211,7 @@ struct delete_character_request_data {
 
 struct enter_game_request_data {
     uint32_t character_id{0};
+    bool force_disconnect{false};  // If true, disconnect existing session for this account
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<enter_game_request_data, std::string>;
 };

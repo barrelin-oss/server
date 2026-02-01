@@ -1,0 +1,65 @@
+# Helbreath Game Server Configuration
+# Copy this file to server.yaml and edit as needed
+
+# Server Identity
+server:
+  name: HGServer
+  port: 2848
+  mode: 0
+
+# Self-Contained Mode (uses built-in auth with PostgreSQL)
+# Set to true to use integrated auth, false for legacy external auth servers
+self_contained: true
+
+# Database Configuration (required for self-contained mode)
+database:
+  host: localhost
+  port: 5432
+  name: helbreath
+  user: hgserver
+  password: your_password_here
+  pool_size: 10
+
+# WebSocket Configuration (for self-contained mode)
+websocket:
+  bind: 0.0.0.0
+  port: 2848
+  max_connections: 2000
+
+# Authentication Settings
+auth:
+  max_characters: 4
+  allow_registration: true
+  session_timeout: 3600
+
+# Logging Configuration
+# Levels: trace, debug, info, warn, error, critical, off
+logging:
+  console_level: trace
+  file_level: trace
+  directory: logs
+  file: hgserver.log
+  max_size_mb: 10
+  max_files: 3
+
+# Legacy Protocol (optional - for backwards compatibility with old clients)
+legacy:
+  enabled: false
+  port: 2849
+
+# Legacy External Servers (only used if self_contained: false)
+external_servers:
+  log_server:
+    address: 127.0.0.1
+    port: 3000
+  gate_server:
+    address: 127.0.0.1
+    port: 4000
+
+# Maps to load
+maps:
+  - bisle
+  - default
+  - middleland
+  - elvine
+  - aresden

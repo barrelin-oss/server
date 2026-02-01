@@ -883,6 +883,7 @@ auto auth_system::db_get_account_by_username(std::string_view username)
     -> result<account, auth_error>
 {
     if (!database_) {
+        LOG_ERROR(auth, "db_get_account_by_username: database_ is null!");
         return result<account, auth_error>::err(auth_error::database_error);
     }
 
@@ -893,6 +894,8 @@ auto auth_system::db_get_account_by_username(std::string_view username)
         lower_username += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
 
+    LOG_DEBUG(auth, "db_get_account_by_username: looking up '{}'", lower_username);
+
     auto db_result = database_->execute_params(
         R"(SELECT id, username, password_hash, admin_level, is_banned, ban_reason, created_at, last_login
            FROM accounts WHERE username = $1)",
@@ -900,10 +903,12 @@ auto auth_system::db_get_account_by_username(std::string_view username)
     );
 
     if (db_result.is_err()) {
+        LOG_ERROR(auth, "db_get_account_by_username: query failed: {}", db_result.error());
         return result<account, auth_error>::err(auth_error::database_error);
     }
 
     if (db_result.value().empty()) {
+        LOG_DEBUG(auth, "db_get_account_by_username: no rows returned for '{}'", lower_username);
         return result<account, auth_error>::err(auth_error::invalid_credentials);
     }
 

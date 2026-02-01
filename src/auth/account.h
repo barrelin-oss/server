@@ -139,6 +139,7 @@ enum class auth_error {
     character_not_owned,
     session_expired,
     session_not_found,
+    account_already_in_game,
     internal_error
 };
 
@@ -159,6 +160,7 @@ enum class auth_error {
         case auth_error::character_not_owned: return "character_not_owned";
         case auth_error::session_expired: return "session_expired";
         case auth_error::session_not_found: return "session_not_found";
+        case auth_error::account_already_in_game: return "account_already_in_game";
         case auth_error::internal_error: return "internal_error";
         default: return "unknown";
     }

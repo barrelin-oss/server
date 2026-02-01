@@ -4,6 +4,8 @@
 #include "world/map.h"
 #include "core/logger.h"
 
+#include <yaml-cpp/yaml.h>
+
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -313,6 +315,164 @@ static auto tokenize(const std::string& line) -> std::vector<std::string> {
 }
 
 auto map::load_config_file(const std::filesystem::path& path) -> result<void, std::string> {
+    // Try YAML first (preferred format)
+    auto yaml_path = path;
+    yaml_path.replace_extension(".yaml");
+
+    if (std::filesystem::exists(yaml_path)) {
+        return load_config_yaml(yaml_path);
+    }
+
+    // Fallback to legacy TXT format
+    auto txt_path = path;
+    txt_path.replace_extension(".txt");
+
+    // Try both lowercase and original case for TXT (some files have .TXT)
+    if (std::filesystem::exists(txt_path)) {
+        return load_config_txt(txt_path);
+    }
+
+    // Try with uppercase extension
+    txt_path.replace_extension(".TXT");
+    if (std::filesystem::exists(txt_path)) {
+        return load_config_txt(txt_path);
+    }
+
+    // No config file found - that's ok, config is optional
+    LOG_DEBUG(general, "No config file for map {}: tried .yaml and .txt", config_.name);
+    return result<void, std::string>::ok();
+}
+
+auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, std::string> {
+    LOG_DEBUG(general, "Loading map config (YAML): {}", path.string());
+
+    try {
+        YAML::Node root = YAML::LoadFile(path.string());
+
+        // Auto-detect map properties from name (like legacy code)
+        if (config_.name.find("fightzone") == 0) {
+            config_.is_fight_zone = true;
+        }
+        if (config_.name == "icebound") {
+            config_.is_snow_enabled = true;
+        }
+
+        // Basic properties
+        if (root["name"]) {
+            config_.location_name = root["name"].as<std::string>();
+        }
+        if (root["upper_level_limit"]) {
+            config_.upper_level_limit = root["upper_level_limit"].as<int>();
+        }
+        if (root["level_limit"]) {
+            config_.level_limit = root["level_limit"].as<int>();
+        }
+        if (root["fixed_day_mode"]) {
+            config_.is_fixed_day_mode = root["fixed_day_mode"].as<bool>();
+        }
+        if (root["attack_enabled"]) {
+            config_.is_attack_enabled = root["attack_enabled"].as<bool>();
+        }
+
+        // Initial points
+        if (root["initial_points"]) {
+            for (const auto& node : root["initial_points"]) {
+                initial_point ip{
+                    .id = static_cast<int16_t>(node["id"].as<int>()),
+                    .x = static_cast<int16_t>(node["x"].as<int>()),
+                    .y = static_cast<int16_t>(node["y"].as<int>())
+                };
+                initial_points_.push_back(ip);
+            }
+        }
+
+        // Safe zones
+        if (root["safe_zones"]) {
+            for (const auto& node : root["safe_zones"]) {
+                safe_zone sz{
+                    .area = rect{
+                        static_cast<int16_t>(node["left"].as<int>()),
+                        static_cast<int16_t>(node["top"].as<int>()),
+                        static_cast<int16_t>(node["right"].as<int>()),
+                        static_cast<int16_t>(node["bottom"].as<int>())
+                    }
+                };
+                safe_zones_.push_back(sz);
+
+                // Mark tiles with safe zone flag
+                for (int16_t y = sz.area.min_y; y <= sz.area.max_y; ++y) {
+                    for (int16_t x = sz.area.min_x; x <= sz.area.max_x; ++x) {
+                        if (is_valid_position(x, y)) {
+                            auto& tile = static_tiles_[tile_index(x, y)];
+                            tile.flags = tile.flags | tile_flags::is_safe_zone;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Mob spawners
+        if (root["spawners"]) {
+            for (const auto& node : root["spawners"]) {
+                spot_mob_generator smg{
+                    .id = static_cast<int16_t>(node["id"].as<int>()),
+                    .type = static_cast<int16_t>(node["type"].as<int>()),
+                    .area = rect{
+                        static_cast<int16_t>(node["x1"].as<int>()),
+                        static_cast<int16_t>(node["y1"].as<int>()),
+                        static_cast<int16_t>(node["x2"].as<int>()),
+                        static_cast<int16_t>(node["y2"].as<int>())
+                    },
+                    .npc_type = static_cast<int16_t>(node["npc_type"].as<int>()),
+                    .max_count = static_cast<int16_t>(node["max_count"].as<int>()),
+                    .enabled = true
+                };
+                mob_spawners_.push_back(smg);
+            }
+        }
+
+        // Waypoints
+        if (root["waypoints"]) {
+            for (const auto& node : root["waypoints"]) {
+                waypoint wp{
+                    .id = static_cast<int16_t>(node["id"].as<int>()),
+                    .x = static_cast<int16_t>(node["x"].as<int>()),
+                    .y = static_cast<int16_t>(node["y"].as<int>())
+                };
+                waypoints_[wp.id] = wp;
+            }
+        }
+
+        // Teleports
+        if (root["teleports"]) {
+            for (const auto& node : root["teleports"]) {
+                position src{
+                    static_cast<int16_t>(node["src_x"].as<int>()),
+                    static_cast<int16_t>(node["src_y"].as<int>())
+                };
+                teleport_dest dest{
+                    .dest_map = node["dest_map"].as<std::string>(),
+                    .dest_x = static_cast<int16_t>(node["dest_x"].as<int>()),
+                    .dest_y = static_cast<int16_t>(node["dest_y"].as<int>()),
+                    .dest_dir = static_cast<direction>(node["direction"].as<int>())
+                };
+                add_teleport(src, dest);
+            }
+        }
+
+        LOG_INFO(general, "Map {} config loaded (YAML): {} initial points, {} safe zones, {} spawners, {} teleports",
+            config_.name, initial_points_.size(), safe_zones_.size(), mob_spawners_.size(), teleports_.size());
+
+        return result<void, std::string>::ok();
+
+    } catch (const YAML::Exception& e) {
+        return result<void, std::string>::err("YAML parse error: " + std::string(e.what()));
+    } catch (const std::exception& e) {
+        return result<void, std::string>::err("Error loading YAML config: " + std::string(e.what()));
+    }
+}
+
+auto map::load_config_txt(const std::filesystem::path& path) -> result<void, std::string> {
     if (!std::filesystem::exists(path)) {
         // Config file is optional - not an error if missing
         LOG_DEBUG(general, "No config file for map {}: {}", config_.name, path.string());
@@ -324,7 +484,7 @@ auto map::load_config_file(const std::filesystem::path& path) -> result<void, st
         return result<void, std::string>::err("Failed to open config file: " + path.string());
     }
 
-    LOG_DEBUG(general, "Loading map config: {}", path.string());
+    LOG_DEBUG(general, "Loading map config (TXT): {}", path.string());
 
     // Auto-detect map properties from name (like legacy code)
     if (config_.name.find("fightzone") == 0) {
@@ -484,7 +644,7 @@ auto map::load_config_file(const std::filesystem::path& path) -> result<void, st
         }
     }
 
-    LOG_INFO(general, "Map {} config loaded: {} teleports, {} initial points, {} safe zones, {} spawners, {} waypoints",
+    LOG_INFO(general, "Map {} config loaded (TXT): {} teleports, {} initial points, {} safe zones, {} spawners, {} waypoints",
         config_.name, teleport_count, initial_point_count, safe_zone_count, spawner_count, waypoint_count);
 
     return result<void, std::string>::ok();

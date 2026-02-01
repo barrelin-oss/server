@@ -23,13 +23,17 @@ namespace {
 std::array<std::shared_ptr<spdlog::logger>, 17> category_loggers;
 std::once_flag init_flag;
 
+// Sink storage for reconfiguration
+std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> console_sink;
+std::shared_ptr<spdlog::sinks::rotating_file_sink_mt> file_sink;
+
 // Create sinks based on configuration
 auto create_sinks(const logger_config& config) -> std::vector<spdlog::sink_ptr> {
     std::vector<spdlog::sink_ptr> sinks;
 
     // Console sink with colors
     if (config.enable_console) {
-        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
         console_sink->set_level(config.console_level);
         console_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%n] %v");
         sinks.push_back(console_sink);
@@ -43,7 +47,7 @@ auto create_sinks(const logger_config& config) -> std::vector<spdlog::sink_ptr> 
         }
 
         auto log_path = config.log_directory / config.log_file_name;
-        auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+        file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
             log_path.string(),
             config.max_file_size,
             config.max_files
@@ -113,6 +117,18 @@ void logger::shutdown() {
         spdlog::shutdown();
         initialized_ = false;
     }
+}
+
+void logger::set_levels(spdlog::level::level_enum console_level, spdlog::level::level_enum file_level) {
+    if (console_sink) {
+        console_sink->set_level(console_level);
+    }
+    if (file_sink) {
+        file_sink->set_level(file_level);
+    }
+    LOG_INFO(general, "Log levels updated: console={}, file={}",
+        spdlog::level::to_string_view(console_level),
+        spdlog::level::to_string_view(file_level));
 }
 
 auto logger::get(log_category category) -> std::shared_ptr<spdlog::logger> {

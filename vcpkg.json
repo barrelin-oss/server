@@ -9,6 +9,7 @@
     "libsodium",
     "libpqxx",
     "nlohmann-json",
+    "yaml-cpp",
     "spdlog",
     "gtest",
     "ixwebsocket"

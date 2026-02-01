@@ -119,13 +119,23 @@ auto application::parse_args(int argc, char* argv[]) -> bool {
                 std::cerr << "Error: " << result.error() << std::endl;
             }
             std::exit(result.is_ok() ? 0 : 1);
+        } else if (arg == "--verify-password" && i + 2 < argc) {
+            // Utility mode: verify a password against a hash
+            std::string password = argv[++i];
+            std::string hash = argv[++i];
+            std::cout << "Password: '" << password << "' (len=" << password.size() << ")\n";
+            std::cout << "Hash: '" << hash << "' (len=" << hash.size() << ")\n";
+            bool result = auth::verify_password(password, hash);
+            std::cout << "Result: " << (result ? "MATCH" : "NO MATCH") << std::endl;
+            std::exit(result ? 0 : 1);
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "Helbreath Game Server\n"
                       << "Usage: hgserver [options]\n"
                       << "Options:\n"
-                      << "  --config <file>      Configuration file (default: GServer.cfg)\n"
-                      << "  --hash-password <pw> Hash a password and exit (for SQL insertion)\n"
-                      << "  --help, -h           Show this help message\n";
+                      << "  --config <file>            Configuration file (default: server.yaml)\n"
+                      << "  --hash-password <pw>       Hash a password and exit (for SQL insertion)\n"
+                      << "  --verify-password <pw> <hash>  Verify a password against a hash\n"
+                      << "  --help, -h                 Show this help message\n";
             return false;
         }
     }
@@ -134,10 +144,10 @@ auto application::parse_args(int argc, char* argv[]) -> bool {
 }
 
 void application::initialize() {
-    // Initialize logging first
+    // Initialize logging first with trace level (will be reconfigured after config load)
     logger_config log_config;
-    log_config.console_level = spdlog::level::info;
-    log_config.file_level = spdlog::level::debug;
+    log_config.console_level = spdlog::level::trace;
+    log_config.file_level = spdlog::level::trace;
     logger::initialize(log_config);
 
     LOG_INFO(general, "===========================================");
@@ -199,6 +209,12 @@ void application::initialize() {
 
     // Configure subsystems that need config BEFORE initialize_all()
     auto& server_cfg = config_sys.server();
+
+    // Apply logging configuration
+    logger::set_levels(
+        parse_log_level(server_cfg.logging.console_level),
+        parse_log_level(server_cfg.logging.file_level)
+    );
     if (server_cfg.self_contained) {
         LOG_INFO(general, "Self-contained auth mode enabled");
 
@@ -232,6 +248,12 @@ void application::initialize() {
 
     // NOW initialize subsystems (database will use the configured settings)
     subsystems().initialize_all();
+
+    // Load game maps from mapdata directory
+    load_maps();
+
+    // Load game configuration files (items, NPCs, magic, etc.)
+    load_game_configs();
 
     // Initialize protocol bridge and register wave handlers
     LOG_INFO(general, "Initializing protocol bridge...");
@@ -432,6 +454,83 @@ void application::shutdown() {
     logger::shutdown();
 
     initialized_ = false;
+}
+
+void application::load_maps() {
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (!world) {
+        LOG_ERROR(general, "Cannot load maps: world subsystem not available");
+        return;
+    }
+
+    // Look for mapdata directory
+    std::filesystem::path mapdata_dir = "mapdata";
+    if (!std::filesystem::exists(mapdata_dir)) {
+        LOG_WARN(general, "Map data directory not found: {}", mapdata_dir.string());
+        return;
+    }
+
+    LOG_INFO(general, "Loading maps from: {}", std::filesystem::absolute(mapdata_dir).string());
+
+    int loaded_count = 0;
+    int failed_count = 0;
+
+    for (const auto& entry : std::filesystem::directory_iterator(mapdata_dir)) {
+        if (!entry.is_regular_file()) continue;
+
+        auto path = entry.path();
+        if (path.extension() != ".amd") continue;
+
+        auto result = world->load_map(path);
+        if (result.is_ok()) {
+            ++loaded_count;
+        } else {
+            LOG_WARN(general, "Failed to load map '{}': {}", path.filename().string(), result.error());
+            ++failed_count;
+        }
+    }
+
+    LOG_INFO(general, "Map loading complete: {} loaded, {} failed", loaded_count, failed_count);
+}
+
+void application::load_game_configs() {
+    std::filesystem::path config_dir = "GameConfigs";
+    if (!std::filesystem::exists(config_dir)) {
+        LOG_WARN(general, "GameConfigs directory not found: {}", config_dir.string());
+        return;
+    }
+
+    LOG_INFO(general, "Loading game configs from: {}", std::filesystem::absolute(config_dir).string());
+
+    // Load item definitions
+    auto* items = subsystems().get<item_registry>();
+    if (items) {
+        // Try YAML first, then legacy .cfg
+        auto items_yaml = config_dir / "items.yaml";
+        auto items_cfg = config_dir / "Item.cfg";
+
+        if (std::filesystem::exists(items_yaml)) {
+            auto result = items->load_from_file(items_yaml);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} items from items.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load items.yaml: {}", result.error());
+            }
+        } else if (std::filesystem::exists(items_cfg)) {
+            auto result = items->load_from_file(items_cfg);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} items from Item.cfg", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load Item.cfg: {}", result.error());
+            }
+        } else {
+            LOG_WARN(general, "No item config found (items.yaml or Item.cfg)");
+        }
+    }
+
+    // TODO: Load NPC definitions from npcs.yaml or NPC.cfg
+    // TODO: Load magic definitions from magic.yaml or Magic.cfg
+    // TODO: Load skill definitions from skills.yaml or Skill.cfg
 }
 
 void application::on_tick() {

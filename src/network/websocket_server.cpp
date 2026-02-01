@@ -15,9 +15,12 @@ ws_connection::ws_connection(connection_id id, std::shared_ptr<ix::WebSocket> so
 }
 
 ws_connection::~ws_connection() {
-    if (socket_ && is_open()) {
-        socket_->close();
-    }
+    // Don't call socket_->close() here - it causes deadlock when the destructor
+    // is called from within the IXWebSocket Close callback. The socket is already
+    // closing in that case, and calling close() re-entrantly triggers a deadlock.
+    //
+    // We don't own the socket anyway (note the no-op deleter on line 124), so
+    // just let it go. The close() method exists for explicit disconnection.
 }
 
 void ws_connection::set_state(ws_connection_state state) {

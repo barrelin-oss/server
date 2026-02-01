@@ -52,8 +52,15 @@ bin/
 ├── hgserver.exe          # Main server executable
 ├── hgserver_tests.exe    # Test executable
 ├── *.dll                 # Required runtime DLLs
-└── *.cfg                 # Configuration files
+├── *.cfg                 # Configuration files
+├── GameConfigs/          # Game configuration data
+├── GameData/             # Game data files
+└── mapdata/              # Map files
 ```
+
+### Visual Studio Debugging
+
+The VS solution is configured to use `bin/` as the working directory for debugging. Press F5 to debug directly - DLLs and assets are already in place.
 
 ### Running the Server
 
@@ -265,6 +272,61 @@ std::scoped_lock lock{mutex1, mutex2};
 
 // Prefer message passing over shared state
 ```
+
+### Memory Safety Patterns
+
+#### Container Removal Order
+
+When an object is owned by one container (e.g., `unique_ptr` in a map) and referenced by another (e.g., raw pointers in a vector), **always remove references before deleting the owner**:
+
+```cpp
+// WRONG - use-after-free!
+dialogs_.erase(type);  // Deletes the object
+dialog_order_.erase(   // Dereferences deleted pointer
+    std::remove_if(..., [](dialog* d) { return d->type() == type; }), ...);
+
+// CORRECT - remove reference first, then delete
+if (auto it = dialogs_.find(type); it != dialogs_.end()) {
+    dialog* ptr = it->second.get();  // Get pointer while object is alive
+    dialog_order_.erase(
+        std::remove(dialog_order_.begin(), dialog_order_.end(), ptr),
+        dialog_order_.end()
+    );
+    dialogs_.erase(it);  // Now safe to delete
+}
+```
+
+#### Thread Safety
+
+Never modify UI containers (`dialog_order_`, etc.) from background threads. The ixwebsocket library runs callbacks on a background thread. Use one of these patterns:
+
+1. **Polling**: Don't set callbacks; poll for messages on the main thread:
+   ```cpp
+   // In update() on main thread:
+   while (auto msg = ws_connection_.receive()) {
+       handle_ws_message(*msg);  // Safe to modify UI here
+   }
+   ```
+
+2. **Deferred actions**: Queue events for main thread processing:
+   ```cpp
+   // Background thread - just set a flag
+   {
+       std::lock_guard<std::mutex> lock(mutex_);
+       pending_error_ = reason;
+   }
+   has_pending_error_.store(true);
+
+   // Main thread - process the queued event
+   if (has_pending_error_.exchange(false)) {
+       std::string error;
+       {
+           std::lock_guard<std::mutex> lock(mutex_);
+           error = std::move(pending_error_);
+       }
+       show_error(error);  // Safe to modify UI
+   }
+   ```
 
 ---
 

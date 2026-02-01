@@ -255,6 +255,11 @@ target_link_libraries(hgserver PRIVATE
     # hgserver_legacy  # Disabled until legacy code is ported
 )
 
+# Set Visual Studio debugger working directory to bin/
+set_target_properties(hgserver PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
+)
+
 # Tests
 enable_testing()
 
@@ -295,8 +300,15 @@ target_include_directories(hgserver_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+# Set Visual Studio debugger working directory to bin/
+set_target_properties(hgserver_tests PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/bin"
+)
+
 include(GoogleTest)
-gtest_discover_tests(hgserver_tests)
+gtest_discover_tests(hgserver_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
+)
 
 # Install rules
 install(TARGETS hgserver

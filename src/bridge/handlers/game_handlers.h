@@ -1,7 +1,7 @@
 #pragma once
 
 // game_handlers.h
-// Message handlers for in-game protocol (movement, combat, etc.)
+// Message handlers for in-game protocol (movement, combat, chat, etc.)
 
 #include "core/types.h"
 #include "network/json_protocol.h"
@@ -20,10 +20,15 @@ namespace hb::world {
     class world_subsystem;
 }
 
+namespace hb::social {
+    class social_system;
+    struct chat_message_event;
+}
+
 namespace hb::bridge {
 
 // Game message handler
-// Handles movement, actions, and other in-game messages
+// Handles movement, actions, chat, and other in-game messages
 class game_handlers {
 public:
     game_handlers();
@@ -32,7 +37,8 @@ public:
     // Initialize with required systems
     void initialize(network::websocket_server* ws_server,
                     player::player_system* players,
-                    world::world_subsystem* world);
+                    world::world_subsystem* world,
+                    social::social_system* social);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -51,6 +57,13 @@ private:
     void handle_player_skill(connection_id conn_id, const network::json_message& msg);
     void handle_player_pickup(connection_id conn_id, const network::json_message& msg);
     void handle_player_interact(connection_id conn_id, const network::json_message& msg);
+
+    // Chat
+    void handle_chat_message(connection_id conn_id, const network::json_message& msg);
+    void handle_command(connection_id conn_id, const network::json_message& msg);
+
+    // Chat distribution callback - called when social_system processes a chat message
+    void on_chat_message(const social::chat_message_event& event);
 
     // Helper to send error response
     void send_error(connection_id conn_id, uint32_t seq,
@@ -72,9 +85,17 @@ private:
                                    const world::position& old_pos,
                                    const world::position& new_pos);
 
+    // Send chat message to a specific player
+    void send_chat_to_player(player_id target, const network::chat_message_broadcast_data& data);
+
+    // Send chat to players in range
+    void send_chat_to_nearby(player_id sender, int16_t range,
+                              const network::chat_message_broadcast_data& data);
+
     network::websocket_server* ws_server_{nullptr};
     player::player_system* players_{nullptr};
     world::world_subsystem* world_{nullptr};
+    social::social_system* social_{nullptr};
 };
 
 }  // namespace hb::bridge

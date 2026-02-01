@@ -52,7 +52,10 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"player_pickup_response", json_message_type::player_pickup_response},
     {"player_interact_request", json_message_type::player_interact_request},
     {"player_interact_response", json_message_type::player_interact_response},
-    {"chat_message", json_message_type::chat_message}
+    {"chat_message", json_message_type::chat_message},
+    {"chat_message_broadcast", json_message_type::chat_message_broadcast},
+    {"command_request", json_message_type::command_request},
+    {"command_response", json_message_type::command_response}
 };
 
 }  // namespace
@@ -603,6 +606,109 @@ auto player_interact_request_data::from_json(const nlohmann::json& j)
     } catch (const nlohmann::json::exception& e) {
         return result<player_interact_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
+}
+
+auto chat_message_request_data::from_json(const nlohmann::json& j)
+    -> result<chat_message_request_data, std::string>
+{
+    try {
+        chat_message_request_data data;
+
+        if (!j.contains("content") || !j["content"].is_string()) {
+            return result<chat_message_request_data, std::string>::err("Missing or invalid 'content' field");
+        }
+        data.content = j["content"].get<std::string>();
+
+        // Optional explicit channel override
+        if (j.contains("channel") && j["channel"].is_string()) {
+            data.channel = j["channel"].get<std::string>();
+        }
+
+        // Optional recipient for whispers
+        if (j.contains("recipient") && j["recipient"].is_string()) {
+            data.recipient_name = j["recipient"].get<std::string>();
+        }
+
+        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+            data.timestamp = j["timestamp"].get<uint64_t>();
+        }
+
+        return result<chat_message_request_data, std::string>::ok(std::move(data));
+
+    } catch (const nlohmann::json::exception& e) {
+        return result<chat_message_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto chat_message_broadcast_data::to_json() const -> nlohmann::json {
+    nlohmann::json data;
+    data["channel"] = channel;
+    data["sender_id"] = sender_id;
+    data["sender_name"] = sender_name;
+    data["content"] = content;
+    data["timestamp"] = timestamp;
+
+    if (!flags.empty()) {
+        data["flags"] = flags;
+    }
+
+    if (recipient_name.has_value()) {
+        data["recipient_name"] = *recipient_name;
+    }
+
+    return data;
+}
+
+auto command_request_data::from_json(const nlohmann::json& j)
+    -> result<command_request_data, std::string>
+{
+    try {
+        command_request_data data;
+
+        if (!j.contains("command") || !j["command"].is_string()) {
+            return result<command_request_data, std::string>::err("Missing or invalid 'command' field");
+        }
+        data.command = j["command"].get<std::string>();
+
+        // Optional args array
+        if (j.contains("args") && j["args"].is_array()) {
+            for (const auto& arg : j["args"]) {
+                if (arg.is_string()) {
+                    data.args.push_back(arg.get<std::string>());
+                } else {
+                    // Convert non-string args to string
+                    data.args.push_back(arg.dump());
+                }
+            }
+        }
+
+        // Optional named params object
+        if (j.contains("params") && j["params"].is_object()) {
+            data.params = j["params"];
+        }
+
+        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+            data.timestamp = j["timestamp"].get<uint64_t>();
+        }
+
+        return result<command_request_data, std::string>::ok(std::move(data));
+
+    } catch (const nlohmann::json::exception& e) {
+        return result<command_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto command_response_data::to_json() const -> nlohmann::json {
+    nlohmann::json data;
+    data["success"] = success;
+    data["command"] = command;
+    data["message"] = message;
+
+    if (!result.is_null()) {
+        data["result"] = result;
+    }
+
+    return data;
 }
 
 // Message data to_json implementations
@@ -1217,6 +1323,52 @@ auto make_pong_response(uint32_t seq) -> json_message {
             {"timestamp", std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count()}
         }
+    };
+}
+
+auto make_chat_message_response(uint32_t seq, bool success,
+                                 std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+
+    return json_message{
+        .type = json_message_type::chat_message,
+        .seq = seq,
+        .data = std::move(data)
+    };
+}
+
+auto make_chat_message_broadcast(const chat_message_broadcast_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::chat_message_broadcast,
+        .seq = 0,  // Broadcasts don't need seq
+        .data = data.to_json()
+    };
+}
+
+auto make_command_response(uint32_t seq, bool success,
+                            std::string_view command,
+                            std::string_view message,
+                            const nlohmann::json& result) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+    data["command"] = std::string(command);
+    data["message"] = std::string(message);
+
+    if (!result.is_null() && !result.empty()) {
+        data["result"] = result;
+    }
+
+    return json_message{
+        .type = json_message_type::command_response,
+        .seq = seq,
+        .data = std::move(data)
     };
 }
 

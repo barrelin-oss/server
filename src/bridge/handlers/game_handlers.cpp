@@ -8,7 +8,12 @@
 #include "network/websocket_server.h"
 #include "player/player_system.h"
 #include "world/world_subsystem.h"
+#include "social/social_system.h"
 #include "core/logger.h"
+
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
 namespace hb::bridge {
 
@@ -17,11 +22,21 @@ game_handlers::~game_handlers() = default;
 
 void game_handlers::initialize(network::websocket_server* ws_server,
                                 player::player_system* players,
-                                world::world_subsystem* world) {
+                                world::world_subsystem* world,
+                                social::social_system* social) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
-    LOG_INFO(bridge, "Game handlers initialized");
+    social_ = social;
+
+    // Register chat message callback to distribute messages
+    if (social_) {
+        social_->on_chat_message([this](const social::chat_message_event& event) {
+            on_chat_message(event);
+        });
+    }
+
+    LOG_INFO(bridge, "Game handlers initialized with chat support");
 }
 
 void game_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
@@ -54,6 +69,16 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             break;
         case network::json_message_type::player_interact_request:
             handle_player_interact(conn_id, msg);
+            break;
+
+        // Chat
+        case network::json_message_type::chat_message:
+            handle_chat_message(conn_id, msg);
+            break;
+
+        // Commands
+        case network::json_message_type::command_request:
+            handle_command(conn_id, msg);
             break;
 
         default:
@@ -617,6 +642,421 @@ auto game_handlers::require_in_game(connection_id conn_id, uint32_t seq)
     }
 
     return conn;
+}
+
+// ========== Chat Handling ==========
+
+namespace {
+
+// Parse chat channel from prefix or explicit channel name
+auto parse_chat_channel(std::string_view content, const std::optional<std::string>& explicit_channel)
+    -> std::pair<social::chat_channel, std::string>
+{
+    // If explicit channel provided, use that
+    if (explicit_channel.has_value()) {
+        const auto& ch = *explicit_channel;
+        if (ch == "local") return {social::chat_channel::local, std::string(content)};
+        if (ch == "shout") return {social::chat_channel::shout, std::string(content)};
+        if (ch == "guild") return {social::chat_channel::guild, std::string(content)};
+        if (ch == "party") return {social::chat_channel::party, std::string(content)};
+        if (ch == "whisper") return {social::chat_channel::whisper, std::string(content)};
+        if (ch == "global") return {social::chat_channel::global, std::string(content)};
+        if (ch == "trade") return {social::chat_channel::trade, std::string(content)};
+        if (ch == "faction") return {social::chat_channel::faction, std::string(content)};
+        // Default to local for unknown channels
+        return {social::chat_channel::local, std::string(content)};
+    }
+
+    // Check for prefix-based channel
+    if (!content.empty()) {
+        char prefix = content[0];
+        std::string msg_content = std::string(content.substr(1));
+
+        switch (prefix) {
+            case '!':  // Shout - server-wide
+                return {social::chat_channel::shout, msg_content};
+            case '@':  // Guild
+                return {social::chat_channel::guild, msg_content};
+            case '$':  // Party
+                return {social::chat_channel::party, msg_content};
+            case '#':  // Whisper (legacy - normally use recipient field)
+                return {social::chat_channel::whisper, msg_content};
+            case '^':  // Global guild (treat as shout for single server)
+                return {social::chat_channel::shout, msg_content};
+            case '~':  // Trade channel
+                return {social::chat_channel::trade, msg_content};
+            default:
+                break;
+        }
+    }
+
+    // Default to local chat
+    return {social::chat_channel::local, std::string(content)};
+}
+
+auto channel_to_string(social::chat_channel channel) -> std::string {
+    switch (channel) {
+        case social::chat_channel::local: return "local";
+        case social::chat_channel::global: return "global";
+        case social::chat_channel::guild: return "guild";
+        case social::chat_channel::party: return "party";
+        case social::chat_channel::whisper: return "whisper";
+        case social::chat_channel::trade: return "trade";
+        case social::chat_channel::shout: return "shout";
+        case social::chat_channel::alliance: return "alliance";
+        case social::chat_channel::faction: return "faction";
+        case social::chat_channel::gm: return "gm";
+        case social::chat_channel::system: return "system";
+        default: return "unknown";
+    }
+}
+
+auto format_timestamp(std::chrono::system_clock::time_point tp) -> std::string {
+    auto time_t = std::chrono::system_clock::to_time_t(tp);
+    std::tm tm_buf{};
+#ifdef _WIN32
+    gmtime_s(&tm_buf, &time_t);
+#else
+    gmtime_r(&time_t, &tm_buf);
+#endif
+    std::ostringstream oss;
+    oss << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%SZ");
+    return oss.str();
+}
+
+auto filter_result_to_string(social::filter_result result) -> std::string_view {
+    switch (result) {
+        case social::filter_result::allowed: return "allowed";
+        case social::filter_result::censored: return "censored";
+        case social::filter_result::blocked: return "blocked";
+        case social::filter_result::rate_limited: return "rate_limited";
+        default: return "unknown";
+    }
+}
+
+}  // namespace
+
+void game_handlers::handle_chat_message(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!social_ || !players_) {
+        send_error(conn_id, msg.seq, "internal_error", "Chat system unavailable");
+        return;
+    }
+
+    // Parse request
+    auto data_result = network::chat_message_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto pid = conn->player();
+
+    auto* player = players_->get_player(pid);
+    if (!player) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    // Parse channel and extract message content
+    auto [channel, content] = parse_chat_channel(data.content, data.channel);
+
+    // Validate content is not empty after prefix removal
+    if (content.empty()) {
+        conn->send(network::make_chat_message_response(msg.seq, false, "empty_message"));
+        return;
+    }
+
+    // Handle based on channel type
+    social::filter_result result;
+
+    switch (channel) {
+        case social::chat_channel::local:
+            result = social_->send_local_chat(pid, content,
+                player->current_map, player->pos.x, player->pos.y);
+            break;
+
+        case social::chat_channel::shout:
+            // Shout is server-wide
+            result = social_->send_global_chat(pid, content);
+            break;
+
+        case social::chat_channel::guild:
+            result = social_->send_guild_chat(pid, content);
+            break;
+
+        case social::chat_channel::party:
+            result = social_->send_party_chat(pid, content);
+            break;
+
+        case social::chat_channel::whisper: {
+            // Need recipient for whisper
+            if (!data.recipient_name.has_value() || data.recipient_name->empty()) {
+                conn->send(network::make_chat_message_response(msg.seq, false, "no_recipient"));
+                return;
+            }
+
+            // Find recipient by name
+            auto* recipient = players_->get_player_by_name(*data.recipient_name);
+            if (!recipient) {
+                conn->send(network::make_chat_message_response(msg.seq, false, "recipient_not_found"));
+                return;
+            }
+
+            result = social_->send_whisper(pid, recipient->id, content);
+            break;
+        }
+
+        case social::chat_channel::global:
+            result = social_->send_global_chat(pid, content);
+            break;
+
+        case social::chat_channel::trade:
+            // Trade channel is global for now
+            result = social_->send_global_chat(pid, content);
+            break;
+
+        default:
+            result = social_->send_local_chat(pid, content,
+                player->current_map, player->pos.x, player->pos.y);
+            break;
+    }
+
+    // Send response to sender
+    if (result == social::filter_result::allowed || result == social::filter_result::censored) {
+        conn->send(network::make_chat_message_response(msg.seq, true));
+    } else {
+        conn->send(network::make_chat_message_response(msg.seq, false,
+            filter_result_to_string(result)));
+    }
+
+    LOG_DEBUG(bridge, "Player {} sent {} chat: {}",
+        pid.value, channel_to_string(channel), content.substr(0, 50));
+}
+
+void game_handlers::handle_command(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_) {
+        send_error(conn_id, msg.seq, "internal_error", "Player system unavailable");
+        return;
+    }
+
+    // Parse request
+    auto data_result = network::command_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto pid = conn->player();
+
+    auto* player = players_->get_player(pid);
+    if (!player) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    LOG_DEBUG(bridge, "Player {} command: {} args={}", pid.value, data.command, data.args.size());
+
+    // TODO: Implement command routing to admin_system or other systems
+    // For now, just acknowledge the command
+
+    // Simple built-in commands
+    if (data.command == "who" || data.command == "online") {
+        // Return online player count
+        auto count = players_->active_player_count();
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            std::to_string(count) + " players online",
+            nlohmann::json{{"count", count}}));
+        return;
+    }
+
+    if (data.command == "time") {
+        // Return server time
+        auto now = std::chrono::system_clock::now();
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            format_timestamp(now),
+            nlohmann::json{{"timestamp", format_timestamp(now)}}));
+        return;
+    }
+
+    if (data.command == "pos" || data.command == "position") {
+        // Return player position
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            "Position: (" + std::to_string(player->pos.x) + ", " + std::to_string(player->pos.y) + ")",
+            nlohmann::json{
+                {"x", player->pos.x},
+                {"y", player->pos.y},
+                {"map", player->current_map.value}
+            }));
+        return;
+    }
+
+    // Unknown command
+    conn->send(network::make_command_response(msg.seq, false, data.command,
+        "Unknown command: " + data.command));
+}
+
+void game_handlers::on_chat_message(const social::chat_message_event& event) {
+    if (!ws_server_ || !players_) return;
+
+    const auto& msg = event.message;
+
+    // Build broadcast data
+    network::chat_message_broadcast_data broadcast;
+    broadcast.channel = channel_to_string(msg.channel);
+    broadcast.sender_id = msg.sender.value;
+    broadcast.sender_name = msg.sender_name;
+    broadcast.content = msg.content;
+    broadcast.timestamp = format_timestamp(msg.timestamp);
+
+    // Add flags
+    if (social::has_flag(msg.flags, social::chat_flags::emote)) {
+        broadcast.flags.push_back("emote");
+    }
+    if (social::has_flag(msg.flags, social::chat_flags::censored)) {
+        broadcast.flags.push_back("censored");
+    }
+    if (social::has_flag(msg.flags, social::chat_flags::system)) {
+        broadcast.flags.push_back("system");
+    }
+    if (social::has_flag(msg.flags, social::chat_flags::gm)) {
+        broadcast.flags.push_back("gm");
+    }
+
+    // Route based on channel
+    switch (msg.channel) {
+        case social::chat_channel::local:
+            // Send to nearby players
+            send_chat_to_nearby(msg.sender, 15, broadcast);  // 15 tile range
+            break;
+
+        case social::chat_channel::shout:
+        case social::chat_channel::global: {
+            // Send to all online players
+            auto all_players = players_->get_all_players();
+            for (auto pid : all_players) {
+                send_chat_to_player(pid, broadcast);
+            }
+            break;
+        }
+
+        case social::chat_channel::guild: {
+            // Send to guild members
+            if (!social_) break;
+
+            auto guild_id = social_->get_player_guild(msg.sender);
+            if (!guild_id.is_valid()) break;
+
+            auto* guild = social_->get_guild(guild_id);
+            if (!guild) break;
+
+            for (const auto& member : guild->members) {
+                send_chat_to_player(member.player, broadcast);
+            }
+            break;
+        }
+
+        case social::chat_channel::party: {
+            // Send to party members
+            if (!social_) break;
+
+            auto party_id = social_->get_player_party(msg.sender);
+            if (!party_id.is_valid()) break;
+
+            auto* party = social_->get_party(party_id);
+            if (!party) break;
+
+            for (const auto& member : party->members) {
+                send_chat_to_player(member.player, broadcast);
+            }
+            break;
+        }
+
+        case social::chat_channel::whisper: {
+            // Send to sender (confirmation) and recipient
+            broadcast.recipient_name = msg.recipient_name;
+            send_chat_to_player(msg.sender, broadcast);  // Echo to sender
+            send_chat_to_player(msg.recipient, broadcast);  // Send to recipient
+            break;
+        }
+
+        case social::chat_channel::system: {
+            // System messages to specific recipient
+            send_chat_to_player(msg.recipient, broadcast);
+            break;
+        }
+
+        case social::chat_channel::trade:
+        case social::chat_channel::faction:
+        case social::chat_channel::alliance: {
+            // Broadcast to all for now
+            auto all_players = players_->get_all_players();
+            for (auto pid : all_players) {
+                send_chat_to_player(pid, broadcast);
+            }
+            break;
+        }
+
+        default:
+            LOG_WARN(bridge, "Unknown chat channel: {}", static_cast<int>(msg.channel));
+            break;
+    }
+}
+
+void game_handlers::send_chat_to_player(player_id target,
+                                         const network::chat_message_broadcast_data& data) {
+    if (!ws_server_ || !players_) return;
+
+    auto* player = players_->get_player(target);
+    if (!player || player->connection.value == 0) return;
+
+    auto* conn = ws_server_->get_connection(player->connection);
+    if (!conn || !conn->is_open()) return;
+
+    // Check if player has this channel enabled
+    if (social_) {
+        auto* settings = social_->get_chat_settings(target);
+        if (settings) {
+            // Convert string channel back to enum for settings check
+            social::chat_channel ch = social::chat_channel::local;
+            if (data.channel == "local") ch = social::chat_channel::local;
+            else if (data.channel == "global") ch = social::chat_channel::global;
+            else if (data.channel == "guild") ch = social::chat_channel::guild;
+            else if (data.channel == "party") ch = social::chat_channel::party;
+            else if (data.channel == "whisper") ch = social::chat_channel::whisper;
+            else if (data.channel == "trade") ch = social::chat_channel::trade;
+            else if (data.channel == "shout") ch = social::chat_channel::shout;
+            else if (data.channel == "system") ch = social::chat_channel::system;
+
+            if (!settings->is_channel_enabled(ch) && ch != social::chat_channel::system) {
+                return;  // Player has this channel disabled
+            }
+
+            // Check if sender is blocked
+            if (settings->is_player_blocked(player_id{data.sender_id})) {
+                return;  // Player has blocked the sender
+            }
+        }
+    }
+
+    conn->send(network::make_chat_message_broadcast(data));
+}
+
+void game_handlers::send_chat_to_nearby(player_id sender, int16_t range,
+                                         const network::chat_message_broadcast_data& data) {
+    if (!players_) return;
+
+    auto nearby = players_->get_players_in_range(sender, range);
+    for (auto pid : nearby) {
+        send_chat_to_player(pid, data);
+    }
 }
 
 }  // namespace hb::bridge

@@ -90,7 +90,12 @@ enum class json_message_type {
     player_interact_response,
 
     // Chat
-    chat_message,
+    chat_message,           // Chat message (local, shout, guild, party, whisper, etc.)
+    chat_message_broadcast, // Outbound chat broadcast to recipients
+
+    // Commands (separate from chat - client-side /command construct)
+    command_request,        // Client sends a command
+    command_response,       // Server response to command
 
     // Unknown/invalid
     unknown
@@ -141,6 +146,9 @@ enum class json_message_type {
         case json_message_type::player_interact_request: return "player_interact_request";
         case json_message_type::player_interact_response: return "player_interact_response";
         case json_message_type::chat_message: return "chat_message";
+        case json_message_type::chat_message_broadcast: return "chat_message_broadcast";
+        case json_message_type::command_request: return "command_request";
+        case json_message_type::command_response: return "command_response";
         default: return "unknown";
     }
 }
@@ -296,6 +304,66 @@ struct player_interact_request_data {
     uint64_t timestamp{0};     // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_interact_request_data, std::string>;
+};
+
+// Chat channel type for JSON protocol
+enum class chat_channel_type : uint8_t {
+    local = 0,          // Nearby players (default, no prefix)
+    shout = 1,          // Server-wide (! prefix)
+    guild = 2,          // Guild members (@ prefix)
+    party = 3,          // Party members ($ prefix)
+    whisper = 4,        // Private message (recipient name or # prefix)
+    global = 5,         // Global channel
+    trade = 6,          // Trade channel
+    faction = 7,        // Faction channel (Aresden/Elvine)
+    system = 8,         // System messages (server-generated only)
+};
+
+// Chat message request from client
+// Client can send either:
+//   - Raw message with prefix: "!Hello everyone" -> shout
+//   - Explicit channel: {"channel": "guild", "content": "Hello guild"}
+struct chat_message_request_data {
+    std::string content;                        // Message content (may include prefix)
+    std::optional<std::string> channel;         // Explicit channel override
+    std::optional<std::string> recipient_name;  // For whispers
+    uint64_t timestamp{0};                      // Client timestamp in ms
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<chat_message_request_data, std::string>;
+};
+
+// Chat broadcast data (sent to recipients)
+struct chat_message_broadcast_data {
+    std::string channel;            // "local", "shout", "guild", "party", "whisper", etc.
+    uint32_t sender_id{0};          // Sender player ID (0 for system)
+    std::string sender_name;        // Sender display name
+    std::string content;            // Message content
+    std::vector<std::string> flags; // "emote", "censored", "system", "gm"
+    std::string timestamp;          // ISO 8601 timestamp
+    std::optional<std::string> recipient_name;  // For whisper (recipient sees their own name)
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Command request from client (for /commands)
+// Commands are sent as structured data, not parsed from chat
+struct command_request_data {
+    std::string command;                        // Command name (without /)
+    std::vector<std::string> args;              // Command arguments
+    nlohmann::json params;                      // Named parameters (optional)
+    uint64_t timestamp{0};                      // Client timestamp in ms
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<command_request_data, std::string>;
+};
+
+// Command response to client
+struct command_response_data {
+    bool success{false};
+    std::string command;                        // Echo back the command
+    std::string message;                        // Success/error message
+    nlohmann::json result;                      // Command-specific result data
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Character data message (full character info for entering game)
@@ -528,5 +596,17 @@ struct game_state_msg {
                                                   std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 [[nodiscard]] auto make_pong_response(uint32_t seq) -> json_message;
+
+// Chat messages
+[[nodiscard]] auto make_chat_message_response(uint32_t seq, bool success,
+                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+[[nodiscard]] auto make_chat_message_broadcast(const chat_message_broadcast_data& data) -> json_message;
+
+// Command messages
+[[nodiscard]] auto make_command_response(uint32_t seq, bool success,
+                                          std::string_view command,
+                                          std::string_view message,
+                                          const nlohmann::json& result = nlohmann::json::object()) -> json_message;
 
 }  // namespace hb::network

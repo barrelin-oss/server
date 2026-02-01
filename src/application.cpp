@@ -280,7 +280,8 @@ void application::initialize() {
         game_handlers_->initialize(
             ws_server_.get(),
             subsystems().get<player::player_system>(),
-            subsystems().get<world::world_subsystem>()
+            subsystems().get<world::world_subsystem>(),
+            subsystems().get<social::social_system>()
         );
 
         // Set up WebSocket message routing - dispatch to appropriate handler
@@ -310,6 +311,9 @@ void application::initialize() {
                 case network::json_message_type::player_skill_request:
                 case network::json_message_type::player_pickup_request:
                 case network::json_message_type::player_interact_request:
+                // Chat and commands
+                case network::json_message_type::chat_message:
+                case network::json_message_type::command_request:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 

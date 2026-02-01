@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-01-31
 
 ---
 
@@ -198,28 +198,33 @@ This document tracks implementation progress for the modernized Helbreath server
 
 ---
 
-## Phase 13: Chat System ❌
+## Phase 13: Chat System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Chat message type | 📋 | Defined in protocol |
-| Local chat | ❌ | Nearby players |
-| Global chat | ❌ | All players |
-| Whisper | ❌ | Private messages |
-| Guild chat | ❌ | Guild members |
-| Party chat | ❌ | Party members |
-| Chat filter | ❌ | Profanity filter |
-| GM commands | ❌ | Admin chat commands |
+| Chat message type | ✅ | chat_message, chat_message_broadcast |
+| Local chat | ✅ | 15-tile range, default channel |
+| Global/Shout | ✅ | Server-wide with `!` prefix |
+| Whisper | ✅ | Private messages with recipient |
+| Guild chat | ✅ | `@` prefix, guild members only |
+| Party chat | ✅ | `$` prefix, party members only |
+| Chat filter | ✅ | Profanity filter with asterisks |
+| Rate limiting | ✅ | 3/sec, 30/min limits |
+| Channel settings | ✅ | Per-player enable/disable |
+| Player blocking | ✅ | Block player messages |
+| Command system | ✅ | Separate command_request packet |
 
 ---
 
-## Phase 14: Social Systems ❌
+## Phase 14: Social Systems 🔄
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Party system | ❌ | Create, invite, leave |
-| Party XP share | ❌ | Experience distribution |
-| Guild system | ❌ | Create, manage, ranks |
+| Party system | ✅ | Create, invite, accept, leave, kick |
+| Party settings | ✅ | Loot mode, XP mode, leader transfer |
+| Party XP share | 📋 | Experience distribution logic TODO |
+| Guild system | ✅ | Create, join, leave, kick, ranks |
+| Guild permissions | ✅ | Invite, kick, promote, demote, etc. |
 | Guild warehouse | ❌ | Shared storage |
 | Friend list | ❌ | Add, remove, online status |
 | Trade system | ❌ | Player-to-player trading |
@@ -304,7 +309,7 @@ Priority order for a minimally playable game:
 5. **Equip/Unequip Handlers** - Client requests to equip items
 6. **Magic System** - Basic spells working
 7. **Death/Respawn** - Handle player death
-8. **Chat System** - Local and global chat
+8. ~~**Chat System**~~ - ✅ All channels implemented with prefix routing
 9. **Persistence** - Periodic save, not just on disconnect
 
 ---
@@ -325,6 +330,42 @@ Priority order for a minimally playable game:
 ---
 
 ## Recent Changes
+
+### 2026-01-31
+- **Implemented complete chat system:**
+  - Prefix-based channel routing: `!` shout, `@` guild, `$` party, `#` whisper, `~` trade
+  - Explicit channel override via JSON field
+  - Local chat (15-tile range) as default
+  - Global/shout chat (server-wide)
+  - Guild chat (guild members only)
+  - Party chat (party members only)
+  - Whisper (private messages)
+  - Trade channel
+  - Profanity filtering with asterisk replacement
+  - Rate limiting (3 msg/sec, 30 msg/min)
+  - Per-player channel settings (enable/disable)
+  - Player blocking (ignore messages from blocked players)
+  - Chat callbacks for message distribution
+- **Implemented command system:**
+  - Separate `command_request` packet type (not parsed from chat)
+  - Structured command with name, args array, named params
+  - Built-in commands: `/who`, `/time`, `/pos`
+  - Extensible for admin/GM commands
+- **Added protocol types:**
+  - `chat_message_request_data` - client chat request
+  - `chat_message_broadcast_data` - server chat broadcast
+  - `command_request_data` - client command request
+  - `command_response_data` - server command response
+  - Response builders for chat and commands
+- **Wired chat to game handlers:**
+  - `handle_chat_message()` - process incoming chat
+  - `handle_command()` - process incoming commands
+  - `on_chat_message()` callback for distribution
+  - Integration with social_system for filtering and routing
+- **Updated documentation:**
+  - Added chat and command sections to GAME_MESSAGES.md
+  - Complete examples for all chat channels
+  - Command request/response formats
 
 ### 2026-01-30
 - **Created comprehensive PACKET_PROTOCOL.md documentation:**

@@ -64,7 +64,18 @@ public:
 
     // Player queries
     [[nodiscard]] auto player_count() const -> size_t { return players_.size(); }
+    [[nodiscard]] auto active_player_count() const -> size_t { return players_.size(); }
     [[nodiscard]] auto player_exists(player_id id) const -> bool { return players_.contains(id); }
+
+    // Get all player IDs
+    [[nodiscard]] auto get_all_players() const -> std::vector<player_id> {
+        std::vector<player_id> result;
+        result.reserve(players_.size());
+        for (const auto& [id, _] : players_) {
+            result.push_back(id);
+        }
+        return result;
+    }
 
     // Bind player to connection/session
     void bind_connection(player_id id, connection_id conn);

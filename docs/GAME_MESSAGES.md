@@ -39,7 +39,13 @@ All messages follow the standard envelope format:
 7. [Interaction Messages](#interaction-messages)
    - [player_interact_request](#player_interact_request)
    - [player_interact_response](#player_interact_response)
-8. [Error Handling](#error-handling)
+8. [Chat Messages](#chat-messages)
+   - [chat_message](#chat_message)
+   - [chat_message_broadcast](#chat_message_broadcast)
+9. [Command Messages](#command-messages)
+   - [command_request](#command_request)
+   - [command_response](#command_response)
+10. [Error Handling](#error-handling)
 
 ---
 
@@ -1003,6 +1009,455 @@ Server response to interaction request.
 | `too_far` | Target too far away |
 | `not_interactable` | Target cannot be interacted with |
 | `not_implemented` | Feature not yet implemented |
+
+---
+
+## Chat Messages
+
+Chat supports multiple channels with prefix-based routing.
+
+### Chat Channels
+
+| Channel | Prefix | Description |
+|---------|--------|-------------|
+| `local` | (none) | Nearby players (15-tile range) |
+| `shout` | `!` | Server-wide broadcast |
+| `guild` | `@` | Guild members only |
+| `party` | `$` | Party members only |
+| `whisper` | `#` or recipient field | Private message |
+| `global` | (explicit only) | All players |
+| `trade` | `~` | Trade channel |
+
+### chat_message
+
+Send a chat message. Content can include prefix for channel routing, or use explicit `channel` field.
+
+**Direction:** Client → Server
+
+**Data Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | string | Yes | Message content (may include prefix) |
+| `channel` | string | No | Explicit channel override |
+| `recipient` | string | No | Recipient name (for whispers) |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+**Example (Local Chat - default):**
+```json
+{
+  "type": "chat_message",
+  "seq": 100,
+  "data": {
+    "content": "Hello everyone!",
+    "timestamp": 1706620010000
+  }
+}
+```
+
+**Example (Shout - prefix):**
+```json
+{
+  "type": "chat_message",
+  "seq": 101,
+  "data": {
+    "content": "!Looking for party!",
+    "timestamp": 1706620011000
+  }
+}
+```
+
+**Example (Guild Chat - prefix):**
+```json
+{
+  "type": "chat_message",
+  "seq": 102,
+  "data": {
+    "content": "@Guild meeting at 8pm",
+    "timestamp": 1706620012000
+  }
+}
+```
+
+**Example (Party Chat - prefix):**
+```json
+{
+  "type": "chat_message",
+  "seq": 103,
+  "data": {
+    "content": "$Follow me to the boss",
+    "timestamp": 1706620013000
+  }
+}
+```
+
+**Example (Whisper - with recipient):**
+```json
+{
+  "type": "chat_message",
+  "seq": 104,
+  "data": {
+    "content": "Hey, want to trade?",
+    "channel": "whisper",
+    "recipient": "PlayerName",
+    "timestamp": 1706620014000
+  }
+}
+```
+
+**Example (Explicit Channel):**
+```json
+{
+  "type": "chat_message",
+  "seq": 105,
+  "data": {
+    "content": "Selling rare sword!",
+    "channel": "trade",
+    "timestamp": 1706620015000
+  }
+}
+```
+
+**Response (Success):**
+```json
+{
+  "type": "chat_message",
+  "seq": 100,
+  "data": {
+    "success": true
+  }
+}
+```
+
+**Response (Error):**
+```json
+{
+  "type": "chat_message",
+  "seq": 102,
+  "data": {
+    "success": false,
+    "error": "blocked"
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | Description |
+|------|-------------|
+| `empty_message` | Message content is empty |
+| `no_recipient` | Whisper requires recipient name |
+| `recipient_not_found` | Whisper recipient not online |
+| `blocked` | Message blocked (not in guild, blocked by recipient, etc.) |
+| `rate_limited` | Sending messages too fast |
+| `censored` | Message contained filtered words (message still sent with `*`) |
+
+---
+
+### chat_message_broadcast
+
+Server broadcasts chat messages to recipients.
+
+**Direction:** Server → Client (broadcast, no seq matching)
+
+**Data Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `channel` | string | Channel name |
+| `sender_id` | uint32 | Sender player ID (0 for system) |
+| `sender_name` | string | Sender display name |
+| `content` | string | Message content |
+| `timestamp` | string | ISO 8601 timestamp |
+| `flags` | array | Optional flags: `emote`, `censored`, `system`, `gm` |
+| `recipient_name` | string | For whispers - shows recipient's name |
+
+**Example (Local Chat):**
+```json
+{
+  "type": "chat_message_broadcast",
+  "seq": 0,
+  "data": {
+    "channel": "local",
+    "sender_id": 1234,
+    "sender_name": "PlayerOne",
+    "content": "Hello everyone!",
+    "timestamp": "2026-01-31T12:34:56Z"
+  }
+}
+```
+
+**Example (Shout):**
+```json
+{
+  "type": "chat_message_broadcast",
+  "seq": 0,
+  "data": {
+    "channel": "shout",
+    "sender_id": 1234,
+    "sender_name": "PlayerOne",
+    "content": "Looking for party!",
+    "timestamp": "2026-01-31T12:35:00Z"
+  }
+}
+```
+
+**Example (Guild):**
+```json
+{
+  "type": "chat_message_broadcast",
+  "seq": 0,
+  "data": {
+    "channel": "guild",
+    "sender_id": 1234,
+    "sender_name": "PlayerOne",
+    "content": "Guild meeting at 8pm",
+    "timestamp": "2026-01-31T12:36:00Z"
+  }
+}
+```
+
+**Example (Whisper - received):**
+```json
+{
+  "type": "chat_message_broadcast",
+  "seq": 0,
+  "data": {
+    "channel": "whisper",
+    "sender_id": 1234,
+    "sender_name": "PlayerOne",
+    "content": "Hey, want to trade?",
+    "timestamp": "2026-01-31T12:37:00Z",
+    "recipient_name": "PlayerTwo"
+  }
+}
+```
+
+**Example (System Message):**
+```json
+{
+  "type": "chat_message_broadcast",
+  "seq": 0,
+  "data": {
+    "channel": "system",
+    "sender_id": 0,
+    "sender_name": "System",
+    "content": "Server will restart in 5 minutes",
+    "timestamp": "2026-01-31T12:38:00Z",
+    "flags": ["system"]
+  }
+}
+```
+
+**Example (Censored Message):**
+```json
+{
+  "type": "chat_message_broadcast",
+  "seq": 0,
+  "data": {
+    "channel": "local",
+    "sender_id": 1234,
+    "sender_name": "PlayerOne",
+    "content": "What the ****!",
+    "timestamp": "2026-01-31T12:39:00Z",
+    "flags": ["censored"]
+  }
+}
+```
+
+**Example (GM Message):**
+```json
+{
+  "type": "chat_message_broadcast",
+  "seq": 0,
+  "data": {
+    "channel": "shout",
+    "sender_id": 1,
+    "sender_name": "[GM] Admin",
+    "content": "Please follow the rules",
+    "timestamp": "2026-01-31T12:40:00Z",
+    "flags": ["gm"]
+  }
+}
+```
+
+---
+
+## Command Messages
+
+Commands are separate from chat - they are structured requests that bypass chat parsing.
+This allows clients to send commands with typed parameters rather than parsing `/command arg1 arg2`.
+
+### command_request
+
+Execute a server command.
+
+**Direction:** Client → Server
+
+**Data Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `command` | string | Yes | Command name (without `/`) |
+| `args` | array | No | Positional arguments |
+| `params` | object | No | Named parameters |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+**Example (Simple Command):**
+```json
+{
+  "type": "command_request",
+  "seq": 200,
+  "data": {
+    "command": "who",
+    "timestamp": 1706620020000
+  }
+}
+```
+
+**Example (Command with Args):**
+```json
+{
+  "type": "command_request",
+  "seq": 201,
+  "data": {
+    "command": "whisper",
+    "args": ["PlayerName", "Hello there!"],
+    "timestamp": 1706620021000
+  }
+}
+```
+
+**Example (Command with Named Params):**
+```json
+{
+  "type": "command_request",
+  "seq": 202,
+  "data": {
+    "command": "party_invite",
+    "params": {
+      "player": "PlayerName"
+    },
+    "timestamp": 1706620022000
+  }
+}
+```
+
+**Example (GM Command):**
+```json
+{
+  "type": "command_request",
+  "seq": 203,
+  "data": {
+    "command": "teleport",
+    "args": ["aresden", "100", "150"],
+    "timestamp": 1706620023000
+  }
+}
+```
+
+---
+
+### command_response
+
+Server response to a command.
+
+**Direction:** Server → Client
+
+**Data Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether command executed successfully |
+| `command` | string | Echo of the command name |
+| `message` | string | Human-readable result message |
+| `result` | object | Command-specific result data (optional) |
+
+**Example (Success - /who):**
+```json
+{
+  "type": "command_response",
+  "seq": 200,
+  "data": {
+    "success": true,
+    "command": "who",
+    "message": "42 players online",
+    "result": {
+      "count": 42
+    }
+  }
+}
+```
+
+**Example (Success - /time):**
+```json
+{
+  "type": "command_response",
+  "seq": 201,
+  "data": {
+    "success": true,
+    "command": "time",
+    "message": "2026-01-31T12:45:00Z",
+    "result": {
+      "timestamp": "2026-01-31T12:45:00Z"
+    }
+  }
+}
+```
+
+**Example (Success - /pos):**
+```json
+{
+  "type": "command_response",
+  "seq": 202,
+  "data": {
+    "success": true,
+    "command": "pos",
+    "message": "Position: (150, 200)",
+    "result": {
+      "x": 150,
+      "y": 200,
+      "map": 1
+    }
+  }
+}
+```
+
+**Example (Failure - Unknown Command):**
+```json
+{
+  "type": "command_response",
+  "seq": 203,
+  "data": {
+    "success": false,
+    "command": "teleport",
+    "message": "Unknown command: teleport"
+  }
+}
+```
+
+**Example (Failure - Permission Denied):**
+```json
+{
+  "type": "command_response",
+  "seq": 203,
+  "data": {
+    "success": false,
+    "command": "teleport",
+    "message": "Permission denied: requires GM level 2"
+  }
+}
+```
+
+### Built-in Commands
+
+| Command | Args | Description |
+|---------|------|-------------|
+| `who` / `online` | - | Show online player count |
+| `time` | - | Show server time |
+| `pos` / `position` | - | Show current position |
+
+More commands will be added as systems are implemented (party, guild, admin, etc.).
 
 ---
 

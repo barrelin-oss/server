@@ -340,3 +340,6 @@ if(WIN32)
         )
     endif()
 endif()
+
+# Set hgserver as the default startup project in Visual Studio
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT hgserver)

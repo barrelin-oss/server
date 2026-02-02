@@ -131,6 +131,31 @@ public:
     // Check if player can move to position (doesn't actually move)
     [[nodiscard]] auto can_move_to(player_id id, hb::world::position target_pos) const -> move_result;
 
+    // Teleport result structure
+    struct teleport_result {
+        bool success{false};
+        std::string error;
+        map_id old_map{};
+        hb::world::position old_pos{};
+        map_id new_map{};
+        hb::world::position new_pos{};
+    };
+
+    // Execute teleportation to a different position/map
+    [[nodiscard]] auto execute_teleport(player_id id,
+                                         const std::string& dest_map_name,
+                                         hb::world::position dest_pos,
+                                         hb::world::direction dest_dir) -> teleport_result;
+
+    // Get players on specific map who can see a position (uses each player's visibility_radius)
+    [[nodiscard]] auto get_players_who_can_see(map_id map,
+                                                const hb::world::position& pos) const -> std::vector<player_id>;
+
+    // Get players on specific map within a specific radius of a position
+    [[nodiscard]] auto get_players_on_map_in_range(map_id map,
+                                                    const hb::world::position& center,
+                                                    int radius) const -> std::vector<player_id>;
+
     // Get players in range on same map
     [[nodiscard]] auto get_players_in_range(player_id id, int radius) const -> std::vector<player_id>;
 

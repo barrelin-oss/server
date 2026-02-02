@@ -218,6 +218,29 @@ void map::add_teleport(const position& pos, const teleport_dest& dest) {
     }
 }
 
+auto map::get_all_teleports() const -> const std::unordered_map<position, teleport_dest>& {
+    return teleports_;
+}
+
+auto map::remove_teleport(const position& pos) -> bool {
+    auto it = teleports_.find(pos);
+    if (it == teleports_.end()) return false;
+
+    // Clear teleport flag on tile
+    if (is_valid_position(pos)) {
+        auto& tile = static_tiles_[tile_index(pos)];
+        tile.flags = static_cast<tile_flags>(
+            static_cast<uint8_t>(tile.flags) & ~static_cast<uint8_t>(tile_flags::is_teleport));
+    }
+
+    teleports_.erase(it);
+    return true;
+}
+
+auto map::teleport_count() const -> size_t {
+    return teleports_.size();
+}
+
 void map::set_occupant(const position& pos, entity_id id, owner_type type) {
     auto* dyn = get_dynamic_tile(pos);
     if (dyn) {

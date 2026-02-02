@@ -156,9 +156,13 @@ public:
     [[nodiscard]] auto is_water(const position& pos) const -> bool;
     [[nodiscard]] auto is_farm(const position& pos) const -> bool;
 
-    // Teleport lookup
+    // Teleport lookup and management
     [[nodiscard]] auto get_teleport_dest(const position& pos) const -> std::optional<teleport_dest>;
     void add_teleport(const position& pos, const teleport_dest& dest);
+    [[nodiscard]] auto get_all_teleports() const
+        -> const std::unordered_map<position, teleport_dest>&;
+    auto remove_teleport(const position& pos) -> bool;
+    [[nodiscard]] auto teleport_count() const -> size_t;
 
     // Initial spawn points
     [[nodiscard]] auto get_initial_point(int16_t id) const -> std::optional<position>;

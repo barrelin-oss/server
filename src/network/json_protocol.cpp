@@ -55,7 +55,11 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"chat_message", json_message_type::chat_message},
     {"chat_message_broadcast", json_message_type::chat_message_broadcast},
     {"command_request", json_message_type::command_request},
-    {"command_response", json_message_type::command_response}
+    {"command_response", json_message_type::command_response},
+    {"map_teleporters", json_message_type::map_teleporters},
+    {"teleporter_update", json_message_type::teleporter_update},
+    {"player_teleport", json_message_type::player_teleport},
+    {"set_view_range", json_message_type::set_view_range}
 };
 
 }  // namespace
@@ -274,10 +278,38 @@ auto enter_game_request_data::from_json(const nlohmann::json& j)
             data.force_disconnect = j["force_disconnect"].get<bool>();
         }
 
+        // Optional: screen resolution for visibility calculation
+        if (j.contains("screen_width") && j["screen_width"].is_number()) {
+            data.screen_width = static_cast<int16_t>(j["screen_width"].get<int>());
+        }
+        if (j.contains("screen_height") && j["screen_height"].is_number()) {
+            data.screen_height = static_cast<int16_t>(j["screen_height"].get<int>());
+        }
+
         return result<enter_game_request_data, std::string>::ok(std::move(data));
 
     } catch (const nlohmann::json::exception& e) {
         return result<enter_game_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto set_view_range_request_data::from_json(const nlohmann::json& j)
+    -> result<set_view_range_request_data, std::string>
+{
+    try {
+        set_view_range_request_data data;
+
+        if (j.contains("screen_width") && j["screen_width"].is_number()) {
+            data.screen_width = static_cast<int16_t>(j["screen_width"].get<int>());
+        }
+        if (j.contains("screen_height") && j["screen_height"].is_number()) {
+            data.screen_height = static_cast<int16_t>(j["screen_height"].get<int>());
+        }
+
+        return result<set_view_range_request_data, std::string>::ok(std::move(data));
+
+    } catch (const nlohmann::json::exception& e) {
+        return result<set_view_range_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
@@ -837,6 +869,53 @@ auto interact_result_msg::to_json() const -> nlohmann::json {
     };
 }
 
+auto teleporter_info_msg::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"id", id},
+        {"x", x},
+        {"y", y},
+        {"dest_map", dest_map},
+        {"dest_x", dest_x},
+        {"dest_y", dest_y},
+        {"dest_dir", dest_dir}
+    };
+}
+
+auto map_teleporters_msg::to_json() const -> nlohmann::json {
+    nlohmann::json teleporters_json = nlohmann::json::array();
+    for (const auto& tp : teleporters) {
+        teleporters_json.push_back(tp.to_json());
+    }
+
+    return nlohmann::json{
+        {"map_name", map_name},
+        {"teleporters", std::move(teleporters_json)}
+    };
+}
+
+auto teleporter_update_msg::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"action", action},
+        {"map_name", map_name},
+        {"teleporter", teleporter.to_json()}
+    };
+}
+
+auto player_teleport_msg::to_json() const -> nlohmann::json {
+    nlohmann::json entities_json = nlohmann::json::array();
+    for (const auto& entity : entities) {
+        entities_json.push_back(entity.to_json());
+    }
+
+    return nlohmann::json{
+        {"dest_map", dest_map},
+        {"dest_x", dest_x},
+        {"dest_y", dest_y},
+        {"dest_dir", dest_dir},
+        {"entities", std::move(entities_json)}
+    };
+}
+
 auto game_state_msg::to_json() const -> nlohmann::json {
     nlohmann::json inv_json = nlohmann::json::array();
     for (const auto& item : inventory) {
@@ -1374,6 +1453,30 @@ auto make_command_response(uint32_t seq, bool success,
         .type = json_message_type::command_response,
         .seq = seq,
         .data = std::move(data)
+    };
+}
+
+auto make_map_teleporters(const map_teleporters_msg& data) -> json_message {
+    return json_message{
+        .type = json_message_type::map_teleporters,
+        .seq = 0,  // Broadcasts don't need seq
+        .data = data.to_json()
+    };
+}
+
+auto make_teleporter_update(const teleporter_update_msg& data) -> json_message {
+    return json_message{
+        .type = json_message_type::teleporter_update,
+        .seq = 0,  // Broadcasts don't need seq
+        .data = data.to_json()
+    };
+}
+
+auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json_message {
+    return json_message{
+        .type = json_message_type::player_teleport,
+        .seq = seq,
+        .data = data.to_json()
     };
 }
 

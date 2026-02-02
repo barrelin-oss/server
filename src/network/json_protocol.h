@@ -97,6 +97,14 @@ enum class json_message_type {
     command_request,        // Client sends a command
     command_response,       // Server response to command
 
+    // Teleportation
+    map_teleporters,        // Full teleporter list for a map
+    teleporter_update,      // Live add/remove/modify teleporter
+    player_teleport,        // Sent to player being teleported
+
+    // View/Resolution
+    set_view_range,         // Client updates visibility radius
+
     // Unknown/invalid
     unknown
 };
@@ -149,6 +157,10 @@ enum class json_message_type {
         case json_message_type::chat_message_broadcast: return "chat_message_broadcast";
         case json_message_type::command_request: return "command_request";
         case json_message_type::command_response: return "command_response";
+        case json_message_type::map_teleporters: return "map_teleporters";
+        case json_message_type::teleporter_update: return "teleporter_update";
+        case json_message_type::player_teleport: return "player_teleport";
+        case json_message_type::set_view_range: return "set_view_range";
         default: return "unknown";
     }
 }
@@ -212,8 +224,18 @@ struct delete_character_request_data {
 struct enter_game_request_data {
     uint32_t character_id{0};
     bool force_disconnect{false};  // If true, disconnect existing session for this account
+    int16_t screen_width{640};     // Client screen width for visibility calculation
+    int16_t screen_height{480};    // Client screen height for visibility calculation
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<enter_game_request_data, std::string>;
+};
+
+// Set view range request from client (when resolution changes)
+struct set_view_range_request_data {
+    int16_t screen_width{640};
+    int16_t screen_height{480};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<set_view_range_request_data, std::string>;
 };
 
 // Movement request from client (walking)
@@ -495,6 +517,47 @@ struct interact_result_msg {
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
+// Teleporter info for map_teleporters message
+struct teleporter_info_msg {
+    uint32_t id{0};            // Computed from position (x << 16 | y)
+    int16_t x{0};
+    int16_t y{0};
+    std::string dest_map;
+    int16_t dest_x{0};
+    int16_t dest_y{0};
+    int16_t dest_dir{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Map teleporters message (full list for a map)
+struct map_teleporters_msg {
+    std::string map_name;
+    std::vector<teleporter_info_msg> teleporters;
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Teleporter update message (live add/remove/modify)
+struct teleporter_update_msg {
+    std::string action;        // "add", "remove", "modify"
+    std::string map_name;
+    teleporter_info_msg teleporter;
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Player teleport message (sent to player being teleported)
+struct player_teleport_msg {
+    std::string dest_map;
+    int16_t dest_x{0};
+    int16_t dest_y{0};
+    int16_t dest_dir{0};
+    std::vector<visible_entity_msg> entities;  // Visible at destination
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
 // Response builders
 
 [[nodiscard]] auto make_error_response(uint32_t seq, std::string_view error_code,
@@ -609,5 +672,22 @@ struct game_state_msg {
                                           std::string_view command,
                                           std::string_view message,
                                           const nlohmann::json& result = nlohmann::json::object()) -> json_message;
+
+// Teleportation messages
+[[nodiscard]] auto make_map_teleporters(const map_teleporters_msg& data) -> json_message;
+
+[[nodiscard]] auto make_teleporter_update(const teleporter_update_msg& data) -> json_message;
+
+[[nodiscard]] auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json_message;
+
+// Calculate visibility radius from screen resolution
+// ~32 pixels per tile, calculate visible tile radius with buffer for smooth scrolling
+[[nodiscard]] inline auto calculate_visibility_radius(int16_t screen_width, int16_t screen_height) -> int16_t {
+    constexpr int pixels_per_tile = 32;
+    int16_t tiles_wide = screen_width / pixels_per_tile;
+    int16_t tiles_high = screen_height / pixels_per_tile;
+    // Use larger dimension / 2 as radius, add buffer for smooth scrolling
+    return static_cast<int16_t>(std::max(tiles_wide, tiles_high) / 2 + 5);
+}
 
 }  // namespace hb::network

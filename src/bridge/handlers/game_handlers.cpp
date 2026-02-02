@@ -81,6 +81,11 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             handle_command(conn_id, msg);
             break;
 
+        // View range
+        case network::json_message_type::set_view_range:
+            handle_set_view_range(conn_id, msg);
+            break;
+
         default:
             LOG_WARN(bridge, "Unhandled game message type: {}",
                 network::to_string(msg.type));
@@ -155,18 +160,11 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
         }
 
         case player::player_system::move_result::teleport: {
-            // Handle teleport - this is a map change, send world_init
-            auto response = network::make_player_move_response(
-                msg.seq, true,
-                move_result.teleport_dest_pos.x,
-                move_result.teleport_dest_pos.y,
-                static_cast<int16_t>(move_result.teleport_dest_dir));
-            conn->send(response);
-
-            // TODO: Send world_init with new map entities
-            LOG_INFO(bridge, "Player {} teleported to {} ({}, {})",
-                pid.value, move_result.teleport_dest_map,
-                move_result.teleport_dest_pos.x, move_result.teleport_dest_pos.y);
+            // Execute the teleport with full handling
+            execute_player_teleport(pid, conn_id, msg.seq,
+                move_result.teleport_dest_map,
+                move_result.teleport_dest_pos,
+                move_result.teleport_dest_dir);
             break;
         }
 
@@ -1057,6 +1055,247 @@ void game_handlers::send_chat_to_nearby(player_id sender, int16_t range,
     for (auto pid : nearby) {
         send_chat_to_player(pid, data);
     }
+}
+
+// ========== View Range Handling ==========
+
+void game_handlers::handle_set_view_range(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_) {
+        send_error(conn_id, msg.seq, "internal_error", "Player system unavailable");
+        return;
+    }
+
+    auto data_result = network::set_view_range_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto pid = conn->player();
+
+    auto* player = players_->get_player(pid);
+    if (!player) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    player->visibility_radius = network::calculate_visibility_radius(data.screen_width, data.screen_height);
+
+    LOG_DEBUG(bridge, "Player {} updated visibility radius to {} ({}x{})",
+        pid.value, player->visibility_radius, data.screen_width, data.screen_height);
+}
+
+// ========== Teleportation Handling ==========
+
+void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id, uint32_t seq,
+                                             const std::string& dest_map,
+                                             const world::position& dest_pos,
+                                             world::direction dest_dir)
+{
+    if (!players_ || !ws_server_ || !world_) {
+        send_error(conn_id, seq, "internal_error", "System unavailable");
+        return;
+    }
+
+    auto* player = players_->get_player(pid);
+    if (!player) {
+        send_error(conn_id, seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    // Store old position for despawn notifications
+    auto old_map_id = player->current_map;
+    auto old_pos = player->pos;
+
+    // Execute the teleport
+    auto teleport_result = players_->execute_teleport(pid, dest_map, dest_pos, dest_dir);
+    if (!teleport_result.success) {
+        send_error(conn_id, seq, "teleport_failed", teleport_result.error);
+        return;
+    }
+
+    // Check if this is a cross-map teleport
+    bool is_cross_map = (old_map_id != teleport_result.new_map);
+
+    // Despawn from players who could see OLD position
+    auto old_viewers = players_->get_players_who_can_see(old_map_id, old_pos);
+    auto despawn_msg = network::make_entity_despawn(0, pid.value);
+    for (auto other_id : old_viewers) {
+        if (other_id == pid) continue;
+
+        auto* other = players_->get_player(other_id);
+        if (!other || other->connection.value == 0) continue;
+
+        auto* other_conn = ws_server_->get_connection(other->connection);
+        if (other_conn && other_conn->is_open()) {
+            other_conn->send(despawn_msg);
+        }
+    }
+
+    // Build visible entities at destination using teleporting player's visibility
+    auto visible_entities = build_visible_entities_at(teleport_result.new_map, dest_pos,
+                                                       player->visibility_radius);
+
+    // Build and send player_teleport message
+    network::player_teleport_msg teleport_msg{
+        .dest_map = dest_map,
+        .dest_x = dest_pos.x,
+        .dest_y = dest_pos.y,
+        .dest_dir = static_cast<int16_t>(dest_dir),
+        .entities = visible_entities
+    };
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (conn && conn->is_open()) {
+        conn->send(network::make_player_teleport(seq, teleport_msg));
+
+        // If cross-map, also send map_teleporters for the new map
+        if (is_cross_map) {
+            auto* new_map = world_->get_map(teleport_result.new_map);
+            if (new_map) {
+                send_map_teleporters(conn_id, *new_map);
+            }
+        }
+    }
+
+    // Spawn to players who can see NEW position
+    auto new_viewers = players_->get_players_who_can_see(teleport_result.new_map, dest_pos);
+
+    network::visible_entity_msg spawn_entity{
+        .entity_id = pid.value,
+        .type = "player",
+        .name = player->name,
+        .x = dest_pos.x,
+        .y = dest_pos.y,
+        .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
+        .direction = static_cast<int16_t>(dest_dir)
+    };
+    auto spawn_msg = network::make_entity_spawn(0, spawn_entity);
+
+    for (auto other_id : new_viewers) {
+        if (other_id == pid) continue;
+
+        auto* other = players_->get_player(other_id);
+        if (!other || other->connection.value == 0) continue;
+
+        auto* other_conn = ws_server_->get_connection(other->connection);
+        if (other_conn && other_conn->is_open()) {
+            other_conn->send(spawn_msg);
+        }
+    }
+
+    LOG_INFO(bridge, "Player {} teleported to {} ({}, {}), {} entities visible",
+        pid.value, dest_map, dest_pos.x, dest_pos.y, visible_entities.size());
+}
+
+void game_handlers::send_map_teleporters(connection_id conn_id, const world::map& map) {
+    if (!ws_server_) return;
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (!conn || !conn->is_open()) return;
+
+    const auto& teleports = map.get_all_teleports();
+
+    network::map_teleporters_msg teleporters_msg;
+    teleporters_msg.map_name = std::string(map.name());
+
+    for (const auto& [pos, dest] : teleports) {
+        network::teleporter_info_msg tp_info{
+            .id = (static_cast<uint32_t>(pos.x) << 16) | static_cast<uint32_t>(static_cast<uint16_t>(pos.y)),
+            .x = pos.x,
+            .y = pos.y,
+            .dest_map = dest.dest_map,
+            .dest_x = dest.dest_x,
+            .dest_y = dest.dest_y,
+            .dest_dir = static_cast<int16_t>(dest.dest_dir)
+        };
+        teleporters_msg.teleporters.push_back(tp_info);
+    }
+
+    conn->send(network::make_map_teleporters(teleporters_msg));
+
+    LOG_DEBUG(bridge, "Sent {} teleporters for map {} to connection {}",
+        teleporters_msg.teleporters.size(), map.name(), conn_id.value);
+}
+
+void game_handlers::broadcast_teleporter_update(map_id map, const std::string& action,
+                                                 const world::position& pos,
+                                                 const world::teleport_dest* dest)
+{
+    if (!players_ || !ws_server_ || !world_) return;
+
+    auto* m = world_->get_map(map);
+    if (!m) return;
+
+    network::teleporter_update_msg update_msg;
+    update_msg.action = action;
+    update_msg.map_name = std::string(m->name());
+    update_msg.teleporter.id = (static_cast<uint32_t>(pos.x) << 16) |
+                                static_cast<uint32_t>(static_cast<uint16_t>(pos.y));
+    update_msg.teleporter.x = pos.x;
+    update_msg.teleporter.y = pos.y;
+
+    if (dest) {
+        update_msg.teleporter.dest_map = dest->dest_map;
+        update_msg.teleporter.dest_x = dest->dest_x;
+        update_msg.teleporter.dest_y = dest->dest_y;
+        update_msg.teleporter.dest_dir = static_cast<int16_t>(dest->dest_dir);
+    }
+
+    auto msg = network::make_teleporter_update(update_msg);
+
+    // Send to all players on this map
+    players_->for_each_player([&](player_id pid, const player::player& p) {
+        if (p.current_map != map) return;
+        if (p.connection.value == 0) return;
+
+        auto* conn = ws_server_->get_connection(p.connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    });
+
+    LOG_DEBUG(bridge, "Broadcast teleporter {} at ({},{}) on map {}",
+        action, pos.x, pos.y, m->name());
+}
+
+auto game_handlers::build_visible_entities_at(map_id map, const world::position& pos,
+                                               int visibility_radius)
+    -> std::vector<network::visible_entity_msg>
+{
+    std::vector<network::visible_entity_msg> entities;
+
+    if (!players_ || !world_) return entities;
+
+    auto* m = world_->get_map(map);
+    if (!m) return entities;
+
+    // Get all entities in the visibility range from spatial index
+    auto nearby_entities = m->get_entities_in_range(pos, visibility_radius);
+
+    for (auto entity_id : nearby_entities) {
+        // Check if this is a player
+        player_id pid{entity_id.value};
+        auto* p = players_->get_player(pid);
+        if (p) {
+            entities.push_back(network::visible_entity_msg{
+                .entity_id = pid.value,
+                .type = "player",
+                .name = p->name,
+                .x = p->pos.x,
+                .y = p->pos.y,
+                .hp_percent = static_cast<int16_t>(p->hp_percent() * 100),
+                .direction = static_cast<int16_t>(p->facing)
+            });
+        }
+        // TODO: Also include NPCs from npc_system when available
+    }
+
+    return entities;
 }
 
 }  // namespace hb::bridge

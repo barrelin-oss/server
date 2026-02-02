@@ -6,6 +6,7 @@
 #include "core/types.h"
 #include "network/json_protocol.h"
 #include "world/position.h"
+#include "world/map.h"
 
 namespace hb::network {
     class websocket_server;
@@ -62,6 +63,9 @@ private:
     void handle_chat_message(connection_id conn_id, const network::json_message& msg);
     void handle_command(connection_id conn_id, const network::json_message& msg);
 
+    // View range
+    void handle_set_view_range(connection_id conn_id, const network::json_message& msg);
+
     // Chat distribution callback - called when social_system processes a chat message
     void on_chat_message(const social::chat_message_event& event);
 
@@ -91,6 +95,22 @@ private:
     // Send chat to players in range
     void send_chat_to_nearby(player_id sender, int16_t range,
                               const network::chat_message_broadcast_data& data);
+
+    // Teleportation helpers
+    void execute_player_teleport(player_id pid, connection_id conn_id, uint32_t seq,
+                                  const std::string& dest_map,
+                                  const world::position& dest_pos,
+                                  world::direction dest_dir);
+
+    void send_map_teleporters(connection_id conn_id, const world::map& map);
+
+    void broadcast_teleporter_update(map_id map, const std::string& action,
+                                      const world::position& pos,
+                                      const world::teleport_dest* dest);
+
+    [[nodiscard]] auto build_visible_entities_at(map_id map, const world::position& pos,
+                                                  int visibility_radius)
+        -> std::vector<network::visible_entity_msg>;
 
     network::websocket_server* ws_server_{nullptr};
     player::player_system* players_{nullptr};

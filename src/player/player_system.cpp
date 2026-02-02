@@ -520,6 +520,125 @@ auto player_system::can_move_to(player_id id, hb::world::position target_pos) co
     return move_result::success;
 }
 
+auto player_system::execute_teleport(player_id id,
+                                      const std::string& dest_map_name,
+                                      hb::world::position dest_pos,
+                                      hb::world::direction dest_dir) -> teleport_result
+{
+    teleport_result result;
+
+    auto* p = get_player(id);
+    if (!p) {
+        result.error = "Player not found";
+        return result;
+    }
+
+    auto* world_sys = subsystems().get<world::world_subsystem>();
+    if (!world_sys) {
+        result.error = "World system unavailable";
+        return result;
+    }
+
+    // Get destination map by name
+    auto* dest_map = world_sys->get_map_by_name(dest_map_name);
+    if (!dest_map) {
+        result.error = "Destination map not found: " + dest_map_name;
+        return result;
+    }
+
+    // Validate destination position is walkable
+    if (!dest_map->is_walkable(dest_pos)) {
+        result.error = "Destination position is not walkable";
+        return result;
+    }
+
+    // Store old position for return value and spatial index cleanup
+    result.old_map = p->current_map;
+    result.old_pos = p->pos;
+
+    // Get old map for cleanup
+    auto* old_map = world_sys->get_map(p->current_map);
+
+    // Clear occupant at old position
+    if (old_map) {
+        old_map->clear_occupant(p->pos);
+        old_map->spatial().remove(entity_id{id.value});
+    }
+
+    // Update player's position
+    p->current_map = dest_map->id();
+    p->pos = dest_pos;
+    p->facing = dest_dir;
+
+    // Set occupant at new position
+    dest_map->set_occupant(dest_pos, entity_id{id.value}, world::owner_type::player);
+
+    // Add to new map's spatial index
+    dest_map->spatial().add(entity_id{id.value}, dest_pos);
+
+    result.success = true;
+    result.new_map = dest_map->id();
+    result.new_pos = dest_pos;
+
+    LOG_DEBUG(general, "Player '{}' teleported from map {} ({},{}) to {} ({},{})",
+        p->name, result.old_map.value, result.old_pos.x, result.old_pos.y,
+        dest_map_name, dest_pos.x, dest_pos.y);
+
+    return result;
+}
+
+auto player_system::get_players_who_can_see(map_id map,
+                                             const hb::world::position& pos) const -> std::vector<player_id>
+{
+    std::vector<player_id> result;
+
+    // Use max possible visibility range to get candidates
+    constexpr int max_visibility = 100;  // Support high resolution displays
+    auto candidates = get_players_on_map_in_range(map, pos, max_visibility);
+
+    for (auto pid : candidates) {
+        auto* p = get_player(pid);
+        if (!p) continue;
+
+        // Check if THIS player can see the position (one-way visibility)
+        if (pos.chebyshev_distance(p->pos) <= p->visibility_radius) {
+            result.push_back(pid);
+        }
+    }
+
+    return result;
+}
+
+auto player_system::get_players_on_map_in_range(map_id map,
+                                                 const hb::world::position& center,
+                                                 int radius) const -> std::vector<player_id>
+{
+    std::vector<player_id> result;
+
+    auto* world_sys = subsystems().get<world::world_subsystem>();
+    if (!world_sys) {
+        return result;
+    }
+
+    auto* m = world_sys->get_map(map);
+    if (!m) {
+        return result;
+    }
+
+    // Get entities in range from spatial index
+    auto entities = m->get_entities_in_range(center, radius);
+
+    // Filter for players
+    for (auto entity : entities) {
+        player_id pid{entity.value};
+        if (player_exists(pid)) {
+            result.push_back(pid);
+        }
+    }
+
+    return result;
+}
+
 auto player_system::get_players_in_range(player_id id, int radius) const -> std::vector<player_id> {
     std::vector<player_id> result;
 

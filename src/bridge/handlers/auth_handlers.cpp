@@ -330,6 +330,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     auto& data = data_result.value();
     auto char_id = player_id{data.character_id};
 
+    // Calculate initial visibility radius from screen resolution
+    int16_t visibility_radius = network::calculate_visibility_radius(data.screen_width, data.screen_height);
+
     LOG_DEBUG(bridge, "Enter game request for character {} by account {}",
         char_id.value, conn->account().value);
 
@@ -362,8 +365,8 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             if (players_) {
                 auto* player = players_->get_player(existing_player_id);
                 if (player) {
-                    constexpr int visibility_radius = 20;
-                    auto nearby = players_->get_players_in_range(existing_player_id, visibility_radius);
+                    constexpr int despawn_visibility = 20;
+                    auto nearby = players_->get_players_in_range(existing_player_id, despawn_visibility);
                     auto despawn_msg = network::make_entity_despawn(0, existing_player_id.value);
 
                     for (auto other_id : nearby) {
@@ -538,6 +541,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 }
             }
 
+            // Set visibility radius from client resolution
+            player->visibility_radius = visibility_radius;
+
             // Bind connection to player
             players_->bind_connection(live_player_id, conn_id);
 
@@ -656,12 +662,45 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     LOG_DEBUG(bridge, "Sent game state to player {}: {} visible entities",
         live_player_id.value, game_state.entities.size());
 
+    // Send map teleporters
+    if (world_ && players_) {
+        auto* player = players_->get_player(live_player_id);
+        if (player) {
+            auto* current_map = world_->get_map(player->current_map);
+            if (current_map) {
+                const auto& teleports = current_map->get_all_teleports();
+
+                network::map_teleporters_msg teleporters_msg;
+                teleporters_msg.map_name = std::string(current_map->name());
+
+                for (const auto& [pos, dest] : teleports) {
+                    network::teleporter_info_msg tp_info{
+                        .id = (static_cast<uint32_t>(pos.x) << 16) |
+                              static_cast<uint32_t>(static_cast<uint16_t>(pos.y)),
+                        .x = pos.x,
+                        .y = pos.y,
+                        .dest_map = dest.dest_map,
+                        .dest_x = dest.dest_x,
+                        .dest_y = dest.dest_y,
+                        .dest_dir = static_cast<int16_t>(dest.dest_dir)
+                    };
+                    teleporters_msg.teleporters.push_back(tp_info);
+                }
+
+                conn->send(network::make_map_teleporters(teleporters_msg));
+
+                LOG_DEBUG(bridge, "Sent {} teleporters for map {} to player {}",
+                    teleporters_msg.teleporters.size(), current_map->name(), live_player_id.value);
+            }
+        }
+    }
+
     // Notify nearby players of the new spawn
     if (players_ && ws_server_) {
         auto* player = players_->get_player(live_player_id);
         if (player) {
-            constexpr int visibility_radius = 20;
-            auto nearby = players_->get_players_in_range(live_player_id, visibility_radius);
+            constexpr int spawn_visibility = 20;
+            auto nearby = players_->get_players_in_range(live_player_id, spawn_visibility);
 
             // Build spawn message for this player
             auto spawn_entity = network::visible_entity_msg{

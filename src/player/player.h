@@ -157,6 +157,7 @@ struct player {
     map_id current_map{};
     hb::world::position pos{};
     hb::world::direction facing{hb::world::direction::south};
+    int16_t visibility_radius{20};  // Tiles player can see (varies by resolution)
 
     // Session
     connection_id connection{};

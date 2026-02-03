@@ -397,6 +397,15 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
             config_.is_attack_enabled = root["attack_enabled"].as<bool>();
         }
 
+        // Random mob generator
+        if (root["random_mob_generator"]) {
+            const auto& rmg = root["random_mob_generator"];
+            config_.random_mob_generator.enabled = rmg["enabled"].as<bool>(false);
+            config_.random_mob_generator.level = rmg["level"].as<int>(0);
+            LOG_DEBUG(general, "Map {} random_mob_generator: enabled={}, level={}",
+                config_.name, config_.random_mob_generator.enabled, config_.random_mob_generator.level);
+        }
+
         // Initial points
         if (root["initial_points"]) {
             for (const auto& node : root["initial_points"]) {

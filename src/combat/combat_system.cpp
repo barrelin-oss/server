@@ -220,6 +220,17 @@ void combat_system::apply_damage(hb::entity::entity target, const hit_result& re
     enter_combat(source);
     enter_combat(target);
 
+    // Apply HP reduction to players
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        player_id target_pid{target.id};
+        if (player_sys->player_exists(target_pid)) {
+            player_sys->apply_damage(target_pid, result.final_damage);
+        }
+    }
+
+    // TODO: Apply HP reduction to NPCs when npc_system has damage method
+
     // Create damage event
     damage_event event;
     event.target = target;
@@ -229,9 +240,6 @@ void combat_system::apply_damage(hb::entity::entity target, const hit_result& re
 
     // Notify listeners
     notify_damage(event);
-
-    // The actual HP reduction would be done by the player/NPC system
-    // based on the damage event
 
     LOG_DEBUG(general, "Entity {} dealt {} damage to entity {} (crit: {})",
         source.id, result.final_damage, target.id, result.is_critical());

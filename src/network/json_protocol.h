@@ -78,6 +78,9 @@ enum class json_message_type {
     // Combat
     player_attack_request,
     player_attack_response,
+    combat_attack_broadcast,  // Broadcast attack to nearby players
+    entity_hp_update,         // HP changed (damage or heal)
+    entity_death,             // Entity died
 
     // Actions
     player_magic_request,
@@ -104,6 +107,13 @@ enum class json_message_type {
 
     // View/Resolution
     set_view_range,         // Client updates visibility radius
+
+    // NPC messages (server -> client)
+    npc_spawn,              // NPC appears in view
+    npc_despawn,            // NPC leaves view
+    npc_move,               // NPC moved
+    npc_attack,             // NPC attacked something
+    npc_death,              // NPC died
 
     // Unknown/invalid
     unknown
@@ -145,6 +155,9 @@ enum class json_message_type {
         case json_message_type::player_position_update: return "player_position_update";
         case json_message_type::player_attack_request: return "player_attack_request";
         case json_message_type::player_attack_response: return "player_attack_response";
+        case json_message_type::combat_attack_broadcast: return "combat_attack_broadcast";
+        case json_message_type::entity_hp_update: return "entity_hp_update";
+        case json_message_type::entity_death: return "entity_death";
         case json_message_type::player_magic_request: return "player_magic_request";
         case json_message_type::player_magic_response: return "player_magic_response";
         case json_message_type::player_skill_request: return "player_skill_request";
@@ -161,6 +174,11 @@ enum class json_message_type {
         case json_message_type::teleporter_update: return "teleporter_update";
         case json_message_type::player_teleport: return "player_teleport";
         case json_message_type::set_view_range: return "set_view_range";
+        case json_message_type::npc_spawn: return "npc_spawn";
+        case json_message_type::npc_despawn: return "npc_despawn";
+        case json_message_type::npc_move: return "npc_move";
+        case json_message_type::npc_attack: return "npc_attack";
+        case json_message_type::npc_death: return "npc_death";
         default: return "unknown";
     }
 }
@@ -456,6 +474,10 @@ struct visible_entity_msg {
     int16_t hp_percent;
     int16_t direction;
 
+    // NPC-specific fields (optional, only used when type == "npc")
+    uint32_t template_id{0};
+    int16_t level{0};
+
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -639,6 +661,16 @@ struct game_state_msg {
                                                 const attack_result_msg* result = nullptr,
                                                 std::optional<std::string_view> error = std::nullopt) -> json_message;
 
+[[nodiscard]] auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
+                                                 int16_t attacker_x, int16_t attacker_y,
+                                                 int16_t target_x, int16_t target_y,
+                                                 bool hit, bool critical, int32_t damage) -> json_message;
+
+[[nodiscard]] auto make_entity_hp_update(uint32_t entity_id, int32_t hp, int32_t hp_max) -> json_message;
+
+[[nodiscard]] auto make_entity_death(uint32_t victim_id, uint32_t killer_id,
+                                      int16_t x, int16_t y) -> json_message;
+
 // Magic messages
 [[nodiscard]] auto make_player_magic_response(uint32_t seq, bool success,
                                                const magic_result_msg* result = nullptr,
@@ -679,6 +711,63 @@ struct game_state_msg {
 [[nodiscard]] auto make_teleporter_update(const teleporter_update_msg& data) -> json_message;
 
 [[nodiscard]] auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json_message;
+
+// NPC spawn data
+struct npc_spawn_data {
+    uint32_t entity_id{0};
+    uint32_t template_id{0};
+    std::string name;
+    int16_t x{0};
+    int16_t y{0};
+    uint8_t direction{0};
+    int32_t hp{0};
+    int32_t max_hp{0};
+    int16_t level{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// NPC despawn data
+struct npc_despawn_data {
+    uint32_t entity_id{0};
+};
+
+// NPC move data
+struct npc_move_data {
+    uint32_t entity_id{0};
+    int16_t x{0};
+    int16_t y{0};
+    uint8_t direction{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// NPC attack data
+struct npc_attack_data {
+    uint32_t attacker_id{0};
+    uint32_t target_id{0};
+    int32_t damage{0};
+    bool is_critical{false};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// NPC death data
+struct npc_death_data {
+    uint32_t entity_id{0};
+    uint32_t killer_id{0};  // 0 if unknown/environmental
+    int16_t x{0};
+    int16_t y{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// NPC message builders
+[[nodiscard]] auto make_npc_spawn_message(const npc_spawn_data& data) -> json_message;
+[[nodiscard]] auto make_npc_despawn_message(uint32_t entity_id) -> json_message;
+[[nodiscard]] auto make_npc_move_message(const npc_move_data& data) -> json_message;
+[[nodiscard]] auto make_npc_attack_message(const npc_attack_data& data) -> json_message;
+[[nodiscard]] auto make_npc_death_message(const npc_death_data& data) -> json_message;
 
 // Calculate visibility radius from screen resolution
 // ~32 pixels per tile, calculate visible tile radius with buffer for smooth scrolling

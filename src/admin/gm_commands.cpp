@@ -1,0 +1,562 @@
+// gm_commands.cpp
+// Game Master commands implementation
+
+#include "admin/gm_commands.h"
+#include "admin/admin_system.h"
+#include "player/player_system.h"
+#include "world/world_subsystem.h"
+#include "world/map.h"
+#include "inventory/inventory_system.h"
+#include "core/logger.h"
+
+#include <sstream>
+
+namespace hb::admin {
+
+namespace {
+
+// Helper to create arg_spec
+arg_spec make_arg(const std::string& name, arg_type type, bool required,
+                  const std::string& default_val = "", const std::string& desc = "") {
+    arg_spec spec;
+    spec.name = name;
+    spec.type = type;
+    spec.required = required;
+    spec.default_value = default_val;
+    spec.description = desc;
+    return spec;
+}
+
+}  // namespace
+
+void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
+    LOG_INFO(admin, "Registering GM commands");
+
+    // /goto <player> - Teleport to a player
+    {
+        command_info info;
+        info.name = "goto";
+        info.aliases = {"warp", "gotp"};
+        info.description = "Teleport to a player's location";
+        info.usage = "/goto <player_name>";
+        info.required_level = admin_level::game_master;
+        info.arguments = {make_arg("player", arg_type::player_name, true, "", "Player name to teleport to")};
+
+        auto* players = ctx.players;
+        auto* world = ctx.world;
+
+        admin.register_command(info, [players, world](const command_context& cmd_ctx) -> command_result {
+            if (!players || !world) {
+                return command_result::error("System not available");
+            }
+
+            if (cmd_ctx.args.empty()) {
+                return command_result::error("Usage: /goto <player_name>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+
+            // Find target player
+            auto* target = players->get_player_by_name(target_name);
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            // Get executor player
+            auto* executor = players->get_player(cmd_ctx.executor);
+            if (!executor) {
+                return command_result::error("Executor not found");
+            }
+
+            // Get target map name
+            std::string map_name = "unknown";
+            auto* target_map = world->get_map(target->current_map);
+            if (target_map) {
+                map_name = std::string(target_map->name());
+            }
+
+            // Teleport executor to target's position
+            auto result = players->execute_teleport(
+                cmd_ctx.executor,
+                map_name,
+                target->pos,
+                target->facing
+            );
+
+            if (!result.success) {
+                return command_result::error("Teleport failed: " + result.error);
+            }
+
+            return command_result::ok("Teleported to " + target_name + " at " + map_name +
+                " (" + std::to_string(target->pos.x) + ", " + std::to_string(target->pos.y) + ")");
+        });
+    }
+
+    // /summonplayer <player> - Bring a player to your location
+    {
+        command_info info;
+        info.name = "summonplayer";
+        info.aliases = {"bring", "summon"};
+        info.description = "Teleport a player to your location";
+        info.usage = "/summonplayer <player_name>";
+        info.required_level = admin_level::game_master;
+        info.arguments = {make_arg("player", arg_type::player_name, true, "", "Player name to summon")};
+
+        auto* players = ctx.players;
+        auto* world = ctx.world;
+
+        admin.register_command(info, [players, world](const command_context& cmd_ctx) -> command_result {
+            if (!players || !world) {
+                return command_result::error("System not available");
+            }
+
+            if (cmd_ctx.args.empty()) {
+                return command_result::error("Usage: /summonplayer <player_name>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+
+            // Find target player
+            auto* target = players->get_player_by_name(target_name);
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            // Get executor player
+            auto* executor = players->get_player(cmd_ctx.executor);
+            if (!executor) {
+                return command_result::error("Executor not found");
+            }
+
+            // Get executor map name
+            std::string map_name = "unknown";
+            auto* exec_map = world->get_map(executor->current_map);
+            if (exec_map) {
+                map_name = std::string(exec_map->name());
+            }
+
+            // Teleport target to executor's position
+            auto result = players->execute_teleport(
+                target->id,
+                map_name,
+                executor->pos,
+                executor->facing
+            );
+
+            if (!result.success) {
+                return command_result::error("Teleport failed: " + result.error);
+            }
+
+            return command_result::ok("Summoned " + target_name + " to your location");
+        });
+    }
+
+    // /teleport <map> <x> <y> - Teleport to coordinates
+    {
+        command_info info;
+        info.name = "teleport";
+        info.aliases = {"tp", "move"};
+        info.description = "Teleport to specific coordinates";
+        info.usage = "/teleport <map_name> <x> <y>";
+        info.required_level = admin_level::game_master;
+        info.arguments = {
+            make_arg("map", arg_type::map_name, true, "", "Target map name"),
+            make_arg("x", arg_type::integer, true, "", "X coordinate"),
+            make_arg("y", arg_type::integer, true, "", "Y coordinate")
+        };
+
+        auto* players = ctx.players;
+        auto* world = ctx.world;
+
+        admin.register_command(info, [players, world](const command_context& cmd_ctx) -> command_result {
+            if (!players || !world) {
+                return command_result::error("System not available");
+            }
+
+            if (cmd_ctx.args.size() < 3) {
+                return command_result::error("Usage: /teleport <map_name> <x> <y>");
+            }
+
+            const std::string& map_name = cmd_ctx.args[0].string_value;
+            int16_t x = static_cast<int16_t>(cmd_ctx.args[1].int_value);
+            int16_t y = static_cast<int16_t>(cmd_ctx.args[2].int_value);
+
+            // Verify map exists
+            auto* target_map = world->get_map_by_name(map_name);
+            if (!target_map) {
+                return command_result::error("Map '" + map_name + "' not found");
+            }
+
+            // Teleport executor
+            world::position dest{x, y};
+            auto result = players->execute_teleport(
+                cmd_ctx.executor,
+                map_name,
+                dest,
+                world::direction::south
+            );
+
+            if (!result.success) {
+                return command_result::error("Teleport failed: " + result.error);
+            }
+
+            return command_result::ok("Teleported to " + map_name + " (" +
+                std::to_string(x) + ", " + std::to_string(y) + ")");
+        });
+    }
+
+    // /heal [player] - Heal self or target
+    {
+        command_info info;
+        info.name = "heal";
+        info.aliases = {"restore"};
+        info.description = "Restore HP/MP/SP to full";
+        info.usage = "/heal [player_name]";
+        info.required_level = admin_level::game_master;
+        info.arguments = {make_arg("player", arg_type::player_name, false, "", "Player to heal (default: self)")};
+
+        auto* players = ctx.players;
+
+        admin.register_command(info, [players](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            player::player* target = nullptr;
+            std::string target_name;
+
+            if (cmd_ctx.args.empty()) {
+                // Heal self
+                target = players->get_player(cmd_ctx.executor);
+                target_name = "yourself";
+            } else {
+                // Heal specified player
+                target_name = cmd_ctx.args[0].string_value;
+                target = players->get_player_by_name(target_name);
+            }
+
+            if (!target) {
+                return command_result::error("Player not found");
+            }
+
+            // Restore to max
+            target->hp = target->computed.max_hp;
+            target->mp = target->computed.max_mp;
+            target->sp = target->computed.max_sp;
+
+            return command_result::ok("Healed " + target_name + " to full HP/MP/SP");
+        });
+    }
+
+    // /kill <player> - Kill a player
+    {
+        command_info info;
+        info.name = "kill";
+        info.aliases = {"slay"};
+        info.description = "Kill a player";
+        info.usage = "/kill <player_name>";
+        info.required_level = admin_level::senior_gm;
+        info.arguments = {make_arg("player", arg_type::player_name, true, "", "Player to kill")};
+
+        auto* players = ctx.players;
+
+        admin.register_command(info, [players](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            if (cmd_ctx.args.empty()) {
+                return command_result::error("Usage: /kill <player_name>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+            auto* target = players->get_player_by_name(target_name);
+
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            // Set HP to 0
+            target->hp = 0;
+
+            return command_result::ok_broadcast("Killed " + target_name);
+        });
+    }
+
+    // /setlevel <player> <level> - Set player level
+    {
+        command_info info;
+        info.name = "setlevel";
+        info.aliases = {"level"};
+        info.description = "Set a player's level";
+        info.usage = "/setlevel <player_name> <level>";
+        info.required_level = admin_level::admin;
+        info.arguments = {
+            make_arg("player", arg_type::player_name, true, "", "Player to modify"),
+            make_arg("level", arg_type::integer, true, "", "New level (1-180)")
+        };
+
+        auto* players = ctx.players;
+
+        admin.register_command(info, [players](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            if (cmd_ctx.args.size() < 2) {
+                return command_result::error("Usage: /setlevel <player_name> <level>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+            int64_t level = cmd_ctx.args[1].int_value;
+
+            if (level < 1 || level > 180) {
+                return command_result::error("Level must be between 1 and 180");
+            }
+
+            auto* target = players->get_player_by_name(target_name);
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            target->experience.level = static_cast<uint8_t>(level);
+            target->base.level_bonus = static_cast<int16_t>(level);
+            target->recalculate_stats();
+
+            return command_result::ok("Set " + target_name + "'s level to " + std::to_string(level));
+        });
+    }
+
+    // /setstats <player> <stat> <value> - Modify player stat
+    {
+        command_info info;
+        info.name = "setstats";
+        info.aliases = {"stat", "setstat"};
+        info.description = "Modify a player's stat";
+        info.usage = "/setstats <player_name> <stat> <value>";
+        info.required_level = admin_level::admin;
+        info.arguments = {
+            make_arg("player", arg_type::player_name, true, "", "Player to modify"),
+            make_arg("stat", arg_type::string, true, "", "Stat name (str/dex/vit/int/mag/cha/hp/mp/sp)"),
+            make_arg("value", arg_type::integer, true, "", "New value")
+        };
+
+        auto* players = ctx.players;
+
+        admin.register_command(info, [players](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            if (cmd_ctx.args.size() < 3) {
+                return command_result::error("Usage: /setstats <player_name> <stat> <value>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+            std::string stat = cmd_ctx.args[1].string_value;
+            int64_t value = cmd_ctx.args[2].int_value;
+
+            auto* target = players->get_player_by_name(target_name);
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            // Convert stat to lowercase
+            for (char& c : stat) {
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+
+            if (stat == "str" || stat == "strength") {
+                target->base.strength = static_cast<int16_t>(value);
+            } else if (stat == "dex" || stat == "dexterity") {
+                target->base.dexterity = static_cast<int16_t>(value);
+            } else if (stat == "vit" || stat == "vitality") {
+                target->base.vitality = static_cast<int16_t>(value);
+            } else if (stat == "int" || stat == "intelligence") {
+                target->base.intelligence = static_cast<int16_t>(value);
+            } else if (stat == "mag" || stat == "magic") {
+                target->base.magic = static_cast<int16_t>(value);
+            } else if (stat == "cha" || stat == "charisma") {
+                target->base.charisma = static_cast<int16_t>(value);
+            } else if (stat == "hp") {
+                target->hp = static_cast<int32_t>(value);
+            } else if (stat == "mp") {
+                target->mp = static_cast<int32_t>(value);
+            } else if (stat == "sp") {
+                target->sp = static_cast<int32_t>(value);
+            } else {
+                return command_result::error("Unknown stat: " + stat +
+                    ". Valid: str, dex, vit, int, mag, cha, hp, mp, sp");
+            }
+
+            target->recalculate_stats();
+            return command_result::ok("Set " + target_name + "'s " + stat + " to " + std::to_string(value));
+        });
+    }
+
+    // /setgold <player> <amount> - Set gold amount
+    {
+        command_info info;
+        info.name = "setgold";
+        info.aliases = {"gold"};
+        info.description = "Set a player's gold";
+        info.usage = "/setgold <player_name> <amount>";
+        info.required_level = admin_level::admin;
+        info.arguments = {
+            make_arg("player", arg_type::player_name, true, "", "Player to modify"),
+            make_arg("amount", arg_type::integer, true, "", "Gold amount")
+        };
+
+        auto* players = ctx.players;
+        auto* inventory = ctx.inventory;
+
+        admin.register_command(info, [players, inventory](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            if (cmd_ctx.args.size() < 2) {
+                return command_result::error("Usage: /setgold <player_name> <amount>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+            int64_t amount = cmd_ctx.args[1].int_value;
+
+            if (amount < 0) {
+                return command_result::error("Gold amount must be positive");
+            }
+
+            auto* target = players->get_player_by_name(target_name);
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            if (inventory) {
+                entity_id entity{target->id.value};
+                // Get current gold and calculate difference
+                int64_t current = inventory->get_gold(entity);
+                int64_t diff = amount - current;
+                if (diff > 0) {
+                    inventory->add_gold(entity, diff);
+                } else if (diff < 0) {
+                    inventory->remove_gold(entity, -diff);
+                }
+            }
+
+            return command_result::ok("Set " + target_name + "'s gold to " + std::to_string(amount));
+        });
+    }
+
+    // /getinfo <player> - View player info
+    {
+        command_info info;
+        info.name = "getinfo";
+        info.aliases = {"info", "playerinfo"};
+        info.description = "View detailed player information";
+        info.usage = "/getinfo <player_name>";
+        info.required_level = admin_level::helper;
+        info.arguments = {make_arg("player", arg_type::player_name, true, "", "Player to inspect")};
+
+        auto* players = ctx.players;
+        auto* world = ctx.world;
+        auto* inventory = ctx.inventory;
+
+        admin.register_command(info, [players, world, inventory](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            if (cmd_ctx.args.empty()) {
+                return command_result::error("Usage: /getinfo <player_name>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+            auto* target = players->get_player_by_name(target_name);
+
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            std::ostringstream ss;
+            ss << "Player Info: " << target->name << "\n";
+            ss << "  ID: " << target->id.value << "\n";
+            ss << "  Level: " << static_cast<int>(target->experience.level) << "\n";
+            ss << "  HP: " << target->hp << "/" << target->computed.max_hp << "\n";
+            ss << "  MP: " << target->mp << "/" << target->computed.max_mp << "\n";
+            ss << "  SP: " << target->sp << "/" << target->computed.max_sp << "\n";
+            ss << "  Stats: STR " << target->base.strength
+               << " DEX " << target->base.dexterity
+               << " VIT " << target->base.vitality
+               << " INT " << target->base.intelligence
+               << " MAG " << target->base.magic
+               << " CHA " << target->base.charisma << "\n";
+
+            // Map info
+            if (world) {
+                auto* current_map = world->get_map(target->current_map);
+                if (current_map) {
+                    ss << "  Location: " << current_map->name()
+                       << " (" << target->pos.x << ", " << target->pos.y << ")\n";
+                }
+            }
+
+            // Gold info
+            if (inventory) {
+                entity_id entity{target->id.value};
+                ss << "  Gold: " << inventory->get_gold(entity) << "\n";
+            }
+
+            ss << "  PK Count: " << target->pk.count << "\n";
+            ss << "  Experience: " << target->experience.experience;
+
+            return command_result::ok(ss.str());
+        });
+    }
+
+    // /where <player> - Find player location
+    {
+        command_info info;
+        info.name = "where";
+        info.aliases = {"find", "locate"};
+        info.description = "Find a player's location";
+        info.usage = "/where <player_name>";
+        info.required_level = admin_level::helper;
+        info.arguments = {make_arg("player", arg_type::player_name, true, "", "Player to locate")};
+
+        auto* players = ctx.players;
+        auto* world = ctx.world;
+
+        admin.register_command(info, [players, world](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            if (cmd_ctx.args.empty()) {
+                return command_result::error("Usage: /where <player_name>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+            auto* target = players->get_player_by_name(target_name);
+
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            std::string map_name = "unknown";
+            if (world) {
+                auto* current_map = world->get_map(target->current_map);
+                if (current_map) {
+                    map_name = std::string(current_map->name());
+                }
+            }
+
+            return command_result::ok(target_name + " is at " + map_name +
+                " (" + std::to_string(target->pos.x) + ", " + std::to_string(target->pos.y) + ")");
+        });
+    }
+
+    LOG_INFO(admin, "Registered {} GM commands",
+        10);  // Update this count when adding more commands
+}
+
+}  // namespace hb::admin

@@ -6,6 +6,7 @@
 
 #include "core/types.h"
 #include "platform/timer.h"
+#include "scheduler/scheduled_task.h"
 
 #include <atomic>
 #include <memory>
@@ -95,6 +96,9 @@ private:
     std::unique_ptr<network::websocket_server> ws_server_;
     std::unique_ptr<bridge::auth_handlers> auth_handlers_;
     std::unique_ptr<bridge::game_handlers> game_handlers_;
+
+    // Periodic auto-save task
+    task_id auto_save_task_id_;
 };
 
 }  // namespace hb

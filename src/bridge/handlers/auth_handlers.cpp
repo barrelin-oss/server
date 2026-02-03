@@ -12,6 +12,9 @@
 #include "inventory/inventory_system.h"
 #include "world/world_subsystem.h"
 #include "world/map.h"
+#include "admin/admin_system.h"
+#include "npc/npc_system.h"
+#include "npc/npc.h"
 #include "core/logger.h"
 
 namespace hb::bridge {
@@ -23,16 +26,22 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
                                 auth::auth_system* auth,
                                 player::player_system* players,
                                 world::world_subsystem* world,
-                                inventory::inventory_system* inventory) {
+                                inventory::inventory_system* inventory,
+                                admin::admin_system* admin,
+                                npc::npc_system* npc) {
     ws_server_ = ws_server;
     auth_ = auth;
     players_ = players;
     world_ = world;
     inventory_ = inventory;
-    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {})",
+    admin_ = admin;
+    npc_ = npc;
+    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {})",
         players_ != nullptr ? "yes" : "no",
         world_ != nullptr ? "yes" : "no",
-        inventory_ != nullptr ? "yes" : "no");
+        inventory_ != nullptr ? "yes" : "no",
+        admin_ != nullptr ? "yes" : "no",
+        npc_ != nullptr ? "yes" : "no");
 }
 
 void auth_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
@@ -557,6 +566,34 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     conn->set_state(network::ws_connection_state::in_game);
     conn->set_player(live_player_id);
 
+    // Register with admin system for command access
+    if (admin_ && auth_) {
+        // Get admin level from account
+        auto auth_admin_level = auth_->get_admin_level(conn->account());
+
+        // Convert auth::admin_level to admin::admin_level
+        admin::admin_level cmd_level = admin::admin_level::player;
+        switch (auth_admin_level) {
+            case auth::admin_level::helper:
+                cmd_level = admin::admin_level::helper;
+                break;
+            case auth::admin_level::gamemaster:
+                cmd_level = admin::admin_level::game_master;
+                break;
+            case auth::admin_level::senior_gm:
+                cmd_level = admin::admin_level::senior_gm;
+                break;
+            case auth::admin_level::administrator:
+                cmd_level = admin::admin_level::admin;
+                break;
+            default:
+                cmd_level = admin::admin_level::player;
+                break;
+        }
+
+        admin_->register_admin(live_player_id, char_data.name, cmd_level);
+    }
+
     LOG_INFO(bridge, "Player {} (character '{}') entering game from account {}",
         live_player_id.value, char_data.name, conn->account().value);
 
@@ -763,7 +800,28 @@ auto auth_handlers::build_visible_entities(player_id player_id)
         });
     }
 
-    // TODO: Add nearby NPCs from npc_system
+    // Add nearby NPCs from npc_system
+    if (npc_) {
+        npc_->for_each_npc_on_map(player->current_map, [&](entity::entity id, const npc::npc& n) {
+            // Skip dead NPCs
+            if (n.ai_state.state == npc::ai_state::dead) return;
+
+            // Check if NPC is within visibility radius
+            if (player->pos.chebyshev_distance(n.pos) > visibility_radius) return;
+
+            entities.push_back(network::visible_entity_msg{
+                .entity_id = id.id,
+                .type = "npc",
+                .name = n.name,
+                .x = n.pos.x,
+                .y = n.pos.y,
+                .hp_percent = n.max_hp > 0 ? static_cast<int16_t>((n.hp * 100) / n.max_hp) : 100,
+                .direction = static_cast<int16_t>(n.facing),
+                .template_id = n.template_id.value,
+                .level = n.level
+            });
+        });
+    }
 
     return entities;
 }
@@ -971,7 +1029,41 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
         inventory_->destroy_inventory(entity_id{pid.value});
     }
 
+    // Unregister from admin system
+    if (admin_) {
+        admin_->unregister_admin(pid);
+    }
+
     LOG_INFO(bridge, "Player {} cleanup complete", pid.value);
+}
+
+void auth_handlers::save_player(player_id pid) {
+    save_player_state(pid);
+}
+
+auto auth_handlers::save_all_players() -> size_t {
+    if (!players_) {
+        LOG_WARN(bridge, "Cannot save all players: player_system not available");
+        return 0;
+    }
+
+    size_t saved_count = 0;
+    size_t total_count = 0;
+
+    players_->for_each_player([this, &saved_count, &total_count](player_id pid, const player::player&) {
+        ++total_count;
+        // Only save players that have a valid connection (are actually in-game)
+        if (players_->get_player(pid)->connection.value != 0) {
+            save_player_state(pid);
+            ++saved_count;
+        }
+    });
+
+    if (saved_count > 0) {
+        LOG_INFO(bridge, "Periodic save completed: {}/{} players saved", saved_count, total_count);
+    }
+
+    return saved_count;
 }
 
 }  // namespace hb::bridge

@@ -8,6 +8,7 @@
 #include "combat/combat_system.h"
 #include "world/world_subsystem.h"
 #include "registry/npc_registry.h"
+#include "npc/random_mob_generator.h"
 
 #include <random>
 
@@ -70,6 +71,10 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
         return result<entity::entity, std::string>::err("Maximum NPC count reached");
     }
 
+    // Look up template from registry
+    auto* registry = subsystems().get<npc_registry>();
+    const npc_template* tmpl = registry ? registry->get(template_id) : nullptr;
+
     auto entity_id = next_entity_id();
     auto new_npc = std::make_unique<npc>();
 
@@ -79,24 +84,78 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
     new_npc->pos = pos;
     new_npc->ai_state.spawn_point = pos;
 
-    // Default stats (would be loaded from template)
-    new_npc->max_hp = 100;
-    new_npc->hp = new_npc->max_hp;
-    new_npc->max_mp = 50;
-    new_npc->mp = new_npc->max_mp;
-    new_npc->level = 1;
-    new_npc->exp_reward = 10;
-    new_npc->attack_dice = 1;
-    new_npc->attack_sides = 6;
-    new_npc->attack_bonus = 2;
-    new_npc->defense = 5;
+    if (tmpl) {
+        // Apply template stats
+        new_npc->name = tmpl->name;
+        new_npc->max_hp = tmpl->hp;
+        new_npc->hp = tmpl->hp;
+        new_npc->max_mp = tmpl->mp;
+        new_npc->mp = tmpl->mp;
+        new_npc->level = tmpl->level;
+        new_npc->exp_reward = tmpl->exp_reward;
+        new_npc->attack_dice = tmpl->attack_dice;
+        new_npc->attack_sides = tmpl->attack_sides;
+        new_npc->attack_bonus = tmpl->attack_bonus;
+        new_npc->defense = tmpl->defense;
+        new_npc->attack_speed = tmpl->attack_speed;
+        new_npc->move_speed = tmpl->move_speed;
+
+        // Determine category from template type
+        switch (tmpl->type) {
+            case npc_type::monster:
+                new_npc->category = npc_category::monster;
+                break;
+            case npc_type::boss:
+                new_npc->category = npc_category::boss;
+                break;
+            case npc_type::guard:
+                new_npc->category = npc_category::guard;
+                break;
+            case npc_type::npc:
+                new_npc->category = npc_category::merchant;  // Default NPCs to merchant
+                break;
+            default:
+                new_npc->category = npc_category::monster;
+                break;
+        }
+
+        // AI config from template
+        new_npc->ai.aggro_range = tmpl->sight_range > 0 ? tmpl->sight_range : 10;
+        new_npc->ai.attack_range = tmpl->attack_range > 0 ? tmpl->attack_range : 1;
+
+        if (tmpl->is_aggressive) {
+            new_npc->ai.flags = new_npc->ai.flags | ai_flags::aggressive;
+        }
+
+        LOG_DEBUG(general, "Spawned NPC '{}' (template {}) at ({}, {}) on map {} - HP: {}, Level: {}",
+            new_npc->name, template_id.value, pos.x, pos.y, map.value, new_npc->hp, new_npc->level);
+    } else {
+        // Fallback defaults for unknown templates
+        new_npc->name = "Unknown";
+        new_npc->max_hp = 100;
+        new_npc->hp = new_npc->max_hp;
+        new_npc->max_mp = 50;
+        new_npc->mp = new_npc->max_mp;
+        new_npc->level = 1;
+        new_npc->exp_reward = 10;
+        new_npc->attack_dice = 1;
+        new_npc->attack_sides = 6;
+        new_npc->attack_bonus = 2;
+        new_npc->defense = 5;
+
+        LOG_WARN(general, "Spawned NPC with unknown template {} at ({}, {}) on map {}",
+            template_id.value, pos.x, pos.y, map.value);
+    }
 
     new_npc->ai_state.set_state(ai_state::idle);
 
+    // Invoke spawn callback if set
+    npc* npc_ptr = new_npc.get();
     npcs_[entity_id] = std::move(new_npc);
 
-    LOG_DEBUG(general, "Spawned NPC template {} at ({}, {}) on map {}",
-        template_id.value, pos.x, pos.y, map.value);
+    if (on_spawn_callback_) {
+        on_spawn_callback_(*npc_ptr);
+    }
 
     return result<entity::entity, std::string>::ok(entity_id);
 }
@@ -123,6 +182,37 @@ auto npc_system::spawn_npc_at(spawn_point& spawn)
     return result;
 }
 
+auto npc_system::spawn_random_mob(map_id map, hb::world::position pos)
+    -> result<entity::entity, std::string>
+{
+    // Get map and check if random mob generator is enabled
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (!world) {
+        return result<entity::entity, std::string>::err("World subsystem not available");
+    }
+
+    auto* map_ptr = world->get_map(map);
+    if (!map_ptr) {
+        return result<entity::entity, std::string>::err("Map not found");
+    }
+
+    if (!map_ptr->random_mob_generator_enabled()) {
+        return result<entity::entity, std::string>::err("Random mob generator not enabled on this map");
+    }
+
+    // Get random NPC for this map's level
+    auto choice = random_mob_generator::get_random_npc(map_ptr->random_mob_generator_level());
+    if (!choice.has_value()) {
+        return result<entity::entity, std::string>::err("Invalid random mob generator level");
+    }
+
+    // Spawn the selected NPC
+    LOG_DEBUG(general, "Random mob spawn on map {} (level {}): {} (template {})",
+        map.value, map_ptr->random_mob_generator_level(), choice->npc_name, choice->template_id.value);
+
+    return spawn_npc(choice->template_id, map, pos);
+}
+
 void npc_system::despawn_npc(entity::entity id) {
     auto it = npcs_.find(id);
     if (it == npcs_.end()) return;
@@ -144,7 +234,12 @@ void npc_system::kill_npc(entity::entity id, entity::entity killer) {
     npc_ptr->ai_state.set_state(ai_state::dead);
     npc_ptr->ai_state.death_time = std::chrono::steady_clock::now();
 
-    LOG_DEBUG(general, "NPC {} killed by {}", id.id, killer.id);
+    LOG_DEBUG(general, "NPC {} '{}' killed by {}", id.id, npc_ptr->name, killer.id);
+
+    // Invoke death callback
+    if (on_death_callback_) {
+        on_death_callback_(*npc_ptr, killer);
+    }
 
     // Loot generation would happen here
     // Experience award would happen here
@@ -595,8 +690,14 @@ void npc_system::try_move_npc(npc& npc_ref, hb::world::position new_pos) {
     }
 
     // Update position
+    auto old_pos = npc_ref.pos;
     npc_ref.pos = new_pos;
-    npc_ref.facing = hb::world::direction_to(npc_ref.pos, new_pos);
+    npc_ref.facing = hb::world::direction_to(old_pos, new_pos);
+
+    // Invoke move callback
+    if (on_move_callback_) {
+        on_move_callback_(npc_ref);
+    }
 }
 
 void npc_system::perform_npc_attack(npc& npc_ref, entity::entity target) {
@@ -613,8 +714,13 @@ void npc_system::perform_npc_attack(npc& npc_ref, entity::entity target) {
     // Process attack through combat system
     auto result = combat_sys->process_attack(attack);
 
-    LOG_DEBUG(general, "NPC {} attacked {} for {} damage",
-        npc_ref.entity_id.id, target.id, result.hit.final_damage);
+    LOG_DEBUG(general, "NPC {} '{}' attacked {} for {} damage",
+        npc_ref.entity_id.id, npc_ref.name, target.id, result.hit.final_damage);
+
+    // Invoke attack callback
+    if (on_attack_callback_) {
+        on_attack_callback_(npc_ref, target, result.hit.final_damage);
+    }
 }
 
 }  // namespace hb::npc

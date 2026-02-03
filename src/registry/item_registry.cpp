@@ -8,6 +8,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <yaml-cpp/yaml.h>
 
 namespace hb {
 
@@ -90,6 +91,16 @@ auto item_registry::load_from_file(const std::filesystem::path& path)
 
     LOG_INFO(item, "Loading items from: {}", path.string());
 
+    // Check if this is a YAML file
+    auto ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+
+    if (ext == ".yaml" || ext == ".yml") {
+        return load_from_yaml(path);
+    }
+
+    // Legacy CFG format parsing
     std::string line;
     int line_num = 0;
     size_t loaded = 0;
@@ -132,6 +143,79 @@ auto item_registry::load_from_file(const std::filesystem::path& path)
     LOG_INFO(item, "Loaded {} items ({} errors)", loaded, errors);
 
     return result<size_t, std::string>::ok(loaded);
+}
+
+auto item_registry::load_from_yaml(const std::filesystem::path& path)
+    -> result<size_t, std::string>
+{
+    try {
+        YAML::Node root = YAML::LoadFile(path.string());
+
+        if (!root["items"] || !root["items"].IsSequence()) {
+            return result<size_t, std::string>::err("YAML must contain 'items' array");
+        }
+
+        size_t loaded = 0;
+        size_t errors = 0;
+
+        for (const auto& node : root["items"]) {
+            item_template item;
+
+            // Required fields
+            if (!node["id"]) {
+                ++errors;
+                continue;
+            }
+
+            item.id = item_id{node["id"].as<uint32_t>()};
+            if (!item.id.is_valid()) {
+                ++errors;
+                continue;
+            }
+
+            if (node["name"]) {
+                item.name = node["name"].as<std::string>();
+            } else {
+                ++errors;
+                continue;
+            }
+
+            // Check for duplicate
+            if (id_index_.contains(item.id.value)) {
+                LOG_WARN(item, "Duplicate item ID {}", item.id.value);
+                ++errors;
+                continue;
+            }
+
+            // Optional fields with defaults
+            if (node["type"]) item.type = static_cast<item_type>(node["type"].as<int>());
+            if (node["equip_pos"]) item.equip_pos = static_cast<item_equip_pos>(node["equip_pos"].as<int>());
+            if (node["weight"]) item.weight = static_cast<int16_t>(node["weight"].as<int>());
+            if (node["durability"]) item.max_durability = static_cast<int16_t>(node["durability"].as<int>());
+            if (node["price"]) item.price = node["price"].as<int>();
+            if (node["level_limit"]) item.level_limit = static_cast<int16_t>(node["level_limit"].as<int>());
+            if (node["attack_bonus"]) item.attack_bonus = static_cast<int16_t>(node["attack_bonus"].as<int>());
+            if (node["defense"]) item.defense = static_cast<int16_t>(node["defense"].as<int>());
+            if (node["hit_prob"]) item.hit_prob_bonus = static_cast<int16_t>(node["hit_prob"].as<int>());
+            if (node["dodge_prob"]) item.dodge_prob_bonus = static_cast<int16_t>(node["dodge_prob"].as<int>());
+            if (node["is_two_handed"]) item.is_two_handed = node["is_two_handed"].as<int>() > 0;
+
+            // Store item
+            auto index = items_.size();
+            id_index_[item.id.value] = index;
+            name_index_[to_lower(item.name)] = index;
+            items_.push_back(std::move(item));
+            ++loaded;
+        }
+
+        LOG_INFO(item, "Loaded {} items from YAML ({} errors)", loaded, errors);
+        return result<size_t, std::string>::ok(loaded);
+
+    } catch (const YAML::Exception& e) {
+        return result<size_t, std::string>::err(
+            std::string("YAML parsing error: ") + e.what()
+        );
+    }
 }
 
 auto item_registry::parse_item_line(std::string_view line, int line_num)

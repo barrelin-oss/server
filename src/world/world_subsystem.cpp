@@ -105,8 +105,8 @@ auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_
                       new_map->mob_spawner_count());
         }
     } else {
-        LOG_DEBUG(general, "No config file found for map '{}' at {}",
-                  config.name, config_path.string());
+        LOG_WARN(general, "No config file found for map '{}' at {}",
+                 config.name, config_path.string());
     }
 
     name_to_id_[config.name] = id;

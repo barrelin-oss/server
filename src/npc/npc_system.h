@@ -13,6 +13,7 @@
 #include <memory>
 #include <vector>
 #include <string_view>
+#include <functional>
 
 namespace hb::npc {
 
@@ -42,6 +43,7 @@ public:
     // NPC lifecycle
     auto spawn_npc(npc_id template_id, map_id map, hb::world::position pos) -> result<entity::entity, std::string>;
     auto spawn_npc_at(spawn_point& spawn) -> result<entity::entity, std::string>;
+    auto spawn_random_mob(map_id map, hb::world::position pos) -> result<entity::entity, std::string>;
     void despawn_npc(entity::entity id);
     void kill_npc(entity::entity id, entity::entity killer);
 
@@ -67,6 +69,18 @@ public:
     // AI
     void update_ai(entity::entity id);
     void enable_ai(bool enabled) { config_.enable_ai = enabled; }
+
+    // Callback types
+    using on_npc_spawn_callback = std::function<void(const npc&)>;
+    using on_npc_move_callback = std::function<void(const npc&)>;
+    using on_npc_death_callback = std::function<void(const npc&, entity::entity killer)>;
+    using on_npc_attack_callback = std::function<void(const npc&, entity::entity target, int32_t damage)>;
+
+    // Register callbacks
+    void set_on_spawn_callback(on_npc_spawn_callback cb) { on_spawn_callback_ = std::move(cb); }
+    void set_on_move_callback(on_npc_move_callback cb) { on_move_callback_ = std::move(cb); }
+    void set_on_death_callback(on_npc_death_callback cb) { on_death_callback_ = std::move(cb); }
+    void set_on_attack_callback(on_npc_attack_callback cb) { on_attack_callback_ = std::move(cb); }
 
     // Iteration
     template<typename Func>
@@ -122,6 +136,12 @@ private:
 
     float ai_accumulator_{0.0f};
     float spawn_accumulator_{0.0f};
+
+    // Event callbacks
+    on_npc_spawn_callback on_spawn_callback_;
+    on_npc_move_callback on_move_callback_;
+    on_npc_death_callback on_death_callback_;
+    on_npc_attack_callback on_attack_callback_;
 };
 
 }  // namespace hb::npc

@@ -7,6 +7,7 @@
 #include "network/json_protocol.h"
 #include "world/position.h"
 #include "world/map.h"
+#include "entity/entity.h"
 
 namespace hb::network {
     class websocket_server;
@@ -26,6 +27,21 @@ namespace hb::social {
     struct chat_message_event;
 }
 
+namespace hb::admin {
+    class admin_system;
+}
+
+namespace hb::combat {
+    class combat_system;
+    struct damage_event;
+    struct death_event;
+}
+
+namespace hb::npc {
+    class npc_system;
+    struct npc;
+}
+
 namespace hb::bridge {
 
 // Game message handler
@@ -39,7 +55,10 @@ public:
     void initialize(network::websocket_server* ws_server,
                     player::player_system* players,
                     world::world_subsystem* world,
-                    social::social_system* social);
+                    social::social_system* social,
+                    admin::admin_system* admin = nullptr,
+                    combat::combat_system* combat = nullptr,
+                    npc::npc_system* npc = nullptr);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -112,10 +131,29 @@ private:
                                                   int visibility_radius)
         -> std::vector<network::visible_entity_msg>;
 
+    // Combat event callbacks
+    void on_damage_dealt(const combat::damage_event& event);
+    void on_entity_death(const combat::death_event& event);
+    void handle_player_death(player_id pid);
+
+    // Combat broadcast helpers
+    void broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max);
+    void broadcast_entity_death(player_id victim, player_id killer);
+
+    // NPC broadcast helpers
+    void broadcast_npc_spawn(const npc::npc& n);
+    void broadcast_npc_move(const npc::npc& n);
+    void broadcast_npc_attack(const npc::npc& n, entity::entity target, int32_t damage);
+    void broadcast_npc_death(const npc::npc& n, entity::entity killer);
+    void broadcast_npc_hp_update(const npc::npc& n);
+
     network::websocket_server* ws_server_{nullptr};
     player::player_system* players_{nullptr};
     world::world_subsystem* world_{nullptr};
     social::social_system* social_{nullptr};
+    admin::admin_system* admin_{nullptr};
+    combat::combat_system* combat_{nullptr};
+    npc::npc_system* npc_{nullptr};
 };
 
 }  // namespace hb::bridge

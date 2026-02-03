@@ -323,42 +323,44 @@ function writeNpcsYaml(npcs, filepath) {
 
 // ============================================================
 // Magic.cfg converter
-// magic = id name type delay last mana_cost range1 range2 ... (many fields)
+// magic = id name type delay duration mana_cost range1 range2
+//         effect1_dice effect1_sides effect1_bonus
+//         effect2_dice effect2_sides effect2_bonus
+//         effect3_dice effect3_sides effect3_bonus
+//         int_req cost category attribute
 // ============================================================
-const MAGIC_FIELDS = [
-    'id', 'name', 'type', 'delay', 'duration', 'mana_cost',
-    'range1', 'range2',
-    'effect1_dice', 'effect1_sides', 'effect1_bonus',
-    'effect2_dice', 'effect2_sides', 'effect2_bonus',
-    'effect3_dice', 'effect3_sides', 'effect3_bonus',
-    'int_req', 'cost', 'category', 'attribute'
-];
-
 function convertMagic(content) {
     const spells = [];
 
     for (const line of content.split(/\r?\n/)) {
         const tokens = parseTokens(line);
-        if (tokens.length < 5 || tokens[0].toLowerCase() !== 'magic') continue;
+        if (tokens.length < 22 || tokens[0].toLowerCase() !== 'magic') continue;
 
-        const spell = {};
-        for (let i = 1; i < tokens.length && i <= MAGIC_FIELDS.length; i++) {
-            const field = MAGIC_FIELDS[i - 1];
-            const value = tokens[i];
+        const spell = {
+            id: parseInt(tokens[1], 10),
+            name: tokens[2],
+            type: parseInt(tokens[3], 10),
+            delay: parseInt(tokens[4], 10),
+            duration: parseInt(tokens[5], 10),
+            mana_cost: parseInt(tokens[6], 10),
+            range1: parseInt(tokens[7], 10),
+            range2: parseInt(tokens[8], 10),
+            effect1_dice: parseInt(tokens[9], 10),
+            effect1_sides: parseInt(tokens[10], 10),
+            effect1_bonus: parseInt(tokens[11], 10),
+            effect2_dice: parseInt(tokens[12], 10),
+            effect2_sides: parseInt(tokens[13], 10),
+            effect2_bonus: parseInt(tokens[14], 10),
+            effect3_dice: parseInt(tokens[15], 10),
+            effect3_sides: parseInt(tokens[16], 10),
+            effect3_bonus: parseInt(tokens[17], 10),
+            int_req: parseInt(tokens[18], 10),
+            cost: parseInt(tokens[19], 10),
+            category: parseInt(tokens[20], 10),
+            attribute: parseInt(tokens[21], 10)
+        };
 
-            if (field === 'name') {
-                spell[field] = value;
-            } else {
-                const num = parseInt(value, 10);
-                if (!isNaN(num)) {
-                    spell[field] = num;
-                }
-            }
-        }
-
-        if (spell.id !== undefined && spell.name) {
-            spells.push(spell);
-        }
+        spells.push(spell);
     }
 
     return spells;
@@ -368,11 +370,21 @@ function writeMagicYaml(spells, filepath) {
     const lines = ['magic:'];
 
     for (const spell of spells) {
-        const parts = [];
-        for (const [key, value] of Object.entries(spell)) {
-            parts.push(`${key}: ${value}`);
-        }
-        lines.push(`  - { ${parts.join(', ')} }`);
+        lines.push(`  - id: ${spell.id}`);
+        lines.push(`    name: ${spell.name}`);
+        lines.push(`    type: ${spell.type}`);
+        lines.push(`    delay: ${spell.delay}`);
+        lines.push(`    duration: ${spell.duration}`);
+        lines.push(`    mana_cost: ${spell.mana_cost}`);
+        lines.push(`    range1: ${spell.range1}`);
+        lines.push(`    range2: ${spell.range2}`);
+        lines.push(`    effect1: { dice: ${spell.effect1_dice}, sides: ${spell.effect1_sides}, bonus: ${spell.effect1_bonus} }`);
+        lines.push(`    effect2: { dice: ${spell.effect2_dice}, sides: ${spell.effect2_sides}, bonus: ${spell.effect2_bonus} }`);
+        lines.push(`    effect3: { dice: ${spell.effect3_dice}, sides: ${spell.effect3_sides}, bonus: ${spell.effect3_bonus} }`);
+        lines.push(`    int_req: ${spell.int_req}`);
+        lines.push(`    cost: ${spell.cost}`);
+        lines.push(`    category: ${spell.category}`);
+        lines.push(`    attribute: ${spell.attribute}`);
     }
 
     lines.push('');
@@ -584,6 +596,186 @@ function writeQuestsYaml(quests, filepath) {
 }
 
 // ============================================================
+// CraftItem.cfg converter (same format as Potion.cfg crafting)
+// ============================================================
+function convertCraftItems(content) {
+    const recipes = [];
+
+    for (const line of content.split(/\r?\n/)) {
+        const tokens = parseTokens(line);
+        if (tokens.length < 5 || tokens[0].toLowerCase() !== 'crafting') continue;
+
+        const recipe = {
+            id: parseInt(tokens[1], 10),
+            result: tokens[2],
+            ingredients: [],
+            skill_limit: 0,
+            difficulty: 0
+        };
+
+        // Parse ingredients (pairs of item_id, count) - 6 pairs max
+        let i = 3;
+        for (let pair = 0; pair < 6 && i + 1 < tokens.length; pair++) {
+            const id = parseInt(tokens[i], 10);
+            const count = parseInt(tokens[i + 1], 10);
+            if (id > 0) {
+                recipe.ingredients.push({ item_id: id, count: count });
+            }
+            i += 2;
+        }
+
+        // Last two fields
+        if (i < tokens.length) {
+            recipe.skill_limit = parseInt(tokens[i], 10) || 0;
+        }
+        if (i + 1 < tokens.length) {
+            recipe.difficulty = parseInt(tokens[i + 1], 10) || 0;
+        }
+
+        recipes.push(recipe);
+    }
+
+    return recipes;
+}
+
+function writeCraftItemsYaml(recipes, filepath) {
+    const lines = ['crafting_recipes:'];
+
+    for (const r of recipes) {
+        lines.push(`  - id: ${r.id}`);
+        lines.push(`    result: ${r.result}`);
+        lines.push(`    skill_limit: ${r.skill_limit}`);
+        lines.push(`    difficulty: ${r.difficulty}`);
+        lines.push('    ingredients:');
+        for (const ing of r.ingredients) {
+            lines.push(`      - { item_id: ${ing.item_id}, count: ${ing.count} }`);
+        }
+    }
+
+    lines.push('');
+    fs.writeFileSync(filepath, lines.join('\n'), 'utf8');
+}
+
+// ============================================================
+// DupItemID.cfg converter
+// DupItemID = id type v1 v2 v3 cost
+// ============================================================
+function convertDupItemIDs(content) {
+    const entries = [];
+
+    for (const line of content.split(/\r?\n/)) {
+        const tokens = parseTokens(line);
+        if (tokens.length < 6 || tokens[0].toLowerCase() !== 'dupitemid') continue;
+
+        entries.push({
+            id: parseInt(tokens[1], 10),
+            type: parseInt(tokens[2], 10),
+            value1: parseInt(tokens[3], 10),
+            value2: parseInt(tokens[4], 10),
+            value3: parseInt(tokens[5], 10),
+            cost: parseInt(tokens[6], 10)
+        });
+    }
+
+    return entries;
+}
+
+function writeDupItemIDsYaml(entries, filepath) {
+    const lines = ['duplicate_item_ids:'];
+
+    for (const e of entries) {
+        lines.push(`  - { id: ${e.id}, type: ${e.type}, value1: ${e.value1}, value2: ${e.value2}, value3: ${e.value3}, cost: ${e.cost} }`);
+    }
+
+    lines.push('');
+    fs.writeFileSync(filepath, lines.join('\n'), 'utf8');
+}
+
+// ============================================================
+// Teleport.cfg converter
+// teleport = npc_name src_map tgt_map x y cost min_lvl max_lvl side neutral? crim?
+// ============================================================
+function convertTeleports(content) {
+    const teleports = [];
+
+    for (const line of content.split(/\r?\n/)) {
+        const tokens = parseTokens(line);
+        if (tokens.length < 11 || tokens[0].toLowerCase() !== 'teleport') continue;
+
+        teleports.push({
+            npc_name: tokens[1],
+            src_map: tokens[2],
+            tgt_map: tokens[3],
+            x: parseInt(tokens[4], 10),
+            y: parseInt(tokens[5], 10),
+            cost: parseInt(tokens[6], 10),
+            min_level: parseInt(tokens[7], 10),
+            max_level: parseInt(tokens[8], 10),
+            side: tokens[9],
+            allow_neutral: tokens[10].toLowerCase() === 'true',
+            allow_criminal: tokens[11].toLowerCase() === 'true'
+        });
+    }
+
+    return teleports;
+}
+
+function writeTeleportsYaml(teleports, filepath) {
+    const lines = ['teleports:'];
+
+    for (const t of teleports) {
+        lines.push(`  - npc_name: ${t.npc_name}`);
+        lines.push(`    src_map: ${t.src_map}`);
+        lines.push(`    tgt_map: ${t.tgt_map}`);
+        lines.push(`    x: ${t.x}`);
+        lines.push(`    y: ${t.y}`);
+        lines.push(`    cost: ${t.cost}`);
+        lines.push(`    min_level: ${t.min_level}`);
+        lines.push(`    max_level: ${t.max_level}`);
+        lines.push(`    side: ${t.side}`);
+        lines.push(`    allow_neutral: ${t.allow_neutral}`);
+        lines.push(`    allow_criminal: ${t.allow_criminal}`);
+    }
+
+    lines.push('');
+    fs.writeFileSync(filepath, lines.join('\n'), 'utf8');
+}
+
+// ============================================================
+// Crusade.cfg converter
+// crusade-structure = id map_name type x y
+// ============================================================
+function convertCrusade(content) {
+    const structures = [];
+
+    for (const line of content.split(/\r?\n/)) {
+        const tokens = parseTokens(line);
+        if (tokens.length < 6 || tokens[0].toLowerCase() !== 'crusade-structure') continue;
+
+        structures.push({
+            id: parseInt(tokens[1], 10),
+            map_name: tokens[2],
+            type: parseInt(tokens[3], 10),
+            x: parseInt(tokens[4], 10),
+            y: parseInt(tokens[5], 10)
+        });
+    }
+
+    return structures;
+}
+
+function writeCrusadeYaml(structures, filepath) {
+    const lines = ['crusade_structures:'];
+
+    for (const s of structures) {
+        lines.push(`  - { id: ${s.id}, map_name: ${s.map_name}, type: ${s.type}, x: ${s.x}, y: ${s.y} }`);
+    }
+
+    lines.push('');
+    fs.writeFileSync(filepath, lines.join('\n'), 'utf8');
+}
+
+// ============================================================
 // Main conversion logic
 // ============================================================
 const converters = {
@@ -607,7 +799,21 @@ const converters = {
         write: writeItemsYaml,
         output: 'items.yaml'
     },
-    // Note: Item2.cfg and Item3.cfg have been merged into Item.cfg
+    'item2.cfg': {
+        convert: convertItems,
+        write: writeItemsYaml,
+        output: 'items2.yaml'
+    },
+    'item3.cfg': {
+        convert: convertItems,
+        write: writeItemsYaml,
+        output: 'items3.yaml'
+    },
+    'item4.cfg': {
+        convert: convertItems,
+        write: writeItemsYaml,
+        output: 'items4.yaml'
+    },
     'npc.cfg': {
         convert: convertNpcs,
         write: writeNpcsYaml,
@@ -632,6 +838,26 @@ const converters = {
         convert: convertQuests,
         write: writeQuestsYaml,
         output: 'quests.yaml'
+    },
+    'craftitem.cfg': {
+        convert: convertCraftItems,
+        write: writeCraftItemsYaml,
+        output: 'craft_recipes.yaml'
+    },
+    'dupitemid.cfg': {
+        convert: convertDupItemIDs,
+        write: writeDupItemIDsYaml,
+        output: 'duplicate_item_ids.yaml'
+    },
+    'teleport.cfg': {
+        convert: convertTeleports,
+        write: writeTeleportsYaml,
+        output: 'teleports.yaml'
+    },
+    'crusade.cfg': {
+        convert: convertCrusade,
+        write: writeCrusadeYaml,
+        output: 'crusade_structures.yaml'
     }
 };
 

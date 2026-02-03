@@ -107,6 +107,7 @@ set(PLAYER_SOURCES
 
 set(NPC_SOURCES
     src/npc/npc_system.cpp
+    src/npc/random_mob_generator.cpp
 )
 
 set(ITEM_SOURCES
@@ -147,6 +148,7 @@ set(PERSISTENCE_SOURCES
 
 set(ADMIN_SOURCES
     src/admin/admin_system.cpp
+    src/admin/gm_commands.cpp
 )
 
 set(DATABASE_SOURCES

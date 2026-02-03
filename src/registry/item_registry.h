@@ -55,8 +55,11 @@ public:
     [[nodiscard]] auto all() const -> const std::vector<item_template>&;
 
 private:
-    // Parse a single item line from config
+    // Parse a single item line from config (legacy CFG format)
     auto parse_item_line(std::string_view line, int line_num) -> result<item_template, std::string>;
+
+    // Load items from YAML file
+    auto load_from_yaml(const std::filesystem::path& path) -> result<size_t, std::string>;
 
     // Storage
     std::vector<item_template> items_;

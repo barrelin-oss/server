@@ -33,6 +33,7 @@
 #include "war/war_system.h"
 #include "persistence/persistence_system.h"
 #include "admin/admin_system.h"
+#include "admin/gm_commands.h"
 
 // Protocol bridge
 #include "bridge/message_router.h"
@@ -255,6 +256,16 @@ void application::initialize() {
     // Load game configuration files (items, NPCs, magic, etc.)
     load_game_configs();
 
+    // Register GM commands with admin system
+    if (auto* admin_sys = subsystems().get<admin::admin_system>()) {
+        admin::gm_command_context gm_ctx{
+            .players = subsystems().get<player::player_system>(),
+            .world = subsystems().get<world::world_subsystem>(),
+            .inventory = subsystems().get<inventory::inventory_system>()
+        };
+        admin::register_gm_commands(*admin_sys, gm_ctx);
+    }
+
     // Initialize protocol bridge and register wave handlers
     LOG_INFO(general, "Initializing protocol bridge...");
     auto& router = bridge::router();
@@ -294,7 +305,9 @@ void application::initialize() {
             &auth_sys,
             subsystems().get<player::player_system>(),
             subsystems().get<world::world_subsystem>(),
-            subsystems().get<inventory::inventory_system>()
+            subsystems().get<inventory::inventory_system>(),
+            subsystems().get<admin::admin_system>(),
+            subsystems().get<npc::npc_system>()
         );
 
         // Create and initialize game handlers
@@ -303,7 +316,10 @@ void application::initialize() {
             ws_server_.get(),
             subsystems().get<player::player_system>(),
             subsystems().get<world::world_subsystem>(),
-            subsystems().get<social::social_system>()
+            subsystems().get<social::social_system>(),
+            subsystems().get<admin::admin_system>(),
+            subsystems().get<combat::combat_system>(),
+            subsystems().get<npc::npc_system>()
         );
 
         // Set up WebSocket message routing - dispatch to appropriate handler
@@ -336,6 +352,8 @@ void application::initialize() {
                 // Chat and commands
                 case network::json_message_type::chat_message:
                 case network::json_message_type::command_request:
+                // View range
+                case network::json_message_type::set_view_range:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -362,6 +380,25 @@ void application::initialize() {
                 ws_config.bind_address, ws_config.port);
         } else {
             LOG_ERROR(general, "Failed to start WebSocket server: {}", ws_result.error());
+        }
+    }
+
+    // Set up periodic auto-save if enabled
+    if (server_cfg.auto_save.enabled && auth_handlers_) {
+        auto* sched = subsystems().get<scheduler>();
+        if (sched) {
+            auto interval_ms = duration_ms{server_cfg.auto_save.interval_seconds * 1000};
+            auto_save_task_id_ = sched->schedule_repeating_tagged(
+                interval_ms,
+                "auto_save",
+                [this]() {
+                    if (auth_handlers_) {
+                        auth_handlers_->save_all_players();
+                    }
+                }
+            );
+            LOG_INFO(general, "Periodic auto-save scheduled every {} seconds",
+                server_cfg.auto_save.interval_seconds);
         }
     }
 
@@ -420,6 +457,21 @@ void application::shutdown() {
         .reason = shutdown_reason_,
         .timestamp = std::chrono::system_clock::now()
     });
+
+    // Cancel auto-save task
+    if (auto_save_task_id_.is_valid()) {
+        if (auto* sched = subsystems().get<scheduler>()) {
+            sched->cancel(auto_save_task_id_);
+        }
+        auto_save_task_id_ = task_id{};
+    }
+
+    // Final save of all players before shutdown
+    if (auth_handlers_) {
+        LOG_INFO(general, "Saving all players before shutdown...");
+        auto saved = auth_handlers_->save_all_players();
+        LOG_INFO(general, "Saved {} players", saved);
+    }
 
     // Stop WebSocket server if running
     if (ws_server_) {
@@ -491,6 +543,33 @@ void application::load_maps() {
     }
 
     LOG_INFO(general, "Map loading complete: {} loaded, {} failed", loaded_count, failed_count);
+
+    // After maps are loaded, register spawners with npc_system
+    auto* npc_sys = subsystems().get<npc::npc_system>();
+    if (npc_sys && world) {
+        int spawner_count = 0;
+        world->for_each_map([&](map_id id, const world::map& m) {
+            for (const auto& spawner : m.get_mob_spawners()) {
+                if (!spawner.enabled || spawner.max_count <= 0) continue;
+
+                npc::spawn_point sp;
+                sp.npc_type = npc_id{static_cast<uint16_t>(spawner.npc_type)};
+                sp.map = id;
+                sp.center = {
+                    static_cast<int16_t>((spawner.area.min_x + spawner.area.max_x) / 2),
+                    static_cast<int16_t>((spawner.area.min_y + spawner.area.max_y) / 2)
+                };
+                sp.radius = static_cast<int16_t>(
+                    std::max(spawner.area.width(), spawner.area.height()) / 2);
+                sp.max_count = spawner.max_count;
+                sp.respawn_time_ms = 60000;  // 1 minute default
+
+                npc_sys->add_spawn_point(std::move(sp));
+                ++spawner_count;
+            }
+        });
+        LOG_INFO(general, "Registered {} NPC spawn points", spawner_count);
+    }
 }
 
 void application::load_game_configs() {
@@ -528,7 +607,31 @@ void application::load_game_configs() {
         }
     }
 
-    // TODO: Load NPC definitions from npcs.yaml or NPC.cfg
+    // Load NPC definitions
+    auto* npcs = subsystems().get<npc_registry>();
+    if (npcs) {
+        auto npcs_yaml = config_dir / "npcs.yaml";
+        auto npcs_cfg = config_dir / "NPC.cfg";
+
+        if (std::filesystem::exists(npcs_yaml)) {
+            auto result = npcs->load_from_file(npcs_yaml);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} NPCs from npcs.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load npcs.yaml: {}", result.error());
+            }
+        } else if (std::filesystem::exists(npcs_cfg)) {
+            auto result = npcs->load_from_file(npcs_cfg);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} NPCs from NPC.cfg", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load NPC.cfg: {}", result.error());
+            }
+        } else {
+            LOG_WARN(general, "No NPC config found (npcs.yaml or NPC.cfg)");
+        }
+    }
+
     // TODO: Load magic definitions from magic.yaml or Magic.cfg
     // TODO: Load skill definitions from skills.yaml or Skill.cfg
 }

@@ -16,6 +16,12 @@
 
 namespace hb::world {
 
+// Random mob generator configuration
+struct random_mob_generator_config {
+    bool enabled{false};
+    int level{0};  // 1-7+ determines which NPC groups can spawn
+};
+
 // Map configuration
 struct map_config {
     std::string name;
@@ -36,6 +42,9 @@ struct map_config {
     int upper_level_limit{0};           // Maximum level to enter (0 = no limit)
 
     uint8_t map_type{0};                // 0 = normal, 1 = no penalty/reward
+
+    // Random mob spawning outside of defined spawners
+    random_mob_generator_config random_mob_generator;
 };
 
 // Teleport destination info
@@ -179,6 +188,14 @@ public:
 
     // Waypoints
     [[nodiscard]] auto get_waypoint(int16_t id) const -> std::optional<position>;
+
+    // Random mob generator
+    [[nodiscard]] auto random_mob_generator_enabled() const -> bool {
+        return config_.random_mob_generator.enabled;
+    }
+    [[nodiscard]] auto random_mob_generator_level() const -> int {
+        return config_.random_mob_generator.level;
+    }
 
     // Occupancy management
     void set_occupant(const position& pos, entity_id id, owner_type type);

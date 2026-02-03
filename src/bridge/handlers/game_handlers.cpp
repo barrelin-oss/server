@@ -9,6 +9,11 @@
 #include "player/player_system.h"
 #include "world/world_subsystem.h"
 #include "social/social_system.h"
+#include "admin/admin_system.h"
+#include "combat/combat_system.h"
+#include "combat/combat_events.h"
+#include "npc/npc_system.h"
+#include "npc/npc.h"
 #include "core/logger.h"
 
 #include <chrono>
@@ -23,11 +28,17 @@ game_handlers::~game_handlers() = default;
 void game_handlers::initialize(network::websocket_server* ws_server,
                                 player::player_system* players,
                                 world::world_subsystem* world,
-                                social::social_system* social) {
+                                social::social_system* social,
+                                admin::admin_system* admin,
+                                combat::combat_system* combat,
+                                npc::npc_system* npc) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
     social_ = social;
+    admin_ = admin;
+    combat_ = combat;
+    npc_ = npc;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -36,7 +47,37 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
     }
 
-    LOG_INFO(bridge, "Game handlers initialized with chat support");
+    // Register combat callbacks
+    if (combat_) {
+        combat_->on_damage([this](const combat::damage_event& event) {
+            on_damage_dealt(event);
+        });
+        combat_->on_death([this](const combat::death_event& event) {
+            on_entity_death(event);
+        });
+    }
+
+    // Register NPC callbacks
+    if (npc_) {
+        npc_->set_on_spawn_callback([this](const npc::npc& n) {
+            broadcast_npc_spawn(n);
+        });
+        npc_->set_on_move_callback([this](const npc::npc& n) {
+            broadcast_npc_move(n);
+        });
+        npc_->set_on_death_callback([this](const npc::npc& n, entity::entity killer) {
+            broadcast_npc_death(n, killer);
+        });
+        npc_->set_on_attack_callback([this](const npc::npc& n, entity::entity target, int32_t damage) {
+            broadcast_npc_attack(n, target, damage);
+        });
+    }
+
+    LOG_INFO(bridge, "Game handlers initialized (chat: {}, admin: {}, combat: {}, npc: {})",
+        social_ != nullptr ? "yes" : "no",
+        admin_ != nullptr ? "yes" : "no",
+        combat_ != nullptr ? "yes" : "no",
+        npc_ != nullptr ? "yes" : "no");
 }
 
 void game_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
@@ -305,6 +346,11 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         return;
     }
 
+    if (!combat_) {
+        send_error(conn_id, msg.seq, "internal_error", "Combat system unavailable");
+        return;
+    }
+
     auto data_result = network::player_attack_request_data::from_json(msg.data);
     if (data_result.is_err()) {
         send_error(conn_id, msg.seq, "invalid_request", data_result.error());
@@ -314,41 +360,165 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     auto& data = data_result.value();
     auto pid = conn->player();
 
-    auto* player = players_->get_player(pid);
-    if (!player) {
+    auto* attacker = players_->get_player(pid);
+    if (!attacker) {
         send_error(conn_id, msg.seq, "invalid_player", "Player not found");
         return;
     }
 
-    // TODO: Implement actual combat through combat_system
-    // For now, just validate the request and return a placeholder response
-
-    // Validate attack type requirements
-    if (data.type == network::attack_type::dash) {
-        // Dash requires 100% skill and 1 tile gap
-        // TODO: Check skill level
-        // TODO: Check distance to target is exactly 2 tiles
-    } else if (data.type == network::attack_type::super) {
-        // Super requires 100% skill and charges
-        // TODO: Check skill level
-        // TODO: Check super attack charges
+    // Check if attacker is alive
+    if (attacker->is_dead()) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "attacker_dead"));
+        return;
     }
 
-    // Placeholder response - actual implementation needs combat_system integration
+    // Check if attacker has movement/action blocking status
+    if (attacker->has_status(player::player_status::stunned) ||
+        attacker->has_status(player::player_status::paralyzed) ||
+        attacker->has_status(player::player_status::frozen)) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "cannot_attack"));
+        return;
+    }
+
+    // Only PvP for now (target must be a player)
+    if (data.target_type != network::target_type::player) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "invalid_target_type"));
+        return;
+    }
+
+    // Get target player
+    player_id target_pid{data.target_id};
+    auto* target = players_->get_player(target_pid);
+    if (!target) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_found"));
+        return;
+    }
+
+    // Check target is alive
+    if (target->is_dead()) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_dead"));
+        return;
+    }
+
+    // Check same map
+    if (attacker->current_map != target->current_map) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_in_range"));
+        return;
+    }
+
+    // Calculate distance
+    int distance = attacker->pos.chebyshev_distance(target->pos);
+
+    // Validate range based on attack type
+    int max_range = 1;  // Melee
+    if (data.type == network::attack_type::dash) {
+        max_range = 2;  // Dash attack range
+    }
+
+    if (distance > max_range) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_in_range"));
+        return;
+    }
+
+    // Build attack event
+    combat::attack_event attack;
+    attack.attacker = entity::entity{pid.value};
+    attack.defender = entity::entity{target_pid.value};
+    attack.type = combat::damage_type::physical;
+    attack.base_damage = 0;  // Let combat_system calculate from stats
+    attack.is_skill = false;
+
+    // Process the attack through combat system
+    auto combat_result = combat_->process_attack(attack);
+
+    // Build response
     network::attack_result_msg result{
-        .hit = false,
-        .critical = false,
-        .damage = 0,
+        .hit = combat_result.hit.is_hit(),
+        .critical = combat_result.hit.is_critical(),
+        .damage = combat_result.hit.final_damage,
         .target_id = data.target_id,
-        .target_hp = 0,
-        .target_hp_max = 0,
-        .attacker_x = player->pos.x,
-        .attacker_y = player->pos.y
+        .target_hp = static_cast<int16_t>(target->hp),
+        .target_hp_max = static_cast<int16_t>(target->computed.max_hp),
+        .attacker_x = attacker->pos.x,
+        .attacker_y = attacker->pos.y
     };
 
-    conn->send(network::make_player_attack_response(msg.seq, false, &result, "not_implemented"));
-    LOG_DEBUG(bridge, "Player {} attack request (type={}, target={})",
-        pid.value, static_cast<int>(data.type), data.target_id);
+    // Send response to attacker
+    conn->send(network::make_player_attack_response(msg.seq, true, &result));
+
+    // Broadcast attack to nearby players
+    constexpr int visibility_radius = 20;
+    auto nearby = players_->get_players_in_range(pid, visibility_radius);
+
+    // Create broadcast message
+    auto broadcast_msg = network::make_combat_attack_broadcast(
+        pid.value,
+        target_pid.value,
+        attacker->pos.x, attacker->pos.y,
+        target->pos.x, target->pos.y,
+        combat_result.hit.is_hit(),
+        combat_result.hit.is_critical(),
+        combat_result.hit.final_damage
+    );
+
+    for (auto other_id : nearby) {
+        if (other_id == pid) continue;  // Attacker already got response
+
+        auto* other = players_->get_player(other_id);
+        if (!other || other->connection.value == 0) continue;
+
+        auto* other_conn = ws_server_->get_connection(other->connection);
+        if (other_conn && other_conn->is_open()) {
+            other_conn->send(broadcast_msg);
+        }
+    }
+
+    LOG_DEBUG(bridge, "Player {} attacked player {} (hit={}, crit={}, dmg={}, target_hp={})",
+        pid.value, target_pid.value,
+        combat_result.hit.is_hit(), combat_result.hit.is_critical(),
+        combat_result.hit.final_damage, target->hp);
 }
 
 void game_handlers::handle_player_magic(connection_id conn_id, const network::json_message& msg) {
@@ -862,11 +1032,8 @@ void game_handlers::handle_command(connection_id conn_id, const network::json_me
 
     LOG_DEBUG(bridge, "Player {} command: {} args={}", pid.value, data.command, data.args.size());
 
-    // TODO: Implement command routing to admin_system or other systems
-    // For now, just acknowledge the command
-
-    // Simple built-in commands
-    if (data.command == "who" || data.command == "online") {
+    // Simple built-in commands (available to all players)
+    if (data.command == "online") {
         // Return online player count
         auto count = players_->active_player_count();
         conn->send(network::make_command_response(msg.seq, true, data.command,
@@ -886,17 +1053,41 @@ void game_handlers::handle_command(connection_id conn_id, const network::json_me
 
     if (data.command == "pos" || data.command == "position") {
         // Return player position
+        std::string map_name = "unknown";
+        if (world_) {
+            auto* current_map = world_->get_map(player->current_map);
+            if (current_map) {
+                map_name = std::string(current_map->name());
+            }
+        }
         conn->send(network::make_command_response(msg.seq, true, data.command,
-            "Position: (" + std::to_string(player->pos.x) + ", " + std::to_string(player->pos.y) + ")",
+            "Position: " + map_name + " (" + std::to_string(player->pos.x) + ", " + std::to_string(player->pos.y) + ")",
             nlohmann::json{
                 {"x", player->pos.x},
                 {"y", player->pos.y},
-                {"map", player->current_map.value}
+                {"map", player->current_map.value},
+                {"map_name", map_name}
             }));
         return;
     }
 
-    // Unknown command
+    // Route to admin system for admin commands
+    if (admin_) {
+        // Build command string: /<command> [args...]
+        std::string cmd_string = "/" + data.command;
+        for (const auto& arg : data.args) {
+            cmd_string += " " + arg;
+        }
+
+        auto result = admin_->execute(pid, cmd_string);
+
+        // Send response
+        conn->send(network::make_command_response(msg.seq, result.success, data.command,
+            result.message));
+        return;
+    }
+
+    // Unknown command (no admin system available)
     conn->send(network::make_command_response(msg.seq, false, data.command,
         "Unknown command: " + data.command));
 }
@@ -1296,6 +1487,268 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
     }
 
     return entities;
+}
+
+// ========== Combat Event Callbacks ==========
+
+void game_handlers::on_damage_dealt(const combat::damage_event& event) {
+    if (!players_ || !ws_server_) return;
+
+    // Only broadcast for player targets for now
+    player_id target_pid{event.target.id};
+    auto* target = players_->get_player(target_pid);
+    if (!target) return;
+
+    // Broadcast HP update to players who can see the target
+    broadcast_hp_update(target_pid, target->hp, target->computed.max_hp);
+}
+
+void game_handlers::on_entity_death(const combat::death_event& event) {
+    if (!players_ || !ws_server_) return;
+
+    // Only handle player deaths for now
+    player_id victim_pid{event.victim.id};
+    auto* victim = players_->get_player(victim_pid);
+    if (!victim) return;
+
+    player_id killer_pid{event.killer.id};
+
+    // Broadcast death to nearby players
+    broadcast_entity_death(victim_pid, killer_pid);
+
+    // Handle respawn
+    handle_player_death(victim_pid);
+}
+
+void game_handlers::handle_player_death(player_id pid) {
+    if (!players_ || !ws_server_ || !world_ || !combat_) return;
+
+    auto* player = players_->get_player(pid);
+    if (!player) return;
+
+    // Determine spawn point based on faction
+    std::string spawn_map;
+    world::position spawn_pos{18, 18};  // Default center position
+
+    switch (player->faction) {
+        case faction::aresden:
+            spawn_map = "aresden";
+            spawn_pos = {18, 18};
+            break;
+        case faction::elvine:
+            spawn_map = "elvine";
+            spawn_pos = {18, 18};
+            break;
+        case faction::neutral:
+        default:
+            spawn_map = "default";
+            spawn_pos = {18, 18};
+            break;
+    }
+
+    // Check if map exists, fall back to current map spawn
+    if (world_) {
+        auto* spawn_map_ptr = world_->get_map_by_name(spawn_map);
+        if (!spawn_map_ptr) {
+            // Fall back to current map
+            auto* current_map = world_->get_map(player->current_map);
+            if (current_map) {
+                spawn_map = std::string(current_map->name());
+            }
+        }
+    }
+
+    // Restore HP to 50%
+    player->hp = player->computed.max_hp / 2;
+
+    // Set 3-second invulnerability
+    entity::entity player_entity{pid.value};
+    combat_->set_invulnerable(player_entity, 3000);
+
+    // Execute teleport to spawn
+    auto* conn = ws_server_->get_connection(player->connection);
+    if (!conn) return;
+
+    execute_player_teleport(pid, player->connection, 0, spawn_map, spawn_pos,
+                            world::direction::south);
+
+    LOG_INFO(bridge, "Player {} died and respawned at {} ({}, {}) with {} HP",
+        pid.value, spawn_map, spawn_pos.x, spawn_pos.y, player->hp);
+}
+
+void game_handlers::broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max) {
+    if (!players_ || !ws_server_) return;
+
+    auto* player = players_->get_player(target);
+    if (!player) return;
+
+    auto hp_msg = network::make_entity_hp_update(target.value, hp, hp_max);
+
+    // Broadcast to players who can see this target
+    auto viewers = players_->get_players_who_can_see(player->current_map, player->pos);
+
+    for (auto other_id : viewers) {
+        auto* other = players_->get_player(other_id);
+        if (!other || other->connection.value == 0) continue;
+
+        auto* other_conn = ws_server_->get_connection(other->connection);
+        if (other_conn && other_conn->is_open()) {
+            other_conn->send(hp_msg);
+        }
+    }
+}
+
+void game_handlers::broadcast_entity_death(player_id victim, player_id killer) {
+    if (!players_ || !ws_server_) return;
+
+    auto* victim_player = players_->get_player(victim);
+    if (!victim_player) return;
+
+    auto death_msg = network::make_entity_death(
+        victim.value, killer.value,
+        victim_player->pos.x, victim_player->pos.y
+    );
+
+    // Broadcast to players who can see the victim's position
+    auto viewers = players_->get_players_who_can_see(victim_player->current_map, victim_player->pos);
+
+    for (auto other_id : viewers) {
+        auto* other = players_->get_player(other_id);
+        if (!other || other->connection.value == 0) continue;
+
+        auto* other_conn = ws_server_->get_connection(other->connection);
+        if (other_conn && other_conn->is_open()) {
+            other_conn->send(death_msg);
+        }
+    }
+}
+
+// ========== NPC Broadcast Methods ==========
+
+void game_handlers::broadcast_npc_spawn(const npc::npc& n) {
+    if (!players_ || !ws_server_) return;
+
+    network::npc_spawn_data data{
+        .entity_id = n.entity_id.id,
+        .template_id = n.template_id.value,
+        .name = n.name,
+        .x = n.pos.x,
+        .y = n.pos.y,
+        .direction = static_cast<uint8_t>(n.facing),
+        .hp = n.hp,
+        .max_hp = n.max_hp,
+        .level = n.level
+    };
+
+    auto msg = network::make_npc_spawn_message(data);
+
+    // Send to all players who can see this position
+    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
+    for (auto pid : players) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+
+    LOG_DEBUG(bridge, "Broadcast NPC spawn: {} '{}' at ({}, {})",
+        n.entity_id.id, n.name, n.pos.x, n.pos.y);
+}
+
+void game_handlers::broadcast_npc_move(const npc::npc& n) {
+    if (!players_ || !ws_server_) return;
+
+    network::npc_move_data data{
+        .entity_id = n.entity_id.id,
+        .x = n.pos.x,
+        .y = n.pos.y,
+        .direction = static_cast<uint8_t>(n.facing)
+    };
+
+    auto msg = network::make_npc_move_message(data);
+
+    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
+    for (auto pid : players) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+}
+
+void game_handlers::broadcast_npc_attack(const npc::npc& n, entity::entity target, int32_t damage) {
+    if (!players_ || !ws_server_) return;
+
+    network::npc_attack_data data{
+        .attacker_id = n.entity_id.id,
+        .target_id = target.id,
+        .damage = damage,
+        .is_critical = false  // NPCs don't crit for now
+    };
+
+    auto msg = network::make_npc_attack_message(data);
+
+    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
+    for (auto pid : players) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+}
+
+void game_handlers::broadcast_npc_death(const npc::npc& n, entity::entity killer) {
+    if (!players_ || !ws_server_) return;
+
+    network::npc_death_data data{
+        .entity_id = n.entity_id.id,
+        .killer_id = killer.id,
+        .x = n.pos.x,
+        .y = n.pos.y
+    };
+
+    auto msg = network::make_npc_death_message(data);
+
+    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
+    for (auto pid : players) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+
+    LOG_DEBUG(bridge, "Broadcast NPC death: {} '{}' killed by {}",
+        n.entity_id.id, n.name, killer.id);
+}
+
+void game_handlers::broadcast_npc_hp_update(const npc::npc& n) {
+    if (!players_ || !ws_server_) return;
+
+    // Use entity_hp_update message for NPCs too
+    auto msg = network::make_entity_hp_update(n.entity_id.id, n.hp, n.max_hp);
+
+    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
+    for (auto pid : players) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
 }
 
 }  // namespace hb::bridge

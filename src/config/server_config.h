@@ -44,6 +44,12 @@ struct auth_config {
     std::chrono::seconds lockout_duration{300};       // 5 minutes
 };
 
+// Auto-save configuration
+struct auto_save_config {
+    bool enabled = true;
+    uint32_t interval_seconds = 300;  // 5 minutes default
+};
+
 // Logging configuration
 struct logging_config {
     std::string console_level = "trace";  // trace, debug, info, warn, error, critical, off
@@ -85,6 +91,9 @@ struct server_config {
 
     // Authentication configuration
     auth_config auth;
+
+    // Auto-save configuration
+    auto_save_config auto_save;
 
     // Logging configuration
     logging_config logging;

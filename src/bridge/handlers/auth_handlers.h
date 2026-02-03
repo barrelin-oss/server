@@ -27,6 +27,14 @@ namespace hb::inventory {
     class inventory_system;
 }
 
+namespace hb::admin {
+    class admin_system;
+}
+
+namespace hb::npc {
+    class npc_system;
+}
+
 namespace hb::bridge {
 
 // Authentication message handler
@@ -41,13 +49,22 @@ public:
                     auth::auth_system* auth,
                     player::player_system* players = nullptr,
                     world::world_subsystem* world = nullptr,
-                    inventory::inventory_system* inventory = nullptr);
+                    inventory::inventory_system* inventory = nullptr,
+                    admin::admin_system* admin = nullptr,
+                    npc::npc_system* npc = nullptr);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
 
     // Handle player disconnect (save and cleanup) - called by application on disconnect
     void handle_player_disconnect(connection_id conn_id);
+
+    // Save a single player's state to database (for on-demand saves during important interactions)
+    void save_player(player_id pid);
+
+    // Save all online players' states to database (for periodic auto-save)
+    // Returns the number of players successfully saved
+    auto save_all_players() -> size_t;
 
 private:
     // Individual message handlers
@@ -84,6 +101,8 @@ private:
     player::player_system* players_{nullptr};
     world::world_subsystem* world_{nullptr};
     inventory::inventory_system* inventory_{nullptr};
+    admin::admin_system* admin_{nullptr};
+    npc::npc_system* npc_{nullptr};
 };
 
 }  // namespace hb::bridge

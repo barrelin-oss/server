@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-01-31
+**Last Updated:** 2026-02-02
 
 ---
 
@@ -140,18 +140,27 @@ This document tracks implementation progress for the modernized Helbreath server
 
 ---
 
-## Phase 9: NPC System ❌
+## Phase 9: NPC System 🔄
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| NPC spawning | ❌ | Spawn points, respawn timers |
-| NPC AI | ❌ | State machine, behaviors |
-| NPC combat | ❌ | Attack patterns, abilities |
+| NPC data structure | ✅ | Stats, position, AI state |
+| NPC registry | ✅ | Load from npcs.yaml |
+| Spawn point system | ✅ | Rectangular areas, max count, respawn timers |
+| Random mob generator | ✅ | Level-based spawn tables (see docs/RANDOM_MOB_GENERATOR.md) |
+| NPC spawning | ✅ | Manual spawn, spawn point spawn, random mob spawn |
+| NPC despawning | ✅ | Death handling, cleanup |
+| NPC AI | ✅ | State machine (idle, wander, chase, attack, flee, return home) |
+| Aggro detection | ✅ | Range-based, sight checks |
+| Pathfinding | ✅ | Basic move-towards-target |
+| NPC combat | ✅ | Attack execution, damage calculation integration |
 | NPC loot | ❌ | Drop tables, gold |
 | NPC dialog | ❌ | Conversation trees |
 | Shop NPCs | ❌ | Buy/sell interface |
 | Quest NPCs | ❌ | Quest givers |
 | Guard NPCs | ❌ | Town protection |
+
+**Documentation:** `docs/RANDOM_MOB_GENERATOR.md`
 
 ---
 
@@ -272,7 +281,7 @@ This document tracks implementation progress for the modernized Helbreath server
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Periodic save | ❌ | Auto-save interval |
+| Periodic save | ✅ | Configurable auto-save interval, on-demand save methods |
 | Character save | ✅ | Full save on disconnect (stats, position, skills, equipment, inventory) |
 | Inventory save | ✅ | JSON serialization to JSONB column |
 | Equipment save | ✅ | JSON serialization to JSONB column |
@@ -310,7 +319,7 @@ Priority order for a minimally playable game:
 6. **Magic System** - Basic spells working
 7. **Death/Respawn** - Handle player death
 8. ~~**Chat System**~~ - ✅ All channels implemented with prefix routing
-9. **Persistence** - Periodic save, not just on disconnect
+9. ~~**Persistence**~~ - ✅ Periodic auto-save with configurable interval
 
 ---
 
@@ -330,6 +339,16 @@ Priority order for a minimally playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-02
+- **Implemented periodic auto-save system:**
+  - Added `auto_save_config` with `enabled` and `interval_seconds` options
+  - YAML config parsing for `auto_save:` section
+  - `save_player(player_id)` - on-demand single player save for important interactions
+  - `save_all_players()` - save all online players, returns count saved
+  - Scheduler integration for periodic saves at configurable interval (default 5 minutes)
+  - Final save of all players on server shutdown
+  - Updated server.yaml with auto_save configuration section
 
 ### 2026-01-31
 - **Implemented complete chat system:**

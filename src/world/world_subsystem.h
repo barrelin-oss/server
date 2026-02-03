@@ -19,7 +19,7 @@ namespace hb::world {
 // World subsystem configuration
 struct world_config {
     std::filesystem::path maps_directory{"maps"};
-    int max_maps{100};
+    int max_maps{128};
 };
 
 // World subsystem - manages all game maps

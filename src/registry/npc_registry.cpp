@@ -4,6 +4,7 @@
 #include "registry/npc_registry.h"
 #include "core/logger.h"
 
+#include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -77,6 +78,16 @@ void npc_registry::shutdown() {
 auto npc_registry::load_from_file(const std::filesystem::path& path)
     -> result<size_t, std::string>
 {
+    // Auto-detect format based on extension
+    auto ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+
+    if (ext == ".yaml" || ext == ".yml") {
+        return load_from_yaml(path);
+    }
+
+    // Legacy text format
     std::ifstream file(path);
     if (!file.is_open()) {
         return result<size_t, std::string>::err(
@@ -123,6 +134,164 @@ auto npc_registry::load_from_file(const std::filesystem::path& path)
     }
 
     LOG_INFO(npc, "Loaded {} NPCs ({} errors)", loaded, errors);
+
+    return result<size_t, std::string>::ok(loaded);
+}
+
+auto npc_registry::load_from_yaml(const std::filesystem::path& path)
+    -> result<size_t, std::string>
+{
+    LOG_INFO(npc, "Loading NPCs from YAML: {}", path.string());
+
+    YAML::Node root;
+    try {
+        root = YAML::LoadFile(path.string());
+    } catch (const YAML::Exception& e) {
+        return result<size_t, std::string>::err(
+            "Failed to parse YAML: " + std::string(e.what())
+        );
+    }
+
+    if (!root["npcs"] || !root["npcs"].IsSequence()) {
+        return result<size_t, std::string>::err("Missing or invalid 'npcs' array in YAML");
+    }
+
+    size_t loaded = 0;
+    size_t errors = 0;
+    uint16_t next_id = 1;
+
+    for (const auto& node : root["npcs"]) {
+        npc_template npc;
+
+        // Assign sequential ID
+        npc.id = npc_id{next_id++};
+
+        // Parse name (required)
+        if (!node["name"]) {
+            LOG_WARN(npc, "NPC entry {} missing 'name'", loaded + errors + 1);
+            ++errors;
+            continue;
+        }
+        npc.name = node["name"].as<std::string>();
+
+        // Parse sprite_id -> sprite
+        if (node["sprite_id"]) {
+            npc.sprite = std::to_string(node["sprite_id"].as<int>());
+        }
+
+        // Parse HP (YAML has base HP values)
+        if (node["hp"]) {
+            npc.hp = node["hp"].as<int32_t>() * 100;  // Scale up: 2 -> 200, etc.
+        }
+
+        // Parse MP
+        if (node["mp"]) {
+            npc.mp = node["mp"].as<int32_t>() * 100;
+        }
+
+        // Parse defense
+        if (node["defense"]) {
+            npc.defense = static_cast<int16_t>(node["defense"].as<int>());
+        }
+
+        // Parse level
+        if (node["level"]) {
+            npc.level = static_cast<int16_t>(node["level"].as<int>());
+        }
+
+        // Parse exp (use exp_max as exp_reward)
+        if (node["exp_max"]) {
+            npc.exp_reward = node["exp_max"].as<int32_t>();
+        } else if (node["exp_min"]) {
+            npc.exp_reward = node["exp_min"].as<int32_t>();
+        }
+
+        // Parse gold range
+        if (node["gold_min"]) {
+            npc.gold_min = node["gold_min"].as<int32_t>();
+        }
+        if (node["gold_max"]) {
+            npc.gold_max = node["gold_max"].as<int32_t>();
+        }
+
+        // Parse attack dice and sides
+        if (node["attack_dice"]) {
+            npc.attack_dice = static_cast<int16_t>(node["attack_dice"].as<int>());
+        }
+        if (node["attack_sides"]) {
+            npc.attack_sides = static_cast<int16_t>(node["attack_sides"].as<int>());
+        }
+
+        // Parse speeds (YAML has ms values, lower = faster)
+        if (node["move_speed"]) {
+            npc.move_speed = static_cast<int16_t>(node["move_speed"].as<int>());
+        }
+        if (node["attack_speed"]) {
+            npc.attack_speed = static_cast<int16_t>(node["attack_speed"].as<int>());
+        }
+
+        // Parse sight/detection range
+        if (node["detection_range"]) {
+            npc.sight_range = static_cast<int16_t>(node["detection_range"].as<int>());
+            if (npc.sight_range == 0) {
+                npc.sight_range = 10;  // Default sight range
+            }
+        }
+
+        // Parse attack range (YAML stores as *1000, e.g., 5000 = 5 tiles)
+        if (node["attack_range"]) {
+            int raw_range = node["attack_range"].as<int>();
+            npc.attack_range = static_cast<int16_t>(raw_range / 1000);
+            if (npc.attack_range < 1) npc.attack_range = 1;
+        }
+
+        // Parse is_peaceful -> is_aggressive (inverted, 10 = peaceful, 0 = aggressive)
+        if (node["is_peaceful"]) {
+            int peaceful = node["is_peaceful"].as<int>();
+            npc.is_aggressive = (peaceful < 5);  // 0-4 = aggressive, 5-10 = peaceful
+        }
+
+        // Parse is_undead
+        if (node["is_undead"]) {
+            int undead_value = node["is_undead"].as<int>();
+            npc.is_undead = (undead_value > 0 && undead_value != 1);  // 1 seems to mean alive NPCs
+        }
+
+        // Parse side (0=neutral, 1=aresden, 2=elvine, 10=hostile to all)
+        if (node["side"]) {
+            int side = node["side"].as<int>();
+            // Side 10 means hostile monster, 0 = neutral NPC, 1/2 = faction-specific
+            if (side == 10) {
+                npc.type = npc_type::monster;
+            } else if (side == 0) {
+                // Check if it's actually a town NPC (detection_range == 1 is a hint)
+                if (node["detection_range"] && node["detection_range"].as<int>() == 1) {
+                    npc.type = npc_type::npc;
+                    npc.is_aggressive = false;
+                }
+            }
+        }
+
+        // Parse magic stats
+        if (node["magic_level"]) {
+            npc.magic_resist = static_cast<int16_t>(node["magic_level"].as<int>());
+        }
+
+        // Check for duplicate ID
+        if (id_index_.contains(npc.id.value)) {
+            LOG_WARN(npc, "Duplicate NPC ID {}", npc.id.value);
+            ++errors;
+            continue;
+        }
+
+        auto index = npcs_.size();
+        id_index_[npc.id.value] = index;
+        name_index_[to_lower(npc.name)] = index;
+        npcs_.push_back(std::move(npc));
+        ++loaded;
+    }
+
+    LOG_INFO(npc, "Loaded {} NPCs from YAML ({} errors)", loaded, errors);
 
     return result<size_t, std::string>::ok(loaded);
 }

@@ -26,8 +26,11 @@ public:
     void initialize() override;
     void shutdown() override;
 
-    // Load NPC definitions from config file
+    // Load NPC definitions from config file (auto-detects format)
     auto load_from_file(const std::filesystem::path& path) -> result<size_t, std::string>;
+
+    // Load NPC definitions from YAML file
+    auto load_from_yaml(const std::filesystem::path& path) -> result<size_t, std::string>;
 
     // Get NPC by ID
     [[nodiscard]] auto get(npc_id id) const -> const npc_template*;

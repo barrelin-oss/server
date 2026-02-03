@@ -159,6 +159,12 @@ auto config_system::load_yaml_config(const std::filesystem::path& path)
                 yaml_get<int>(auth, "session_timeout", 3600)};
         }
 
+        // Auto-save section
+        if (auto auto_save = config["auto_save"]) {
+            server_config_.auto_save.enabled = yaml_get<bool>(auto_save, "enabled", true);
+            server_config_.auto_save.interval_seconds = yaml_get<uint32_t>(auto_save, "interval_seconds", 300);
+        }
+
         // Logging section
         if (auto logging = config["logging"]) {
             server_config_.logging.console_level = yaml_get<std::string>(logging, "console_level", "trace");

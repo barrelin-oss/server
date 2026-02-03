@@ -44,6 +44,9 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"player_position_update", json_message_type::player_position_update},
     {"player_attack_request", json_message_type::player_attack_request},
     {"player_attack_response", json_message_type::player_attack_response},
+    {"combat_attack_broadcast", json_message_type::combat_attack_broadcast},
+    {"entity_hp_update", json_message_type::entity_hp_update},
+    {"entity_death", json_message_type::entity_death},
     {"player_magic_request", json_message_type::player_magic_request},
     {"player_magic_response", json_message_type::player_magic_response},
     {"player_skill_request", json_message_type::player_skill_request},
@@ -59,7 +62,12 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"map_teleporters", json_message_type::map_teleporters},
     {"teleporter_update", json_message_type::teleporter_update},
     {"player_teleport", json_message_type::player_teleport},
-    {"set_view_range", json_message_type::set_view_range}
+    {"set_view_range", json_message_type::set_view_range},
+    {"npc_spawn", json_message_type::npc_spawn},
+    {"npc_despawn", json_message_type::npc_despawn},
+    {"npc_move", json_message_type::npc_move},
+    {"npc_attack", json_message_type::npc_attack},
+    {"npc_death", json_message_type::npc_death}
 };
 
 }  // namespace
@@ -805,7 +813,7 @@ auto equipment_item_msg::to_json() const -> nlohmann::json {
 }
 
 auto visible_entity_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
+    auto j = nlohmann::json{
         {"entity_id", entity_id},
         {"type", type},
         {"name", name},
@@ -814,6 +822,14 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
         {"hp_percent", hp_percent},
         {"direction", direction}
     };
+
+    // Include NPC-specific fields only for NPCs
+    if (type == "npc") {
+        j["template_id"] = template_id;
+        j["level"] = level;
+    }
+
+    return j;
 }
 
 auto attack_result_msg::to_json() const -> nlohmann::json {
@@ -1476,6 +1492,141 @@ auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json
     return json_message{
         .type = json_message_type::player_teleport,
         .seq = seq,
+        .data = data.to_json()
+    };
+}
+
+auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
+                                   int16_t attacker_x, int16_t attacker_y,
+                                   int16_t target_x, int16_t target_y,
+                                   bool hit, bool critical, int32_t damage) -> json_message
+{
+    return json_message{
+        .type = json_message_type::combat_attack_broadcast,
+        .seq = 0,  // Broadcasts don't need seq
+        .data = nlohmann::json{
+            {"attacker_id", attacker_id},
+            {"target_id", target_id},
+            {"attacker_x", attacker_x},
+            {"attacker_y", attacker_y},
+            {"target_x", target_x},
+            {"target_y", target_y},
+            {"hit", hit},
+            {"critical", critical},
+            {"damage", damage}
+        }
+    };
+}
+
+auto make_entity_hp_update(uint32_t entity_id, int32_t hp, int32_t hp_max) -> json_message
+{
+    return json_message{
+        .type = json_message_type::entity_hp_update,
+        .seq = 0,  // Broadcasts don't need seq
+        .data = nlohmann::json{
+            {"entity_id", entity_id},
+            {"hp", hp},
+            {"hp_max", hp_max}
+        }
+    };
+}
+
+auto make_entity_death(uint32_t victim_id, uint32_t killer_id,
+                        int16_t x, int16_t y) -> json_message
+{
+    return json_message{
+        .type = json_message_type::entity_death,
+        .seq = 0,  // Broadcasts don't need seq
+        .data = nlohmann::json{
+            {"victim_id", victim_id},
+            {"killer_id", killer_id},
+            {"x", x},
+            {"y", y}
+        }
+    };
+}
+
+// NPC data to_json implementations
+
+auto npc_spawn_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"entity_id", entity_id},
+        {"template_id", template_id},
+        {"name", name},
+        {"x", x},
+        {"y", y},
+        {"direction", direction},
+        {"hp", hp},
+        {"max_hp", max_hp},
+        {"level", level}
+    };
+}
+
+auto npc_move_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"entity_id", entity_id},
+        {"x", x},
+        {"y", y},
+        {"direction", direction}
+    };
+}
+
+auto npc_attack_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"attacker_id", attacker_id},
+        {"target_id", target_id},
+        {"damage", damage},
+        {"is_critical", is_critical}
+    };
+}
+
+auto npc_death_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"entity_id", entity_id},
+        {"killer_id", killer_id},
+        {"x", x},
+        {"y", y}
+    };
+}
+
+// NPC message builders
+
+auto make_npc_spawn_message(const npc_spawn_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::npc_spawn,
+        .seq = 0,
+        .data = data.to_json()
+    };
+}
+
+auto make_npc_despawn_message(uint32_t entity_id) -> json_message {
+    return json_message{
+        .type = json_message_type::npc_despawn,
+        .seq = 0,
+        .data = nlohmann::json{{"entity_id", entity_id}}
+    };
+}
+
+auto make_npc_move_message(const npc_move_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::npc_move,
+        .seq = 0,
+        .data = data.to_json()
+    };
+}
+
+auto make_npc_attack_message(const npc_attack_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::npc_attack,
+        .seq = 0,
+        .data = data.to_json()
+    };
+}
+
+auto make_npc_death_message(const npc_death_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::npc_death,
+        .seq = 0,
         .data = data.to_json()
     };
 }

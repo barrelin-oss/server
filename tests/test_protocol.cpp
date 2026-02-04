@@ -162,7 +162,7 @@ TEST(message_reader_test, read_not_enough_data) {
     std::vector<uint8_t> data = {0x12};
     message_reader reader(data);
 
-    EXPECT_THROW(reader.read_u16(), read_error);
+    EXPECT_THROW((void)reader.read_u16(), read_error);
 }
 
 TEST(message_reader_test, peek_without_advancing) {
@@ -193,7 +193,7 @@ TEST(message_reader_test, has_remaining) {
     EXPECT_TRUE(reader.has_remaining(3));
     EXPECT_FALSE(reader.has_remaining(4));
 
-    reader.read_u8();
+    (void)reader.read_u8();
     EXPECT_TRUE(reader.has_remaining(2));
     EXPECT_FALSE(reader.has_remaining(3));
 }

@@ -7,6 +7,8 @@
 #include "item/item_system.h"
 #include "item/item_effect.h"
 #include "world/world_subsystem.h"
+#include "entity/entity_manager.h"
+#include "entity/components/transform.h"
 
 namespace hb::player {
 
@@ -31,6 +33,7 @@ void player_system::shutdown() {
     name_to_id_.clear();
     connection_to_id_.clear();
     session_to_id_.clear();
+    ecs_index_to_id_.clear();
 
     set_initialized(false);
     LOG_INFO(general, "Player system shutdown complete");
@@ -76,6 +79,16 @@ auto player_system::create_player(const player_create_info& info) -> result<play
     new_player->recalculate_stats();
     new_player->restore_to_full();
 
+    // Create entity in entity_manager for unified spatial queries
+    auto* entity_mgr = subsystems().get<entity::entity_manager>();
+    if (entity_mgr) {
+        new_player->ecs_entity = entity_mgr->create(entity::entity_type::player);
+        // Add transform component (position will be set when player enters world)
+        entity_mgr->add_component<entity::transform>(new_player->ecs_entity);
+        // Add to ecs index lookup
+        ecs_index_to_id_[new_player->ecs_entity.index()] = id;
+    }
+
     name_to_id_[info.name] = id;
     players_[id] = std::move(new_player);
 
@@ -89,6 +102,23 @@ void player_system::remove_player(player_id id) {
     if (it == players_.end()) return;
 
     auto& p = *it->second;
+
+    // Remove from spatial index
+    auto* world_sys = subsystems().get<world::world_subsystem>();
+    if (world_sys && p.current_map.is_valid()) {
+        auto* map = world_sys->get_map(p.current_map);
+        if (map) {
+            map->clear_occupant(p.pos);
+            map->spatial().remove(entity_id{p.ecs_entity.index()});
+        }
+    }
+
+    // Destroy entity in entity_manager
+    auto* entity_mgr = subsystems().get<entity::entity_manager>();
+    if (entity_mgr && p.ecs_entity.is_valid()) {
+        ecs_index_to_id_.erase(p.ecs_entity.index());
+        entity_mgr->destroy(p.ecs_entity);
+    }
 
     // Remove from lookup maps
     name_to_id_.erase(p.name);
@@ -310,6 +340,16 @@ void player_system::set_position(player_id id, map_id map, hb::world::position p
     p->current_map = map;
     p->pos = pos;
     p->facing = facing;
+
+    // Update transform component
+    auto* entity_mgr = subsystems().get<entity::entity_manager>();
+    if (entity_mgr && p->ecs_entity.is_valid()) {
+        if (auto* t = entity_mgr->get_component<entity::transform>(p->ecs_entity)) {
+            t->map = map;
+            t->pos = pos;
+            t->facing = facing;
+        }
+    }
 }
 
 void player_system::set_facing(player_id id, hb::world::direction facing) {
@@ -346,6 +386,20 @@ void player_system::update_regeneration(float delta_time) {
         if (p->is_dead()) continue;
         if (p->has_status(player_status::poisoned)) continue;
 
+        // HUNGER: Block regeneration entirely if starving (hunger <= 0)
+        if (p->hunger.is_starving()) continue;
+
+        // HUNGER: Apply delay penalty if hungry (hunger < 30)
+        if (p->hunger.is_hungry()) {
+            // Legacy formula: (30 - hunger) * 1000 ms extra delay
+            float delay_ms = static_cast<float>(30 - p->hunger.level) * 1000.0f;
+            p->regen_delay_accumulator += static_cast<float>(config_.regen_tick_ms);
+            if (p->regen_delay_accumulator < delay_ms) {
+                continue;  // Skip regeneration this tick
+            }
+            p->regen_delay_accumulator = 0.0f;  // Reset delay counter
+        }
+
         p->heal_hp(p->computed.hp_regen);
         p->heal_mp(p->computed.mp_regen);
         p->heal_sp(p->computed.sp_regen);
@@ -362,7 +416,24 @@ void player_system::update_hunger(float delta_time) {
     hunger_accumulator_ -= static_cast<float>(config_.hunger_decay_interval_ms);
 
     for (auto& [id, p] : players_) {
+        int8_t old_level = p->hunger.level;
         p->hunger.decay(1);
+
+        if (hunger_callback_ && old_level != p->hunger.level) {
+            hunger_callback_(id, old_level, p->hunger.level);
+        }
+    }
+}
+
+void player_system::restore_hunger(player_id id, int8_t amount) {
+    auto* p = get_player(id);
+    if (!p) return;
+
+    int8_t old_level = p->hunger.level;
+    p->hunger.consume(amount);
+
+    if (hunger_callback_ && old_level != p->hunger.level) {
+        hunger_callback_(id, old_level, p->hunger.level);
     }
 }
 
@@ -433,6 +504,12 @@ auto player_system::try_move(player_id id, hb::world::position target_pos,
         return info;
     }
 
+    // Check if staying in place (no movement needed)
+    if (target_pos == p->pos) {
+        info.result = move_result::success;
+        return info;
+    }
+
     // Check if tile is occupied
     auto occupant = map->get_occupant(target_pos);
     if (occupant.has_value() && occupant.value().value != 0) {
@@ -448,11 +525,25 @@ auto player_system::try_move(player_id id, hb::world::position target_pos,
     p->pos = target_pos;
     p->facing = facing;
 
+    // Use ecs_entity index for spatial tracking (unified with NPCs)
+    entity_id spatial_id = p->ecs_entity.is_valid()
+        ? entity_id{p->ecs_entity.index()}
+        : entity_id{id.value};
+
     // Set new occupant
-    map->set_occupant(target_pos, entity_id{id.value}, world::owner_type::player);
+    map->set_occupant(target_pos, spatial_id, world::owner_type::player);
 
     // Update spatial index
-    map->spatial().update(entity_id{id.value}, target_pos);
+    map->spatial().update(spatial_id, target_pos);
+
+    // Update transform component
+    auto* entity_mgr = subsystems().get<entity::entity_manager>();
+    if (entity_mgr && p->ecs_entity.is_valid()) {
+        if (auto* t = entity_mgr->get_component<entity::transform>(p->ecs_entity)) {
+            t->pos = target_pos;
+            t->facing = facing;
+        }
+    }
 
     // Check for teleport
     if (map->is_teleport(target_pos)) {
@@ -512,6 +603,11 @@ auto player_system::can_move_to(player_id id, hb::world::position target_pos) co
         return move_result::blocked_terrain;
     }
 
+    // Staying in place is always allowed
+    if (target_pos == p->pos) {
+        return move_result::success;
+    }
+
     auto occupant = map->get_occupant(target_pos);
     if (occupant.has_value() && occupant.value().value != 0) {
         return move_result::blocked_occupied;
@@ -556,13 +652,18 @@ auto player_system::execute_teleport(player_id id,
     result.old_map = p->current_map;
     result.old_pos = p->pos;
 
+    // Use ecs_entity index for spatial tracking (unified with NPCs)
+    entity_id spatial_id = p->ecs_entity.is_valid()
+        ? entity_id{p->ecs_entity.index()}
+        : entity_id{id.value};
+
     // Get old map for cleanup
     auto* old_map = world_sys->get_map(p->current_map);
 
     // Clear occupant at old position
     if (old_map) {
         old_map->clear_occupant(p->pos);
-        old_map->spatial().remove(entity_id{id.value});
+        old_map->spatial().remove(spatial_id);
     }
 
     // Update player's position
@@ -571,10 +672,20 @@ auto player_system::execute_teleport(player_id id,
     p->facing = dest_dir;
 
     // Set occupant at new position
-    dest_map->set_occupant(dest_pos, entity_id{id.value}, world::owner_type::player);
+    dest_map->set_occupant(dest_pos, spatial_id, world::owner_type::player);
 
     // Add to new map's spatial index
-    dest_map->spatial().add(entity_id{id.value}, dest_pos);
+    dest_map->spatial().add(spatial_id, dest_pos);
+
+    // Update transform component
+    auto* entity_mgr = subsystems().get<entity::entity_manager>();
+    if (entity_mgr && p->ecs_entity.is_valid()) {
+        if (auto* t = entity_mgr->get_component<entity::transform>(p->ecs_entity)) {
+            t->map = dest_map->id();
+            t->pos = dest_pos;
+            t->facing = dest_dir;
+        }
+    }
 
     result.success = true;
     result.new_map = dest_map->id();
@@ -625,14 +736,16 @@ auto player_system::get_players_on_map_in_range(map_id map,
         return result;
     }
 
+    auto* entity_mgr = subsystems().get<entity::entity_manager>();
+
     // Get entities in range from spatial index
     auto entities = m->get_entities_in_range(center, radius);
 
-    // Filter for players
-    for (auto entity : entities) {
-        player_id pid{entity.value};
-        if (player_exists(pid)) {
-            result.push_back(pid);
+    // Filter for players using ecs_index_to_id_ lookup (O(1) per entity)
+    for (auto eid : entities) {
+        auto it = ecs_index_to_id_.find(eid.value);
+        if (it != ecs_index_to_id_.end()) {
+            result.push_back(it->second);
         }
     }
 
@@ -660,11 +773,11 @@ auto player_system::get_players_in_range(player_id id, int radius) const -> std:
     // Get entities in range from spatial index
     auto entities = map->get_entities_in_range(p->pos, radius);
 
-    // Filter for players
-    for (auto entity : entities) {
-        player_id pid{entity.value};
-        if (player_exists(pid) && pid != id) {
-            result.push_back(pid);
+    // Filter for players using ecs_index_to_id_ lookup (O(1) per entity)
+    for (auto eid : entities) {
+        auto it = ecs_index_to_id_.find(eid.value);
+        if (it != ecs_index_to_id_.end() && it->second != id) {
+            result.push_back(it->second);
         }
     }
 

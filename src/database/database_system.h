@@ -96,8 +96,15 @@ public:
     [[nodiscard]] auto is_connected() const -> bool;
     [[nodiscard]] auto reconnect() -> hb::result<void, std::string>;
 
-    // Execute queries
+    // Execute raw query (INTERNAL USE ONLY - prefer execute_params for safety)
+    // WARNING: This method is vulnerable to SQL injection if user input is concatenated.
+    // Only use for static queries or internal operations. Use execute_params() for all
+    // queries involving external data.
+    [[deprecated("Use execute_params() instead to prevent SQL injection")]]
     [[nodiscard]] auto execute(std::string_view query) -> hb::result<query_result, std::string>;
+
+    // Execute raw query - unsafe version for internal migrations/setup only
+    [[nodiscard]] auto execute_unsafe(std::string_view query) -> hb::result<query_result, std::string>;
 
     // Execute query with parameters (prevents SQL injection)
     template<typename... Args>

@@ -23,6 +23,8 @@
 #include "entity/entity_manager.h"
 #include "player/player_system.h"
 #include "npc/npc_system.h"
+#include "npc/spawn_rule_engine.h"
+#include "npc/spot_mob_mapping.h"
 #include "item/item_system.h"
 #include "combat/combat_system.h"
 #include "magic/magic_system.h"
@@ -184,6 +186,7 @@ void application::initialize() {
     subsystems().create_subsystem<entity::entity_manager>();
     subsystems().create_subsystem<player::player_system>();
     subsystems().create_subsystem<npc::npc_system>();
+    subsystems().create_subsystem<npc::spawn_rule_engine>();
     subsystems().create_subsystem<item::item_system>();
     subsystems().create_subsystem<combat::combat_system>();
     subsystems().create_subsystem<magic::magic_system>();
@@ -256,6 +259,9 @@ void application::initialize() {
     // Load game configuration files (items, NPCs, magic, etc.)
     load_game_configs();
 
+    // Register spawn points (must be after NPC registry is loaded)
+    register_spawn_points();
+
     // Register GM commands with admin system
     if (auto* admin_sys = subsystems().get<admin::admin_system>()) {
         admin::gm_command_context gm_ctx{
@@ -319,7 +325,9 @@ void application::initialize() {
             subsystems().get<social::social_system>(),
             subsystems().get<admin::admin_system>(),
             subsystems().get<combat::combat_system>(),
-            subsystems().get<npc::npc_system>()
+            subsystems().get<npc::npc_system>(),
+            subsystems().get<inventory::inventory_system>(),
+            subsystems().get<item::item_system>()
         );
 
         // Set up WebSocket message routing - dispatch to appropriate handler
@@ -340,7 +348,6 @@ void application::initialize() {
 
                 // In-game movement
                 case network::json_message_type::player_move_request:
-                case network::json_message_type::player_run_request:
                 case network::json_message_type::player_stop_request:
                 // In-game combat
                 case network::json_message_type::player_attack_request:
@@ -543,33 +550,67 @@ void application::load_maps() {
     }
 
     LOG_INFO(general, "Map loading complete: {} loaded, {} failed", loaded_count, failed_count);
+}
 
-    // After maps are loaded, register spawners with npc_system
+void application::register_spawn_points() {
+    auto* world = subsystems().get<world::world_subsystem>();
     auto* npc_sys = subsystems().get<npc::npc_system>();
-    if (npc_sys && world) {
-        int spawner_count = 0;
-        world->for_each_map([&](map_id id, const world::map& m) {
-            for (const auto& spawner : m.get_mob_spawners()) {
-                if (!spawner.enabled || spawner.max_count <= 0) continue;
+    auto* npc_reg = subsystems().get<npc_registry>();
 
-                npc::spawn_point sp;
-                sp.npc_type = npc_id{static_cast<uint16_t>(spawner.npc_type)};
-                sp.map = id;
-                sp.center = {
-                    static_cast<int16_t>((spawner.area.min_x + spawner.area.max_x) / 2),
-                    static_cast<int16_t>((spawner.area.min_y + spawner.area.max_y) / 2)
-                };
-                sp.radius = static_cast<int16_t>(
-                    std::max(spawner.area.width(), spawner.area.height()) / 2);
-                sp.max_count = spawner.max_count;
-                sp.respawn_time_ms = 60000;  // 1 minute default
-
-                npc_sys->add_spawn_point(std::move(sp));
-                ++spawner_count;
-            }
-        });
-        LOG_INFO(general, "Registered {} NPC spawn points", spawner_count);
+    if (!world || !npc_sys || !npc_reg) {
+        LOG_ERROR(general, "Cannot register spawn points: missing required subsystems");
+        return;
     }
+
+    // Debug: Log registry contents (commented out to reduce spam)
+    // LOG_INFO(general, "NPC Registry contains {} NPCs", npc_reg->count());
+    // for (const auto& npc : npc_reg->all()) {
+    //     LOG_DEBUG(general, "  Registry NPC: '{}' (id={})", npc.name, npc.id.value);
+    // }
+
+    int spawner_count = 0;
+    int skipped_count = 0;
+
+    world->for_each_map([&](map_id id, const world::map& m) {
+        for (const auto& spawner : m.get_mob_spawners()) {
+            if (!spawner.enabled || spawner.max_count <= 0) continue;
+
+            // Map legacy npc_type to NPC name
+            auto npc_name = npc::spot_mob_type_to_name(spawner.npc_type);
+            if (!npc_name.has_value()) {
+                LOG_WARN(general, "Map '{}': Unknown spot-mob-generator npc_type {}",
+                         m.name(), spawner.npc_type);
+                ++skipped_count;
+                continue;
+            }
+
+            // Look up NPC template by name
+            auto* tmpl = npc_reg->find_by_name(*npc_name);
+            if (!tmpl) {
+                LOG_WARN(general, "Map '{}': NPC '{}' (type {}) not found in registry",
+                         m.name(), *npc_name, spawner.npc_type);
+                ++skipped_count;
+                continue;
+            }
+
+            npc::spawn_point sp;
+            sp.npc_type = tmpl->id;
+            sp.map = id;
+            sp.center = {
+                static_cast<int16_t>((spawner.area.min_x + spawner.area.max_x) / 2),
+                static_cast<int16_t>((spawner.area.min_y + spawner.area.max_y) / 2)
+            };
+            sp.radius = static_cast<int16_t>(
+                std::max(spawner.area.width(), spawner.area.height()) / 2);
+            sp.max_count = spawner.max_count;
+            sp.respawn_time_ms = 60000;  // 1 minute default
+
+            npc_sys->add_spawn_point(std::move(sp));
+            ++spawner_count;
+        }
+    });
+
+    LOG_INFO(general, "Registered {} NPC spawn points ({} skipped)", spawner_count, skipped_count);
 }
 
 void application::load_game_configs() {
@@ -632,6 +673,22 @@ void application::load_game_configs() {
         }
     }
 
+    // Load spawn tables
+    auto* spawn_engine = subsystems().get<npc::spawn_rule_engine>();
+    if (spawn_engine) {
+        auto spawn_tables = config_dir / "spawn_tables.yaml";
+        if (std::filesystem::exists(spawn_tables)) {
+            auto result = spawn_engine->load_from_file(spawn_tables);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} spawn tables from spawn_tables.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load spawn_tables.yaml: {}", result.error());
+            }
+        } else {
+            LOG_INFO(general, "No spawn_tables.yaml found (using legacy random_mob_generator)");
+        }
+    }
+
     // TODO: Load magic definitions from magic.yaml or Magic.cfg
     // TODO: Load skill definitions from skills.yaml or Skill.cfg
 }
@@ -645,6 +702,11 @@ void application::on_tick() {
     last_tick_time_ = now;
 
     ++tick_count_;
+
+    // Process any pending WebSocket disconnects first (handles player cleanup)
+    if (ws_server_) {
+        ws_server_->process_pending_disconnects();
+    }
 
     // Update all subsystems
     subsystems().update_all(delta_time);

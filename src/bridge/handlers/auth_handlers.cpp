@@ -345,62 +345,6 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     LOG_DEBUG(bridge, "Enter game request for character {} by account {}",
         char_id.value, conn->account().value);
 
-    // Check if this account already has another connection in-game
-    auto* existing_conn = ws_server_->get_connection_by_account(conn->account());
-    if (existing_conn && existing_conn->id() != conn_id &&
-        existing_conn->state() == network::ws_connection_state::in_game)
-    {
-        if (!data.force_disconnect) {
-            // Reject with error - client should prompt user to force disconnect
-            LOG_INFO(bridge, "Account {} already in game from connection {}, rejecting new entry",
-                conn->account().value, existing_conn->id().value);
-
-            auto response = network::make_enter_game_response(
-                msg.seq, false, nullptr, "account_already_in_game");
-            conn->send(response);
-            return;
-        }
-
-        // Force disconnect the existing session
-        LOG_INFO(bridge, "Force disconnecting existing session {} for account {}",
-            existing_conn->id().value, conn->account().value);
-
-        // Save and clean up the existing player before disconnecting
-        auto existing_player_id = existing_conn->player();
-        if (existing_player_id.value != 0) {
-            save_player_state(existing_player_id);
-
-            // Notify nearby players of despawn
-            if (players_) {
-                auto* player = players_->get_player(existing_player_id);
-                if (player) {
-                    constexpr int despawn_visibility = 20;
-                    auto nearby = players_->get_players_in_range(existing_player_id, despawn_visibility);
-                    auto despawn_msg = network::make_entity_despawn(0, existing_player_id.value);
-
-                    for (auto other_id : nearby) {
-                        if (other_id == existing_player_id) continue;
-                        auto* other = players_->get_player(other_id);
-                        if (!other || other->connection.value == 0) continue;
-                        auto* other_conn = ws_server_->get_connection(other->connection);
-                        if (other_conn && other_conn->is_open()) {
-                            other_conn->send(despawn_msg);
-                        }
-                    }
-                }
-                players_->remove_player(existing_player_id);
-            }
-
-            // Clean up inventory
-            if (inventory_) {
-                inventory_->destroy_inventory(entity_id{existing_player_id.value});
-            }
-        }
-
-        // Disconnect the old connection
-        ws_server_->disconnect(existing_conn->id(), "Disconnected: Another session logged in");
-    }
-
     // Load full character data with ownership verification
     auto char_result = auth_->load_character_full(char_id, conn->account());
     if (char_result.is_err()) {
@@ -415,6 +359,72 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     }
 
     auto& char_data = char_result.value();
+
+    // Check if this account already has a character in game (stale session not cleaned up)
+    if (players_) {
+        player_id existing_player_id{0};
+        connection_id old_connection{0};
+
+        // Find any player belonging to this account
+        players_->for_each_player([&](player_id pid, const player::player& p) {
+            if (p.account == conn->account()) {
+                existing_player_id = pid;
+                old_connection = p.connection;
+            }
+        });
+
+        if (existing_player_id.value != 0) {
+            auto* existing_player = players_->get_player(existing_player_id);
+            std::string existing_name = existing_player ? existing_player->name : "unknown";
+
+            if (!data.force_disconnect) {
+                // Account already has a character in game from a previous session
+                LOG_INFO(bridge, "Account {} already has character '{}' in game (stale session), rejecting new entry",
+                    conn->account().value, existing_name);
+
+                auto response = network::make_enter_game_response(
+                    msg.seq, false, nullptr, "account_already_in_game");
+                conn->send(response);
+                return;
+            }
+
+            // Force disconnect - clean up the stale player
+            LOG_INFO(bridge, "Force disconnecting stale session for account {} (character '{}')",
+                conn->account().value, existing_name);
+
+            // Save state before cleanup
+            save_player_state(existing_player_id);
+
+            // Notify nearby players of despawn
+            constexpr int despawn_visibility = 20;
+            auto nearby = players_->get_players_in_range(existing_player_id, despawn_visibility);
+            auto despawn_msg = network::make_entity_despawn(0, existing_player_id.value);
+
+            for (auto other_id : nearby) {
+                if (other_id == existing_player_id) continue;
+                auto* other = players_->get_player(other_id);
+                if (!other || other->connection.value == 0) continue;
+                auto* other_conn = ws_server_->get_connection(other->connection);
+                if (other_conn && other_conn->is_open()) {
+                    other_conn->send(despawn_msg);
+                }
+            }
+
+            // Remove the stale player
+            players_->remove_player(existing_player_id);
+
+            // Clean up inventory
+            if (inventory_) {
+                inventory_->destroy_inventory(entity_id{existing_player_id.value});
+            }
+
+            // Disconnect old connection if it still exists
+            if (old_connection.value != 0) {
+                ws_server_->disconnect(old_connection,
+                    "Disconnected: Another session logged in");
+            }
+        }
+    }
 
     // Create player instance if player_system is available
     player_id live_player_id = char_id;
@@ -447,6 +457,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         live_player_id = create_result.value();
         auto* player = players_->get_player(live_player_id);
         if (player) {
+            // Set account for duplicate session detection
+            player->account = conn->account();
+
             // Apply loaded stats
             player->experience.level = static_cast<uint8_t>(char_data.level);
             player->experience.experience = char_data.experience;
@@ -565,6 +578,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     // Update connection state
     conn->set_state(network::ws_connection_state::in_game);
     conn->set_player(live_player_id);
+
+    // Register player in lookup map
+    ws_server_->register_player(conn_id, live_player_id);
 
     // Register with admin system for command access
     if (admin_ && auth_) {
@@ -985,13 +1001,11 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
     auto* conn = ws_server_->get_connection(conn_id);
     if (!conn) return;
 
-    // Only handle if player was in game
-    if (conn->state() != network::ws_connection_state::in_game) {
-        return;
-    }
-
+    // Check if player was in game by looking at the player_id
+    // Note: We can't check conn->state() == in_game because the websocket layer
+    // already set the state to 'disconnected' before calling this handler
     auto pid = conn->player();
-    if (pid.value == 0) return;
+    if (!pid.is_valid()) return;
 
     LOG_INFO(bridge, "Player {} disconnecting, saving state...", pid.value);
 

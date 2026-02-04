@@ -72,6 +72,7 @@ private:
     // Initialization helpers
     void load_maps();
     void load_game_configs();
+    void register_spawn_points();
 
     // Timer callback
     void on_tick();

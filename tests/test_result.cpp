@@ -48,12 +48,12 @@ TEST(result_test, bool_conversion) {
 
 TEST(result_test, value_throws_on_error) {
     auto r = result<int>::err("error");
-    EXPECT_THROW(r.value(), std::runtime_error);
+    EXPECT_THROW((void)r.value(), std::runtime_error);
 }
 
 TEST(result_test, error_throws_on_ok) {
     auto r = result<int>::ok(42);
-    EXPECT_THROW(r.error(), std::runtime_error);
+    EXPECT_THROW((void)r.error(), std::runtime_error);
 }
 
 TEST(result_test, value_or) {
@@ -118,7 +118,7 @@ TEST(result_test, expect) {
     EXPECT_EQ(ok.expect("should not throw"), 42);
 
     auto err = result<int>::err("error");
-    EXPECT_THROW(err.expect("custom message"), std::runtime_error);
+    EXPECT_THROW((void)err.expect("custom message"), std::runtime_error);
 }
 
 TEST(result_test, void_result) {

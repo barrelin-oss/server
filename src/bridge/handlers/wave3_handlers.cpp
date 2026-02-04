@@ -303,24 +303,118 @@ auto handle_pickup_item(const handler_context& ctx) -> handle_result {
     protocol::message_reader reader{ctx.raw_data};
     reader.skip(4);  // message_id
 
-    LOG_DEBUG(proto_bridge, "Pickup item: player={}", ctx.player.value);
+    LOG_DEBUG(proto_bridge, "Pickup item request: player={}", ctx.player.value);
 
+    // Get subsystems
+    auto* player_sys = subsystems().get<player::player_system>();
     auto* inv_sys = subsystems().get<inventory::inventory_system>();
-    if (!inv_sys) {
+    auto* world = subsystems().get<world::world_subsystem>();
+    auto* item_sys = subsystems().get<item::item_system>();
+
+    if (!player_sys || !inv_sys || !world || !item_sys) {
         return handle_result::not_handled;
     }
 
+    // Get player data
+    auto* player_ptr = player_sys->get_player(ctx.player);
+    if (!player_ptr) {
+        LOG_WARN(proto_bridge, "Pickup item: player {} not found", ctx.player.value);
+        return handle_result::handled;
+    }
+
+    auto player_entity = entity_id{ctx.player.value};
+    auto& player = *player_ptr;
+
+    // Check if there are any ground items at player's position
+    if (!world->has_ground_items(player.current_map, player.pos)) {
+        LOG_DEBUG(proto_bridge, "No items on ground at player {} position", ctx.player.value);
+        // Just return handled - no error message needed
+        return handle_result::handled;
+    }
+
     // Check if inventory has space
-    auto entity = entity_id{ctx.player.value};
-    if (inv_sys->is_full(entity)) {
+    if (inv_sys->is_full(player_entity)) {
         send_notify(ctx, protocol::notify_type::cannot_carry_more_item, nullptr);
         return handle_result::handled;
     }
 
-    // Item pickup would find nearest item and add to inventory
-    // For now, return not_handled to let legacy process it
+    // Remove top-most item from ground
+    auto item_id_opt = world->remove_top_ground_item(player.current_map, player.pos);
+    if (!item_id_opt.has_value()) {
+        LOG_DEBUG(proto_bridge, "Failed to remove item from ground (race condition?)");
+        return handle_result::handled;
+    }
 
-    return handle_result::not_handled;
+    auto picked_item_id = item_id_opt.value();
+
+    // Add item to inventory
+    auto result = inv_sys->add_item(player_entity, picked_item_id);
+    if (result != inventory::inventory_result::success) {
+        // Failed to add to inventory - put item back on ground
+        world->add_ground_item(player.current_map, player.pos, picked_item_id);
+        send_notify(ctx, protocol::notify_type::cannot_carry_more_item, nullptr);
+        LOG_WARN(proto_bridge, "Failed to add item {} to player {} inventory: result={}",
+            picked_item_id.value, ctx.player.value, static_cast<int>(result));
+        return handle_result::handled;
+    }
+
+    // Success! Send item_obtained notification to player
+    send_notify(ctx, protocol::notify_type::item_obtained, [&](protocol::message_writer& writer) {
+        writer.write_u32(picked_item_id.value);
+        // TODO: Write item details (name, count, etc.) if needed
+    });
+
+    // Broadcast item removal to all nearby players (except the picker)
+    broadcast_item_removal(ctx, player, picked_item_id);
+
+    LOG_INFO(proto_bridge, "Player {} picked up item {} at ({}, {}) on map {}",
+        ctx.player.value, picked_item_id.value, player.pos.x, player.pos.y,
+        static_cast<int>(player.current_map.value));
+
+    return handle_result::handled;
+}
+
+// Broadcast ground item removal to nearby players
+void broadcast_item_removal(const handler_context& ctx, const player::player& picker,
+                            item_id removed_item)
+{
+    auto* player_sys = subsystems().get<player::player_system>();
+    auto* network = subsystems().get<network::network_subsystem>();
+
+    if (!player_sys || !network) {
+        return;
+    }
+
+    // Get players in visibility range
+    constexpr int visibility_radius = 20;
+    auto nearby = player_sys->get_players_in_range(ctx.player, visibility_radius);
+
+    // Build del_dynamic_object notification
+    protocol::message_writer notify_msg;
+    notify_msg.write_u32(static_cast<uint32_t>(protocol::message_id::notify));
+    notify_msg.write_u16(static_cast<uint16_t>(protocol::notify_type::del_dynamic_object));
+    notify_msg.write_u16(1);  // object_type: 1 = item
+    notify_msg.write_u32(removed_item.value);  // object_id (item ID)
+    notify_msg.write_i16(picker.pos.x);  // map X
+    notify_msg.write_i16(picker.pos.y);  // map Y
+
+    // Send to all nearby players except the picker
+    for (auto other_id : nearby) {
+        if (other_id == ctx.player) {
+            continue;  // Skip the player who picked up the item
+        }
+
+        auto* other = player_sys->get_player(other_id);
+        if (!other || !other->connection.is_valid()) {
+            continue;
+        }
+
+        // Send the notification
+        network->send(other->connection, notify_msg.data());
+    }
+
+    LOG_DEBUG(proto_bridge, "Broadcasted item {} removal to {} nearby players",
+        removed_item.value, nearby.size() - 1);
 }
 
 }  // namespace hb::bridge::wave3

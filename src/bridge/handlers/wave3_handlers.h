@@ -6,6 +6,11 @@
 
 #include "bridge/message_router.h"
 #include "protocol/protocol.h"
+#include "core/types.h"
+
+namespace hb::player {
+struct player;
+}
 
 namespace hb::bridge::wave3 {
 
@@ -41,6 +46,10 @@ auto handle_drop_item(const handler_context& ctx) -> handle_result;
 
 // Handle pickup item command
 auto handle_pickup_item(const handler_context& ctx) -> handle_result;
+
+// Broadcast item removal to nearby players
+void broadcast_item_removal(const handler_context& ctx, const player::player& picker,
+                            item_id removed_item);
 
 // ========== Motion Types ==========
 

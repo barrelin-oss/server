@@ -36,6 +36,32 @@ All messages follow a common envelope structure:
 
 ---
 
+## Implementation Notes
+
+### Confirm/Reject Response Pattern
+
+**IMPORTANT:** When implementing new client request handlers, most actions require both a **confirm** (success) and **reject** (failure) response path. Before implementing any new packet handler, verify with the project lead whether the action needs:
+
+1. **Confirm response** - Sent when action succeeds (e.g., item picked up, attack landed)
+2. **Reject response** - Sent when action fails (e.g., inventory full, target out of range)
+3. **Broadcast** - Sent to other nearby players to inform them of the action
+
+**Examples of confirm/reject patterns:**
+
+| Action | Needs Confirm | Needs Reject | Needs Broadcast |
+|--------|--------------|--------------|-----------------|
+| Movement | Yes | Yes (blocked) | Yes (position update) |
+| Attack | Yes | Yes (out of range) | Yes (combat broadcast) |
+| Pickup | Yes | Yes (inventory full) | Yes (item removed) |
+| Chat | Yes | Yes (rate limited) | Yes (message broadcast) |
+| Teleport | Yes | Yes (invalid dest) | Yes (despawn/spawn) |
+
+**When to skip reject:**
+- Some broadcasts don't need client-side confirmation (e.g., HP updates)
+- Pure informational messages from server don't need responses
+
+---
+
 ## Message Types
 
 ### System Messages
@@ -486,14 +512,20 @@ Enter the game world with a character.
   "type": "enter_game_request",
   "seq": 5,
   "data": {
-    "character_id": 1
+    "character_id": 1,
+    "force_disconnect": false,
+    "screen_width": 1920,
+    "screen_height": 1080
   }
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `character_id` | uint32 | Yes | ID of character to play |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `character_id` | uint32 | Yes | - | ID of character to play |
+| `force_disconnect` | bool | No | false | Disconnect existing session for this account |
+| `screen_width` | int16 | No | 640 | Client screen width for visibility calculation |
+| `screen_height` | int16 | No | 480 | Client screen height for visibility calculation |
 
 ---
 
@@ -598,7 +630,9 @@ Returns complete game state on success. This is the primary payload for game ini
           "x": 95,
           "y": 155,
           "hp_percent": 100,
-          "direction": 2
+          "direction": 2,
+          "template_id": 100,
+          "level": 50
         }
       ]
     }
@@ -711,6 +745,8 @@ Returns complete game state on success. This is the primary payload for game ini
 | `y` | int16 | Y coordinate |
 | `hp_percent` | int16 | Health percentage (0-100) |
 | `direction` | int16 | Facing direction (0-7) |
+| `template_id` | uint32 | NPC template ID (only for type="npc") |
+| `level` | int16 | NPC level (only for type="npc") |
 
 **Direction Values:**
 
@@ -817,7 +853,7 @@ Update skill levels.
 
 ### `entity_spawn`
 
-A new entity entered visibility range (20 tiles).
+A new entity entered visibility range.
 
 **Server Broadcast:**
 ```json
@@ -859,7 +895,7 @@ An entity left visibility range or disconnected.
 
 ### `player_move_request`
 
-Request to move the player character.
+Request to move the player character (walk or run).
 
 **Request:**
 ```json
@@ -869,16 +905,20 @@ Request to move the player character.
   "data": {
     "x": 101,
     "y": 151,
-    "direction": 2
+    "direction": 2,
+    "is_running": false,
+    "timestamp": 1234567890
   }
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `x` | int16 | Yes | Target X coordinate |
-| `y` | int16 | Yes | Target Y coordinate |
-| `direction` | int16 | No | Direction to face (0-7) |
+| `x` | int16 | Yes | Current X coordinate (for validation) |
+| `y` | int16 | Yes | Current Y coordinate (for validation) |
+| `direction` | int16 | Yes | Direction to move (0-7) |
+| `is_running` | bool | No | If true, moves 2 tiles; if false/omitted, moves 1 tile |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
 
 ---
 
@@ -920,9 +960,63 @@ Server confirms or rejects move.
 
 ---
 
+### `player_stop_request`
+
+Request to stop moving and optionally change facing direction.
+
+**Request:**
+```json
+{
+  "type": "player_stop_request",
+  "seq": 100,
+  "data": {
+    "x": 101,
+    "y": 151,
+    "direction": 4,
+    "timestamp": 1234567890
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `x` | int16 | Yes | Current X coordinate |
+| `y` | int16 | Yes | Current Y coordinate |
+| `direction` | int16 | No | New facing direction (0-7). If omitted, keeps current direction |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+---
+
+### `player_stop_response`
+
+Server confirms the stop and current position/direction.
+
+**Success Response:**
+```json
+{
+  "type": "player_stop_response",
+  "seq": 100,
+  "data": {
+    "success": true,
+    "x": 101,
+    "y": 151,
+    "direction": 4
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Always true for stop requests |
+| `x` | int16 | Confirmed X coordinate |
+| `y` | int16 | Confirmed Y coordinate |
+| `direction` | int16 | Confirmed facing direction (0-7) |
+
+---
+
 ### `player_position_update`
 
-Broadcast to nearby players when someone moves.
+Broadcast to nearby players when someone moves or stops.
 
 **Server Broadcast:**
 ```json
@@ -933,10 +1027,1027 @@ Broadcast to nearby players when someone moves.
     "entity_id": 1001,
     "x": 101,
     "y": 151,
+    "direction": 2,
+    "is_running": false
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entity_id` | uint32 | Entity ID of the player who moved |
+| `x` | int16 | New X coordinate |
+| `y` | int16 | New Y coordinate |
+| `direction` | int16 | Facing direction (0-7) |
+| `is_running` | bool | True if running, false if walking or stopped |
+
+---
+
+## Combat Messages
+
+### `player_attack_request`
+
+Request to attack a target.
+
+**Request:**
+```json
+{
+  "type": "player_attack_request",
+  "seq": 150,
+  "data": {
+    "x": 100,
+    "y": 150,
+    "direction": 2,
+    "attack_type": "regular",
+    "target_type": "npc",
+    "target_id": 5001,
+    "timestamp": 1706500000000
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `x` | int16 | Yes | Current X coordinate (for validation) |
+| `y` | int16 | Yes | Current Y coordinate (for validation) |
+| `direction` | int16 | No | Direction facing (0-7) |
+| `attack_type` | string/int | No | Attack type: `"regular"` (0), `"dash"` (1), or `"super"` (2) |
+| `target_type` | string/int | No | Target type: `"none"` (0), `"player"` (1), `"npc"` (2), `"ground"` (3), `"item"` (4) |
+| `target_id` | uint32 | No | Target entity ID |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+**Attack Types:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 / `"regular"` | Regular | Normal melee attack |
+| 1 / `"dash"` | Dash | Dash attack (requires 100% skill, 1 tile gap) |
+| 2 / `"super"` | Super | Super attack (requires 100% skill + charges, ranged) |
+
+---
+
+### `player_attack_response`
+
+Server confirms or rejects attack.
+
+**Success Response:**
+```json
+{
+  "type": "player_attack_response",
+  "seq": 150,
+  "data": {
+    "success": true,
+    "result": {
+      "hit": true,
+      "critical": false,
+      "damage": 45,
+      "target_id": 5001,
+      "target_hp": 155,
+      "target_hp_max": 200,
+      "attacker_x": 100,
+      "attacker_y": 150
+    }
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "player_attack_response",
+  "seq": 150,
+  "data": {
+    "success": false,
+    "error": "Target out of range"
+  }
+}
+```
+
+#### Attack Result Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hit` | bool | Whether attack connected |
+| `critical` | bool | Whether it was a critical hit |
+| `damage` | int32 | Damage dealt |
+| `target_id` | uint32 | Target entity ID |
+| `target_hp` | int16 | Target's remaining HP |
+| `target_hp_max` | int16 | Target's maximum HP |
+| `attacker_x` | int16 | Confirmed attacker X position |
+| `attacker_y` | int16 | Confirmed attacker Y position |
+
+---
+
+### `combat_attack_broadcast`
+
+Broadcast to nearby players when an attack occurs.
+
+**Server Broadcast:**
+```json
+{
+  "type": "combat_attack_broadcast",
+  "seq": 0,
+  "data": {
+    "attacker_id": 1001,
+    "target_id": 5001,
+    "attacker_x": 100,
+    "attacker_y": 150,
+    "target_x": 101,
+    "target_y": 150,
+    "hit": true,
+    "critical": false,
+    "damage": 45
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `attacker_id` | uint32 | Attacker entity ID |
+| `target_id` | uint32 | Target entity ID |
+| `attacker_x` | int16 | Attacker X position |
+| `attacker_y` | int16 | Attacker Y position |
+| `target_x` | int16 | Target X position |
+| `target_y` | int16 | Target Y position |
+| `hit` | bool | Whether attack connected |
+| `critical` | bool | Whether it was a critical hit |
+| `damage` | int32 | Damage dealt |
+
+---
+
+### `entity_hp_update`
+
+Broadcast when an entity's HP changes.
+
+**Server Broadcast:**
+```json
+{
+  "type": "entity_hp_update",
+  "seq": 0,
+  "data": {
+    "entity_id": 5001,
+    "hp": 155,
+    "hp_max": 200
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entity_id` | uint32 | Entity ID |
+| `hp` | int32 | Current HP |
+| `hp_max` | int32 | Maximum HP |
+
+---
+
+### `entity_death`
+
+Broadcast when an entity dies.
+
+**Server Broadcast:**
+```json
+{
+  "type": "entity_death",
+  "seq": 0,
+  "data": {
+    "victim_id": 5001,
+    "killer_id": 1001,
+    "x": 101,
+    "y": 150
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `victim_id` | uint32 | Entity that died |
+| `killer_id` | uint32 | Entity that killed (0 if environmental/unknown) |
+| `x` | int16 | Death location X |
+| `y` | int16 | Death location Y |
+
+---
+
+## Magic Messages
+
+### `player_magic_request`
+
+Request to cast a spell.
+
+**Request:**
+```json
+{
+  "type": "player_magic_request",
+  "seq": 160,
+  "data": {
+    "x": 100,
+    "y": 150,
+    "direction": 2,
+    "spell_id": 10,
+    "target_type": "npc",
+    "target_id": 5001,
+    "target_x": 105,
+    "target_y": 150,
+    "timestamp": 1706500000000
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `x` | int16 | Yes | Current X coordinate (for validation) |
+| `y` | int16 | Yes | Current Y coordinate (for validation) |
+| `direction` | int16 | No | Direction facing (0-7) |
+| `spell_id` | uint32 | Yes | Spell to cast |
+| `target_type` | string/int | No | Target type (see attack types) |
+| `target_id` | uint32 | No | Target entity ID (for targeted spells) |
+| `target_x` | int16 | No | Target X location (for ground-targeted spells) |
+| `target_y` | int16 | No | Target Y location (for ground-targeted spells) |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+---
+
+### `player_magic_response`
+
+Server confirms or rejects spell cast.
+
+**Success Response:**
+```json
+{
+  "type": "player_magic_response",
+  "seq": 160,
+  "data": {
+    "success": true,
+    "result": {
+      "success": true,
+      "spell_id": 10,
+      "mana_cost": 25,
+      "damage": 80,
+      "heal": 0,
+      "target_id": 5001,
+      "caster_mp": 75
+    }
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "player_magic_response",
+  "seq": 160,
+  "data": {
+    "success": false,
+    "error": "Not enough mana"
+  }
+}
+```
+
+#### Magic Result Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether spell cast succeeded |
+| `spell_id` | uint32 | Spell that was cast |
+| `mana_cost` | int32 | Mana consumed |
+| `damage` | int32 | Damage dealt (if damage spell) |
+| `heal` | int32 | HP healed (if heal spell) |
+| `target_id` | uint32 | Target entity ID (if targeted) |
+| `caster_mp` | int16 | Caster's remaining MP |
+
+---
+
+## Skill Messages
+
+### `player_skill_request`
+
+Request to use a skill.
+
+**Request:**
+```json
+{
+  "type": "player_skill_request",
+  "seq": 170,
+  "data": {
+    "x": 100,
+    "y": 150,
+    "direction": 2,
+    "skill_id": 5,
+    "target_type": "none",
+    "target_id": 0,
+    "timestamp": 1706500000000
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `x` | int16 | Yes | Current X coordinate (for validation) |
+| `y` | int16 | Yes | Current Y coordinate (for validation) |
+| `direction` | int16 | No | Direction facing (0-7) |
+| `skill_id` | uint32 | Yes | Skill to use |
+| `target_type` | string/int | No | Target type (see attack types) |
+| `target_id` | uint32 | No | Target entity ID (if applicable) |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+---
+
+### `player_skill_response`
+
+Server confirms or rejects skill use.
+
+**Success Response:**
+```json
+{
+  "type": "player_skill_response",
+  "seq": 170,
+  "data": {
+    "success": true,
+    "result": {
+      "success": true,
+      "skill_id": 5,
+      "effect_value": 10,
+      "target_id": 0
+    }
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "player_skill_response",
+  "seq": 170,
+  "data": {
+    "success": false,
+    "error": "Skill on cooldown"
+  }
+}
+```
+
+#### Skill Result Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether skill use succeeded |
+| `skill_id` | uint32 | Skill that was used |
+| `effect_value` | int32 | Skill-specific effect value |
+| `target_id` | uint32 | Target entity ID (if targeted) |
+
+---
+
+## Item Pickup Messages
+
+### `player_pickup_request`
+
+Request to pick up an item from the ground.
+
+**Request:**
+```json
+{
+  "type": "player_pickup_request",
+  "seq": 200,
+  "data": {
+    "x": 100,
+    "y": 150,
+    "item_id": 456,
+    "timestamp": 1706500000000
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `x` | int16 | Yes | Current position X (for validation) |
+| `y` | int16 | Yes | Current position Y (for validation) |
+| `item_id` | uint32 | Yes | Ground item ID to pick up |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+**Notes:**
+- Player must be standing on or near the tile with the item
+- Item is only picked up if inventory has space
+
+---
+
+### `player_pickup_response`
+
+Server confirms or rejects the pickup attempt.
+
+**Success Response:**
+```json
+{
+  "type": "player_pickup_response",
+  "seq": 200,
+  "data": {
+    "success": true,
+    "result": {
+      "success": true,
+      "item_id": 456,
+      "item_name": "Gold Coin",
+      "quantity": 10,
+      "inventory_slot": 5
+    }
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether pickup succeeded |
+| `item_id` | uint32 | ID of item picked up |
+| `item_name` | string | Display name of item |
+| `quantity` | int16 | Stack count of item |
+| `inventory_slot` | uint8 | Slot where item was placed |
+
+**Failure Response:**
+```json
+{
+  "type": "player_pickup_response",
+  "seq": 200,
+  "data": {
+    "success": false,
+    "error": "inventory_full"
+  }
+}
+```
+
+**Possible Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `item_not_found` | No items on ground at position |
+| `inventory_full` | Cannot carry more items |
+| `invalid_player` | Player not found |
+| `internal_error` | Required subsystems unavailable |
+
+---
+
+### `ground_item_removed`
+
+Broadcast to nearby players (excluding the picker) when an item is picked up from the ground.
+
+**Server Broadcast:**
+```json
+{
+  "type": "ground_item_removed",
+  "seq": 0,
+  "data": {
+    "picker_id": 1001,
+    "picker_name": "Warrior1",
+    "item_id": 456,
+    "item_name": "Gold Coin",
+    "x": 100,
+    "y": 150
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `picker_id` | uint32 | Player ID who picked up the item |
+| `picker_name` | string | Display name of picker |
+| `item_id` | uint32 | ID of item that was removed |
+| `item_name` | string | Display name of item |
+| `x` | int16 | X coordinate where item was |
+| `y` | int16 | Y coordinate where item was |
+
+**Notes:**
+- Sent only to players within visibility radius
+- The picker does NOT receive this broadcast (they get the response instead)
+- Clients should remove the item from their ground item cache
+
+---
+
+## Interact Messages
+
+### `player_interact_request`
+
+Request to interact with an NPC or object.
+
+**Request:**
+```json
+{
+  "type": "player_interact_request",
+  "seq": 210,
+  "data": {
+    "x": 100,
+    "y": 150,
+    "target_type": "npc",
+    "target_id": 5001,
+    "timestamp": 1706500000000
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `x` | int16 | Yes | Current X coordinate (for validation) |
+| `y` | int16 | Yes | Current Y coordinate (for validation) |
+| `target_type` | string/int | No | Target type |
+| `target_id` | uint32 | Yes | Target NPC or object ID |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+---
+
+### `player_interact_response`
+
+Server responds with interaction result.
+
+**Success Response:**
+```json
+{
+  "type": "player_interact_response",
+  "seq": 210,
+  "data": {
+    "success": true,
+    "result": {
+      "success": true,
+      "target_id": 5001,
+      "interaction_type": "dialog",
+      "interaction_data": {
+        "npc_name": "Shop Keeper",
+        "dialog_text": "Welcome to my shop!",
+        "options": ["Buy", "Sell", "Leave"]
+      }
+    }
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "player_interact_response",
+  "seq": 210,
+  "data": {
+    "success": false,
+    "error": "Target out of range"
+  }
+}
+```
+
+#### Interact Result Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether interaction succeeded |
+| `target_id` | uint32 | Target entity ID |
+| `interaction_type` | string | Type: `"dialog"`, `"shop"`, `"bank"`, etc. |
+| `interaction_data` | object | Type-specific data |
+
+---
+
+## Chat Messages
+
+### `chat_message`
+
+Client sends a chat message.
+
+**Request:**
+```json
+{
+  "type": "chat_message",
+  "seq": 300,
+  "data": {
+    "content": "Hello everyone!",
+    "channel": "local",
+    "recipient": "PlayerName",
+    "timestamp": 1706500000000
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | string | Yes | Message content (may include prefix like `!` for shout) |
+| `channel` | string | No | Explicit channel override |
+| `recipient` | string | No | Recipient name (for whispers) |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+**Chat Channels:**
+
+| Channel | Prefix | Description |
+|---------|--------|-------------|
+| `local` | (none) | Nearby players (default) |
+| `shout` | `!` | Server-wide |
+| `guild` | `@` | Guild members |
+| `party` | `$` | Party members |
+| `whisper` | `#` or recipient name | Private message |
+| `global` | - | Global channel |
+| `trade` | - | Trade channel |
+| `faction` | - | Faction channel (Aresden/Elvine) |
+| `system` | - | System messages (server-generated only) |
+
+**Response:**
+```json
+{
+  "type": "chat_message",
+  "seq": 300,
+  "data": {
+    "success": true
+  }
+}
+```
+
+---
+
+### `chat_message_broadcast`
+
+Server broadcasts chat message to recipients.
+
+**Server Broadcast:**
+```json
+{
+  "type": "chat_message_broadcast",
+  "seq": 0,
+  "data": {
+    "channel": "local",
+    "sender_id": 1001,
+    "sender_name": "Warrior1",
+    "content": "Hello everyone!",
+    "flags": [],
+    "timestamp": "2024-01-29T12:00:00Z",
+    "recipient_name": null
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `channel` | string | Chat channel |
+| `sender_id` | uint32 | Sender player ID (0 for system) |
+| `sender_name` | string | Sender display name |
+| `content` | string | Message content |
+| `flags` | array | Flags: `"emote"`, `"censored"`, `"system"`, `"gm"` |
+| `timestamp` | string | ISO 8601 timestamp |
+| `recipient_name` | string | Recipient name (for whisper, optional) |
+
+---
+
+## Command Messages
+
+### `command_request`
+
+Client sends a command (e.g., /help, /who).
+
+**Request:**
+```json
+{
+  "type": "command_request",
+  "seq": 400,
+  "data": {
+    "command": "teleport",
+    "args": ["aresden", "100", "150"],
+    "params": {},
+    "timestamp": 1706500000000
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `command` | string | Yes | Command name (without /) |
+| `args` | array | No | Command arguments |
+| `params` | object | No | Named parameters |
+| `timestamp` | uint64 | No | Client timestamp in milliseconds |
+
+---
+
+### `command_response`
+
+Server responds to command.
+
+**Response:**
+```json
+{
+  "type": "command_response",
+  "seq": 400,
+  "data": {
+    "success": true,
+    "command": "teleport",
+    "message": "Teleported to aresden (100, 150)",
+    "result": {}
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether command succeeded |
+| `command` | string | Echo of the command |
+| `message` | string | Success/error message |
+| `result` | object | Command-specific result data |
+
+---
+
+## Teleportation Messages
+
+### `map_teleporters`
+
+Server sends full teleporter list for a map.
+
+**Server Message:**
+```json
+{
+  "type": "map_teleporters",
+  "seq": 0,
+  "data": {
+    "map_name": "aresden",
+    "teleporters": [
+      {
+        "id": 6553700,
+        "x": 100,
+        "y": 50,
+        "dest_map": "aresden2",
+        "dest_x": 200,
+        "dest_y": 100,
+        "dest_dir": 4
+      }
+    ]
+  }
+}
+```
+
+#### Teleporter Info Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | uint32 | Teleporter ID (computed from position) |
+| `x` | int16 | Source X coordinate |
+| `y` | int16 | Source Y coordinate |
+| `dest_map` | string | Destination map name |
+| `dest_x` | int16 | Destination X coordinate |
+| `dest_y` | int16 | Destination Y coordinate |
+| `dest_dir` | int16 | Destination facing direction (0-7) |
+
+---
+
+### `teleporter_update`
+
+Live update when a teleporter is added, removed, or modified.
+
+**Server Message:**
+```json
+{
+  "type": "teleporter_update",
+  "seq": 0,
+  "data": {
+    "action": "add",
+    "map_name": "aresden",
+    "teleporter": {
+      "id": 6553700,
+      "x": 100,
+      "y": 50,
+      "dest_map": "aresden2",
+      "dest_x": 200,
+      "dest_y": 100,
+      "dest_dir": 4
+    }
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `action` | string | Action: `"add"`, `"remove"`, `"modify"` |
+| `map_name` | string | Map where teleporter is located |
+| `teleporter` | object | Teleporter info |
+
+---
+
+### `player_teleport`
+
+Sent to player when they are teleported.
+
+**Server Message:**
+```json
+{
+  "type": "player_teleport",
+  "seq": 0,
+  "data": {
+    "dest_map": "aresden2",
+    "dest_x": 200,
+    "dest_y": 100,
+    "dest_dir": 4,
+    "entities": [
+      {
+        "entity_id": 1002,
+        "type": "player",
+        "name": "OtherPlayer",
+        "x": 205,
+        "y": 98,
+        "hp_percent": 100,
+        "direction": 2
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `dest_map` | string | Destination map name |
+| `dest_x` | int16 | Destination X coordinate |
+| `dest_y` | int16 | Destination Y coordinate |
+| `dest_dir` | int16 | Destination facing direction (0-7) |
+| `entities` | array | Visible entities at destination |
+
+---
+
+## Player State Updates
+
+### `hunger_update`
+
+Sent when the player's hunger level changes (due to decay or consuming food).
+
+**Server Message:**
+```json
+{
+  "type": "hunger_update",
+  "seq": 0,
+  "data": {
+    "level": 85,
+    "is_starving": false
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `level` | int8 | Current hunger level (0-100) |
+| `is_starving` | bool | True if level <= 0 (blocks regeneration) |
+
+**Hunger Effects:**
+- **Hunger >= 30:** Normal HP/MP/SP regeneration
+- **Hunger 1-29:** Regeneration delayed by `(30 - hunger) * 1000` ms
+- **Hunger <= 0 (Starving):** All regeneration blocked
+
+---
+
+## View/Resolution Messages
+
+### `set_view_range`
+
+Client updates visibility radius based on screen resolution.
+
+**Request:**
+```json
+{
+  "type": "set_view_range",
+  "seq": 500,
+  "data": {
+    "screen_width": 1920,
+    "screen_height": 1080
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `screen_width` | int16 | No | Client screen width in pixels |
+| `screen_height` | int16 | No | Client screen height in pixels |
+
+The server calculates visibility radius as: `max(width, height) / 32 / 2 + 5` tiles.
+
+---
+
+## NPC Messages
+
+### `npc_spawn`
+
+An NPC entered visibility range.
+
+**Server Broadcast:**
+```json
+{
+  "type": "npc_spawn",
+  "seq": 0,
+  "data": {
+    "entity_id": 5001,
+    "template_id": 100,
+    "name": "Orc Warrior",
+    "x": 105,
+    "y": 150,
+    "direction": 4,
+    "hp": 200,
+    "max_hp": 200,
+    "level": 25
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entity_id` | uint32 | Unique NPC entity ID |
+| `template_id` | uint32 | NPC template/type ID |
+| `name` | string | NPC display name |
+| `x` | int16 | X coordinate |
+| `y` | int16 | Y coordinate |
+| `direction` | uint8 | Facing direction (0-7) |
+| `hp` | int32 | Current HP |
+| `max_hp` | int32 | Maximum HP |
+| `level` | int16 | NPC level |
+
+---
+
+### `npc_despawn`
+
+An NPC left visibility range.
+
+**Server Broadcast:**
+```json
+{
+  "type": "npc_despawn",
+  "seq": 0,
+  "data": {
+    "entity_id": 5001
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entity_id` | uint32 | NPC entity ID |
+
+---
+
+### `npc_move`
+
+An NPC moved.
+
+**Server Broadcast:**
+```json
+{
+  "type": "npc_move",
+  "seq": 0,
+  "data": {
+    "entity_id": 5001,
+    "x": 106,
+    "y": 151,
     "direction": 2
   }
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entity_id` | uint32 | NPC entity ID |
+| `x` | int16 | New X coordinate |
+| `y` | int16 | New Y coordinate |
+| `direction` | uint8 | Facing direction (0-7) |
+
+---
+
+### `npc_attack`
+
+An NPC attacked something.
+
+**Server Broadcast:**
+```json
+{
+  "type": "npc_attack",
+  "seq": 0,
+  "data": {
+    "attacker_id": 5001,
+    "target_id": 1001,
+    "damage": 25,
+    "is_critical": false
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `attacker_id` | uint32 | NPC entity ID |
+| `target_id` | uint32 | Target entity ID |
+| `damage` | int32 | Damage dealt |
+| `is_critical` | bool | Whether it was a critical hit |
+
+---
+
+### `npc_death`
+
+An NPC died.
+
+**Server Broadcast:**
+```json
+{
+  "type": "npc_death",
+  "seq": 0,
+  "data": {
+    "entity_id": 5001,
+    "killer_id": 1001,
+    "x": 106,
+    "y": 151
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entity_id` | uint32 | NPC that died |
+| `killer_id` | uint32 | Entity that killed (0 if environmental/unknown) |
+| `x` | int16 | Death location X |
+| `y` | int16 | Death location Y |
 
 ---
 
@@ -956,6 +2067,12 @@ Connected
     |
     +-- [player_move_request] --> Movement
     |
+    +-- [player_attack_request] --> Combat
+    |
+    +-- [chat_message] --> Chat
+    |
+    +-- [command_request] --> Commands
+    |
     +-- [logout_request] --> Authenticated
     |
     +-- [disconnect] --> (connection closed)
@@ -963,13 +2080,15 @@ Connected
 
 ## Visibility System
 
-- **Visibility Radius:** 20 tiles (Chebyshev distance)
+- **Visibility Radius:** Dynamic based on client screen resolution
+- **Default Radius:** 20 tiles (for 640x480)
+- **Calculation:** `max(screen_width, screen_height) / 32 / 2 + 5` tiles
 - **When player moves:**
-  - Entities entering range: `entity_spawn` sent to player
-  - Entities leaving range: `entity_despawn` sent to player
+  - Entities entering range: `entity_spawn` or `npc_spawn` sent to player
+  - Entities leaving range: `entity_despawn` or `npc_despawn` sent to player
   - Player's position: `player_position_update` broadcast to nearby
-- **When player enters game:** `world_init` contains all visible entities
-- **When player teleports/changes map:** `world_init` with new area entities
+- **When player enters game:** `enter_game_response` contains all visible entities
+- **When player teleports/changes map:** `player_teleport` with new area entities
 
 ## Error Handling
 
@@ -984,3 +2103,4 @@ Connected
 3. **Maintain entity cache** updated by spawn/despawn/position messages
 4. **Reconnect logic:** Re-authenticate and enter game on disconnect
 5. **Optimistic movement:** Show movement immediately, correct on rejection
+6. **Update view range** when resolution changes using `set_view_range`

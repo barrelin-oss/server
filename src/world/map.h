@@ -52,7 +52,7 @@ struct teleport_dest {
     std::string dest_map;
     int16_t dest_x{0};
     int16_t dest_y{0};
-    direction dest_dir{direction::none};
+    direction dest_dir{direction::south};  // Default facing south
 };
 
 // Initial spawn point for new characters
@@ -115,15 +115,11 @@ public:
     // Load from file
     auto load_from_file(const std::filesystem::path& path) -> result<void, std::string>;
 
-    // Load configuration file with teleports, spawn points, etc.
-    // Tries .yaml first, falls back to .txt
+    // Load YAML configuration file with teleports, spawn points, etc.
     auto load_config_file(const std::filesystem::path& path) -> result<void, std::string>;
 
     // Load YAML format config
     auto load_config_yaml(const std::filesystem::path& path) -> result<void, std::string>;
-
-    // Load legacy TXT format config
-    auto load_config_txt(const std::filesystem::path& path) -> result<void, std::string>;
 
     // Identity
     [[nodiscard]] auto id() const -> map_id { return id_; }

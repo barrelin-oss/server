@@ -10,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(MSVC)
     # MSVC settings
     add_compile_options(
+        /MP                     # Multi-processor compilation
         /W4                     # Warning level 4
         /permissive-            # Standards conformance
         /Zc:__cplusplus         # Correct __cplusplus macro

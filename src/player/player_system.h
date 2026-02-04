@@ -166,6 +166,11 @@ public:
     void set_target(player_id id, entity::entity target);
     void clear_target(player_id id);
 
+    // Hunger
+    using hunger_change_callback = std::function<void(player_id, int8_t old_level, int8_t new_level)>;
+    void on_hunger_change(hunger_change_callback callback) { hunger_callback_ = std::move(callback); }
+    void restore_hunger(player_id id, int8_t amount);
+
     // Iteration
     template<typename Func>
     void for_each_player(Func&& func) {
@@ -209,11 +214,15 @@ private:
     std::unordered_map<std::string, player_id> name_to_id_;
     std::unordered_map<connection_id, player_id> connection_to_id_;
     std::unordered_map<session_id, player_id> session_to_id_;
+    std::unordered_map<uint32_t, player_id> ecs_index_to_id_;  // ecs_entity.index() -> player_id
 
     // Update accumulators
     float regen_accumulator_{0.0f};
     float hunger_accumulator_{0.0f};
     float pk_decay_accumulator_{0.0f};
+
+    // Hunger change callback
+    hunger_change_callback hunger_callback_;
 };
 
 }  // namespace hb::player

@@ -9,6 +9,12 @@
 #include "world/world_subsystem.h"
 #include "registry/npc_registry.h"
 #include "npc/random_mob_generator.h"
+#include "npc/spawn_rule_engine.h"
+#include "npc/spawn_context.h"
+#include "scheduler/scheduler.h"
+#include "entity/entity_manager.h"
+#include "entity/components/transform.h"
+#include "entity/components/combat_stats.h"
 
 #include <random>
 
@@ -39,6 +45,13 @@ npc_system::~npc_system() {
 
 void npc_system::initialize() {
     LOG_INFO(general, "NPC system initializing...");
+
+    // Cache entity_manager pointer
+    entity_manager_ = subsystems().get<entity::entity_manager>();
+    if (!entity_manager_) {
+        LOG_WARN(general, "NPC system: entity_manager not available, NPC components will be disabled");
+    }
+
     set_initialized(true);
     LOG_INFO(general, "NPC system initialized (max_npcs: {})", config_.max_npcs);
 }
@@ -71,14 +84,26 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
         return result<entity::entity, std::string>::err("Maximum NPC count reached");
     }
 
+    // Create entity via entity_manager (handles ID allocation)
+    entity::entity eid;
+    if (entity_manager_) {
+        eid = entity_manager_->create(entity::entity_type::npc);
+        if (!eid.is_valid()) {
+            return result<entity::entity, std::string>::err("Failed to create entity");
+        }
+    } else {
+        // Fallback: generate our own ID (should not happen in normal operation)
+        static uint32_t fallback_id = 1;
+        eid = entity::entity{fallback_id++, 0};
+    }
+
     // Look up template from registry
     auto* registry = subsystems().get<npc_registry>();
     const npc_template* tmpl = registry ? registry->get(template_id) : nullptr;
 
-    auto entity_id = next_entity_id();
     auto new_npc = std::make_unique<npc>();
 
-    new_npc->entity_id = entity_id;
+    new_npc->entity_id = eid;
     new_npc->template_id = template_id;
     new_npc->current_map = map;
     new_npc->pos = pos;
@@ -127,8 +152,8 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
             new_npc->ai.flags = new_npc->ai.flags | ai_flags::aggressive;
         }
 
-        LOG_DEBUG(general, "Spawned NPC '{}' (template {}) at ({}, {}) on map {} - HP: {}, Level: {}",
-            new_npc->name, template_id.value, pos.x, pos.y, map.value, new_npc->hp, new_npc->level);
+        // LOG_DEBUG(general, "Spawned NPC '{}' (template {}) at ({}, {}) on map {} - HP: {}, Level: {}",
+        //     new_npc->name, template_id.value, pos.x, pos.y, map.value, new_npc->hp, new_npc->level);
     } else {
         // Fallback defaults for unknown templates
         new_npc->name = "Unknown";
@@ -149,15 +174,45 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
 
     new_npc->ai_state.set_state(ai_state::idle);
 
+    // Add components to entity_manager
+    if (entity_manager_) {
+        // Transform component
+        entity_manager_->add_component<entity::transform>(eid, map, pos, hb::world::direction::south);
+
+        // Health component
+        entity_manager_->add_component<entity::health>(eid, new_npc->hp, new_npc->max_hp);
+
+        // Mana component
+        entity_manager_->add_component<entity::mana>(eid, new_npc->mp, new_npc->max_mp);
+
+        // Combat stats component
+        auto& stats = entity_manager_->add_component<entity::combat_stats>(eid);
+        stats.defense = new_npc->defense;
+        stats.magic_defense = new_npc->magic_defense;
+        stats.hit_rate = new_npc->hit_rate;
+        stats.dodge_rate = new_npc->dodge_rate;
+        stats.attack_speed = new_npc->attack_speed;
+        stats.move_speed = new_npc->move_speed;
+    }
+
+    // Add to spatial index
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (world) {
+        auto* m = world->get_map(map);
+        if (m) {
+            m->spatial().add(hb::entity_id{eid.index()}, pos);
+        }
+    }
+
     // Invoke spawn callback if set
     npc* npc_ptr = new_npc.get();
-    npcs_[entity_id] = std::move(new_npc);
+    npcs_[eid] = std::move(new_npc);
 
     if (on_spawn_callback_) {
         on_spawn_callback_(*npc_ptr);
     }
 
-    return result<entity::entity, std::string>::ok(entity_id);
+    return result<entity::entity, std::string>::ok(eid);
 }
 
 auto npc_system::spawn_npc_at(spawn_point& spawn)
@@ -185,7 +240,7 @@ auto npc_system::spawn_npc_at(spawn_point& spawn)
 auto npc_system::spawn_random_mob(map_id map, hb::world::position pos)
     -> result<entity::entity, std::string>
 {
-    // Get map and check if random mob generator is enabled
+    // Get subsystems
     auto* world = subsystems().get<world::world_subsystem>();
     if (!world) {
         return result<entity::entity, std::string>::err("World subsystem not available");
@@ -196,6 +251,38 @@ auto npc_system::spawn_random_mob(map_id map, hb::world::position pos)
         return result<entity::entity, std::string>::err("Map not found");
     }
 
+    auto* rule_engine = subsystems().get<spawn_rule_engine>();
+    auto* sched = subsystems().get<scheduler>();
+
+    // Try new rule engine first if available
+    if (rule_engine && rule_engine->get_rule_count() > 0)
+    {
+        // Build spawn context
+        spawn_context ctx;
+        ctx.map_name = map_ptr->name();
+        ctx.pos = pos;
+        ctx.tile = map_ptr->get_static_tile(pos);
+        ctx.dyn_tile = map_ptr->get_dynamic_tile(pos);
+        ctx.map_ptr = map_ptr;
+        ctx.clock = sched ? &sched->game_time() : nullptr;
+        ctx.weather = map_ptr->weather();
+        ctx.active_event = "";  // TODO: Add event system integration
+
+        // Select NPC using rule engine
+        auto npc_id = rule_engine->select_npc(ctx);
+        if (npc_id.has_value())
+        {
+            LOG_DEBUG(general, "Spawn rule engine selected NPC template {} for map {} at ({}, {})",
+                npc_id->value, map_ptr->name(), pos.x, pos.y);
+            return spawn_npc(*npc_id, map, pos);
+        }
+
+        // Fall through to legacy system if no rules matched
+        LOG_DEBUG(general, "No spawn rules matched for map {} at ({}, {}), falling back to legacy system",
+            map_ptr->name(), pos.x, pos.y);
+    }
+
+    // Fall back to legacy random mob generator
     if (!map_ptr->random_mob_generator_enabled()) {
         return result<entity::entity, std::string>::err("Random mob generator not enabled on this map");
     }
@@ -218,11 +305,26 @@ void npc_system::despawn_npc(entity::entity id) {
     if (it == npcs_.end()) return;
 
     auto& npc_ref = *it->second;
+
+    // Remove from spatial index
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (world) {
+        auto* m = world->get_map(npc_ref.current_map);
+        if (m) {
+            m->spatial().remove(hb::entity_id{id.index()});
+        }
+    }
+
+    // Destroy entity in entity_manager (removes all components)
+    if (entity_manager_) {
+        entity_manager_->destroy(id);
+    }
+
     if (npc_ref.spawn) {
         npc_ref.spawn->on_death();
     }
 
-    LOG_DEBUG(general, "Despawned NPC {}", id.id);
+    // LOG_DEBUG(general, "Despawned NPC {}", id.id);
     npcs_.erase(it);
 }
 
@@ -234,7 +336,7 @@ void npc_system::kill_npc(entity::entity id, entity::entity killer) {
     npc_ptr->ai_state.set_state(ai_state::dead);
     npc_ptr->ai_state.death_time = std::chrono::steady_clock::now();
 
-    LOG_DEBUG(general, "NPC {} '{}' killed by {}", id.id, npc_ptr->name, killer.id);
+    // LOG_DEBUG(general, "NPC {} '{}' killed by {}", id.id, npc_ptr->name, killer.id);
 
     // Invoke death callback
     if (on_death_callback_) {
@@ -290,7 +392,24 @@ void npc_system::apply_damage(entity::entity id, int32_t damage, entity::entity 
     auto* npc_ptr = get_npc(id);
     if (!npc_ptr || npc_ptr->is_dead()) return;
 
-    npc_ptr->damage(damage);
+    // Apply damage through health component if available
+    if (entity_manager_) {
+        if (auto* health = entity_manager_->get_component<entity::health>(id)) {
+            health->damage(damage);
+            // Sync NPC struct hp with component
+            npc_ptr->hp = health->current;
+
+            if (!health->is_alive()) {
+                npc_ptr->ai_state.set_state(ai_state::dead);
+                npc_ptr->ai_state.death_time = std::chrono::steady_clock::now();
+            }
+        } else {
+            // Fallback: use NPC struct directly
+            npc_ptr->damage(damage);
+        }
+    } else {
+        npc_ptr->damage(damage);
+    }
 
     // Set attacker as target if not already targeting
     if (!npc_ptr->ai_state.target.is_valid()) {
@@ -336,13 +455,64 @@ auto npc_system::get_npcs_in_range(map_id map, hb::world::position center, int r
 {
     std::vector<entity::entity> result;
 
-    for (const auto& [id, npc_ptr] : npcs_) {
-        if (npc_ptr->current_map != map) continue;
-        if (npc_ptr->is_dead()) continue;
+    // Use spatial index for O(log n) query instead of O(n)
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (!world) {
+        // Fallback to O(n) scan when world subsystem isn't available (e.g., in tests)
+        for (const auto& [id, npc_ptr] : npcs_) {
+            if (npc_ptr->current_map != map) continue;
+            if (npc_ptr->is_dead()) continue;
 
-        int dist = center.chebyshev_distance(npc_ptr->pos);
-        if (dist <= range) {
-            result.push_back(id);
+            int dist = center.chebyshev_distance(npc_ptr->pos);
+            if (dist <= range) {
+                result.push_back(id);
+            }
+        }
+        return result;
+    }
+
+    auto* m = world->get_map(map);
+    if (!m) {
+        // Map not found - also fallback to O(n) scan
+        for (const auto& [id, npc_ptr] : npcs_) {
+            if (npc_ptr->current_map != map) continue;
+            if (npc_ptr->is_dead()) continue;
+
+            int dist = center.chebyshev_distance(npc_ptr->pos);
+            if (dist <= range) {
+                result.push_back(id);
+            }
+        }
+        return result;
+    }
+
+    // Get entities in range from spatial index
+    auto entities = m->get_entities_in_range(center, range);
+
+    // Filter for NPCs using entity_manager type check
+    for (auto eid : entities) {
+        // Look up as entity with generation 0 for type check
+        entity::entity e{eid.value, 0};
+
+        // Check if this is an NPC (entity_manager validates)
+        if (entity_manager_) {
+            if (entity_manager_->get_type(e) != entity::entity_type::npc) {
+                continue;
+            }
+        }
+
+        // Find the NPC in our map
+        auto it = npcs_.find(e);
+        if (it == npcs_.end()) {
+            // Try with proper entity lookup (generation might differ)
+            for (const auto& [npc_id, npc_ptr] : npcs_) {
+                if (npc_id.index() == eid.value && !npc_ptr->is_dead()) {
+                    result.push_back(npc_id);
+                    break;
+                }
+            }
+        } else if (!it->second->is_dead()) {
+            result.push_back(it->first);
         }
     }
 
@@ -586,9 +756,11 @@ void npc_system::process_flee_state(npc& npc_ref) {
         if (target_pos.has_value()) {
             // Move away from target
             auto dir = hb::world::direction_to(target_pos.value(), npc_ref.pos);
-            auto new_pos = hb::world::move_in_direction(npc_ref.pos, dir);
-            try_move_npc(npc_ref, new_pos);
-            return;
+            if (dir.has_value()) {
+                auto new_pos = hb::world::move_in_direction(npc_ref.pos, *dir);
+                try_move_npc(npc_ref, new_pos);
+                return;
+            }
         }
     }
 
@@ -612,32 +784,54 @@ void npc_system::process_return_home_state(npc& npc_ref) {
 }
 
 auto npc_system::find_aggro_target(const npc& npc_ref) -> entity::entity {
+    // Use unified spatial query for efficient target finding
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (!world) return entity::entity::null();
+
     auto* player_sys = subsystems().get<player::player_system>();
-    if (!player_sys) return entity::entity::null();
+
+    // Get all entities in aggro range using spatial index
+    auto entities = world->get_all_entities_in_range(
+        npc_ref.current_map, npc_ref.pos, npc_ref.ai.aggro_range);
 
     entity::entity closest_target = entity::entity::null();
     int closest_dist = npc_ref.ai.aggro_range + 1;
 
-    player_sys->for_each_player([&](player_id id, const player::player& p) {
-        // Skip dead players
-        if (p.is_dead()) return;
+    for (const auto& entry : entities) {
+        // Only target players for now (could extend to hostile NPCs later)
+        if (entry.type != entity::entity_type::player) {
+            continue;
+        }
 
-        // Skip players on different maps
-        if (p.current_map != npc_ref.current_map) return;
+        // Need to look up the actual player to check status
+        if (!player_sys) continue;
+
+        // Find player by ecs_entity index
+        player::player* p = nullptr;
+        player_sys->for_each_player([&](player_id pid, player::player& player) {
+            if (player.ecs_entity.index() == entry.entity.index()) {
+                p = &player;
+            }
+        });
+
+        if (!p) continue;
+
+        // Skip dead players
+        if (p->is_dead()) continue;
 
         // Skip invisible players (unless NPC can detect)
-        if (p.has_status(player::player_status::invisible) &&
+        if (p->has_status(player::player_status::invisible) &&
             !npc_ref.ai.has_flag(ai_flags::detect_invisible)) {
-            return;
+            continue;
         }
 
-        // Check distance
-        int dist = npc_ref.pos.chebyshev_distance(p.pos);
-        if (dist <= npc_ref.ai.aggro_range && dist < closest_dist) {
+        // Check distance (spatial query already filtered by range, but find closest)
+        int dist = npc_ref.pos.chebyshev_distance(entry.pos);
+        if (dist < closest_dist) {
             closest_dist = dist;
-            closest_target = entity::entity{id.value, 0};
+            closest_target = p->ecs_entity;
         }
-    });
+    }
 
     return closest_target;
 }
@@ -676,9 +870,9 @@ auto npc_system::get_entity_map(entity::entity e) const -> std::optional<map_id>
 
 void npc_system::move_towards(npc& npc_ref, hb::world::position target_pos) {
     auto dir = hb::world::direction_to(npc_ref.pos, target_pos);
-    if (dir == hb::world::direction::none) return;
+    if (!dir.has_value()) return;
 
-    auto new_pos = hb::world::move_in_direction(npc_ref.pos, dir);
+    auto new_pos = hb::world::move_in_direction(npc_ref.pos, *dir);
     try_move_npc(npc_ref, new_pos);
 }
 
@@ -692,7 +886,25 @@ void npc_system::try_move_npc(npc& npc_ref, hb::world::position new_pos) {
     // Update position
     auto old_pos = npc_ref.pos;
     npc_ref.pos = new_pos;
-    npc_ref.facing = hb::world::direction_to(old_pos, new_pos);
+    if (auto dir = hb::world::direction_to(old_pos, new_pos)) {
+        npc_ref.facing = *dir;
+    }
+
+    // Update transform component
+    if (entity_manager_) {
+        if (auto* t = entity_manager_->get_component<entity::transform>(npc_ref.entity_id)) {
+            t->pos = new_pos;
+            t->facing = npc_ref.facing;
+        }
+    }
+
+    // Update spatial index
+    if (world) {
+        auto* m = world->get_map(npc_ref.current_map);
+        if (m) {
+            m->spatial().update(hb::entity_id{npc_ref.entity_id.index()}, new_pos);
+        }
+    }
 
     // Invoke move callback
     if (on_move_callback_) {

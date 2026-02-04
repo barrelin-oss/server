@@ -87,7 +87,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Stats calculation | 📋 | Derived stats from base + equipment |
 | Level/experience | 📋 | XP gain, level up |
 | Death/respawn | ❌ | Death handling, respawn location |
-| Hunger system | ❌ | Hunger decay, effects |
+| Hunger system | ✅ | Hunger decay, regen penalties, client notifications |
 | Status effects | 📋 | Buffs, debuffs, duration tracking |
 | Save/load | ✅ | Skills, equipment saved/loaded on enter/disconnect |
 

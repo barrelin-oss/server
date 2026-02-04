@@ -10,6 +10,44 @@ namespace hb::network {
 
 namespace {
 
+// Safe conversion from JSON integer to int16_t with range validation
+inline auto safe_int16(const nlohmann::json& j, std::string_view field, int16_t default_val = 0) -> int16_t {
+    if (!j.contains(field) || !j[std::string(field)].is_number()) {
+        return default_val;
+    }
+    auto val = j[std::string(field)].get<int>();
+    if (val < (std::numeric_limits<int16_t>::min)() || val > (std::numeric_limits<int16_t>::max)()) {
+        return default_val;  // Out of range, return default
+    }
+    return static_cast<int16_t>(val);
+}
+
+// Safe conversion with required validation (returns nullopt if out of range)
+inline auto safe_int16_required(const nlohmann::json& j, std::string_view field)
+    -> std::optional<int16_t>
+{
+    if (!j.contains(field) || !j[std::string(field)].is_number()) {
+        return std::nullopt;
+    }
+    auto val = j[std::string(field)].get<int>();
+    if (val < (std::numeric_limits<int16_t>::min)() || val > (std::numeric_limits<int16_t>::max)()) {
+        return std::nullopt;
+    }
+    return static_cast<int16_t>(val);
+}
+
+// Safe direction parsing (clamps to 0-7)
+inline auto safe_direction(const nlohmann::json& j, std::string_view field, int16_t default_val = 0) -> int16_t {
+    if (!j.contains(field) || !j[std::string(field)].is_number()) {
+        return default_val;
+    }
+    auto val = j[std::string(field)].get<int>();
+    // Clamp to valid direction range 0-7
+    if (val < 0) val = 0;
+    if (val > 7) val = 7;
+    return static_cast<int16_t>(val);
+}
+
 const std::unordered_map<std::string, json_message_type> type_map = {
     {"error", json_message_type::error},
     {"ping", json_message_type::ping},
@@ -37,8 +75,6 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"entity_despawn", json_message_type::entity_despawn},
     {"player_move_request", json_message_type::player_move_request},
     {"player_move_response", json_message_type::player_move_response},
-    {"player_run_request", json_message_type::player_run_request},
-    {"player_run_response", json_message_type::player_run_response},
     {"player_stop_request", json_message_type::player_stop_request},
     {"player_stop_response", json_message_type::player_stop_response},
     {"player_position_update", json_message_type::player_position_update},
@@ -67,7 +103,9 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"npc_despawn", json_message_type::npc_despawn},
     {"npc_move", json_message_type::npc_move},
     {"npc_attack", json_message_type::npc_attack},
-    {"npc_death", json_message_type::npc_death}
+    {"npc_death", json_message_type::npc_death},
+    {"ground_item_removed", json_message_type::ground_item_removed},
+    {"hunger_update", json_message_type::hunger_update}
 };
 
 }  // namespace
@@ -183,48 +221,22 @@ auto create_character_request_data::from_json(const nlohmann::json& j)
         }
         data.name = j["name"].get<std::string>();
 
-        // Optional fields with defaults
-        if (j.contains("class_type") && j["class_type"].is_number()) {
-            data.class_type = static_cast<int16_t>(j["class_type"].get<int>());
-        }
-        if (j.contains("nation") && j["nation"].is_number()) {
-            data.nation = static_cast<int16_t>(j["nation"].get<int>());
-        }
-        if (j.contains("gender") && j["gender"].is_number()) {
-            data.gender = static_cast<int16_t>(j["gender"].get<int>());
-        }
-        if (j.contains("hair_style") && j["hair_style"].is_number()) {
-            data.hair_style = static_cast<int16_t>(j["hair_style"].get<int>());
-        }
-        if (j.contains("hair_color") && j["hair_color"].is_number()) {
-            data.hair_color = static_cast<int16_t>(j["hair_color"].get<int>());
-        }
-        if (j.contains("skin_color") && j["skin_color"].is_number()) {
-            data.skin_color = static_cast<int16_t>(j["skin_color"].get<int>());
-        }
-        if (j.contains("underwear_color") && j["underwear_color"].is_number()) {
-            data.underwear_color = static_cast<int16_t>(j["underwear_color"].get<int>());
-        }
+        // Optional fields with defaults - use safe parsing with range validation
+        data.class_type = safe_int16(j, "class_type", 0);
+        data.nation = safe_int16(j, "nation", 0);
+        data.gender = safe_int16(j, "gender", 0);
+        data.hair_style = safe_int16(j, "hair_style", 0);
+        data.hair_color = safe_int16(j, "hair_color", 0);
+        data.skin_color = safe_int16(j, "skin_color", 0);
+        data.underwear_color = safe_int16(j, "underwear_color", 0);
 
         // Optional stats
-        if (j.contains("strength") && j["strength"].is_number()) {
-            data.strength = static_cast<int16_t>(j["strength"].get<int>());
-        }
-        if (j.contains("dexterity") && j["dexterity"].is_number()) {
-            data.dexterity = static_cast<int16_t>(j["dexterity"].get<int>());
-        }
-        if (j.contains("vitality") && j["vitality"].is_number()) {
-            data.vitality = static_cast<int16_t>(j["vitality"].get<int>());
-        }
-        if (j.contains("intelligence") && j["intelligence"].is_number()) {
-            data.intelligence = static_cast<int16_t>(j["intelligence"].get<int>());
-        }
-        if (j.contains("magic") && j["magic"].is_number()) {
-            data.magic = static_cast<int16_t>(j["magic"].get<int>());
-        }
-        if (j.contains("charisma") && j["charisma"].is_number()) {
-            data.charisma = static_cast<int16_t>(j["charisma"].get<int>());
-        }
+        data.strength = safe_int16(j, "strength", 10);
+        data.dexterity = safe_int16(j, "dexterity", 10);
+        data.vitality = safe_int16(j, "vitality", 10);
+        data.intelligence = safe_int16(j, "intelligence", 10);
+        data.magic = safe_int16(j, "magic", 10);
+        data.charisma = safe_int16(j, "charisma", 10);
 
         return result<create_character_request_data, std::string>::ok(std::move(data));
 
@@ -286,13 +298,9 @@ auto enter_game_request_data::from_json(const nlohmann::json& j)
             data.force_disconnect = j["force_disconnect"].get<bool>();
         }
 
-        // Optional: screen resolution for visibility calculation
-        if (j.contains("screen_width") && j["screen_width"].is_number()) {
-            data.screen_width = static_cast<int16_t>(j["screen_width"].get<int>());
-        }
-        if (j.contains("screen_height") && j["screen_height"].is_number()) {
-            data.screen_height = static_cast<int16_t>(j["screen_height"].get<int>());
-        }
+        // Optional: screen resolution for visibility calculation (use safe parsing)
+        data.screen_width = safe_int16(j, "screen_width", 800);
+        data.screen_height = safe_int16(j, "screen_height", 600);
 
         return result<enter_game_request_data, std::string>::ok(std::move(data));
 
@@ -307,12 +315,9 @@ auto set_view_range_request_data::from_json(const nlohmann::json& j)
     try {
         set_view_range_request_data data;
 
-        if (j.contains("screen_width") && j["screen_width"].is_number()) {
-            data.screen_width = static_cast<int16_t>(j["screen_width"].get<int>());
-        }
-        if (j.contains("screen_height") && j["screen_height"].is_number()) {
-            data.screen_height = static_cast<int16_t>(j["screen_height"].get<int>());
-        }
+        // Use safe parsing with reasonable defaults
+        data.screen_width = safe_int16(j, "screen_width", 800);
+        data.screen_height = safe_int16(j, "screen_height", 600);
 
         return result<set_view_range_request_data, std::string>::ok(std::move(data));
 
@@ -327,20 +332,27 @@ auto player_move_request_data::from_json(const nlohmann::json& j)
     try {
         player_move_request_data data;
 
-        if (!j.contains("x") || !j["x"].is_number()) {
+        auto x_opt = safe_int16_required(j, "x");
+        if (!x_opt.has_value()) {
             return result<player_move_request_data, std::string>::err("Missing or invalid 'x' field");
         }
-        data.x = static_cast<int16_t>(j["x"].get<int>());
+        data.x = *x_opt;
 
-        if (!j.contains("y") || !j["y"].is_number()) {
+        auto y_opt = safe_int16_required(j, "y");
+        if (!y_opt.has_value()) {
             return result<player_move_request_data, std::string>::err("Missing or invalid 'y' field");
         }
-        data.y = static_cast<int16_t>(j["y"].get<int>());
+        data.y = *y_opt;
 
+        // Direction is required but clamped to 0-7
         if (!j.contains("direction") || !j["direction"].is_number()) {
             return result<player_move_request_data, std::string>::err("Missing or invalid 'direction' field");
         }
-        data.direction = static_cast<int16_t>(j["direction"].get<int>());
+        data.direction = safe_direction(j, "direction", 0);
+
+        if (j.contains("is_running") && j["is_running"].is_boolean()) {
+            data.is_running = j["is_running"].get<bool>();
+        }
 
         if (j.contains("timestamp") && j["timestamp"].is_number()) {
             data.timestamp = j["timestamp"].get<uint64_t>();
@@ -353,53 +365,28 @@ auto player_move_request_data::from_json(const nlohmann::json& j)
     }
 }
 
-auto player_run_request_data::from_json(const nlohmann::json& j)
-    -> result<player_run_request_data, std::string>
-{
-    try {
-        player_run_request_data data;
-
-        if (!j.contains("x") || !j["x"].is_number()) {
-            return result<player_run_request_data, std::string>::err("Missing or invalid 'x' field");
-        }
-        data.x = static_cast<int16_t>(j["x"].get<int>());
-
-        if (!j.contains("y") || !j["y"].is_number()) {
-            return result<player_run_request_data, std::string>::err("Missing or invalid 'y' field");
-        }
-        data.y = static_cast<int16_t>(j["y"].get<int>());
-
-        if (!j.contains("direction") || !j["direction"].is_number()) {
-            return result<player_run_request_data, std::string>::err("Missing or invalid 'direction' field");
-        }
-        data.direction = static_cast<int16_t>(j["direction"].get<int>());
-
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
-            data.timestamp = j["timestamp"].get<uint64_t>();
-        }
-
-        return result<player_run_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
-        return result<player_run_request_data, std::string>::err(std::string("Parse error: ") + e.what());
-    }
-}
-
 auto player_stop_request_data::from_json(const nlohmann::json& j)
     -> result<player_stop_request_data, std::string>
 {
     try {
         player_stop_request_data data;
 
-        if (!j.contains("x") || !j["x"].is_number()) {
+        auto x_opt = safe_int16_required(j, "x");
+        if (!x_opt.has_value()) {
             return result<player_stop_request_data, std::string>::err("Missing or invalid 'x' field");
         }
-        data.x = static_cast<int16_t>(j["x"].get<int>());
+        data.x = *x_opt;
 
-        if (!j.contains("y") || !j["y"].is_number()) {
+        auto y_opt = safe_int16_required(j, "y");
+        if (!y_opt.has_value()) {
             return result<player_stop_request_data, std::string>::err("Missing or invalid 'y' field");
         }
-        data.y = static_cast<int16_t>(j["y"].get<int>());
+        data.y = *y_opt;
+
+        // Direction is optional but clamped to 0-7 if present
+        if (j.contains("direction") && j["direction"].is_number()) {
+            data.direction = safe_direction(j, "direction", 0);
+        }
 
         if (j.contains("timestamp") && j["timestamp"].is_number()) {
             data.timestamp = j["timestamp"].get<uint64_t>();
@@ -452,18 +439,21 @@ auto player_attack_request_data::from_json(const nlohmann::json& j)
     try {
         player_attack_request_data data;
 
-        if (!j.contains("x") || !j["x"].is_number()) {
+        auto x_opt = safe_int16_required(j, "x");
+        if (!x_opt.has_value()) {
             return result<player_attack_request_data, std::string>::err("Missing or invalid 'x' field");
         }
-        data.x = static_cast<int16_t>(j["x"].get<int>());
+        data.x = *x_opt;
 
-        if (!j.contains("y") || !j["y"].is_number()) {
+        auto y_opt = safe_int16_required(j, "y");
+        if (!y_opt.has_value()) {
             return result<player_attack_request_data, std::string>::err("Missing or invalid 'y' field");
         }
-        data.y = static_cast<int16_t>(j["y"].get<int>());
+        data.y = *y_opt;
 
+        // Direction is optional but clamped to 0-7
         if (j.contains("direction") && j["direction"].is_number()) {
-            data.direction = static_cast<int16_t>(j["direction"].get<int>());
+            data.direction = safe_direction(j, "direction", 0);
         }
 
         if (j.contains("attack_type")) {
@@ -495,18 +485,21 @@ auto player_magic_request_data::from_json(const nlohmann::json& j)
     try {
         player_magic_request_data data;
 
-        if (!j.contains("x") || !j["x"].is_number()) {
+        auto x_opt = safe_int16_required(j, "x");
+        if (!x_opt.has_value()) {
             return result<player_magic_request_data, std::string>::err("Missing or invalid 'x' field");
         }
-        data.x = static_cast<int16_t>(j["x"].get<int>());
+        data.x = *x_opt;
 
-        if (!j.contains("y") || !j["y"].is_number()) {
+        auto y_opt = safe_int16_required(j, "y");
+        if (!y_opt.has_value()) {
             return result<player_magic_request_data, std::string>::err("Missing or invalid 'y' field");
         }
-        data.y = static_cast<int16_t>(j["y"].get<int>());
+        data.y = *y_opt;
 
+        // Direction is optional but clamped to 0-7
         if (j.contains("direction") && j["direction"].is_number()) {
-            data.direction = static_cast<int16_t>(j["direction"].get<int>());
+            data.direction = safe_direction(j, "direction", 0);
         }
 
         if (!j.contains("spell_id") || !j["spell_id"].is_number()) {
@@ -522,13 +515,9 @@ auto player_magic_request_data::from_json(const nlohmann::json& j)
             data.target_id = j["target_id"].get<uint32_t>();
         }
 
-        if (j.contains("target_x") && j["target_x"].is_number()) {
-            data.target_x = static_cast<int16_t>(j["target_x"].get<int>());
-        }
-
-        if (j.contains("target_y") && j["target_y"].is_number()) {
-            data.target_y = static_cast<int16_t>(j["target_y"].get<int>());
-        }
+        // Target coordinates use safe parsing
+        data.target_x = safe_int16(j, "target_x", 0);
+        data.target_y = safe_int16(j, "target_y", 0);
 
         if (j.contains("timestamp") && j["timestamp"].is_number()) {
             data.timestamp = j["timestamp"].get<uint64_t>();
@@ -547,18 +536,21 @@ auto player_skill_request_data::from_json(const nlohmann::json& j)
     try {
         player_skill_request_data data;
 
-        if (!j.contains("x") || !j["x"].is_number()) {
+        auto x_opt = safe_int16_required(j, "x");
+        if (!x_opt.has_value()) {
             return result<player_skill_request_data, std::string>::err("Missing or invalid 'x' field");
         }
-        data.x = static_cast<int16_t>(j["x"].get<int>());
+        data.x = *x_opt;
 
-        if (!j.contains("y") || !j["y"].is_number()) {
+        auto y_opt = safe_int16_required(j, "y");
+        if (!y_opt.has_value()) {
             return result<player_skill_request_data, std::string>::err("Missing or invalid 'y' field");
         }
-        data.y = static_cast<int16_t>(j["y"].get<int>());
+        data.y = *y_opt;
 
+        // Direction is optional but clamped to 0-7
         if (j.contains("direction") && j["direction"].is_number()) {
-            data.direction = static_cast<int16_t>(j["direction"].get<int>());
+            data.direction = safe_direction(j, "direction", 0);
         }
 
         if (!j.contains("skill_id") || !j["skill_id"].is_number()) {
@@ -591,15 +583,17 @@ auto player_pickup_request_data::from_json(const nlohmann::json& j)
     try {
         player_pickup_request_data data;
 
-        if (!j.contains("x") || !j["x"].is_number()) {
+        auto x_opt = safe_int16_required(j, "x");
+        if (!x_opt.has_value()) {
             return result<player_pickup_request_data, std::string>::err("Missing or invalid 'x' field");
         }
-        data.x = static_cast<int16_t>(j["x"].get<int>());
+        data.x = *x_opt;
 
-        if (!j.contains("y") || !j["y"].is_number()) {
+        auto y_opt = safe_int16_required(j, "y");
+        if (!y_opt.has_value()) {
             return result<player_pickup_request_data, std::string>::err("Missing or invalid 'y' field");
         }
-        data.y = static_cast<int16_t>(j["y"].get<int>());
+        data.y = *y_opt;
 
         if (!j.contains("item_id") || !j["item_id"].is_number()) {
             return result<player_pickup_request_data, std::string>::err("Missing or invalid 'item_id' field");
@@ -623,15 +617,17 @@ auto player_interact_request_data::from_json(const nlohmann::json& j)
     try {
         player_interact_request_data data;
 
-        if (!j.contains("x") || !j["x"].is_number()) {
+        auto x_opt = safe_int16_required(j, "x");
+        if (!x_opt.has_value()) {
             return result<player_interact_request_data, std::string>::err("Missing or invalid 'x' field");
         }
-        data.x = static_cast<int16_t>(j["x"].get<int>());
+        data.x = *x_opt;
 
-        if (!j.contains("y") || !j["y"].is_number()) {
+        auto y_opt = safe_int16_required(j, "y");
+        if (!y_opt.has_value()) {
             return result<player_interact_request_data, std::string>::err("Missing or invalid 'y' field");
         }
-        data.y = static_cast<int16_t>(j["y"].get<int>());
+        data.y = *y_opt;
 
         if (j.contains("target_type")) {
             data.target_type = parse_target_type(j["target_type"]);
@@ -1241,32 +1237,8 @@ auto make_player_move_response(uint32_t seq, bool success,
     };
 }
 
-auto make_player_run_response(uint32_t seq, bool success,
-                               int16_t x, int16_t y, int16_t direction,
-                               std::optional<std::string_view> error) -> json_message
-{
-    nlohmann::json data;
-    data["success"] = success;
-
-    if (success) {
-        data["x"] = x;
-        data["y"] = y;
-        data["direction"] = direction;
-    }
-
-    if (!success && error.has_value()) {
-        data["error"] = std::string(*error);
-    }
-
-    return json_message{
-        .type = json_message_type::player_run_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
-}
-
 auto make_player_stop_response(uint32_t seq, bool success,
-                                int16_t x, int16_t y,
+                                int16_t x, int16_t y, int16_t direction,
                                 std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
@@ -1275,6 +1247,7 @@ auto make_player_stop_response(uint32_t seq, bool success,
     if (success) {
         data["x"] = x;
         data["y"] = y;
+        data["direction"] = direction;
     }
 
     if (!success && error.has_value()) {
@@ -1628,6 +1601,48 @@ auto make_npc_death_message(const npc_death_data& data) -> json_message {
         .type = json_message_type::npc_death,
         .seq = 0,
         .data = data.to_json()
+    };
+}
+
+// Ground item data to_json implementation
+
+auto ground_item_removed_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"picker_id", picker_id},
+        {"picker_name", picker_name},
+        {"item_id", item_id},
+        {"item_name", item_name},
+        {"x", x},
+        {"y", y}
+    };
+}
+
+// Ground item message builder
+
+auto make_ground_item_removed(const ground_item_removed_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::ground_item_removed,
+        .seq = 0,  // Broadcasts don't need seq
+        .data = data.to_json()
+    };
+}
+
+// Hunger update data to_json implementation
+
+auto hunger_update_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"level", level},
+        {"is_starving", is_starving}
+    };
+}
+
+// Hunger update message builder
+
+auto make_hunger_update(int8_t level) -> json_message {
+    return json_message{
+        .type = json_message_type::hunger_update,
+        .seq = 0,  // Broadcasts don't need seq
+        .data = hunger_update_data{level, level <= 0}.to_json()
     };
 }
 

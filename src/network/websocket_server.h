@@ -12,6 +12,7 @@
 #include <string_view>
 #include <functional>
 #include <unordered_map>
+#include <vector>
 #include <mutex>
 #include <memory>
 #include <atomic>
@@ -65,7 +66,7 @@ using error_handler = std::function<void(connection_id, const std::string& error
 // WebSocket connection wrapper
 class ws_connection {
 public:
-    ws_connection(connection_id id, std::shared_ptr<ix::WebSocket> socket);
+    ws_connection(connection_id id, ix::WebSocket* socket);
     ~ws_connection();
 
     // Non-copyable
@@ -102,13 +103,16 @@ public:
     // Check if connection is open
     [[nodiscard]] auto is_open() const -> bool;
 
+    // Invalidate socket pointer (called from disconnect callback)
+    void invalidate_socket() { socket_ = nullptr; }
+
 private:
     friend class websocket_server;
 
     void set_remote_address(std::string_view addr);
 
     connection_id id_;
-    std::shared_ptr<ix::WebSocket> socket_;
+    ix::WebSocket* socket_;  // Raw pointer - IXWebSocket owns this
     std::string remote_address_;
     ws_connection_state state_{ws_connection_state::connecting};
     account_id account_{};
@@ -152,6 +156,10 @@ public:
     void disconnect(connection_id id, std::string_view reason = "");
     void disconnect_all(std::string_view reason = "");
 
+    // Account/player registration for lookup maps
+    void register_account(connection_id conn, account_id account);
+    void register_player(connection_id conn, player_id player);
+
     // Send messages
     void send(connection_id id, const json_message& msg);
     void broadcast(const json_message& msg);
@@ -160,6 +168,9 @@ public:
     // Statistics
     [[nodiscard]] auto connection_count() const -> size_t;
     [[nodiscard]] auto authenticated_count() const -> size_t;
+
+    // Process pending disconnects - call from main thread periodically
+    void process_pending_disconnects();
 
     // Iteration
     template<typename Func>
@@ -173,6 +184,7 @@ public:
 private:
     void handle_connection(std::weak_ptr<ix::WebSocket> socket);
     [[nodiscard]] auto next_connection_id() -> connection_id;
+    void cleanup_connection(connection_id conn_id);
 
     websocket_config config_;
     std::unique_ptr<ix::WebSocketServer> server_;
@@ -185,6 +197,15 @@ private:
     std::unordered_map<ix::ConnectionState*, connection_id> state_to_connection_;
     mutable std::mutex mutex_;
     std::atomic<uint32_t> next_id_{1};
+
+    // Pending disconnects (thread-safe queue for main thread processing)
+    struct pending_disconnect {
+        connection_id id;
+        std::string reason;
+        ix::ConnectionState* state_ptr;
+    };
+    std::vector<pending_disconnect> pending_disconnects_;
+    std::mutex disconnect_mutex_;
 
     // Event handlers
     message_handler message_handler_;

@@ -700,17 +700,16 @@ void auth_system::ban_account(account_id id, std::string_view reason,
         return;
     }
 
-    std::string query;
     if (expires.has_value()) {
         // For simplicity, we're not handling the timestamp properly here
         // In production, use proper timestamp formatting
-        database_->execute_params(
+        (void)database_->execute_params(
             "UPDATE accounts SET is_banned = true, ban_reason = $1 WHERE id = $2",
             std::string(reason),
             static_cast<int>(id.value)
         );
     } else {
-        database_->execute_params(
+        (void)database_->execute_params(
             "UPDATE accounts SET is_banned = true, ban_reason = $1, ban_expires = NULL WHERE id = $2",
             std::string(reason),
             static_cast<int>(id.value)
@@ -727,7 +726,7 @@ void auth_system::unban_account(account_id id) {
         return;
     }
 
-    database_->execute_params(
+    (void)database_->execute_params(
         "UPDATE accounts SET is_banned = false, ban_reason = NULL, ban_expires = NULL WHERE id = $1",
         static_cast<int>(id.value)
     );
@@ -748,7 +747,7 @@ void auth_system::set_admin_level(account_id id, admin_level level) {
         return;
     }
 
-    database_->execute_params(
+    (void)database_->execute_params(
         "UPDATE accounts SET admin_level = $1 WHERE id = $2",
         static_cast<int>(level),
         static_cast<int>(id.value)
@@ -1024,7 +1023,7 @@ void auth_system::db_delete_session(std::string_view token) {
         return;
     }
 
-    database_->execute_params(
+    (void)database_->execute_params(
         "DELETE FROM sessions WHERE token = $1",
         std::string(token)
     );
@@ -1035,7 +1034,7 @@ void auth_system::db_delete_all_sessions(account_id id) {
         return;
     }
 
-    database_->execute_params(
+    (void)database_->execute_params(
         "DELETE FROM sessions WHERE account_id = $1",
         static_cast<int>(id.value)
     );
@@ -1048,7 +1047,7 @@ void auth_system::db_record_login(account_id id, std::string_view ip_address, bo
         return;
     }
 
-    database_->execute_params(
+    (void)database_->execute_params(
         R"(INSERT INTO login_history (account_id, ip_address, success, failure_reason)
            VALUES ($1, $2, $3, $4))",
         static_cast<int>(id.value),

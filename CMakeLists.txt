@@ -108,6 +108,10 @@ set(PLAYER_SOURCES
 set(NPC_SOURCES
     src/npc/npc_system.cpp
     src/npc/random_mob_generator.cpp
+    src/npc/random_spawn_whitelist.cpp
+    src/npc/spawn_context.cpp
+    src/npc/spawn_rule.cpp
+    src/npc/spawn_rule_engine.cpp
 )
 
 set(ITEM_SOURCES
@@ -274,6 +278,10 @@ add_executable(hgserver_tests
     tests/test_network.cpp
     tests/test_session.cpp
     tests/test_protocol.cpp
+    tests/test_json_protocol.cpp
+    tests/test_spawn_rules.cpp
+    tests/test_gm_commands.cpp
+    tests/test_handlers.cpp
     tests/test_world.cpp
     tests/test_entity.cpp
     tests/test_player.cpp

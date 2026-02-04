@@ -69,8 +69,6 @@ enum class json_message_type {
     // In-game movement and position
     player_move_request,
     player_move_response,
-    player_run_request,
-    player_run_response,
     player_stop_request,
     player_stop_response,
     player_position_update,  // Broadcast to nearby players
@@ -115,6 +113,12 @@ enum class json_message_type {
     npc_attack,             // NPC attacked something
     npc_death,              // NPC died
 
+    // Ground item messages (server -> client)
+    ground_item_removed,    // Item picked up from ground
+
+    // Player state updates (server -> client)
+    hunger_update,          // Player hunger level changed
+
     // Unknown/invalid
     unknown
 };
@@ -148,8 +152,6 @@ enum class json_message_type {
         case json_message_type::entity_despawn: return "entity_despawn";
         case json_message_type::player_move_request: return "player_move_request";
         case json_message_type::player_move_response: return "player_move_response";
-        case json_message_type::player_run_request: return "player_run_request";
-        case json_message_type::player_run_response: return "player_run_response";
         case json_message_type::player_stop_request: return "player_stop_request";
         case json_message_type::player_stop_response: return "player_stop_response";
         case json_message_type::player_position_update: return "player_position_update";
@@ -179,6 +181,8 @@ enum class json_message_type {
         case json_message_type::npc_move: return "npc_move";
         case json_message_type::npc_attack: return "npc_attack";
         case json_message_type::npc_death: return "npc_death";
+        case json_message_type::ground_item_removed: return "ground_item_removed";
+        case json_message_type::hunger_update: return "hunger_update";
         default: return "unknown";
     }
 }
@@ -256,30 +260,22 @@ struct set_view_range_request_data {
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<set_view_range_request_data, std::string>;
 };
 
-// Movement request from client (walking)
+// Movement request from client
 struct player_move_request_data {
     int16_t x{0};          // Current position for validation
     int16_t y{0};
     int16_t direction{0};  // Direction to move (0-7)
+    bool is_running{false}; // True if running (moves 2 tiles), false if walking (1 tile)
     uint64_t timestamp{0}; // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_move_request_data, std::string>;
-};
-
-// Running request from client
-struct player_run_request_data {
-    int16_t x{0};          // Current position for validation
-    int16_t y{0};
-    int16_t direction{0};  // Direction to run (0-7)
-    uint64_t timestamp{0}; // Client timestamp in ms
-
-    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_run_request_data, std::string>;
 };
 
 // Stop request from client
 struct player_stop_request_data {
     int16_t x{0};          // Position where stopped
     int16_t y{0};
+    std::optional<int16_t> direction;  // Direction to face (0-7), optional
     uint64_t timestamp{0}; // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_stop_request_data, std::string>;
@@ -644,12 +640,8 @@ struct game_state_msg {
                                               int16_t x, int16_t y, int16_t direction,
                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_player_run_response(uint32_t seq, bool success,
-                                             int16_t x, int16_t y, int16_t direction,
-                                             std::optional<std::string_view> error = std::nullopt) -> json_message;
-
 [[nodiscard]] auto make_player_stop_response(uint32_t seq, bool success,
-                                              int16_t x, int16_t y,
+                                              int16_t x, int16_t y, int16_t direction,
                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 [[nodiscard]] auto make_player_position_update(uint32_t entity_id,
@@ -768,6 +760,32 @@ struct npc_death_data {
 [[nodiscard]] auto make_npc_move_message(const npc_move_data& data) -> json_message;
 [[nodiscard]] auto make_npc_attack_message(const npc_attack_data& data) -> json_message;
 [[nodiscard]] auto make_npc_death_message(const npc_death_data& data) -> json_message;
+
+// Ground item removed data (broadcast when item is picked up)
+struct ground_item_removed_data {
+    uint32_t picker_id{0};       // Player who picked up the item
+    std::string picker_name;     // Picker's name for display
+    uint32_t item_id{0};         // Item that was removed
+    std::string item_name;       // Item name for display
+    int16_t x{0};                // Position where item was
+    int16_t y{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Ground item message builder
+[[nodiscard]] auto make_ground_item_removed(const ground_item_removed_data& data) -> json_message;
+
+// Hunger update data
+struct hunger_update_data {
+    int8_t level{0};
+    bool is_starving{false};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Hunger update message builder
+[[nodiscard]] auto make_hunger_update(int8_t level) -> json_message;
 
 // Calculate visibility radius from screen resolution
 // ~32 pixels per tile, calculate visible tile radius with buffer for smooth scrolling

@@ -42,6 +42,14 @@ namespace hb::npc {
     struct npc;
 }
 
+namespace hb::inventory {
+    class inventory_system;
+}
+
+namespace hb::item {
+    class item_system;
+}
+
 namespace hb::bridge {
 
 // Game message handler
@@ -58,7 +66,9 @@ public:
                     social::social_system* social,
                     admin::admin_system* admin = nullptr,
                     combat::combat_system* combat = nullptr,
-                    npc::npc_system* npc = nullptr);
+                    npc::npc_system* npc = nullptr,
+                    inventory::inventory_system* inventory = nullptr,
+                    item::item_system* item = nullptr);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -66,7 +76,6 @@ public:
 private:
     // Individual message handlers - Movement
     void handle_player_move(connection_id conn_id, const network::json_message& msg);
-    void handle_player_run(connection_id conn_id, const network::json_message& msg);
     void handle_player_stop(connection_id conn_id, const network::json_message& msg);
 
     // Combat
@@ -147,6 +156,13 @@ private:
     void broadcast_npc_death(const npc::npc& n, entity::entity killer);
     void broadcast_npc_hp_update(const npc::npc& n);
 
+    // Item broadcast helpers
+    void broadcast_ground_item_removed(player_id picker, map_id map,
+                                       const world::position& pos, item_id item);
+
+    // Hunger update helper
+    void send_hunger_update(player_id pid, int8_t level);
+
     network::websocket_server* ws_server_{nullptr};
     player::player_system* players_{nullptr};
     world::world_subsystem* world_{nullptr};
@@ -154,6 +170,8 @@ private:
     admin::admin_system* admin_{nullptr};
     combat::combat_system* combat_{nullptr};
     npc::npc_system* npc_{nullptr};
+    inventory::inventory_system* inventory_{nullptr};
+    item::item_system* item_{nullptr};
 };
 
 }  // namespace hb::bridge

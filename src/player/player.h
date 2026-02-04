@@ -112,8 +112,10 @@ struct pk_state {
 struct player {
     // Identity
     player_id id{};
+    entity::entity ecs_entity{};  // Entity manager handle (for unified spatial queries)
     std::string name;
     std::string account_name;
+    account_id account{};
     gender sex{gender::male};
     player_class profession{player_class::warrior};
 
@@ -152,6 +154,9 @@ struct player {
     entity::entity target{};
     std::chrono::steady_clock::time_point last_attack_time{};
     std::chrono::steady_clock::time_point last_hit_time{};
+
+    // Hunger-related regeneration delay accumulator
+    float regen_delay_accumulator{0.0f};
 
     // Location
     map_id current_map{};

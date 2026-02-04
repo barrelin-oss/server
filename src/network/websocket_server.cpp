@@ -8,9 +8,9 @@ namespace hb::network {
 
 // ws_connection implementation
 
-ws_connection::ws_connection(connection_id id, std::shared_ptr<ix::WebSocket> socket)
+ws_connection::ws_connection(connection_id id, ix::WebSocket* socket)
     : id_(id)
-    , socket_(std::move(socket))
+    , socket_(socket)
 {
 }
 
@@ -40,12 +40,18 @@ void ws_connection::set_session_token(std::string_view token) {
 }
 
 void ws_connection::send(const json_message& msg) {
-    if (!socket_ || !is_open()) {
+    if (!socket_ || state_ == ws_connection_state::disconnected ||
+        state_ == ws_connection_state::disconnecting) {
+        return;
+    }
+
+    if (socket_->getReadyState() != ix::ReadyState::Open) {
         return;
     }
 
     try {
         auto json_str = msg.to_json().dump();
+        LOG_DEBUG(network, "[SEND conn={}] {}", id_.value, json_str);
         socket_->send(json_str);
     } catch (const std::exception& e) {
         LOG_ERROR(network, "Failed to send message to connection {}: {}", id_.value, e.what());
@@ -53,7 +59,12 @@ void ws_connection::send(const json_message& msg) {
 }
 
 void ws_connection::send_raw(std::string_view data) {
-    if (!socket_ || !is_open()) {
+    if (!socket_ || state_ == ws_connection_state::disconnected ||
+        state_ == ws_connection_state::disconnecting) {
+        return;
+    }
+
+    if (socket_->getReadyState() != ix::ReadyState::Open) {
         return;
     }
 
@@ -61,14 +72,17 @@ void ws_connection::send_raw(std::string_view data) {
 }
 
 void ws_connection::close(uint16_t code, std::string_view reason) {
-    if (socket_) {
+    if (socket_ && state_ != ws_connection_state::disconnecting &&
+        state_ != ws_connection_state::disconnected) {
         state_ = ws_connection_state::disconnecting;
         socket_->close(code, std::string(reason));
     }
 }
 
 auto ws_connection::is_open() const -> bool {
-    return socket_ && socket_->getReadyState() == ix::ReadyState::Open;
+    return socket_ && state_ != ws_connection_state::disconnected &&
+           state_ != ws_connection_state::disconnecting &&
+           socket_->getReadyState() == ix::ReadyState::Open;
 }
 
 void ws_connection::set_remote_address(std::string_view addr) {
@@ -123,9 +137,13 @@ auto websocket_server::start() -> hb::result<void, std::string> {
                     case ix::WebSocketMessageType::Open: {
                         // New connection
                         auto new_id = next_connection_id();
+                        if (!new_id.is_valid()) {
+                            LOG_ERROR(network, "Connection ID overflow - rejecting connection");
+                            ws.close(1013, "Server overloaded");
+                            break;
+                        }
 
-                        auto socket_ptr = std::shared_ptr<ix::WebSocket>(&ws, [](ix::WebSocket*){});
-                        auto conn = std::make_unique<ws_connection>(new_id, socket_ptr);
+                        auto conn = std::make_unique<ws_connection>(new_id, &ws);
                         conn->set_remote_address(connection_state->getRemoteIp());
                         conn->set_state(ws_connection_state::connected);
 
@@ -149,23 +167,27 @@ auto websocket_server::start() -> hb::result<void, std::string> {
                             LOG_INFO(network, "WebSocket connection {} closed: {} ({})",
                                 conn_id.value, msg->closeInfo.code, msg->closeInfo.reason);
 
-                            if (disconnect_handler_) {
-                                disconnect_handler_(conn_id, msg->closeInfo.reason);
+                            // Invalidate socket pointer and mark as disconnected immediately
+                            // to prevent further sends from this thread
+                            {
+                                std::lock_guard lock{mutex_};
+                                auto it = connections_.find(conn_id);
+                                if (it != connections_.end()) {
+                                    it->second->invalidate_socket();
+                                    it->second->set_state(ws_connection_state::disconnected);
+                                }
                             }
 
-                            std::lock_guard lock{mutex_};
-                            auto it = connections_.find(conn_id);
-                            if (it != connections_.end()) {
-                                // Remove from lookup maps
-                                if (it->second->account().is_valid()) {
-                                    account_to_connection_.erase(it->second->account());
-                                }
-                                if (it->second->player().is_valid()) {
-                                    player_to_connection_.erase(it->second->player());
-                                }
-                                connections_.erase(it);
+                            // Queue disconnect for main thread processing
+                            // This avoids modifying lookup maps from the callback thread
+                            {
+                                std::lock_guard lock{disconnect_mutex_};
+                                pending_disconnects_.push_back({
+                                    conn_id,
+                                    msg->closeInfo.reason,
+                                    state_ptr
+                                });
                             }
-                            state_to_connection_.erase(state_ptr);
                         }
                         break;
                     }
@@ -175,6 +197,8 @@ auto websocket_server::start() -> hb::result<void, std::string> {
                             LOG_WARN(network, "Message from unknown connection");
                             break;
                         }
+
+                        LOG_DEBUG(network, "[RECV conn={}] {}", conn_id.value, msg->str);
 
                         // Parse JSON message
                         auto parse_result = json_message::parse(msg->str);
@@ -249,12 +273,20 @@ void websocket_server::stop() {
         server_.reset();
     }
 
+    // Process any remaining pending disconnects
+    process_pending_disconnects();
+
     {
         std::lock_guard lock{mutex_};
         connections_.clear();
         account_to_connection_.clear();
         player_to_connection_.clear();
         state_to_connection_.clear();
+    }
+
+    {
+        std::lock_guard lock{disconnect_mutex_};
+        pending_disconnects_.clear();
     }
 
     LOG_INFO(network, "WebSocket server stopped");
@@ -321,10 +353,35 @@ void websocket_server::disconnect(connection_id id, std::string_view reason) {
 }
 
 void websocket_server::disconnect_all(std::string_view reason) {
-    std::lock_guard lock{mutex_};
-    for (auto& [id, conn] : connections_) {
-        conn->close(1001, reason);
+    // Collect IDs first to avoid holding lock while calling close()
+    // (close() may trigger callbacks that try to acquire the lock)
+    std::vector<connection_id> ids;
+    {
+        std::lock_guard lock{mutex_};
+        ids.reserve(connections_.size());
+        for (const auto& [id, conn] : connections_) {
+            ids.push_back(id);
+        }
     }
+
+    // Now disconnect without holding the lock
+    for (auto id : ids) {
+        disconnect(id, reason);
+    }
+}
+
+void websocket_server::register_account(connection_id conn, account_id account) {
+    std::lock_guard lock{mutex_};
+    // Remove any existing mapping for this account (handles reconnect case)
+    account_to_connection_.erase(account);
+    account_to_connection_[account] = conn;
+}
+
+void websocket_server::register_player(connection_id conn, player_id player) {
+    std::lock_guard lock{mutex_};
+    // Remove any existing mapping for this player
+    player_to_connection_.erase(player);
+    player_to_connection_[player] = conn;
 }
 
 void websocket_server::send(connection_id id, const json_message& msg) {
@@ -375,7 +432,62 @@ auto websocket_server::authenticated_count() const -> size_t {
 }
 
 auto websocket_server::next_connection_id() -> connection_id {
+    // Check for overflow - reserve 0 as invalid
+    // Note: Extra parentheses around max() prevent Windows macro expansion
+    uint32_t current = next_id_.load();
+    if (current == 0 || current == (std::numeric_limits<uint32_t>::max)()) {
+        // Try to find a free ID by scanning existing connections
+        std::lock_guard lock{mutex_};
+        for (uint32_t candidate = 1; candidate < (std::numeric_limits<uint32_t>::max)(); ++candidate) {
+            if (!connections_.contains(connection_id{candidate})) {
+                next_id_.store(candidate + 1);
+                return connection_id{candidate};
+            }
+        }
+        // No free IDs available
+        return connection_id{0};
+    }
     return connection_id{next_id_++};
+}
+
+void websocket_server::process_pending_disconnects() {
+    // Swap out the pending list to minimize lock hold time
+    std::vector<pending_disconnect> to_process;
+    {
+        std::lock_guard lock{disconnect_mutex_};
+        to_process.swap(pending_disconnects_);
+    }
+
+    for (const auto& pd : to_process) {
+        // Call disconnect handler on main thread
+        if (disconnect_handler_) {
+            disconnect_handler_(pd.id, pd.reason);
+        }
+
+        // Now safe to cleanup on main thread
+        cleanup_connection(pd.id);
+
+        // Remove state mapping
+        {
+            std::lock_guard lock{mutex_};
+            state_to_connection_.erase(pd.state_ptr);
+        }
+    }
+}
+
+void websocket_server::cleanup_connection(connection_id conn_id) {
+    std::lock_guard lock{mutex_};
+    auto it = connections_.find(conn_id);
+    if (it != connections_.end()) {
+        // Remove from lookup maps
+        if (it->second->account().is_valid()) {
+            account_to_connection_.erase(it->second->account());
+        }
+        if (it->second->player().is_valid()) {
+            player_to_connection_.erase(it->second->player());
+        }
+        connections_.erase(it);
+    }
 }
 
 }  // namespace hb::network

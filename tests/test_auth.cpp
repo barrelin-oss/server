@@ -225,7 +225,9 @@ TEST(JsonProtocol, ParseCreateCharacterRequest) {
     EXPECT_EQ(char_data.gender, 0);
     EXPECT_EQ(*char_data.strength, 15);
     EXPECT_EQ(*char_data.dexterity, 12);
-    EXPECT_FALSE(char_data.vitality.has_value());
+    // Stats always get a value (default 10) from safe_int16 in from_json
+    EXPECT_TRUE(char_data.vitality.has_value());
+    EXPECT_EQ(*char_data.vitality, 10);  // Default value
 }
 
 TEST(JsonProtocol, CreateCharacterToCreateInfo) {

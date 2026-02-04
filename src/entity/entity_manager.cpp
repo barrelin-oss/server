@@ -82,8 +82,8 @@ auto entity_manager::create(entity_type type) -> entity {
     ++alive_count_;
 
     entity e{index, generations_[index]};
-    LOG_DEBUG(general, "Created entity {} (type={}, gen={})",
-        e.index(), static_cast<int>(type), e.generation());
+    // LOG_DEBUG(general, "Created entity {} (type={}, gen={})",
+    //     e.index(), static_cast<int>(type), e.generation());
 
     return e;
 }

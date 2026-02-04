@@ -25,21 +25,21 @@ This document provides a comprehensive index of all major systems in the legacy 
 | 11 | [Crafting System](#11-crafting-system) | `11_crafting_system.md` | **Complete** | Medium |
 | 12 | [Gathering System](#12-gathering-system) | `12_gathering_system.md` | **Complete** | Medium |
 | 13 | [Trading & Shops](#13-trading-shops) | `13_trading_shops.md` | **Complete** | Medium |
-| 14 | [War & Crusade System](#14-war-crusade-system) | `14_war_crusade_system.md` | Pending | Very High |
+| 14 | [War & Crusade System](#14-war-crusade-system) | `14_war_crusade_system.md` | **Complete** | Very High |
 | 15 | [World & Map System](#15-world-map-system) | `15_world_map_system.md` | **Complete** | High |
-| 16 | [Dynamic Objects](#16-dynamic-objects) | `16_dynamic_objects.md` | Pending | Medium |
-| 17 | [Delayed Events](#17-delayed-events) | `17_delayed_events.md` | Pending | Medium |
+| 16 | [Dynamic Objects](#16-dynamic-objects) | `16_dynamic_objects.md` | **Complete** | Medium |
+| 17 | [Delayed Events](#17-delayed-events) | `17_delayed_events.md` | **Complete** | Medium |
 | 18 | [Teleportation System](#18-teleportation-system) | `18_teleportation_system.md` | **Complete** | Low |
 | 19 | [Status Effects](#19-status-effects) | `19_status_effects.md` | **Complete** | Medium |
-| 20 | [Experience & Leveling](#20-experience-leveling) | `20_experience_leveling.md` | Pending | Medium |
+| 20 | [Experience & Leveling](#20-experience-leveling) | `20_experience_leveling.md` | **Complete** | Medium |
 | 21 | [Chat & Messaging](#21-chat-messaging) | `21_chat_messaging.md` | **Complete** | Low |
-| 22 | [Administrative System](#22-administrative-system) | `22_administrative_system.md` | Pending | Medium |
-| 23 | [Persistence & Logging](#23-persistence-logging) | `23_persistence_logging.md` | Pending | Medium |
-| 24 | [Anti-Cheat System](#24-anti-cheat-system) | `24_anti_cheat_system.md` | Pending | Medium |
-| 25 | [Special Events](#25-special-events) | `25_special_events.md` | Pending | Medium |
+| 22 | [Administrative System](#22-administrative-system) | `22_administrative_system.md` | **Complete** | Medium |
+| 23 | [Persistence & Logging](#23-persistence-logging) | `23_persistence_logging.md` | **Complete** | Medium |
+| 24 | [Anti-Cheat System](#24-anti-cheat-system) | `24_anti_cheat_system.md` | **Complete** | Medium |
+| 25 | [Special Events](#25-special-events) | `25_special_events.md` | **Complete** | Medium |
 | 26 | [Character Customization](#26-character-customization) | `26_character_customization.md` | **Complete** | Low |
-| 27 | [Economy & Gold](#27-economy-gold) | `27_economy_gold.md` | Pending | Low |
-| 28 | [Network Protocol](#28-network-protocol) | `28_network_protocol.md` | Pending | High |
+| 27 | [Economy & Gold](#27-economy-gold) | `27_economy_gold.md` | **Complete** | Low |
+| 28 | [Network Protocol](#28-network-protocol) | `28_network_protocol.md` | **Complete** | High |
 
 ---
 
@@ -623,7 +623,7 @@ Manages network communication:
 ## Documentation Progress
 
 - [x] 01_player_system.md
-- [ ] 02_npc_system.md
+- [x] 02_npc_system.md
 - [x] 03_combat_system.md
 - [x] 04_magic_system.md
 - [x] 05_skill_system.md
@@ -635,21 +635,21 @@ Manages network communication:
 - [x] 11_crafting_system.md
 - [x] 12_gathering_system.md
 - [x] 13_trading_shops.md
-- [ ] 14_war_crusade_system.md
+- [x] 14_war_crusade_system.md
 - [x] 15_world_map_system.md
-- [ ] 16_dynamic_objects.md
-- [ ] 17_delayed_events.md
+- [x] 16_dynamic_objects.md
+- [x] 17_delayed_events.md
 - [x] 18_teleportation_system.md
 - [x] 19_status_effects.md
-- [ ] 20_experience_leveling.md
+- [x] 20_experience_leveling.md
 - [x] 21_chat_messaging.md
-- [ ] 22_administrative_system.md
-- [ ] 23_persistence_logging.md
-- [ ] 24_anti_cheat_system.md
-- [ ] 25_special_events.md
+- [x] 22_administrative_system.md
+- [x] 23_persistence_logging.md
+- [x] 24_anti_cheat_system.md
+- [x] 25_special_events.md
 - [x] 26_character_customization.md
-- [ ] 27_economy_gold.md
-- [ ] 28_network_protocol.md
+- [x] 27_economy_gold.md
+- [x] 28_network_protocol.md
 
 ---
 

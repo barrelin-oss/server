@@ -77,8 +77,11 @@ auto get_migrated_messages() -> std::vector<protocol::message_id> {
 
 auto migration_progress() -> float {
     auto modernized = router().modernized_count();
-    if (estimated_total_messages == 0) return 0.0f;
-    return static_cast<float>(modernized) / static_cast<float>(estimated_total_messages) * 100.0f;
+    if constexpr (estimated_total_messages == 0) {
+        return 0.0f;
+    } else {
+        return static_cast<float>(modernized) / static_cast<float>(estimated_total_messages) * 100.0f;
+    }
 }
 
 // ========== Debug Utilities ==========

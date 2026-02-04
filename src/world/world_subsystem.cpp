@@ -3,6 +3,8 @@
 
 #include "world/world_subsystem.h"
 #include "core/logger.h"
+#include "entity/entity_manager.h"
+#include "entity/components/transform.h"
 
 namespace hb::world {
 
@@ -86,10 +88,10 @@ auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_
         return result<map_id, std::string>::err(load_result.error());
     }
 
-    // Load the configuration file (.txt file with same name)
+    // Load the YAML configuration file (same name, .yaml extension)
     // Config files contain teleports, spawn points, safe zones, etc.
     auto config_path = path;
-    config_path.replace_extension(".txt");
+    config_path.replace_extension(".yaml");
 
     if (std::filesystem::exists(config_path)) {
         auto config_result = new_map->load_config_file(config_path);
@@ -104,9 +106,6 @@ auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_
                       new_map->safe_zone_count(),
                       new_map->mob_spawner_count());
         }
-    } else {
-        LOG_WARN(general, "No config file found for map '{}' at {}",
-                 config.name, config_path.string());
     }
 
     name_to_id_[config.name] = id;
@@ -174,6 +173,106 @@ auto world_subsystem::get_entities_in_range(map_id map_id, const position& cente
         return {};
     }
     return m->get_entities_in_range(center, radius);
+}
+
+auto world_subsystem::get_all_entities_in_range(map_id mid, const position& center, int radius) const
+    -> std::vector<entity_query_result>
+{
+    std::vector<entity_query_result> result;
+
+    auto* m = get_map(mid);
+    if (!m) {
+        return result;
+    }
+
+    auto* em = subsystems().get<entity::entity_manager>();
+    if (!em) {
+        return result;
+    }
+
+    // Get all entity IDs in range from spatial index
+    auto entity_ids = m->get_entities_in_range(center, radius);
+
+    for (auto eid : entity_ids) {
+        // Construct entity with index and generation 0 for lookup
+        // (entity_manager will validate the generation)
+        entity::entity e{eid.value, 0};
+
+        auto type = em->get_type(e);
+        if (type == entity::entity_type::none) {
+            continue;  // Entity doesn't exist or stale reference
+        }
+
+        // Get position from transform component
+        if (auto* t = em->get_component<entity::transform>(e)) {
+            result.push_back({e, type, t->pos});
+        }
+    }
+
+    return result;
+}
+
+// Ground item management
+void world_subsystem::add_ground_item(map_id map, const position& pos, item_id item) {
+    map_position_key key{map, pos};
+    ground_items_[key].push_back(item);
+
+    // Update dynamic tile item count
+    auto* m = get_map(map);
+    if (m) {
+        auto* dyn_tile = m->get_dynamic_tile(pos);
+        if (dyn_tile) {
+            dyn_tile->item_count = static_cast<uint8_t>(ground_items_[key].size());
+        }
+    }
+}
+
+auto world_subsystem::remove_top_ground_item(map_id map, const position& pos) -> std::optional<item_id> {
+    map_position_key key{map, pos};
+    auto it = ground_items_.find(key);
+
+    if (it == ground_items_.end() || it->second.empty()) {
+        return std::nullopt;
+    }
+
+    // Top-most item is at the back of the vector
+    item_id item = it->second.back();
+    it->second.pop_back();
+
+    // Clean up empty entry
+    if (it->second.empty()) {
+        ground_items_.erase(it);
+    }
+
+    // Update dynamic tile item count
+    auto* m = get_map(map);
+    if (m) {
+        auto* dyn_tile = m->get_dynamic_tile(pos);
+        if (dyn_tile) {
+            dyn_tile->item_count = it != ground_items_.end() ?
+                static_cast<uint8_t>(it->second.size()) : 0;
+        }
+    }
+
+    return item;
+}
+
+auto world_subsystem::get_ground_items(map_id map, const position& pos) const -> std::vector<item_id> {
+    map_position_key key{map, pos};
+    auto it = ground_items_.find(key);
+    return it != ground_items_.end() ? it->second : std::vector<item_id>{};
+}
+
+auto world_subsystem::has_ground_items(map_id map, const position& pos) const -> bool {
+    map_position_key key{map, pos};
+    auto it = ground_items_.find(key);
+    return it != ground_items_.end() && !it->second.empty();
+}
+
+auto world_subsystem::ground_item_count(map_id map, const position& pos) const -> size_t {
+    map_position_key key{map, pos};
+    auto it = ground_items_.find(key);
+    return it != ground_items_.end() ? it->second.size() : 0;
 }
 
 }  // namespace hb::world

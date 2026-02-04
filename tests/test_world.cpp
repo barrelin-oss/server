@@ -88,7 +88,7 @@ TEST(direction_test, direction_to) {
     EXPECT_EQ(direction_to(from, position{10, 5}), direction::north);
     EXPECT_EQ(direction_to(from, position{15, 10}), direction::east);
     EXPECT_EQ(direction_to(from, position{15, 15}), direction::south_east);
-    EXPECT_EQ(direction_to(from, position{10, 10}), direction::none);
+    EXPECT_EQ(direction_to(from, position{10, 10}), std::nullopt);
 }
 
 // Rect tests

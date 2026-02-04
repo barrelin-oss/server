@@ -28,6 +28,20 @@ The Helbreath game server - a classic MMO server being modernized to C++20 with 
 
 ### Build Commands
 
+**Using CMake Presets (recommended):**
+
+```bash
+# Configure and build (Debug)
+cmake --preset default
+cmake --build --preset default
+
+# Configure and build (Release)
+cmake --preset release
+cmake --build --preset release
+```
+
+**Manual configuration (if vcpkg path differs):**
+
 ```bash
 # Configure
 cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
@@ -37,6 +51,12 @@ cmake --build build --config Debug
 
 # Build (Release)
 cmake --build build --config Release
+```
+
+**Quick rebuild (after initial configure):**
+
+```bash
+cmake --build build --config Debug
 ```
 
 ### Output
@@ -240,8 +260,10 @@ The monolithic `CGame` class is being decomposed into:
 
 When working on the server:
 
-1. **Check PROGRESS.md** - Know what's implemented before starting
-2. **Update PROGRESS.md** - Mark features complete when done
-3. **Protocol compatibility** - Legacy binary protocol must match original
-4. **Database transactions** - Use connection pool properly
-5. **Thread safety** - WebSocket callbacks run on separate threads
+1. **Ask questions frequently** - Use AskUserQuestion liberally to clarify requirements, validate assumptions, and confirm implementation approaches before writing code. When in doubt, ask.
+2. **Check PROGRESS.md** - Know what's implemented before starting
+3. **Update PROGRESS.md** - Mark features complete when done
+4. **Protocol compatibility** - Legacy binary protocol must match original
+5. **Database transactions** - Use connection pool properly
+6. **Thread safety** - WebSocket callbacks run on separate threads
+7. **Update JSON_PROTOCOL.md** - Any changes to WebSocket message structures must be documented in `docs/JSON_PROTOCOL.md` so the client stays in sync

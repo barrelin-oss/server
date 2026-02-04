@@ -8,6 +8,7 @@
 #include "core/subsystem.h"
 #include "world/map.h"
 #include "world/position.h"
+#include "entity/entity.h"
 
 #include <memory>
 #include <unordered_map>
@@ -20,6 +21,13 @@ namespace hb::world {
 struct world_config {
     std::filesystem::path maps_directory{"maps"};
     int max_maps{128};
+};
+
+// Result of unified entity query
+struct entity_query_result {
+    entity::entity entity;
+    entity::entity_type type{entity::entity_type::none};
+    position pos{};
 };
 
 // World subsystem - manages all game maps
@@ -61,6 +69,17 @@ public:
     [[nodiscard]] auto get_entities_in_range(map_id map, const position& center, int radius) const
         -> std::vector<entity_id>;
 
+    // Unified entity query - returns all entities (players, NPCs) with their types and positions
+    [[nodiscard]] auto get_all_entities_in_range(map_id map, const position& center, int radius) const
+        -> std::vector<entity_query_result>;
+
+    // Ground item management
+    void add_ground_item(map_id map, const position& pos, item_id item);
+    auto remove_top_ground_item(map_id map, const position& pos) -> std::optional<item_id>;
+    [[nodiscard]] auto get_ground_items(map_id map, const position& pos) const -> std::vector<item_id>;
+    [[nodiscard]] auto has_ground_items(map_id map, const position& pos) const -> bool;
+    [[nodiscard]] auto ground_item_count(map_id map, const position& pos) const -> size_t;
+
     // Iterate over all maps
     template<typename Func>
     void for_each_map(Func&& func) {
@@ -86,6 +105,26 @@ private:
 
     std::unordered_map<map_id, std::unique_ptr<map>> maps_;
     std::unordered_map<std::string, map_id> name_to_id_;
+
+    // Ground items - map of map_id -> position -> list of items (top-most is back())
+    struct map_position_key {
+        map_id map;
+        position pos;
+
+        auto operator==(const map_position_key& other) const -> bool {
+            return map == other.map && pos == other.pos;
+        }
+    };
+
+    struct map_position_hash {
+        auto operator()(const map_position_key& key) const -> size_t {
+            return std::hash<uint8_t>{}(key.map.value) ^
+                   (std::hash<int16_t>{}(key.pos.x) << 1) ^
+                   (std::hash<int16_t>{}(key.pos.y) << 2);
+        }
+    };
+
+    std::unordered_map<map_position_key, std::vector<item_id>, map_position_hash> ground_items_;
 };
 
 }  // namespace hb::world

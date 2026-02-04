@@ -133,8 +133,8 @@ TEST_F(message_buffer_test, reader_bounds_check) {
     std::vector<uint8_t> data = {0x12, 0x34};
 
     message_reader reader{data};
-    EXPECT_NO_THROW(reader.read_u16());
-    EXPECT_THROW(reader.read_u8(), std::out_of_range);
+    EXPECT_NO_THROW((void)reader.read_u16());
+    EXPECT_THROW((void)reader.read_u8(), std::out_of_range);
 }
 
 TEST_F(message_buffer_test, reader_seek) {
@@ -158,7 +158,7 @@ TEST_F(message_buffer_test, reader_remaining) {
     EXPECT_EQ(reader.remaining(), 4);
     EXPECT_EQ(reader.size(), 4);
 
-    reader.read_u16();
+    (void)reader.read_u16();
     EXPECT_EQ(reader.remaining(), 2);
 }
 

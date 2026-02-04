@@ -26,7 +26,7 @@ auto query_result::affected_rows() const -> size_t {
 }
 
 auto query_result::operator[](size_t index) const -> pqxx::row {
-    return result_[index];
+    return result_[static_cast<pqxx::result::size_type>(index)];
 }
 
 auto query_result::begin() const -> pqxx::result::const_iterator {
@@ -101,7 +101,7 @@ auto database_system::reconnect() -> result<void, std::string> {
     return pool_.initialize(pool_cfg);
 }
 
-auto database_system::execute(std::string_view query)
+auto database_system::execute_unsafe(std::string_view query)
     -> hb::result<query_result, std::string>
 {
     auto conn = pool_.acquire();
@@ -122,6 +122,28 @@ auto database_system::execute(std::string_view query)
         return hb::result<query_result, std::string>::err(std::string("Query failed: ") + ex.what());
     }
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
+
+auto database_system::execute(std::string_view query)
+    -> hb::result<query_result, std::string>
+{
+    return execute_unsafe(query);
+}
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 auto database_system::execute_transaction(transaction_func func)
     -> hb::result<void, std::string>

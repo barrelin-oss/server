@@ -14,6 +14,9 @@
 #include "combat/combat_events.h"
 #include "npc/npc_system.h"
 #include "npc/npc.h"
+#include "inventory/inventory_system.h"
+#include "item/item_system.h"
+#include "core/subsystem.h"
 #include "core/logger.h"
 
 #include <chrono>
@@ -31,7 +34,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 social::social_system* social,
                                 admin::admin_system* admin,
                                 combat::combat_system* combat,
-                                npc::npc_system* npc) {
+                                npc::npc_system* npc,
+                                inventory::inventory_system* inventory,
+                                item::item_system* item) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -39,6 +44,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     admin_ = admin;
     combat_ = combat;
     npc_ = npc;
+    inventory_ = inventory;
+    item_ = item;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -57,27 +64,39 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
     }
 
-    // Register NPC callbacks
-    if (npc_) {
-        npc_->set_on_spawn_callback([this](const npc::npc& n) {
-            broadcast_npc_spawn(n);
-        });
-        npc_->set_on_move_callback([this](const npc::npc& n) {
-            broadcast_npc_move(n);
-        });
-        npc_->set_on_death_callback([this](const npc::npc& n, entity::entity killer) {
-            broadcast_npc_death(n, killer);
-        });
-        npc_->set_on_attack_callback([this](const npc::npc& n, entity::entity target, int32_t damage) {
-            broadcast_npc_attack(n, target, damage);
+    // Register hunger change callback
+    if (players_) {
+        players_->on_hunger_change([this](player_id pid, int8_t, int8_t new_level) {
+            send_hunger_update(pid, new_level);
         });
     }
 
-    LOG_INFO(bridge, "Game handlers initialized (chat: {}, admin: {}, combat: {}, npc: {})",
+    // Register NPC callbacks
+    // NOTE: These callbacks are invoked synchronously and must immediately copy
+    // any data from the npc& reference. The reference is only valid during the
+    // callback invocation - do not store it or pass it to async operations.
+    if (npc_) {
+        npc_->set_on_spawn_callback([this](const npc::npc& n) {
+            broadcast_npc_spawn(n);  // Copies data immediately
+        });
+        npc_->set_on_move_callback([this](const npc::npc& n) {
+            broadcast_npc_move(n);  // Copies data immediately
+        });
+        npc_->set_on_death_callback([this](const npc::npc& n, entity::entity killer) {
+            broadcast_npc_death(n, killer);  // Copies data immediately
+        });
+        npc_->set_on_attack_callback([this](const npc::npc& n, entity::entity target, int32_t damage) {
+            broadcast_npc_attack(n, target, damage);  // Copies data immediately
+        });
+    }
+
+    LOG_INFO(bridge, "Game handlers initialized (chat: {}, admin: {}, combat: {}, npc: {}, inventory: {}, item: {})",
         social_ != nullptr ? "yes" : "no",
         admin_ != nullptr ? "yes" : "no",
         combat_ != nullptr ? "yes" : "no",
-        npc_ != nullptr ? "yes" : "no");
+        npc_ != nullptr ? "yes" : "no",
+        inventory_ != nullptr ? "yes" : "no",
+        item_ != nullptr ? "yes" : "no");
 }
 
 void game_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
@@ -85,9 +104,6 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
         // Movement
         case network::json_message_type::player_move_request:
             handle_player_move(conn_id, msg);
-            break;
-        case network::json_message_type::player_run_request:
-            handle_player_run(conn_id, msg);
             break;
         case network::json_message_type::player_stop_request:
             handle_player_stop(conn_id, msg);
@@ -176,7 +192,7 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
     // Store old position for visibility calculations
     auto old_pos = player->pos;
 
-    // Calculate target position from direction
+    // Calculate target position from direction (always 1 tile)
     auto dir = static_cast<world::direction>(data.direction & 7);  // Clamp to 0-7
     world::position target_pos = old_pos.move(dir);
 
@@ -189,14 +205,14 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
                 msg.seq, true, target_pos.x, target_pos.y, data.direction);
             conn->send(response);
 
-            // Broadcast position to nearby players (not running)
-            broadcast_position_update(pid, target_pos.x, target_pos.y, data.direction, false);
+            // Broadcast position to nearby players
+            broadcast_position_update(pid, target_pos.x, target_pos.y, data.direction, data.is_running);
 
             // Update entity visibility for all affected players
             update_entity_visibility(pid, old_pos, target_pos);
 
-            LOG_DEBUG(bridge, "Player {} walked to ({}, {})",
-                pid.value, target_pos.x, target_pos.y);
+            LOG_DEBUG(bridge, "Player {} {} to ({}, {})",
+                pid.value, data.is_running ? "ran" : "walked", target_pos.x, target_pos.y);
             break;
         }
 
@@ -247,65 +263,6 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
     }
 }
 
-void game_handlers::handle_player_run(connection_id conn_id, const network::json_message& msg) {
-    auto* conn = require_in_game(conn_id, msg.seq);
-    if (!conn) return;
-
-    if (!players_) {
-        send_error(conn_id, msg.seq, "internal_error", "Player system unavailable");
-        return;
-    }
-
-    // Parse request
-    auto data_result = network::player_run_request_data::from_json(msg.data);
-    if (data_result.is_err()) {
-        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
-        return;
-    }
-
-    auto& data = data_result.value();
-    auto pid = conn->player();
-
-    auto* player = players_->get_player(pid);
-    if (!player) {
-        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
-        return;
-    }
-
-    // Validate client position
-    if (std::abs(player->pos.x - data.x) > 1 || std::abs(player->pos.y - data.y) > 1) {
-        LOG_WARN(bridge, "Player {} run position mismatch", pid.value);
-        conn->send(network::make_player_run_response(
-            msg.seq, false, player->pos.x, player->pos.y,
-            static_cast<int16_t>(player->facing), "position_desync"));
-        return;
-    }
-
-    // TODO: Check if player can run (has stamina, not encumbered, etc.)
-
-    auto old_pos = player->pos;
-    auto dir = static_cast<world::direction>(data.direction & 7);
-
-    // Running moves 2 tiles in the direction
-    world::position target_pos = old_pos.move(dir).move(dir);
-
-    auto move_result = players_->try_move(pid, target_pos, dir);
-
-    if (move_result.result == player::player_system::move_result::success) {
-        conn->send(network::make_player_run_response(
-            msg.seq, true, target_pos.x, target_pos.y, data.direction));
-
-        broadcast_position_update(pid, target_pos.x, target_pos.y, data.direction, true);
-        update_entity_visibility(pid, old_pos, target_pos);
-
-        LOG_DEBUG(bridge, "Player {} ran to ({}, {})", pid.value, target_pos.x, target_pos.y);
-    } else {
-        conn->send(network::make_player_run_response(
-            msg.seq, false, player->pos.x, player->pos.y,
-            static_cast<int16_t>(player->facing), "blocked"));
-    }
-}
-
 void game_handlers::handle_player_stop(connection_id conn_id, const network::json_message& msg) {
     auto* conn = require_in_game(conn_id, msg.seq);
     if (!conn) return;
@@ -330,11 +287,22 @@ void game_handlers::handle_player_stop(connection_id conn_id, const network::jso
         return;
     }
 
-    // Just acknowledge the stop - server confirms current position
-    conn->send(network::make_player_stop_response(
-        msg.seq, true, player->pos.x, player->pos.y));
+    // Update facing direction if provided
+    if (data.direction.has_value()) {
+        player->facing = static_cast<world::direction>(data.direction.value() & 7);
+    }
 
-    LOG_DEBUG(bridge, "Player {} stopped at ({}, {})", pid.value, player->pos.x, player->pos.y);
+    auto direction = static_cast<int16_t>(player->facing);
+
+    // Acknowledge the stop to the sender
+    conn->send(network::make_player_stop_response(
+        msg.seq, true, player->pos.x, player->pos.y, direction));
+
+    // Broadcast position update to nearby players (not running = stopped)
+    broadcast_position_update(pid, player->pos.x, player->pos.y, direction, false);
+
+    LOG_DEBUG(bridge, "Player {} stopped at ({}, {}) facing {}",
+        pid.value, player->pos.x, player->pos.y, direction);
 }
 
 void game_handlers::handle_player_attack(connection_id conn_id, const network::json_message& msg) {
@@ -604,8 +572,8 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     auto* conn = require_in_game(conn_id, msg.seq);
     if (!conn) return;
 
-    if (!players_) {
-        send_error(conn_id, msg.seq, "internal_error", "Player system unavailable");
+    if (!players_ || !world_ || !inventory_) {
+        send_error(conn_id, msg.seq, "internal_error", "Required subsystems unavailable");
         return;
     }
 
@@ -624,18 +592,63 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
         return;
     }
 
-    // TODO: Implement actual pickup through item_system/inventory_system
-    // Placeholder response
+    // No items on ground - silently ignore (no-op)
+    if (!world_->has_ground_items(player->current_map, player->pos)) {
+        return;
+    }
+
+    // Check if inventory has space
+    auto player_entity = entity_id{pid.value};
+    if (inventory_->is_full(player_entity)) {
+        send_error(conn_id, msg.seq, "inventory_full", "Cannot carry more items");
+        return;
+    }
+
+    // Remove top-most item from ground
+    auto item_id_opt = world_->remove_top_ground_item(player->current_map, player->pos);
+    if (!item_id_opt.has_value()) {
+        send_error(conn_id, msg.seq, "item_not_found", "Item no longer available");
+        return;
+    }
+
+    auto picked_item_id = item_id_opt.value();
+
+    // Add item to inventory
+    auto add_result = inventory_->add_item(player_entity, picked_item_id);
+    if (add_result != inventory::inventory_result::success) {
+        // Failed to add - put item back on ground
+        world_->add_ground_item(player->current_map, player->pos, picked_item_id);
+        send_error(conn_id, msg.seq, "inventory_full", "Failed to add item to inventory");
+        return;
+    }
+
+    // Get item details for response
+    std::string item_name = "Unknown";
+    int16_t quantity = 1;
+    if (item_) {
+        auto* itm = item_->get_item(picked_item_id);
+        if (itm) {
+            item_name = itm->name;
+            quantity = itm->count;
+        }
+    }
+
+    // Success! Send response to player
     network::pickup_result_msg result{
-        .success = false,
-        .item_id = data.item_id,
-        .item_name = "",
-        .quantity = 0,
-        .inventory_slot = 0
+        .success = true,
+        .item_id = picked_item_id.value,
+        .item_name = item_name,
+        .quantity = quantity,
+        .inventory_slot = 0  // TODO: Get actual slot from inventory system
     };
 
-    conn->send(network::make_player_pickup_response(msg.seq, false, &result, "not_implemented"));
-    LOG_DEBUG(bridge, "Player {} pickup request (item={})", pid.value, data.item_id);
+    conn->send(network::make_player_pickup_response(msg.seq, true, &result, std::nullopt));
+
+    // Broadcast item removal to nearby players
+    broadcast_ground_item_removed(pid, player->current_map, player->pos, picked_item_id);
+
+    LOG_INFO(bridge, "Player {} picked up item {} ({}) at ({}, {})",
+        pid.value, picked_item_id.value, item_name, player->pos.x, player->pos.y);
 }
 
 void game_handlers::handle_player_interact(connection_id conn_id, const network::json_message& msg) {
@@ -1654,8 +1667,8 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n) {
         }
     }
 
-    LOG_DEBUG(bridge, "Broadcast NPC spawn: {} '{}' at ({}, {})",
-        n.entity_id.id, n.name, n.pos.x, n.pos.y);
+    // LOG_DEBUG(bridge, "Broadcast NPC spawn: {} '{}' at ({}, {})",
+    //     n.entity_id.id, n.name, n.pos.x, n.pos.y);
 }
 
 void game_handlers::broadcast_npc_move(const npc::npc& n) {
@@ -1729,8 +1742,8 @@ void game_handlers::broadcast_npc_death(const npc::npc& n, entity::entity killer
         }
     }
 
-    LOG_DEBUG(bridge, "Broadcast NPC death: {} '{}' killed by {}",
-        n.entity_id.id, n.name, killer.id);
+    // LOG_DEBUG(bridge, "Broadcast NPC death: {} '{}' killed by {}",
+    //     n.entity_id.id, n.name, killer.id);
 }
 
 void game_handlers::broadcast_npc_hp_update(const npc::npc& n) {
@@ -1749,6 +1762,73 @@ void game_handlers::broadcast_npc_hp_update(const npc::npc& n) {
             conn->send(msg);
         }
     }
+}
+
+// ========== Ground Item Broadcast ==========
+
+void game_handlers::broadcast_ground_item_removed(player_id picker, map_id map,
+                                                   const world::position& pos, item_id item) {
+    if (!players_ || !ws_server_) return;
+
+    auto* picker_player = players_->get_player(picker);
+    if (!picker_player) return;
+
+    // Get item name for display
+    std::string item_name = "Unknown";
+    if (item_) {
+        auto* itm = item_->get_item(item);
+        if (itm) {
+            item_name = itm->name;
+        }
+    }
+
+    // Build the broadcast data
+    network::ground_item_removed_data data{
+        .picker_id = picker.value,
+        .picker_name = picker_player->name,
+        .item_id = item.value,
+        .item_name = item_name,
+        .x = pos.x,
+        .y = pos.y
+    };
+
+    auto msg = network::make_ground_item_removed(data);
+
+    // Broadcast to all players who can see this position, EXCEPT the picker
+    constexpr int visibility_radius = 20;
+    auto nearby = players_->get_players_in_range(picker, visibility_radius);
+
+    for (auto other_id : nearby) {
+        if (other_id == picker) continue;  // Don't send to the picker (they got the response)
+
+        auto* other = players_->get_player(other_id);
+        if (!other || other->connection.value == 0) continue;
+
+        auto* other_conn = ws_server_->get_connection(other->connection);
+        if (other_conn && other_conn->is_open()) {
+            other_conn->send(msg);
+        }
+    }
+
+    LOG_DEBUG(bridge, "Broadcast ground item {} removed at ({}, {}) by player {}",
+        item.value, pos.x, pos.y, picker.value);
+}
+
+// ========== Hunger Update ==========
+
+void game_handlers::send_hunger_update(player_id pid, int8_t level) {
+    if (!players_ || !ws_server_) return;
+
+    auto* player = players_->get_player(pid);
+    if (!player || player->connection.value == 0) return;
+
+    auto* conn = ws_server_->get_connection(player->connection);
+    if (!conn || !conn->is_open()) return;
+
+    conn->send(network::make_hunger_update(level));
+
+    LOG_DEBUG(bridge, "Sent hunger update to player {}: level={}, starving={}",
+        pid.value, level, level <= 0);
 }
 
 }  // namespace hb::bridge

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <functional>
 #include <algorithm>
+#include <optional>
 
 namespace hb::world {
 
@@ -82,32 +83,38 @@ struct position {
     [[nodiscard]] constexpr auto move(direction dir) const -> position;
 };
 
-// Direction enum (8 directions + none)
+// Direction enum (8 directions)
+// Values follow standard convention: 0-7 clockwise from north
+// Use std::optional<direction> when "no direction" is needed
 enum class direction : uint8_t {
-    none = 0,
-    north = 1,
-    north_east = 2,
-    east = 3,
-    south_east = 4,
-    south = 5,
-    south_west = 6,
-    west = 7,
-    north_west = 8,
+    north = 0,
+    north_east = 1,
+    east = 2,
+    south_east = 3,
+    south = 4,
+    south_west = 5,
+    west = 6,
+    north_west = 7,
 };
 
-// Direction offsets
+// Direction offsets (indexed by direction value 0-7)
 constexpr position direction_offset(direction dir) {
-    switch (dir) {
-        case direction::north:      return {0, -1};
-        case direction::north_east: return {1, -1};
-        case direction::east:       return {1, 0};
-        case direction::south_east: return {1, 1};
-        case direction::south:      return {0, 1};
-        case direction::south_west: return {-1, 1};
-        case direction::west:       return {-1, 0};
-        case direction::north_west: return {-1, -1};
-        default:                    return {0, 0};
+    // Lookup table for direction offsets
+    constexpr position offsets[] = {
+        {0, -1},   // north (0)
+        {1, -1},   // north_east (1)
+        {1, 0},    // east (2)
+        {1, 1},    // south_east (3)
+        {0, 1},    // south (4)
+        {-1, 1},   // south_west (5)
+        {-1, 0},   // west (6)
+        {-1, -1},  // north_west (7)
+    };
+    auto idx = static_cast<uint8_t>(dir);
+    if (idx < 8) {
+        return offsets[idx];
     }
+    return {0, 0};
 }
 
 // Move position in direction
@@ -121,11 +128,12 @@ constexpr auto position::move(direction dir) const -> position {
 }
 
 // Get direction from one position to another
-[[nodiscard]] inline auto direction_to(const position& from, const position& to) -> direction {
+// Returns std::nullopt if positions are the same
+[[nodiscard]] inline auto direction_to(const position& from, const position& to) -> std::optional<direction> {
     int dx = to.x - from.x;
     int dy = to.y - from.y;
 
-    if (dx == 0 && dy == 0) return direction::none;
+    if (dx == 0 && dy == 0) return std::nullopt;
 
     // Normalize to -1, 0, 1
     int sx = (dx > 0) ? 1 : (dx < 0) ? -1 : 0;
@@ -140,7 +148,7 @@ constexpr auto position::move(direction dir) const -> position {
     if (sx == -1 && sy == 0) return direction::west;
     if (sx == -1 && sy == -1) return direction::north_west;
 
-    return direction::none;
+    return std::nullopt;  // Should not reach here
 }
 
 // Axis-aligned bounding box

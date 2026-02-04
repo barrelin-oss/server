@@ -8,6 +8,7 @@
 #include "core/subsystem.h"
 #include "npc/npc.h"
 #include "npc/spawn_point.h"
+#include "entity/entity_manager.h"
 
 #include <unordered_map>
 #include <memory>
@@ -71,6 +72,10 @@ public:
     void enable_ai(bool enabled) { config_.enable_ai = enabled; }
 
     // Callback types
+    // IMPORTANT: These callbacks are invoked SYNCHRONOUSLY while the NPC is valid.
+    // The npc& reference is only valid during the callback invocation.
+    // Callbacks must NOT store the reference or access it after returning.
+    // Copy any needed data immediately at the start of the callback.
     using on_npc_spawn_callback = std::function<void(const npc&)>;
     using on_npc_move_callback = std::function<void(const npc&)>;
     using on_npc_death_callback = std::function<void(const npc&, entity::entity killer)>;
@@ -124,12 +129,8 @@ private:
     void try_move_npc(npc& npc_ref, hb::world::position new_pos);
     void perform_npc_attack(npc& npc_ref, entity::entity target);
 
-    [[nodiscard]] auto next_entity_id() -> entity::entity {
-        return entity::entity{next_id_++, 0};
-    }
-
     npc_system_config config_;
-    uint32_t next_id_{1};
+    entity::entity_manager* entity_manager_{nullptr};  // Cached pointer to entity manager
 
     std::unordered_map<entity::entity, std::unique_ptr<npc>> npcs_;
     std::vector<spawn_point> spawn_points_;

@@ -4,10 +4,13 @@
 // Spell definitions and types
 
 #include "core/types.h"
+#include "core/enums.h"
 #include "entity/entity.h"
 #include "world/position.h"
+#include "registry/spell_template.h"
 
 #include <string>
+#include <vector>
 #include <cstdint>
 
 namespace hb::magic {
@@ -102,6 +105,10 @@ struct spell_template {
     int16_t level_requirement{0};
     int16_t int_requirement{0};
     int16_t mag_requirement{0};
+
+    // Effect system integration
+    magic_type spell_type{};                        // Magic type from YAML (effect group key)
+    std::vector<hb::spell_effect> effects;          // Effect entries from registry
 
     // Flags
     bool can_critical{true};

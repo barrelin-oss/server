@@ -98,8 +98,8 @@ private:
     auto find_aoe_targets(hb::entity::entity caster, const spell_template& spell, const cast_target& target) const
         -> std::vector<hb::entity::entity>;
     auto element_to_damage_type(spell_element element) const -> combat::damage_type;
-    void apply_buff(hb::entity::entity target, const spell_template& spell);
-    void apply_debuff(hb::entity::entity target, const spell_template& spell);
+    void apply_buff(hb::entity::entity caster, hb::entity::entity target, const spell_template& spell);
+    void apply_debuff(hb::entity::entity caster, hb::entity::entity target, const spell_template& spell);
     void handle_utility_spell(hb::entity::entity caster, const spell_template& spell, const cast_target& target);
 
     int64_t get_current_time_ms() const;

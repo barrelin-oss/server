@@ -165,11 +165,16 @@ enum class magic_type : uint8_t {
     sp_up_spot = 6,
     teleport = 8,
     summon = 9,
+    protection = 11,
+    hold_paralyze = 12,
     invisibility = 13,
+    confusion = 16,
     poison = 17,
     berserk = 18,
     polymorph = 20,
     ice = 23,
+    cancellation = 28,
+    inhibition = 29,
     resurrection = 32
 };
 

@@ -52,15 +52,15 @@ enum class player_status : uint32_t {
     gm_invisible = 1 << 15,
 };
 
-inline auto operator|(player_status a, player_status b) -> player_status {
+inline constexpr auto operator|(player_status a, player_status b) -> player_status {
     return static_cast<player_status>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
-inline auto operator&(player_status a, player_status b) -> player_status {
+inline constexpr auto operator&(player_status a, player_status b) -> player_status {
     return static_cast<player_status>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
 
-inline auto operator~(player_status a) -> player_status {
+inline constexpr auto operator~(player_status a) -> player_status {
     return static_cast<player_status>(~static_cast<uint32_t>(a));
 }
 
@@ -127,7 +127,9 @@ struct player {
 
     // Stats
     base_stats base;
-    stat_modifiers modifiers;
+    stat_modifiers modifiers;            // Combined (equipment + effects) - computed field
+    stat_modifiers equipment_modifiers;  // From equipment only
+    stat_modifiers effect_modifiers;     // From active spell effects
     computed_stats computed;
     stat_points stat_points;
 
@@ -199,6 +201,7 @@ struct player {
 
     void recalculate_stats() {
         base.level_bonus = experience.level;
+        modifiers = equipment_modifiers + effect_modifiers;
         computed.compute(base, modifiers);
     }
 

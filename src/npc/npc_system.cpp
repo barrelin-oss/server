@@ -6,6 +6,7 @@
 #include "core/subsystem.h"
 #include "player/player_system.h"
 #include "combat/combat_system.h"
+#include "effect/effect_system.h"
 #include "world/world_subsystem.h"
 #include "registry/npc_registry.h"
 #include "npc/random_mob_generator.h"
@@ -344,6 +345,12 @@ void npc_system::despawn_npc(entity::entity id) {
 
     auto& npc_ref = *it->second;
 
+    // Remove active spell effects
+    auto* effect_sys = subsystems().get<effect::effect_system>();
+    if (effect_sys) {
+        effect_sys->remove_all_effects(id);
+    }
+
     // Remove from pack
     if (npc_ref.pack != 0)
     {
@@ -618,6 +625,16 @@ void npc_system::update_all_ai(float delta_time) {
 }
 
 void npc_system::process_ai_state(npc& npc_ref) {
+    // Skip AI if NPC is stunned, frozen, or paralyzed by spell effects
+    auto* effect_sys = subsystems().get<effect::effect_system>();
+    if (effect_sys) {
+        if (effect_sys->has_status(npc_ref.entity_id, player::player_status::stunned) ||
+            effect_sys->has_status(npc_ref.entity_id, player::player_status::frozen) ||
+            effect_sys->has_status(npc_ref.entity_id, player::player_status::paralyzed)) {
+            return;
+        }
+    }
+
     auto now = std::chrono::steady_clock::now();
     auto& state = npc_ref.ai_state;
 

@@ -100,6 +100,10 @@ public:
     auto unequip_item(player_id id, equip_slot slot) -> equipped_item;
     void recalculate_equipment_modifiers(player_id id);
 
+    // Effect modifiers (called by effect_system)
+    void set_effect_modifiers(player_id id, const stat_modifiers& mods);
+    void set_effect_status(player_id id, player_status effect_flags);
+
     // Location and Movement
     void set_position(player_id id, map_id map, hb::world::position pos, hb::world::direction facing);
     void set_facing(player_id id, hb::world::direction facing);

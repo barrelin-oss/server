@@ -85,11 +85,11 @@ This document tracks implementation progress for the modernized Helbreath server
 | Movement (walk) | ✅ | Direction-based, validation |
 | Movement (run) | ✅ | 2-tile movement |
 | Position sync | ✅ | Client validation, desync detection |
-| Stats calculation | ✅ | Base + equipment + computed stats |
+| Stats calculation | ✅ | Base + equipment + effect modifiers → computed stats |
 | Level/experience | ✅ | XP gain, level up |
 | Equipment management | ✅ | Equipment slots, stat application |
 | Hunger system | ✅ | Hunger decay, regen penalties, client notifications |
-| Status effects | ✅ | Poison, paralyze, freeze, curse, etc. |
+| Status effects | ✅ | Poison, paralyze, freeze, curse, etc. (managed by effect_system) |
 | Regeneration | ✅ | HP/MP/SP regen with modifiers |
 | PK decay | ✅ | Criminal status decay over time |
 | Save/load | ✅ | Skills, equipment, inventory saved/loaded on enter/disconnect |
@@ -133,7 +133,11 @@ This document tracks implementation progress for the modernized Helbreath server
 | Buff spells | ✅ | Protection, haste, invisibility, etc. |
 | Debuff spells | ✅ | Poison, paralyze, etc. |
 | AoE targeting | ✅ | Ally/enemy/all target finding |
-| Spell effects | 🔄 | Status effects apply, visual broadcasts TODO |
+| Spell effects | ✅ | Duration tracking, periodic ticks, stat modifiers via effect_system |
+| Effect groups | ✅ | magic_type-based slots, one-per-group rule |
+| DoT/HoT ticking | ✅ | Poison, burn, heal, mana drain/restore with 2s tick |
+| Effect-stat pipeline | ✅ | Equipment + effect modifiers combined, auto-revert on expiry |
+| Visual broadcasts | 📋 | Client broadcast for effect applied/removed TODO |
 
 ---
 
@@ -386,13 +390,14 @@ Priority order for remaining work toward a playable game:
 
 1. **Ground Items / Loot Drops** - NPCs drop items, players can pick up
 2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
-3. **Combat Broadcasts** - Visual feedback to nearby players
+3. **Combat/Spell Visual Broadcasts** - Damage, effect applied/removed to nearby players
 4. **NPC Interaction** - Dialog, shops, banks
 5. ~~**Death/Respawn**~~ - ✅ XP penalty, PK tracking, bounty, delayed respawn
-6. **Ranged Combat** - Bow/crossbow projectiles
-7. **Crafting System** - Manufacturing, alchemy
-8. **War Mechanics** - Crusade, Heldenian, Apocalypse battle logic
-9. **Guild Persistence** - Save/load guild data
+6. ~~**Spell Effects System**~~ - ✅ Duration tracking, group slots, DoT/HoT, stat pipeline
+7. **Ranged Combat** - Bow/crossbow projectiles
+8. **Crafting System** - Manufacturing, alchemy
+9. **War Mechanics** - Crusade, Heldenian, Apocalypse battle logic
+10. **Guild Persistence** - Save/load guild data
 
 ---
 
@@ -414,6 +419,24 @@ Priority order for remaining work toward a playable game:
 ## Recent Changes
 
 ### 2026-02-05
+- **Spell Effects System** - Full implementation (`src/effect/`):
+  - `effect_system` subsystem tracking active spell effects (buffs, debuffs, DoTs, HoTs)
+  - Effect group slots via `magic_type` - only one effect per group per target (first-wins)
+  - Groups: protection(11), hold/paralyze(12), invisibility(13), confusion(16), poison(17), berserk(18), cancellation(28), inhibition(29)
+  - Duration tracking with auto-expiry and periodic tick processing (2s intervals)
+  - DoT/HoT ticks: poison/burn deal damage, heal restores HP, mana drain/restore affects MP
+  - Split player stat modifiers: `equipment_modifiers` + `effect_modifiers` → combined `modifiers`
+  - Effect-managed status flag mask preserves non-effect flags (e.g. `gm_invisible`)
+  - `compute_effect_modifiers()` pure function maps effects → stat_modifiers + player_status
+  - `magic_system` buff/debuff rewritten to use effect_system (replaces hardcoded switches)
+  - Cancellation spell removes all effects; Cure removes poison group
+  - NPC combat context queries effect modifiers for attack/defense
+  - NPC AI skips processing when stunned/frozen/paralyzed
+  - Death/despawn/disconnect cleanup removes all effects
+  - Callbacks: on_effect_applied, on_effect_removed, on_effect_tick
+  - 38 new unit tests (997 total, all passing)
+  - New files: `active_effect.h`, `effect_modifiers.h/.cpp`, `effect_system.h/.cpp`
+  - Modified: `player.h`, `player_system.h/.cpp`, `spell.h`, `magic_system.h/.cpp`, `combat_system.cpp`, `npc_system.cpp`, `application.h/.cpp`, `enums.h`, `CMakeLists.txt`
 - **Death/Respawn system** - Full implementation:
   - XP penalty on PvP death with level-floor clamping (no de-leveling)
   - PK point tracking: killers gain PK points for killing innocents

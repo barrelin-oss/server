@@ -6,6 +6,7 @@
 #include "core/subsystem.h"
 #include "player/player_system.h"
 #include "npc/npc_system.h"
+#include "effect/effect_system.h"
 
 #include <chrono>
 
@@ -131,6 +132,15 @@ auto combat_system::build_combat_context(hb::entity::entity attacker, hb::entity
             ctx.hit_rate = n->hit_rate;
             ctx.critical_rate = 5;  // NPCs have lower base crit
             ctx.critical_damage = 150;
+
+            // Apply effect modifiers to NPC attacker stats
+            auto* effect_sys = subsystems().get<effect::effect_system>();
+            if (effect_sys) {
+                if (auto* mods = effect_sys->get_effect_modifiers(attacker)) {
+                    ctx.attack_power += mods->modifiers.attack_power;
+                    ctx.magic_power += mods->modifiers.magic_power;
+                }
+            }
         }
     }
 
@@ -153,6 +163,15 @@ auto combat_system::build_combat_context(hb::entity::entity attacker, hb::entity
             ctx.dodge_rate = n->dodge_rate;
             ctx.block_rate = 0;
             ctx.damage_reduction = 0;
+
+            // Apply effect modifiers to NPC defender stats
+            auto* effect_sys = subsystems().get<effect::effect_system>();
+            if (effect_sys) {
+                if (auto* mods = effect_sys->get_effect_modifiers(defender)) {
+                    ctx.defense += mods->modifiers.defense;
+                    ctx.magic_defense += mods->modifiers.magic_defense;
+                }
+            }
         }
     }
 

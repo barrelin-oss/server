@@ -7,6 +7,7 @@
 #include "player/player_system.h"
 #include "npc/npc_system.h"
 #include "combat/combat_system.h"
+#include "effect/effect_system.h"
 #include "world/world_subsystem.h"
 
 #include <chrono>
@@ -491,7 +492,7 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster, const spell_tem
 
         case spell_category::buff: {
             for (auto& t : targets) {
-                apply_buff(t, spell);
+                apply_buff(caster, t, spell);
                 result.affected_targets.push_back(t);
             }
             break;
@@ -499,7 +500,7 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster, const spell_tem
 
         case spell_category::debuff: {
             for (auto& t : targets) {
-                apply_debuff(t, spell);
+                apply_debuff(caster, t, spell);
                 result.affected_targets.push_back(t);
             }
             break;
@@ -507,7 +508,7 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster, const spell_tem
 
         case spell_category::defense: {
             // Self-targeted defensive spells
-            apply_buff(caster, spell);
+            apply_buff(caster, caster, spell);
             result.affected_targets.push_back(caster);
             break;
         }
@@ -651,74 +652,114 @@ auto magic_system::element_to_damage_type(spell_element element) const -> combat
     }
 }
 
-void magic_system::apply_buff(hb::entity::entity target, const spell_template& spell) {
-    auto* player_sys = subsystems().get<player::player_system>();
-    if (!player_sys) return;
+void magic_system::apply_buff(hb::entity::entity caster, hb::entity::entity target, const spell_template& spell) {
+    auto* effect_sys = subsystems().get<effect::effect_system>();
+    if (!effect_sys) return;
 
-    auto* p = player_sys->get_player(player_id{target.id});
-    if (!p) return;
-
-    // Apply status based on spell name/id
-    // This is simplified - real implementation would have buff types
-    switch (spell.id.value) {
-        case 10:  // Protection spell
-            p->add_status(player::player_status::protection);
-            break;
-        case 11:  // Defense Up
-            p->add_status(player::player_status::defense_up);
-            break;
-        case 12:  // Attack Up
-            p->add_status(player::player_status::attack_up);
-            break;
-        case 13:  // Magic Up
-            p->add_status(player::player_status::magic_up);
-            break;
-        case 14:  // Haste
-            p->add_status(player::player_status::haste);
-            break;
-        case 15:  // Invisibility
-            p->add_status(player::player_status::invisible);
-            break;
-        default:
-            // Generic buff effect
-            break;
+    // Cancellation (type 28) removes all effects instead of applying one
+    if (spell.spell_type == magic_type::cancellation) {
+        effect_sys->remove_all_effects(target);
+        LOG_DEBUG(magic, "Cancellation removed all effects from entity {}", target.id);
+        return;
     }
 
-    LOG_DEBUG(general, "Applied buff from spell '{}' to entity {}", spell.name, target.id);
+    // Determine effect type and magnitude
+    auto effect_type = spell_effect_type::none;
+    int32_t magnitude = spell.effect_value;
+
+    // Use the first effect entry from registry if available
+    if (!spell.effects.empty()) {
+        effect_type = spell.effects[0].type;
+        if (spell.effects[0].base_value != 0) {
+            magnitude = spell.effects[0].base_value;
+        }
+    }
+
+    // Duration from spell template (in ms)
+    int64_t duration_ms = spell.duration_ms;
+
+    effect::apply_effect_params params{};
+    params.source = caster;
+    params.target = target;
+    params.source_spell = spell.id;
+    params.group = spell.spell_type;
+    params.type = effect_type;
+    params.magnitude = magnitude;
+    params.duration_ms = duration_ms;
+
+    auto eid = effect_sys->apply_effect(params);
+    if (!eid.is_valid()) {
+        LOG_DEBUG(magic, "Buff '{}' blocked on entity {} (group slot occupied)", spell.name, target.id);
+    }
 }
 
-void magic_system::apply_debuff(hb::entity::entity target, const spell_template& spell) {
-    auto* player_sys = subsystems().get<player::player_system>();
-    if (!player_sys) return;
+void magic_system::apply_debuff(hb::entity::entity caster, hb::entity::entity target, const spell_template& spell) {
+    auto* effect_sys = subsystems().get<effect::effect_system>();
+    if (!effect_sys) return;
 
-    auto* p = player_sys->get_player(player_id{target.id});
-    if (!p) return;
-
-    // Apply negative status based on spell
-    switch (spell.id.value) {
-        case 20:  // Poison
-            p->add_status(player::player_status::poisoned);
-            break;
-        case 21:  // Paralyze
-            p->add_status(player::player_status::paralyzed);
-            break;
-        case 22:  // Freeze
-            p->add_status(player::player_status::frozen);
-            break;
-        case 23:  // Slow
-            p->add_status(player::player_status::slow);
-            break;
-        case 24:  // Curse
-            p->add_status(player::player_status::cursed);
-            break;
-        case 25:  // Silence
-            p->add_status(player::player_status::silenced);
-            break;
-        default:
-            break;
+    // Cure removes poison group instead of applying a debuff
+    // Cure is typically spell id 36 with magic_type::poison
+    if (spell.spell_type == magic_type::poison && spell.category == spell_category::healing) {
+        effect_sys->remove_effects_by_group(target, magic_type::poison);
+        LOG_DEBUG(magic, "Cure removed poison from entity {}", target.id);
+        return;
     }
 
-    LOG_DEBUG(general, "Applied debuff from spell '{}' to entity {}", spell.name, target.id);
+    // Check resist before applying
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (player_sys) {
+        if (auto* p = player_sys->get_player(player_id{target.id})) {
+            if (spell.spell_type == magic_type::poison && p->computed.poison_resist > 0) {
+                // Simple resist check: resist% chance to ignore
+                int roll = rand() % 100;
+                if (roll < p->computed.poison_resist) {
+                    LOG_DEBUG(magic, "Entity {} resisted poison (resist={}%)", target.id, p->computed.poison_resist);
+                    return;
+                }
+            }
+            if (spell.spell_type == magic_type::hold_paralyze && p->computed.paralyze_resist > 0) {
+                int roll = rand() % 100;
+                if (roll < p->computed.paralyze_resist) {
+                    LOG_DEBUG(magic, "Entity {} resisted paralyze (resist={}%)", target.id, p->computed.paralyze_resist);
+                    return;
+                }
+            }
+        }
+    }
+
+    // Determine effect type and magnitude
+    auto effect_type = spell_effect_type::none;
+    int32_t magnitude = spell.effect_value;
+    int64_t tick_interval_ms = 0;
+
+    if (!spell.effects.empty()) {
+        effect_type = spell.effects[0].type;
+        if (spell.effects[0].base_value != 0) {
+            magnitude = spell.effects[0].base_value;
+        }
+    }
+
+    // Periodic effects: poison and burn tick every 2 seconds
+    if (effect_type == spell_effect_type::poison || effect_type == spell_effect_type::burn) {
+        tick_interval_ms = effect::default_tick_interval_ms;
+    }
+
+    int64_t duration_ms = spell.duration_ms;
+
+    effect::apply_effect_params params{};
+    params.source = caster;
+    params.target = target;
+    params.source_spell = spell.id;
+    params.group = spell.spell_type;
+    params.type = effect_type;
+    params.magnitude = magnitude;
+    params.duration_ms = duration_ms;
+    params.tick_interval_ms = tick_interval_ms;
+
+    auto eid = effect_sys->apply_effect(params);
+    if (!eid.is_valid()) {
+        LOG_DEBUG(magic, "Debuff '{}' blocked on entity {} (group slot occupied)", spell.name, target.id);
+    }
 }
 
 void magic_system::handle_utility_spell(hb::entity::entity caster, const spell_template& spell,

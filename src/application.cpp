@@ -27,6 +27,7 @@
 #include "npc/spot_mob_mapping.h"
 #include "item/item_system.h"
 #include "combat/combat_system.h"
+#include "effect/effect_system.h"
 #include "magic/magic_system.h"
 #include "inventory/inventory_system.h"
 #include "skill/skill_system.h"
@@ -188,6 +189,7 @@ void application::initialize() {
     subsystems().create_subsystem<npc::npc_system>();
     subsystems().create_subsystem<npc::spawn_rule_engine>();
     subsystems().create_subsystem<item::item_system>();
+    subsystems().create_subsystem<effect::effect_system>();
     subsystems().create_subsystem<combat::combat_system>();
     subsystems().create_subsystem<magic::magic_system>();
     subsystems().create_subsystem<inventory::inventory_system>();
@@ -252,6 +254,9 @@ void application::initialize() {
 
     // NOW initialize subsystems (database will use the configured settings)
     subsystems().initialize_all();
+
+    // Wire effect system callbacks
+    wire_effect_system();
 
     // Load game maps from mapdata directory
     load_maps();
@@ -621,6 +626,60 @@ void application::register_spawn_points() {
     });
 
     LOG_INFO(general, "Registered {} NPC spawn points ({} skipped)", spawner_count, skipped_count);
+}
+
+void application::wire_effect_system() {
+    auto* effect_sys = subsystems().get<effect::effect_system>();
+    if (!effect_sys) return;
+
+    auto* combat_sys = subsystems().get<combat::combat_system>();
+    auto* player_sys = subsystems().get<player::player_system>();
+
+    // Wire death cleanup: remove all effects when an entity dies
+    if (combat_sys) {
+        combat_sys->on_death([effect_sys](const combat::death_event& event) {
+            effect_sys->remove_all_effects(event.victim);
+        });
+    }
+
+    // Wire periodic tick effects (poison/burn damage, heal/mana ticks)
+    effect_sys->on_effect_tick([combat_sys, player_sys](entity::entity target, const effect::active_effect& eff) {
+        switch (eff.type) {
+            case spell_effect_type::poison:
+                if (combat_sys) {
+                    combat_sys->deal_damage(target, eff.magnitude, combat::damage_type::poison, eff.source);
+                }
+                break;
+            case spell_effect_type::burn:
+                if (combat_sys) {
+                    combat_sys->deal_damage(target, eff.magnitude, combat::damage_type::fire, eff.source);
+                }
+                break;
+            case spell_effect_type::heal:
+                if (player_sys) {
+                    player_sys->apply_heal(player_id{target.id}, eff.magnitude);
+                }
+                break;
+            case spell_effect_type::mana_drain:
+                if (player_sys) {
+                    if (auto* p = player_sys->get_player(player_id{target.id})) {
+                        p->spend_mp(eff.magnitude);
+                    }
+                }
+                break;
+            case spell_effect_type::mana_restore:
+                if (player_sys) {
+                    if (auto* p = player_sys->get_player(player_id{target.id})) {
+                        p->heal_mp(eff.magnitude);
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+    });
+
+    LOG_INFO(general, "Effect system callbacks wired");
 }
 
 void application::load_game_configs() {

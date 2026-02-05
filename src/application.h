@@ -73,6 +73,7 @@ private:
     void load_maps();
     void load_game_configs();
     void register_spawn_points();
+    void wire_effect_system();
 
     // Timer callback
     void on_tick();

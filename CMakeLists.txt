@@ -129,6 +129,11 @@ set(COMBAT_SOURCES
     src/combat/combat_system.cpp
 )
 
+set(EFFECT_SOURCES
+    src/effect/effect_system.cpp
+    src/effect/effect_modifiers.cpp
+)
+
 set(MAGIC_SOURCES
     src/magic/magic_system.cpp
 )
@@ -207,6 +212,7 @@ add_library(hgserver_core STATIC
     ${NPC_SOURCES}
     ${ITEM_SOURCES}
     ${COMBAT_SOURCES}
+    ${EFFECT_SOURCES}
     ${MAGIC_SOURCES}
     ${INVENTORY_SOURCES}
     ${SKILL_SOURCES}
@@ -305,6 +311,7 @@ add_executable(hgserver_tests
     tests/test_admin.cpp
     tests/test_bridge.cpp
     tests/test_auth.cpp
+    tests/test_effect.cpp
     tests/test_death_respawn.cpp
     tests/test_integration.cpp
 )

@@ -6,6 +6,7 @@
 #include "core/subsystem.h"
 #include "item/item_system.h"
 #include "item/item_effect.h"
+#include "effect/effect_system.h"
 #include "world/world_subsystem.h"
 #include "entity/entity_manager.h"
 #include "entity/components/transform.h"
@@ -102,6 +103,12 @@ void player_system::remove_player(player_id id) {
     if (it == players_.end()) return;
 
     auto& p = *it->second;
+
+    // Remove active spell effects
+    auto* effect_sys = subsystems().get<effect::effect_system>();
+    if (effect_sys && p.ecs_entity.is_valid()) {
+        effect_sys->remove_all_effects(entity::entity{p.id.value});
+    }
 
     // Remove from spatial index
     auto* world_sys = subsystems().get<world::world_subsystem>();
@@ -301,12 +308,12 @@ void player_system::recalculate_equipment_modifiers(player_id id) {
     auto* p = get_player(id);
     if (!p) return;
 
-    // Clear equipment modifiers - start fresh
-    p->modifiers = stat_modifiers{};
+    // Clear equipment modifiers only - preserve effect modifiers
+    p->equipment_modifiers = stat_modifiers{};
 
     auto* item_sys = subsystems().get<item::item_system>();
     if (!item_sys) {
-        // No item system available, just recalculate with zeroed modifiers
+        // No item system available, just recalculate with zeroed equipment modifiers
         p->recalculate_stats();
         return;
     }
@@ -323,14 +330,38 @@ void player_system::recalculate_equipment_modifiers(player_id id) {
         // Skip broken items
         if (equipped_item->is_broken()) continue;
 
-        // Apply item base stats and effects
-        item::apply_item_base_stats(*equipped_item, p->modifiers);
+        // Apply item base stats and effects to equipment modifiers only
+        item::apply_item_base_stats(*equipped_item, p->equipment_modifiers);
     }
 
     LOG_DEBUG(general, "Recalculated equipment modifiers for player '{}'", p->name);
 
-    // Now recalculate computed stats with the new modifiers
+    // Now recalculate computed stats (combines equipment + effect modifiers)
     p->recalculate_stats();
+}
+
+void player_system::set_effect_modifiers(player_id id, const stat_modifiers& mods) {
+    auto* p = get_player(id);
+    if (!p) return;
+
+    p->effect_modifiers = mods;
+    p->recalculate_stats();
+}
+
+void player_system::set_effect_status(player_id id, player_status effect_flags) {
+    auto* p = get_player(id);
+    if (!p) return;
+
+    // Mask of status flags managed by the effect system.
+    // These get cleared and re-set each update. Non-effect flags (like gm_invisible) are preserved.
+    constexpr auto effect_managed_mask =
+        player_status::poisoned | player_status::paralyzed | player_status::invisible |
+        player_status::frozen | player_status::berserk | player_status::protection |
+        player_status::defense_up | player_status::attack_up | player_status::magic_up |
+        player_status::haste | player_status::slow | player_status::stunned |
+        player_status::silenced | player_status::invincible | player_status::cursed;
+
+    p->status = (p->status & ~effect_managed_mask) | effect_flags;
 }
 
 void player_system::set_position(player_id id, map_id map, hb::world::position pos, hb::world::direction facing) {

@@ -105,6 +105,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"npc_attack", json_message_type::npc_attack},
     {"npc_death", json_message_type::npc_death},
     {"ground_item_removed", json_message_type::ground_item_removed},
+    {"player_death_info", json_message_type::player_death_info},
     {"hunger_update", json_message_type::hunger_update},
     {"entity_info_request", json_message_type::entity_info_request},
     {"entity_info_response", json_message_type::entity_info_response}
@@ -1689,6 +1690,33 @@ auto make_ground_item_removed(const ground_item_removed_data& data) -> json_mess
     return json_message{
         .type = json_message_type::ground_item_removed,
         .seq = 0,  // Broadcasts don't need seq
+        .data = data.to_json()
+    };
+}
+
+// Player death info data to_json implementation
+
+auto player_death_info_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"killer_id", killer_id},
+        {"killer_name", killer_name},
+        {"is_pvp", is_pvp},
+        {"xp_lost", xp_lost},
+        {"pk_points_change", pk_points_change},
+        {"gold_reward", gold_reward},
+        {"respawn_delay_ms", respawn_delay_ms},
+        {"respawn_map", respawn_map},
+        {"respawn_x", respawn_x},
+        {"respawn_y", respawn_y}
+    };
+}
+
+// Player death info message builder
+
+auto make_player_death_info(const player_death_info_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::player_death_info,
+        .seq = 0,
         .data = data.to_json()
     };
 }

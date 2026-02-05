@@ -131,6 +131,9 @@ struct game_config {
     uint32_t poison_time = 12000;
     uint32_t auto_save_time = 600000;
 
+    // Death/Respawn
+    uint32_t respawn_delay_ms = 5000;
+
     // Economy
     uint32_t max_reward_gold = 99999999;
 

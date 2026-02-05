@@ -16,10 +16,13 @@
 #include "npc/npc.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
+#include "scheduler/scheduler.h"
+#include "config/config_system.h"
 #include "core/subsystem.h"
 #include "core/logger.h"
 
 #include <chrono>
+#include <random>
 #include <iomanip>
 #include <sstream>
 
@@ -27,6 +30,10 @@ namespace hb::bridge {
 
 game_handlers::game_handlers() = default;
 game_handlers::~game_handlers() = default;
+
+void game_handlers::set_save_callback(save_player_callback cb) {
+    save_callback_ = std::move(cb);
+}
 
 void game_handlers::initialize(network::websocket_server* ws_server,
                                 player::player_system* players,
@@ -36,7 +43,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 combat::combat_system* combat,
                                 npc::npc_system* npc,
                                 inventory::inventory_system* inventory,
-                                item::item_system* item) {
+                                item::item_system* item,
+                                scheduler* sched) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -46,6 +54,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     npc_ = npc;
     inventory_ = inventory;
     item_ = item;
+    scheduler_ = sched;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -1589,64 +1598,164 @@ void game_handlers::on_entity_death(const combat::death_event& event) {
     // Broadcast death to nearby players
     broadcast_entity_death(victim_pid, killer_pid);
 
-    // Handle respawn
-    handle_player_death(victim_pid);
+    // Handle death penalties and respawn
+    handle_player_death(victim_pid, event);
 }
 
-void game_handlers::handle_player_death(player_id pid) {
-    if (!players_ || !ws_server_ || !world_ || !combat_) return;
+void game_handlers::handle_player_death(player_id pid, const combat::death_event& event) {
+    if (!players_ || !ws_server_ || !world_) return;
 
     auto* player = players_->get_player(pid);
     if (!player) return;
 
-    // Determine spawn point based on faction
-    std::string spawn_map;
-    world::position spawn_pos{18, 18};  // Default center position
+    // 1. Clear status effects and combat target
+    player->status = player::player_status::none;
+    player->target = {};
 
-    switch (player->faction) {
-        case faction::aresden:
-            spawn_map = "aresden";
-            spawn_pos = {18, 18};
-            break;
-        case faction::elvine:
-            spawn_map = "elvine";
-            spawn_pos = {18, 18};
-            break;
-        case faction::neutral:
-        default:
-            spawn_map = "default";
-            spawn_pos = {18, 18};
-            break;
+    int64_t xp_lost = 0;
+    int32_t pk_points_change = 0;
+    int32_t gold_reward = 0;
+    std::string killer_name;
+
+    player_id killer_pid{event.killer.id};
+    auto* killer = players_->get_player(killer_pid);
+    if (killer) {
+        killer_name = killer->name;
     }
 
-    // Check if map exists, fall back to current map spawn
-    if (world_) {
-        auto* spawn_map_ptr = world_->get_map_by_name(spawn_map);
-        if (!spawn_map_ptr) {
-            // Fall back to current map
-            auto* current_map = world_->get_map(player->current_map);
-            if (current_map) {
-                spawn_map = std::string(current_map->name());
-            }
+    // 2. PvP-specific penalties
+    if (event.is_pvp && killer) {
+        // XP penalty for victim
+        int64_t penalty = calculate_death_xp_penalty(player->experience.level);
+        xp_lost = player->experience.remove_experience(penalty);
+
+        // If victim is innocent, killer gains PK points
+        if (player->pk.is_innocent()) {
+            killer->pk.add_kill();
+            pk_points_change = 50;
+            LOG_INFO(bridge, "Player {} gained PK point for killing innocent {}",
+                killer_pid.value, pid.value);
+        }
+
+        // If killer is innocent and victim is a PKer, award bounty
+        if (killer->pk.is_innocent() && (player->pk.is_criminal() || player->pk.is_murderer())) {
+            gold_reward = calculate_pk_bounty_reward(player->experience.level);
+            // Cap at max reward gold (from game config default)
+            gold_reward = std::min(gold_reward, static_cast<int32_t>(99999999));
+            // TODO: Actually add gold to killer's inventory when economy wiring is complete
+            LOG_INFO(bridge, "Player {} earned {} gold bounty for killing PKer {}",
+                killer_pid.value, gold_reward, pid.value);
         }
     }
 
-    // Restore HP to 50%
+    // 3. Determine respawn location
+    std::string spawn_map = get_respawn_map_name(player->faction);
+    world::position spawn_pos = get_respawn_position(spawn_map);
+
+    // 4. Save player state after applying penalties
+    if (save_callback_) {
+        save_callback_(pid);
+    }
+
+    // 5. Send death info to the dead player
+    uint32_t respawn_delay = 5000;  // Default 5s
+    if (auto* cfg_sys = subsystems().get<config_system>()) {
+        respawn_delay = cfg_sys->game().respawn_delay_ms;
+    }
+
+    network::player_death_info_data death_info{
+        .killer_id = killer_pid.value,
+        .killer_name = killer_name,
+        .is_pvp = event.is_pvp,
+        .xp_lost = xp_lost,
+        .pk_points_change = pk_points_change,
+        .gold_reward = gold_reward,
+        .respawn_delay_ms = respawn_delay,
+        .respawn_map = spawn_map,
+        .respawn_x = spawn_pos.x,
+        .respawn_y = spawn_pos.y
+    };
+
+    auto* conn = ws_server_->get_connection(player->connection);
+    if (conn && conn->is_open()) {
+        conn->send(network::make_player_death_info(death_info));
+    }
+
+    // 6. Schedule delayed respawn
+    if (scheduler_) {
+        scheduler_->schedule(duration_ms{respawn_delay},
+            [this, pid, spawn_map, spawn_pos]() {
+                execute_respawn(pid, spawn_map, spawn_pos);
+            });
+    } else {
+        // Fallback: immediate respawn if scheduler unavailable
+        execute_respawn(pid, spawn_map, spawn_pos);
+    }
+
+    LOG_INFO(bridge, "Player {} died (pvp={}, xp_lost={}, pk_change={}, bounty={}), respawning at {} ({}, {}) in {}ms",
+        pid.value, event.is_pvp, xp_lost, pk_points_change, gold_reward,
+        spawn_map, spawn_pos.x, spawn_pos.y, respawn_delay);
+}
+
+void game_handlers::execute_respawn(player_id pid, const std::string& map_name,
+                                     const world::position& pos)
+{
+    if (!players_ || !ws_server_ || !combat_) return;
+
+    auto* player = players_->get_player(pid);
+    if (!player) return;  // Player disconnected during respawn delay
+
+    // Restore HP/MP to 50%
     player->hp = player->computed.max_hp / 2;
+    player->mp = player->computed.max_mp / 2;
 
     // Set 3-second invulnerability
     entity::entity player_entity{pid.value};
     combat_->set_invulnerable(player_entity, 3000);
 
     // Execute teleport to spawn
-    auto* conn = ws_server_->get_connection(player->connection);
-    if (!conn) return;
-
-    execute_player_teleport(pid, player->connection, 0, spawn_map, spawn_pos,
+    execute_player_teleport(pid, player->connection, 0, map_name, pos,
                             world::direction::south);
+}
 
-    LOG_INFO(bridge, "Player {} died and respawned at {} ({}, {}) with {} HP",
-        pid.value, spawn_map, spawn_pos.x, spawn_pos.y, player->hp);
+auto game_handlers::calculate_death_xp_penalty(uint8_t level) -> int64_t {
+    if (level <= 1) return 0;
+
+    // Legacy Helbreath formula: random(1, level/2+1) * 50
+    static thread_local std::mt19937 rng{std::random_device{}()};
+    int max_roll = level / 2 + 1;
+    std::uniform_int_distribution<int> dist(1, max_roll);
+    return static_cast<int64_t>(dist(rng)) * 50;
+}
+
+auto game_handlers::calculate_pk_bounty_reward(uint8_t level) -> int32_t {
+    return static_cast<int32_t>(level) * 3;
+}
+
+auto game_handlers::get_respawn_map_name(hb::faction f) -> std::string {
+    switch (f) {
+        case faction::aresden: return "aresden";
+        case faction::elvine: return "elvine";
+        default: return "default";
+    }
+}
+
+auto game_handlers::get_respawn_position(const std::string& map_name) -> world::position {
+    if (!world_) return {18, 18};
+
+    auto* m = world_->get_map_by_name(map_name);
+    if (!m) {
+        // Map not found - try to fall back
+        return {18, 18};
+    }
+
+    auto pos = m->get_random_initial_point();
+    if (pos.has_value()) {
+        return *pos;
+    }
+
+    // No initial points defined - fallback
+    return {18, 18};
 }
 
 void game_handlers::broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max) {

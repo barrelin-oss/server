@@ -4,12 +4,18 @@
 // Message handlers for in-game protocol (movement, combat, chat, etc.)
 
 #include "core/types.h"
+#include "core/enums.h"
 #include "network/json_protocol.h"
 #include "world/position.h"
 #include "world/map.h"
 #include "entity/entity.h"
 
 #include <optional>
+#include <functional>
+
+namespace hb {
+    class scheduler;
+}
 
 namespace hb::network {
     class websocket_server;
@@ -61,6 +67,9 @@ public:
     game_handlers();
     ~game_handlers();
 
+    // Save player callback type
+    using save_player_callback = std::function<void(player_id)>;
+
     // Initialize with required systems
     void initialize(network::websocket_server* ws_server,
                     player::player_system* players,
@@ -70,7 +79,11 @@ public:
                     combat::combat_system* combat = nullptr,
                     npc::npc_system* npc = nullptr,
                     inventory::inventory_system* inventory = nullptr,
-                    item::item_system* item = nullptr);
+                    item::item_system* item = nullptr,
+                    scheduler* sched = nullptr);
+
+    // Set callback for saving player state (used after death penalties)
+    void set_save_callback(save_player_callback cb);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -150,7 +163,15 @@ private:
     // Combat event callbacks
     void on_damage_dealt(const combat::damage_event& event);
     void on_entity_death(const combat::death_event& event);
-    void handle_player_death(player_id pid);
+    void handle_player_death(player_id pid, const combat::death_event& event);
+
+    // Death/respawn helpers
+    auto calculate_death_xp_penalty(uint8_t level) -> int64_t;
+    auto calculate_pk_bounty_reward(uint8_t level) -> int32_t;
+    auto get_respawn_map_name(hb::faction f) -> std::string;
+    auto get_respawn_position(const std::string& map_name) -> world::position;
+    void execute_respawn(player_id pid, const std::string& map_name,
+                         const world::position& pos);
 
     // Combat broadcast helpers
     void broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max);
@@ -179,6 +200,8 @@ private:
     npc::npc_system* npc_{nullptr};
     inventory::inventory_system* inventory_{nullptr};
     item::item_system* item_{nullptr};
+    scheduler* scheduler_{nullptr};
+    save_player_callback save_callback_;
 };
 
 }  // namespace hb::bridge

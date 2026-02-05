@@ -80,6 +80,20 @@ struct experience_state {
         ++enemy_kill_count;
         contribution += contribution_per_ek;
     }
+
+    // Remove experience as death penalty. Clamps to level floor (no de-leveling).
+    // Level 1 players are immune. Returns amount actually removed.
+    auto remove_experience(int64_t amount) -> int64_t {
+        if (level <= 1 || amount <= 0) return 0;
+
+        int64_t floor = exp_table.exp_for_level(level);
+        int64_t removable = experience - floor;
+        if (removable <= 0) return 0;
+
+        int64_t actual = std::min(amount, removable);
+        experience -= actual;
+        return actual;
+    }
 };
 
 // Stat points awarded per level

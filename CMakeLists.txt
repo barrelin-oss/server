@@ -305,6 +305,7 @@ add_executable(hgserver_tests
     tests/test_admin.cpp
     tests/test_bridge.cpp
     tests/test_auth.cpp
+    tests/test_death_respawn.cpp
     tests/test_integration.cpp
 )
 

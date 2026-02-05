@@ -327,8 +327,16 @@ void application::initialize() {
             subsystems().get<combat::combat_system>(),
             subsystems().get<npc::npc_system>(),
             subsystems().get<inventory::inventory_system>(),
-            subsystems().get<item::item_system>()
+            subsystems().get<item::item_system>(),
+            subsystems().get<scheduler>()
         );
+
+        // Set save callback for death penalty persistence
+        game_handlers_->set_save_callback([this](player_id pid) {
+            if (auth_handlers_) {
+                auth_handlers_->save_player(pid);
+            }
+        });
 
         // Set up WebSocket message routing - dispatch to appropriate handler
         ws_server_->on_message([this](connection_id conn_id, const network::json_message& msg) {

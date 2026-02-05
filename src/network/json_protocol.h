@@ -117,6 +117,7 @@ enum class json_message_type {
     ground_item_removed,    // Item picked up from ground
 
     // Player state updates (server -> client)
+    player_death_info,      // Death details sent to dead player
     hunger_update,          // Player hunger level changed
 
     // Entity info (client -> server -> client)
@@ -186,6 +187,7 @@ enum class json_message_type {
         case json_message_type::npc_attack: return "npc_attack";
         case json_message_type::npc_death: return "npc_death";
         case json_message_type::ground_item_removed: return "ground_item_removed";
+        case json_message_type::player_death_info: return "player_death_info";
         case json_message_type::hunger_update: return "hunger_update";
         case json_message_type::entity_info_request: return "entity_info_request";
         case json_message_type::entity_info_response: return "entity_info_response";
@@ -816,6 +818,25 @@ struct ground_item_removed_data {
 
 // Ground item message builder
 [[nodiscard]] auto make_ground_item_removed(const ground_item_removed_data& data) -> json_message;
+
+// Player death info data (sent to dead player)
+struct player_death_info_data {
+    uint32_t killer_id{0};
+    std::string killer_name;
+    bool is_pvp{false};
+    int64_t xp_lost{0};
+    int32_t pk_points_change{0};   // Positive = killer gained PK points
+    int32_t gold_reward{0};        // Gold earned for killing a PKer
+    uint32_t respawn_delay_ms{0};
+    std::string respawn_map;
+    int16_t respawn_x{0};
+    int16_t respawn_y{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Player death info message builder
+[[nodiscard]] auto make_player_death_info(const player_death_info_data& data) -> json_message;
 
 // Hunger update data
 struct hunger_update_data {

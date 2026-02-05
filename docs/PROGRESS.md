@@ -93,7 +93,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Regeneration | ✅ | HP/MP/SP regen with modifiers |
 | PK decay | ✅ | Criminal status decay over time |
 | Save/load | ✅ | Skills, equipment, inventory saved/loaded on enter/disconnect |
-| Death/respawn | 🔄 | Death detection works, respawn location/flow TODO |
+| Death/respawn | ✅ | XP penalty, PK tracking, bounty rewards, delayed respawn, map initial_points |
 
 ---
 
@@ -113,7 +113,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Death detection | ✅ | Death events, kill/death counters |
 | Combat broadcasts | 🔄 | Damage events fire, visual broadcast to clients TODO |
 | Ranged combat | 📋 | Bow/crossbow, projectiles |
-| PK system | 📋 | Criminal status tracking exists, penalty logic TODO |
+| PK system | ✅ | PK point gain on innocent kill, bounty rewards, criminal/murderer status |
 
 ---
 
@@ -388,7 +388,7 @@ Priority order for remaining work toward a playable game:
 2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
 3. **Combat Broadcasts** - Visual feedback to nearby players
 4. **NPC Interaction** - Dialog, shops, banks
-5. **Death/Respawn** - Respawn location and flow
+5. ~~**Death/Respawn**~~ - ✅ XP penalty, PK tracking, bounty, delayed respawn
 6. **Ranged Combat** - Bow/crossbow projectiles
 7. **Crafting System** - Manufacturing, alchemy
 8. **War Mechanics** - Crusade, Heldenian, Apocalypse battle logic
@@ -414,6 +414,17 @@ Priority order for remaining work toward a playable game:
 ## Recent Changes
 
 ### 2026-02-05
+- **Death/Respawn system** - Full implementation:
+  - XP penalty on PvP death with level-floor clamping (no de-leveling)
+  - PK point tracking: killers gain PK points for killing innocents
+  - PK bounty rewards: gold for killing PKers
+  - Status effects cleared on death
+  - Respawn uses map `initial_points` instead of hardcoded {18,18}
+  - Configurable respawn delay via scheduler (`respawn_delay_ms`)
+  - `player_death_info` message sent to dead player with full penalty details
+  - Player state saved after death penalties
+  - Post-respawn: 50% HP/MP restore, 3s invulnerability
+  - 16 new unit tests for XP penalty clamping and PK state transitions
 - **Audit and update of PROGRESS.md** - Marked many systems as complete that were previously listed as stubs/planned:
   - Combat system: full damage calc, hit resolution, crits, PvP/PvE, kill rewards
   - Magic system: full spell casting, all spell types, cooldowns, learning

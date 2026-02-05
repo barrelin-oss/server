@@ -1302,6 +1302,47 @@ Broadcast when an entity dies.
 
 ---
 
+### `player_death_info`
+
+Sent to the dead player with death details, penalties applied, and respawn information.
+
+**Server Message:**
+```json
+{
+  "type": "player_death_info",
+  "seq": 0,
+  "data": {
+    "killer_id": 1001,
+    "killer_name": "EnemyPlayer",
+    "is_pvp": true,
+    "xp_lost": 2500,
+    "pk_points_change": 50,
+    "gold_reward": 0,
+    "respawn_delay_ms": 5000,
+    "respawn_map": "aresden",
+    "respawn_x": 42,
+    "respawn_y": 88
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `killer_id` | uint32 | Entity that killed the player (0 if NPC/environmental) |
+| `killer_name` | string | Killer's display name (empty if NPC) |
+| `is_pvp` | bool | Whether this was a player-vs-player kill |
+| `xp_lost` | int64 | Experience points removed as death penalty |
+| `pk_points_change` | int32 | PK points the killer gained (50 if victim was innocent) |
+| `gold_reward` | int32 | Gold bounty earned by killer (if victim was a PKer) |
+| `respawn_delay_ms` | uint32 | Milliseconds until respawn teleport |
+| `respawn_map` | string | Map name where player will respawn |
+| `respawn_x` | int16 | Respawn position X |
+| `respawn_y` | int16 | Respawn position Y |
+
+After `respawn_delay_ms` elapses, the server sends a `player_teleport` message to move the player to the respawn location.
+
+---
+
 ## Magic Messages
 
 ### `player_magic_request`

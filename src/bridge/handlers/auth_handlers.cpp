@@ -15,7 +15,10 @@
 #include "admin/admin_system.h"
 #include "npc/npc_system.h"
 #include "npc/npc.h"
+#include "magic/magic_system.h"
+#include "quest/quest_system.h"
 #include "core/logger.h"
+#include "core/subsystem.h"
 
 namespace hb::bridge {
 
@@ -516,6 +519,33 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 LOG_DEBUG(bridge, "Set gold for player {}: {}", live_player_id.value, char_data.gold);
             }
 
+            // Deserialize and apply magic (spell knowledge)
+            if (!char_data.magic_data.empty()) {
+                auto spells = auth::deserialize_magic(char_data.magic_data);
+                if (!spells.empty()) {
+                    auto* magic_sys = subsystems().get<magic::magic_system>();
+                    if (magic_sys) {
+                        auto entity = hb::entity::entity{live_player_id.value, 0};
+                        magic_sys->set_player_spells(entity, std::move(spells));
+                        LOG_DEBUG(bridge, "Loaded magic data for player {}", live_player_id.value);
+                    }
+                }
+            }
+
+            // Deserialize and apply quest data
+            if (!char_data.quest_data.empty()) {
+                auto* quest_sys = subsystems().get<quest::quest_system>();
+                if (quest_sys) {
+                    quest_sys->register_player(live_player_id);
+                    auto journal = auth::deserialize_quests(char_data.quest_data);
+                    auto* player_journal = quest_sys->get_journal(live_player_id);
+                    if (player_journal) {
+                        *player_journal = std::move(journal);
+                        LOG_DEBUG(bridge, "Loaded quest data for player {}", live_player_id.value);
+                    }
+                }
+            }
+
             // Recalculate computed stats
             player->base.level_bonus = char_data.level;
             player->recalculate_stats();
@@ -671,6 +701,54 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         }
     }
 
+    // Build spell data for network message
+    std::vector<network::known_spell_msg> spells_list;
+    {
+        auto* magic_sys = subsystems().get<magic::magic_system>();
+        if (magic_sys) {
+            auto entity = hb::entity::entity{live_player_id.value, 0};
+            const auto* known = magic_sys->get_player_spells(entity);
+            if (known) {
+                for (const auto& sk : *known) {
+                    spells_list.push_back({
+                        .spell_id = sk.spell.value,
+                        .level = sk.level,
+                        .total_casts = sk.total_casts
+                    });
+                }
+            }
+        }
+    }
+
+    // Build quest data for network message
+    std::vector<network::active_quest_msg> quests_list;
+    std::vector<uint16_t> completed_quest_ids;
+    {
+        auto* quest_sys = subsystems().get<quest::quest_system>();
+        if (quest_sys) {
+            const auto* journal = quest_sys->get_journal(live_player_id);
+            if (journal) {
+                for (const auto& q : journal->active_quests) {
+                    network::active_quest_msg qm;
+                    qm.quest_id = q.template_id.value;
+                    qm.status = static_cast<uint8_t>(q.status);
+                    for (const auto& obj : q.objectives) {
+                        qm.objectives.push_back({
+                            .id = obj.template_id,
+                            .status = static_cast<uint8_t>(obj.status),
+                            .current = obj.current_count,
+                            .required = obj.required_count
+                        });
+                    }
+                    quests_list.push_back(std::move(qm));
+                }
+                for (const auto& qid : journal->completed_quests) {
+                    completed_quest_ids.push_back(qid.value);
+                }
+            }
+        }
+    }
+
     // Build full game state message
     network::game_state_msg game_state{
         .character = network::character_data_msg{
@@ -706,6 +784,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         .inventory = inventory_list,
         .equipment = equipment_list,
         .skills = skills_list,
+        .spells = spells_list,
+        .quests = quests_list,
+        .completed_quests = completed_quest_ids,
         .entities = build_visible_entities(live_player_id),
         .gold = player_gold
     };
@@ -938,6 +1019,35 @@ void auth_handlers::save_player_state(player_id pid) {
         player_gold = static_cast<int32_t>(inventory_->get_gold(entity));
     }
 
+    // Serialize magic (spell knowledge)
+    std::string magic_json = "[]";
+    {
+        auto* magic_sys = subsystems().get<magic::magic_system>();
+        if (magic_sys) {
+            auto entity = hb::entity::entity{pid.value, 0};
+            const auto* spells = magic_sys->get_player_spells(entity);
+            if (spells) {
+                magic_json = auth::serialize_magic(*spells);
+                LOG_DEBUG(bridge, "Saving magic data for player {} ({} spells)",
+                    pid.value, spells->size());
+            }
+        }
+    }
+
+    // Serialize quest data
+    std::string quest_json = "[]";
+    {
+        auto* quest_sys = subsystems().get<quest::quest_system>();
+        if (quest_sys) {
+            const auto* journal = quest_sys->get_journal(pid);
+            if (journal) {
+                quest_json = auth::serialize_quests(*journal);
+                LOG_DEBUG(bridge, "Saving quest data for player {} ({} active, {} completed)",
+                    pid.value, journal->active_quests.size(), journal->completed_quests.size());
+            }
+        }
+    }
+
     // Build character data from current player state
     // Use the database character_id, not the runtime player_id
     auth::character_full_data data{
@@ -974,7 +1084,9 @@ void auth_handlers::save_player_state(player_id pid) {
         .skills_data = skills_json,
         .inventory_data = inventory_json,
         .equipment_data = equipment_json,
-        .bank_data = bank_json
+        .bank_data = bank_json,
+        .magic_data = magic_json,
+        .quest_data = quest_json
     };
 
     // Get map name

@@ -245,6 +245,15 @@ void magic_system::level_up_spell(hb::entity::entity caster, spell_id spell) {
     }
 }
 
+auto magic_system::get_player_spells(hb::entity::entity caster) const -> const std::vector<spell_knowledge>* {
+    auto it = player_spells_.find(caster);
+    return it != player_spells_.end() ? &it->second : nullptr;
+}
+
+void magic_system::set_player_spells(hb::entity::entity caster, std::vector<spell_knowledge> spells) {
+    player_spells_[caster] = std::move(spells);
+}
+
 void magic_system::register_spell(const spell_template& spell) {
     spells_[spell.id] = spell;
     LOG_DEBUG(general, "Registered spell '{}' (id={})", spell.name, spell.id.value);

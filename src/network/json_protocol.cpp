@@ -938,6 +938,35 @@ auto player_teleport_msg::to_json() const -> nlohmann::json {
     };
 }
 
+auto known_spell_msg::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"spell_id", spell_id},
+        {"level", level},
+        {"total_casts", total_casts}
+    };
+}
+
+auto quest_objective_msg::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"id", id},
+        {"status", status},
+        {"current", current},
+        {"required", required}
+    };
+}
+
+auto active_quest_msg::to_json() const -> nlohmann::json {
+    nlohmann::json obj_json = nlohmann::json::array();
+    for (const auto& obj : objectives) {
+        obj_json.push_back(obj.to_json());
+    }
+    return nlohmann::json{
+        {"quest_id", quest_id},
+        {"status", status},
+        {"objectives", std::move(obj_json)}
+    };
+}
+
 auto game_state_msg::to_json() const -> nlohmann::json {
     nlohmann::json inv_json = nlohmann::json::array();
     for (const auto& item : inventory) {
@@ -954,6 +983,21 @@ auto game_state_msg::to_json() const -> nlohmann::json {
         skills_json.push_back({{"skill_id", skill_id}, {"level", level}});
     }
 
+    nlohmann::json spells_json = nlohmann::json::array();
+    for (const auto& spell : spells) {
+        spells_json.push_back(spell.to_json());
+    }
+
+    nlohmann::json quests_json = nlohmann::json::array();
+    for (const auto& quest : quests) {
+        quests_json.push_back(quest.to_json());
+    }
+
+    nlohmann::json completed_json = nlohmann::json::array();
+    for (const auto& qid : completed_quests) {
+        completed_json.push_back(qid);
+    }
+
     nlohmann::json entities_json = nlohmann::json::array();
     for (const auto& entity : entities) {
         entities_json.push_back(entity.to_json());
@@ -964,6 +1008,8 @@ auto game_state_msg::to_json() const -> nlohmann::json {
         {"inventory", {{"items", std::move(inv_json)}, {"gold", gold}}},
         {"equipment", std::move(equip_json)},
         {"skills", std::move(skills_json)},
+        {"spells", std::move(spells_json)},
+        {"quests", {{"active", std::move(quests_json)}, {"completed", std::move(completed_json)}}},
         {"world", {{"entities", std::move(entities_json)}}}
     };
 }

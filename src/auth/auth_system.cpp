@@ -549,7 +549,8 @@ auto auth_system::load_character_full(player_id char_id, account_id owner)
                   COALESCE(hp_max, 100) as hp_max,
                   COALESCE(mp_max, 50) as mp_max,
                   COALESCE(sp_max, 50) as sp_max,
-                  skills_data, inventory_data, equipment_data, bank_data
+                  skills_data, inventory_data, equipment_data, bank_data,
+                  magic_data, quest_data
            FROM characters WHERE id = $1)",
         static_cast<int>(char_id.value)
     );
@@ -607,7 +608,9 @@ auto auth_system::load_character_full(player_id char_id, account_id owner)
         .skills_data = row["skills_data"].is_null() ? "" : row["skills_data"].as<std::string>(),
         .inventory_data = row["inventory_data"].is_null() ? "" : row["inventory_data"].as<std::string>(),
         .equipment_data = row["equipment_data"].is_null() ? "" : row["equipment_data"].as<std::string>(),
-        .bank_data = row["bank_data"].is_null() ? "" : row["bank_data"].as<std::string>()
+        .bank_data = row["bank_data"].is_null() ? "" : row["bank_data"].as<std::string>(),
+        .magic_data = row["magic_data"].is_null() ? "" : row["magic_data"].as<std::string>(),
+        .quest_data = row["quest_data"].is_null() ? "" : row["quest_data"].as<std::string>()
     };
 
     LOG_DEBUG(auth, "Loaded full character data for '{}' (id: {})", data.name, data.id.value);
@@ -627,6 +630,8 @@ auto auth_system::save_character(const character_full_data& data)
     auto inventory_json = data.inventory_data.empty() ? "[]" : data.inventory_data;
     auto equipment_json = data.equipment_data.empty() ? "[]" : data.equipment_data;
     auto bank_json = data.bank_data.empty() ? "[]" : data.bank_data;
+    auto magic_json = data.magic_data.empty() ? "[]" : data.magic_data;
+    auto quest_json = data.quest_data.empty() ? "[]" : data.quest_data;
 
     auto db_result = database_->execute_params(
         R"(UPDATE characters SET
@@ -654,8 +659,10 @@ auto auth_system::save_character(const character_full_data& data)
                inventory_data = $22,
                equipment_data = $23,
                bank_data = $24,
+               magic_data = $25,
+               quest_data = $26,
                last_played = NOW()
-           WHERE id = $25)",
+           WHERE id = $27)",
         data.map_name,
         static_cast<int>(data.pos_x),
         static_cast<int>(data.pos_y),
@@ -680,6 +687,8 @@ auto auth_system::save_character(const character_full_data& data)
         inventory_json,
         equipment_json,
         bank_json,
+        magic_json,
+        quest_json,
         static_cast<int>(data.id.value)
     );
 

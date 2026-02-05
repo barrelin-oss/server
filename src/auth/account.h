@@ -116,11 +116,13 @@ struct character_full_data {
     int32_t pk_count{0};
     int32_t hunger_level{100};
 
-    // Serialized data (JSON strings stored in BYTEA columns)
+    // Serialized data (JSON strings stored in JSONB columns)
     std::string skills_data;      // JSON: [{type, level, exp}, ...]
     std::string inventory_data;   // JSON: [{slot, item_id, count}, ...]
     std::string equipment_data;   // JSON: [{slot, item_id, durability, max_durability}, ...]
     std::string bank_data;        // JSON: [{slot, item_id, count}, ...]
+    std::string magic_data;       // JSON: [{spell_id, level, total_casts}, ...]
+    std::string quest_data;       // JSON: {active: [...], completed: [...]}
 };
 
 // Authentication errors

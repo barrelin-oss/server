@@ -7,6 +7,8 @@
 #include "skill/skill.h"
 #include "player/equipment.h"
 #include "inventory/inventory.h"
+#include "magic/spell.h"
+#include "quest/quest.h"
 
 #include <nlohmann/json.hpp>
 #include <string>
@@ -41,5 +43,17 @@ void deserialize_inventory(const std::string& json_str, inventory::inventory& in
 
 // Get inventory as vector of slot data (for sending to client)
 [[nodiscard]] auto get_inventory_data(const inventory::inventory& inv) -> std::vector<inventory_slot_data>;
+
+// Serialize player spell knowledge to JSON string
+[[nodiscard]] auto serialize_magic(const std::vector<magic::spell_knowledge>& spells) -> std::string;
+
+// Deserialize player spell knowledge from JSON string
+[[nodiscard]] auto deserialize_magic(const std::string& json_str) -> std::vector<magic::spell_knowledge>;
+
+// Serialize quest journal to JSON string
+[[nodiscard]] auto serialize_quests(const quest::quest_journal& journal) -> std::string;
+
+// Deserialize quest journal from JSON string
+[[nodiscard]] auto deserialize_quests(const std::string& json_str) -> quest::quest_journal;
 
 }  // namespace hb::auth

@@ -609,12 +609,43 @@ struct player_teleport_msg {
 [[nodiscard]] auto make_delete_character_response(uint32_t seq, bool success,
                                                     std::optional<std::string_view> error = std::nullopt) -> json_message;
 
+// Known spell for enter_game_response
+struct known_spell_msg {
+    uint16_t spell_id{0};
+    int16_t level{1};
+    int32_t total_casts{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Quest objective progress for enter_game_response
+struct quest_objective_msg {
+    uint16_t id{0};
+    uint8_t status{0};       // 0=incomplete, 1=complete, 2=failed
+    int32_t current{0};
+    int32_t required{1};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Active quest for enter_game_response
+struct active_quest_msg {
+    uint16_t quest_id{0};
+    uint8_t status{0};       // quest_status enum
+    std::vector<quest_objective_msg> objectives;
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
 // Full game state for enter_game_response
 struct game_state_msg {
     character_data_msg character;
     std::vector<inventory_item_msg> inventory;
     std::vector<equipment_item_msg> equipment;
     std::vector<std::pair<uint8_t, int16_t>> skills;
+    std::vector<known_spell_msg> spells;
+    std::vector<active_quest_msg> quests;
+    std::vector<uint16_t> completed_quests;
     std::vector<visible_entity_msg> entities;
     int32_t gold{0};
 

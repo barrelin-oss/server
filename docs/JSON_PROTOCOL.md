@@ -612,6 +612,24 @@ Returns complete game state on success. This is the primary payload for game ini
       { "skill_id": 3, "level": 35 },
       { "skill_id": 10, "level": 20 }
     ],
+    "spells": [
+      { "spell_id": 0, "level": 1, "total_casts": 42 },
+      { "spell_id": 1, "level": 3, "total_casts": 150 },
+      { "spell_id": 20, "level": 2, "total_casts": 88 }
+    ],
+    "quests": {
+      "active": [
+        {
+          "quest_id": 1,
+          "status": 1,
+          "objectives": [
+            { "id": 0, "status": 0, "current": 3, "required": 10 },
+            { "id": 1, "status": 1, "current": 1, "required": 1 }
+          ]
+        }
+      ],
+      "completed": [2, 5, 8]
+    },
     "world": {
       "entities": [
         {
@@ -733,6 +751,40 @@ Returns complete game state on success. This is the primary payload for game ini
 |-------|------|-------------|
 | `skill_id` | uint8 | Skill identifier |
 | `level` | int16 | Skill level (0-200) |
+
+#### Known Spell Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spell_id` | uint16 | Spell identifier (from magic.yaml) |
+| `level` | int16 | Spell mastery level |
+| `total_casts` | int32 | Lifetime cast count |
+
+#### Quest Data Object
+
+The `quests` field contains two sub-fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `active` | array | Array of active quest objects |
+| `completed` | array | Array of completed quest IDs (uint16) |
+
+#### Active Quest Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `quest_id` | uint16 | Quest template ID |
+| `status` | uint8 | 0=available, 1=active, 2=complete, 3=turned_in, 4=failed, 5=abandoned |
+| `objectives` | array | Array of quest objective objects |
+
+#### Quest Objective Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | uint16 | Objective ID within quest |
+| `status` | uint8 | 0=incomplete, 1=complete, 2=failed |
+| `current` | int32 | Current progress count |
+| `required` | int32 | Required count for completion |
 
 #### Visible Entity Object
 

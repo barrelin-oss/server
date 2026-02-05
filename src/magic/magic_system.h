@@ -68,6 +68,8 @@ public:
     [[nodiscard]] auto knows_spell(hb::entity::entity caster, spell_id spell) const -> bool;
     [[nodiscard]] auto get_spell_level(hb::entity::entity caster, spell_id spell) const -> int16_t;
     void level_up_spell(hb::entity::entity caster, spell_id spell);
+    [[nodiscard]] auto get_player_spells(hb::entity::entity caster) const -> const std::vector<spell_knowledge>*;
+    void set_player_spells(hb::entity::entity caster, std::vector<spell_knowledge> spells);
 
     // Spell templates
     void register_spell(const spell_template& spell);

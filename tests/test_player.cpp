@@ -437,3 +437,421 @@ TEST_F(player_system_test, get_players_in_range_returns_empty_without_world) {
     auto players = system_.get_players_in_range(id, 10);
     EXPECT_TRUE(players.empty());
 }
+
+// Damage and heal tests
+
+TEST_F(player_system_test, apply_damage) {
+    player_create_info info;
+    info.name = "DamagePlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    int32_t initial_hp = p->hp;
+    ASSERT_GT(initial_hp, 0);
+
+    system_.apply_damage(id, 10);
+    EXPECT_EQ(p->hp, initial_hp - 10);
+    EXPECT_TRUE(p->is_alive());
+}
+
+TEST_F(player_system_test, apply_damage_kills) {
+    player_create_info info;
+    info.name = "KillPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    system_.apply_damage(id, p->hp + 100);
+    EXPECT_EQ(p->hp, 0);
+    EXPECT_TRUE(p->is_dead());
+}
+
+TEST_F(player_system_test, apply_damage_to_dead_player) {
+    player_create_info info;
+    info.name = "AlreadyDead";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->hp = 0;  // Already dead
+
+    // Should not crash or change state
+    system_.apply_damage(id, 50);
+    EXPECT_EQ(p->hp, 0);
+}
+
+TEST_F(player_system_test, apply_heal) {
+    player_create_info info;
+    info.name = "HealPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    int32_t max_hp = p->computed.max_hp;
+    p->hp = max_hp / 2;
+
+    system_.apply_heal(id, 10);
+    EXPECT_EQ(p->hp, max_hp / 2 + 10);
+}
+
+TEST_F(player_system_test, apply_heal_capped_at_max) {
+    player_create_info info;
+    info.name = "MaxHealPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->hp = p->computed.max_hp - 5;
+
+    system_.apply_heal(id, 100);
+    EXPECT_EQ(p->hp, p->computed.max_hp);
+}
+
+TEST_F(player_system_test, apply_heal_dead_player_noop) {
+    player_create_info info;
+    info.name = "DeadHealPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->hp = 0;
+
+    system_.apply_heal(id, 50);
+    EXPECT_EQ(p->hp, 0);  // Dead players can't be healed
+}
+
+// Equipment tests
+
+TEST_F(player_system_test, equip_and_unequip_item) {
+    player_create_info info;
+    info.name = "EquipPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    EXPECT_FALSE(p->equipment.has_equipped(equip_slot::weapon));
+
+    system_.equip_item(id, equip_slot::weapon, hb::item_id{42}, 80, 100);
+    EXPECT_TRUE(p->equipment.has_equipped(equip_slot::weapon));
+    EXPECT_EQ(p->equipment.weapon().id.value, 42);
+
+    auto unequipped = system_.unequip_item(id, equip_slot::weapon);
+    EXPECT_EQ(unequipped.id.value, 42);
+    EXPECT_EQ(unequipped.durability, 80);
+    EXPECT_FALSE(p->equipment.has_equipped(equip_slot::weapon));
+}
+
+TEST_F(player_system_test, unequip_empty_slot) {
+    player_create_info info;
+    info.name = "EmptySlotPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto unequipped = system_.unequip_item(id, equip_slot::shield);
+    EXPECT_FALSE(unequipped.id.is_valid());
+}
+
+// Binding tests
+
+TEST_F(player_system_test, bind_connection) {
+    player_create_info info;
+    info.name = "BindConnPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto conn = hb::connection_id{100};
+    system_.bind_connection(id, conn);
+
+    auto* p = system_.get_player_by_connection(conn);
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(p->name, "BindConnPlayer");
+}
+
+TEST_F(player_system_test, unbind_connection) {
+    player_create_info info;
+    info.name = "UnbindConnPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto conn = hb::connection_id{101};
+    system_.bind_connection(id, conn);
+    EXPECT_NE(system_.get_player_by_connection(conn), nullptr);
+
+    system_.unbind_connection(id);
+    EXPECT_EQ(system_.get_player_by_connection(conn), nullptr);
+}
+
+TEST_F(player_system_test, bind_session) {
+    player_create_info info;
+    info.name = "BindSessPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto sess = hb::session_id{200};
+    system_.bind_session(id, sess);
+
+    auto* p = system_.get_player_by_session(sess);
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(p->name, "BindSessPlayer");
+}
+
+TEST_F(player_system_test, unbind_session) {
+    player_create_info info;
+    info.name = "UnbindSessPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto sess = hb::session_id{201};
+    system_.bind_session(id, sess);
+
+    system_.unbind_session(id);
+    EXPECT_EQ(system_.get_player_by_session(sess), nullptr);
+}
+
+TEST_F(player_system_test, rebind_connection) {
+    player_create_info info;
+    info.name = "RebindPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    system_.bind_connection(id, hb::connection_id{10});
+    system_.bind_connection(id, hb::connection_id{20});
+
+    // Old connection should no longer resolve
+    EXPECT_EQ(system_.get_player_by_connection(hb::connection_id{10}), nullptr);
+    EXPECT_NE(system_.get_player_by_connection(hb::connection_id{20}), nullptr);
+}
+
+// Stat allocation tests
+
+TEST_F(player_system_test, add_stat_point) {
+    player_create_info info;
+    info.name = "StatPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->stat_points.available = 5;
+    int16_t initial_str = p->base.strength;
+
+    system_.add_stat_point(id, 0);  // 0 = strength
+    EXPECT_EQ(p->base.strength, initial_str + 1);
+    EXPECT_EQ(p->stat_points.available, 4);
+}
+
+TEST_F(player_system_test, add_stat_point_no_points) {
+    player_create_info info;
+    info.name = "NoStatPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->stat_points.available = 0;
+    int16_t initial_str = p->base.strength;
+
+    system_.add_stat_point(id, 0);
+    EXPECT_EQ(p->base.strength, initial_str);  // Unchanged
+}
+
+TEST_F(player_system_test, add_stat_point_invalid_index) {
+    player_create_info info;
+    info.name = "BadStatPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->stat_points.available = 5;
+
+    system_.add_stat_point(id, 10);  // Invalid index
+    EXPECT_EQ(p->stat_points.available, 5);  // Unchanged
+}
+
+// Status effect tests
+
+TEST_F(player_system_test, clear_all_status) {
+    player_create_info info;
+    info.name = "ClearStatusPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    system_.add_status(id, player_status::poisoned);
+    system_.add_status(id, player_status::frozen);
+
+    auto* p = system_.get_player(id);
+    EXPECT_TRUE(p->has_status(player_status::poisoned));
+    EXPECT_TRUE(p->has_status(player_status::frozen));
+
+    system_.clear_all_status(id);
+    EXPECT_FALSE(p->has_status(player_status::poisoned));
+    EXPECT_FALSE(p->has_status(player_status::frozen));
+}
+
+// Max player limit test
+
+TEST_F(player_system_test, max_players_limit) {
+    player_system_config config;
+    config.max_players = 2;
+    system_.set_config(config);
+
+    player_create_info info1;
+    info1.name = "Player1";
+    auto r1 = system_.create_player(info1);
+    EXPECT_TRUE(r1.is_ok());
+
+    player_create_info info2;
+    info2.name = "Player2";
+    auto r2 = system_.create_player(info2);
+    EXPECT_TRUE(r2.is_ok());
+
+    player_create_info info3;
+    info3.name = "Player3";
+    auto r3 = system_.create_player(info3);
+    EXPECT_TRUE(r3.is_err());
+}
+
+// Hunger callback tests
+
+TEST_F(player_system_test, restore_hunger) {
+    player_create_info info;
+    info.name = "HungryPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->hunger.level = 50;
+
+    system_.restore_hunger(id, 20);
+    EXPECT_EQ(p->hunger.level, 70);
+}
+
+TEST_F(player_system_test, hunger_callback_on_restore) {
+    player_create_info info;
+    info.name = "CallbackHunger";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    p->hunger.level = 50;
+
+    bool callback_fired = false;
+    int8_t cb_old = 0, cb_new = 0;
+
+    system_.on_hunger_change([&](hb::player_id, int8_t old_level, int8_t new_level) {
+        callback_fired = true;
+        cb_old = old_level;
+        cb_new = new_level;
+    });
+
+    system_.restore_hunger(id, 30);
+    EXPECT_TRUE(callback_fired);
+    EXPECT_EQ(cb_old, 50);
+    EXPECT_EQ(cb_new, 80);
+}
+
+// For_each and find tests
+
+TEST_F(player_system_test, for_each_player) {
+    player_create_info info1;
+    info1.name = "ForEach1";
+    system_.create_player(info1);
+
+    player_create_info info2;
+    info2.name = "ForEach2";
+    system_.create_player(info2);
+
+    int count = 0;
+    system_.for_each_player([&](hb::player_id, const player&) {
+        ++count;
+    });
+
+    EXPECT_EQ(count, 2);
+}
+
+TEST_F(player_system_test, find_players_if) {
+    player_create_info info1;
+    info1.name = "Warrior1";
+    info1.profession = player_class::warrior;
+    system_.create_player(info1);
+
+    player_create_info info2;
+    info2.name = "Mage1";
+    info2.profession = player_class::mage;
+    system_.create_player(info2);
+
+    auto warriors = system_.find_players_if([](const player& p) {
+        return p.profession == player_class::warrior;
+    });
+
+    EXPECT_EQ(warriors.size(), 1);
+}
+
+// Set position and facing tests
+
+TEST_F(player_system_test, set_position) {
+    player_create_info info;
+    info.name = "PosPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    system_.set_position(id, hb::map_id{5}, hb::world::position{100, 200}, hb::world::direction::north);
+
+    auto* p = system_.get_player(id);
+    EXPECT_EQ(p->current_map.value, 5);
+    EXPECT_EQ(p->pos.x, 100);
+    EXPECT_EQ(p->pos.y, 200);
+    EXPECT_EQ(p->facing, hb::world::direction::north);
+}
+
+TEST_F(player_system_test, set_facing) {
+    player_create_info info;
+    info.name = "FacingPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    system_.set_facing(id, hb::world::direction::west);
+    EXPECT_EQ(system_.get_player(id)->facing, hb::world::direction::west);
+}
+
+// Combat target tests
+
+TEST_F(player_system_test, set_and_clear_target) {
+    player_create_info info;
+    info.name = "TargetPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    auto* p = system_.get_player(id);
+    system_.set_target(id, hb::entity::entity{42});
+    EXPECT_EQ(p->target.id, 42);
+
+    system_.clear_target(id);
+    EXPECT_FALSE(p->target.is_valid());
+}
+
+// Get all players test
+
+TEST_F(player_system_test, get_all_players) {
+    player_create_info info1;
+    info1.name = "All1";
+    system_.create_player(info1);
+
+    player_create_info info2;
+    info2.name = "All2";
+    system_.create_player(info2);
+
+    auto ids = system_.get_all_players();
+    EXPECT_EQ(ids.size(), 2);
+}
+
+// Player exists test
+
+TEST_F(player_system_test, player_exists) {
+    player_create_info info;
+    info.name = "ExistsPlayer";
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    EXPECT_TRUE(system_.player_exists(id));
+    EXPECT_FALSE(system_.player_exists(hb::player_id{9999}));
+}

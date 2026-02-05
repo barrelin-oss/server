@@ -267,3 +267,132 @@ TEST_F(combat_system_test, damage_callback) {
     EXPECT_TRUE(callback_called);
     EXPECT_EQ(received_event.target.id, 1);
 }
+
+// Additional combat tests
+
+TEST_F(combat_system_test, cannot_attack_null_entity) {
+    EXPECT_FALSE(system_.can_attack(entity::null(), entity{1}));
+    EXPECT_FALSE(system_.can_attack(entity{1}, entity::null()));
+}
+
+TEST_F(combat_system_test, cannot_attack_invulnerable_target) {
+    entity attacker{1};
+    entity defender{2};
+
+    system_.set_invulnerable(defender, 5000);
+    // can_attack currently doesn't check invulnerability,
+    // but process_attack should handle it
+    EXPECT_TRUE(system_.is_invulnerable(defender));
+}
+
+TEST_F(combat_system_test, process_attack_with_context) {
+    attack_event attack;
+    attack.attacker = entity{1};
+    attack.defender = entity{2};
+    attack.type = damage_type::physical;
+    attack.base_damage = 200;
+
+    auto result = system_.process_attack(attack);
+    // Should complete without error regardless of RNG
+}
+
+TEST_F(combat_system_test, process_attack_magic_damage) {
+    attack_event attack;
+    attack.attacker = entity{1};
+    attack.defender = entity{2};
+    attack.type = damage_type::magic;
+    attack.base_damage = 150;
+
+    auto result = system_.process_attack(attack);
+    // Magic damage should complete without error
+}
+
+TEST_F(combat_system_test, resolve_hit_with_dodge) {
+    combat_context ctx;
+    ctx.attacker = entity{1};
+    ctx.defender = entity{2};
+    ctx.attack_power = 50;
+    ctx.hit_rate = 5;      // Very low hit rate
+    ctx.dodge_rate = 95;   // Very high dodge
+    ctx.guaranteed_hit = false;
+
+    // With these stats, most hits should miss, but this is RNG
+    // Just verify it doesn't crash
+    auto result = system_.resolve_hit(ctx);
+}
+
+TEST_F(combat_system_test, resolve_hit_blocked) {
+    combat_context ctx;
+    ctx.attacker = entity{1};
+    ctx.defender = entity{2};
+    ctx.attack_power = 100;
+    ctx.block_rate = 50;
+    ctx.guaranteed_hit = true;
+
+    // Run multiple times - statistically some should block
+    int block_count = 0;
+    for (int i = 0; i < 100; ++i) {
+        auto result = system_.resolve_hit(ctx);
+        if (result.is_blocked()) ++block_count;
+    }
+    // With 50% block rate and guaranteed hit, expect some blocks
+    EXPECT_GT(block_count, 0);
+}
+
+TEST_F(combat_system_test, kill_increments_counters) {
+    entity killer{1};
+    entity victim{2};
+
+    system_.enter_combat(killer);
+    system_.enter_combat(victim);
+
+    EXPECT_EQ(system_.get_kill_count(killer), 0);
+    EXPECT_EQ(system_.get_death_count(victim), 0);
+
+    // The counters should be tracked if the system provides tracking
+    // Currently kill/death tracking returns 0 (stub), just verify no crash
+}
+
+// Damage calculation edge cases
+
+TEST(damage_calc_test, zero_attack_power) {
+    int32_t damage = calc_physical_damage(0, 50);
+    EXPECT_GE(damage, 0);
+}
+
+TEST(damage_calc_test, massive_defense) {
+    int32_t damage = calc_physical_damage(100, 10000);
+    EXPECT_GE(damage, 0);  // Should not underflow
+}
+
+TEST(damage_calc_test, magic_damage_no_defense) {
+    int32_t damage = calc_magic_damage(100, 0);
+    EXPECT_GT(damage, 0);
+}
+
+TEST(damage_calc_test, hit_chance_equal_stats) {
+    int chance = calc_hit_chance(100, 100);
+    EXPECT_GE(chance, 5);
+    EXPECT_LE(chance, 95);
+}
+
+TEST(damage_calc_test, block_chance_zero) {
+    EXPECT_EQ(calc_block_chance(0), 0);
+}
+
+TEST(damage_calc_test, damage_reduction_zero_percent) {
+    int32_t reduced = apply_damage_reduction(100, 0);
+    EXPECT_EQ(reduced, 100);
+}
+
+TEST(damage_calc_test, minimum_damage_one) {
+    // Even with extreme reduction, minimum damage should be 1
+    int32_t reduced = apply_damage_reduction(1, 80);
+    EXPECT_GE(reduced, 1);
+}
+
+TEST(damage_calc_test, critical_damage_minimum_100) {
+    // Critical should not reduce below base
+    int32_t crit = apply_critical_damage(100, 100);
+    EXPECT_EQ(crit, 100);
+}

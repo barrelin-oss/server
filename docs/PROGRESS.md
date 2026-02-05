@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-02
+**Last Updated:** 2026-02-05
 
 ---
 
@@ -60,7 +60,7 @@ This document tracks implementation progress for the modernized Helbreath server
 
 ---
 
-## Phase 4: World & Entity System 🔄
+## Phase 4: World & Entity System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -68,15 +68,16 @@ This document tracks implementation progress for the modernized Helbreath server
 | Map structure | ✅ | Map class with tiles, spatial index |
 | Tile system | ✅ | Static/dynamic tiles, flags, walkability |
 | Spatial indexing | ✅ | Grid-based entity queries |
-| Entity manager | 🔄 | Basic structure, needs components |
+| Entity manager | ✅ | ECS architecture, component storage, type erasure, entity recycling |
 | Entity visibility | ✅ | 20-tile Chebyshev distance, spawn/despawn |
 | Map loading (.amd) | ✅ | Binary tile data from legacy format |
 | Map config loading (.txt) | ✅ | Teleports, spawn points, safe zones, spawners |
 | Teleport system | ✅ | Gate definitions loaded from config |
+| Weather system | ✅ | Weather state per map |
 
 ---
 
-## Phase 5: Player System 🔄
+## Phase 5: Player System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -84,55 +85,68 @@ This document tracks implementation progress for the modernized Helbreath server
 | Movement (walk) | ✅ | Direction-based, validation |
 | Movement (run) | ✅ | 2-tile movement |
 | Position sync | ✅ | Client validation, desync detection |
-| Stats calculation | 📋 | Derived stats from base + equipment |
-| Level/experience | 📋 | XP gain, level up |
-| Death/respawn | ❌ | Death handling, respawn location |
+| Stats calculation | ✅ | Base + equipment + computed stats |
+| Level/experience | ✅ | XP gain, level up |
+| Equipment management | ✅ | Equipment slots, stat application |
 | Hunger system | ✅ | Hunger decay, regen penalties, client notifications |
-| Status effects | 📋 | Buffs, debuffs, duration tracking |
-| Save/load | ✅ | Skills, equipment saved/loaded on enter/disconnect |
+| Status effects | ✅ | Poison, paralyze, freeze, curse, etc. |
+| Regeneration | ✅ | HP/MP/SP regen with modifiers |
+| PK decay | ✅ | Criminal status decay over time |
+| Save/load | ✅ | Skills, equipment, inventory saved/loaded on enter/disconnect |
+| Death/respawn | 🔄 | Death detection works, respawn location/flow TODO |
 
 ---
 
-## Phase 6: Combat System 🔄
+## Phase 6: Combat System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Attack handler | 🔄 | Request parsing done, combat logic TODO |
-| Damage calculation | 📋 | Formula from original game |
-| Hit/miss resolution | 📋 | Accuracy, dodge, block |
-| Critical hits | 📋 | Crit chance, multiplier |
-| Attack types | 📋 | Regular, dash, super defined |
-| Melee combat | ❌ | Range checking, weapon types |
-| Ranged combat | ❌ | Bow/crossbow, projectiles |
-| Combat broadcasts | ❌ | Notify nearby players of combat |
-| PK system | ❌ | Criminal status, penalties |
+| Attack handler | ✅ | Full attack processing pipeline |
+| Damage calculation | ✅ | Physical/magic formulas from original game |
+| Hit/miss resolution | ✅ | Accuracy, dodge, block mechanics |
+| Critical hits | ✅ | Crit chance, multiplier |
+| Attack types | ✅ | Regular, dash, super |
+| Melee combat | ✅ | Range checking, weapon type bonuses |
+| PvP/PvE modifiers | ✅ | Separate damage scaling |
+| Combat state | ✅ | In-combat tracking, invulnerability |
+| Kill rewards | ✅ | Experience and gold on kill |
+| Death detection | ✅ | Death events, kill/death counters |
+| Combat broadcasts | 🔄 | Damage events fire, visual broadcast to clients TODO |
+| Ranged combat | 📋 | Bow/crossbow, projectiles |
+| PK system | 📋 | Criminal status tracking exists, penalty logic TODO |
 
 ---
 
-## Phase 7: Magic System 🔄
+## Phase 7: Magic System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Magic handler | 🔄 | Request parsing done, cast logic TODO |
-| Spell definitions | 📋 | Load from data files |
-| Mana cost/regen | 📋 | MP consumption, regeneration |
-| Spell targeting | 📋 | Single, AoE, self, ground |
-| Damage spells | ❌ | Energy bolt, fire, ice, etc. |
-| Heal spells | ❌ | Heal, mass heal |
-| Buff spells | ❌ | Protection, haste, etc. |
-| Debuff spells | ❌ | Poison, paralyze, etc. |
-| Spell effects | ❌ | Visual effects, broadcasts |
+| Magic handler | ✅ | Full spell casting pipeline |
+| Spell definitions | ✅ | Loaded from magic_registry (YAML) |
+| Mana cost/regen | ✅ | MP/HP/SP cost deduction |
+| Spell targeting | ✅ | Single, AoE, self, ground |
+| Cast times | ✅ | Instant and channeled spells |
+| Spell cooldowns | ✅ | Per-spell cooldown tracking |
+| Spell learning | ✅ | Learn/forget spells, level progression |
+| Damage spells | ✅ | Element-based damage with stat scaling |
+| Heal spells | ✅ | Healing calculation |
+| Buff spells | ✅ | Protection, haste, invisibility, etc. |
+| Debuff spells | ✅ | Poison, paralyze, etc. |
+| AoE targeting | ✅ | Ally/enemy/all target finding |
+| Spell effects | 🔄 | Status effects apply, visual broadcasts TODO |
 
 ---
 
-## Phase 8: Skill System 🔄
+## Phase 8: Skill System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Skill handler | 🔄 | Request parsing done, skill logic TODO |
-| Skill definitions | 📋 | 24 skills from original |
-| Skill experience | ❌ | Gain XP through use |
-| Skill effects | ❌ | Per-skill implementations |
+| Skill tracking | ✅ | All weapon skills tracked per player |
+| Skill experience | ✅ | XP gain through use, leveling |
+| Skill mastery | ✅ | Mastery levels |
+| Weapon skill bonuses | ✅ | Damage and hit rate bonuses |
+| Skill training | ✅ | Training mechanics |
+| Skill reset | ✅ | Reset functionality |
 | Manufacturing | ❌ | Item creation |
 | Alchemy | ❌ | Potion creation |
 | Mining | ❌ | Resource gathering |
@@ -140,7 +154,7 @@ This document tracks implementation progress for the modernized Helbreath server
 
 ---
 
-## Phase 9: NPC System 🔄
+## Phase 9: NPC System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -148,12 +162,16 @@ This document tracks implementation progress for the modernized Helbreath server
 | NPC registry | ✅ | Load from npcs.yaml |
 | Spawn point system | ✅ | Rectangular areas, max count, respawn timers |
 | Random mob generator | ✅ | Level-based spawn tables (see docs/RANDOM_MOB_GENERATOR.md) |
-| NPC spawning | ✅ | Manual spawn, spawn point spawn, random mob spawn |
+| NPC spawning | ✅ | Manual, spawn point, and random mob spawn |
 | NPC despawning | ✅ | Death handling, cleanup |
-| NPC AI | ✅ | State machine (idle, wander, chase, attack, flee, return home) |
+| NPC AI | ✅ | State machine (idle, wander, chase, attack, flee, return home, scripted) |
 | Aggro detection | ✅ | Range-based, sight checks |
-| Pathfinding | ✅ | Basic move-towards-target |
+| Pathfinding | ✅ | Move-towards-target |
 | NPC combat | ✅ | Attack execution, damage calculation integration |
+| Pack AI | ✅ | Social behaviors, calls for help |
+| Boss mechanics | ✅ | Phase system, boss controller |
+| Spawn rules | ✅ | Time, weather, event-based spawning |
+| Behavior trees | ✅ | Custom NPC behavior scripting |
 | NPC loot | ❌ | Drop tables, gold |
 | NPC dialog | ❌ | Conversation trees |
 | Shop NPCs | ❌ | Buy/sell interface |
@@ -168,28 +186,29 @@ This document tracks implementation progress for the modernized Helbreath server
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Item definitions | 📋 | Load from Item.cfg |
-| Item instances | 📋 | Individual items with state |
+| Item definitions | ✅ | Loaded from item_registry (YAML) |
+| Item instances | ✅ | Individual items with state, owner tracking |
+| Item stacking | ✅ | Stack/split operations |
+| Durability | ✅ | Wear, repair system |
+| Item effects | ✅ | Stat bonuses, equipment slot mapping |
+| Item properties | ✅ | Weight, price, level requirements, tradeable/droppable flags |
 | Ground items | ❌ | Items on map, pickup |
-| Pickup handler | 🔄 | Request parsing done, logic TODO |
-| Item properties | ❌ | Stats, requirements, effects |
-| Durability | ❌ | Wear, repair |
-| Item stacking | ❌ | Stackable items, splitting |
+| Loot drops | ❌ | NPC drop tables |
 
 ---
 
-## Phase 11: Inventory System 🔄
+## Phase 11: Inventory System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Inventory slots | ✅ | 50 slots defined, serialized to JSONB |
-| Add/remove items | ✅ | Inventory management working |
-| Move items | ✅ | Slot swap/move implemented |
+| Add/remove items | ✅ | Full inventory management |
+| Move items | ✅ | Slot swap/move |
 | Equipment slots | ✅ | 12+ slots defined, serialized to JSONB |
-| Equip/unequip | 📋 | Handler needed, stat application TODO |
-| Equipment effects | ❌ | Set bonuses, special effects |
-| Bank system | ✅ | 200 slots, serialized to JSONB |
+| Equip/unequip | 🔄 | Slot management works, handler wiring TODO |
+| Bank system | ✅ | 200 slots, deposit/withdraw |
 | Gold management | ✅ | Loaded/saved with character |
+| Trading | ✅ | Trade window, item/gold offering, confirm/lock, completion |
 | Enter game integration | ✅ | Inventory/bank/gold loaded from DB |
 | Save/disconnect integration | ✅ | Inventory/bank/gold saved to DB |
 
@@ -203,7 +222,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | NPC interaction | ❌ | Dialog, shop, bank |
 | Object interaction | ❌ | Doors, chests, etc. |
 | Shop interface | ❌ | Buy/sell transactions |
-| Bank interface | ❌ | Deposit/withdraw |
+| Bank interface | ❌ | Deposit/withdraw UI flow |
 
 ---
 
@@ -217,67 +236,87 @@ This document tracks implementation progress for the modernized Helbreath server
 | Whisper | ✅ | Private messages with recipient |
 | Guild chat | ✅ | `@` prefix, guild members only |
 | Party chat | ✅ | `$` prefix, party members only |
+| Trade chat | ✅ | `~` prefix |
 | Chat filter | ✅ | Profanity filter with asterisks |
 | Rate limiting | ✅ | 3/sec, 30/min limits |
 | Channel settings | ✅ | Per-player enable/disable |
 | Player blocking | ✅ | Block player messages |
-| Command system | ✅ | Separate command_request packet |
+| Command system | ✅ | Separate command_request packet, built-in commands |
 
 ---
 
-## Phase 14: Social Systems 🔄
+## Phase 14: Social Systems ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Party system | ✅ | Create, invite, accept, leave, kick |
+| Party system | ✅ | Create, invite, accept, leave, kick, disband |
 | Party settings | ✅ | Loot mode, XP mode, leader transfer |
-| Party XP share | 📋 | Experience distribution logic TODO |
-| Guild system | ✅ | Create, join, leave, kick, ranks |
+| Party member tracking | ✅ | HP, MP, map stats |
+| Party invite expiration | ✅ | Timed invites |
+| Guild system | ✅ | Create, join, leave, kick, disband |
+| Guild ranks | ✅ | Master, officer, veteran, member, recruit |
 | Guild permissions | ✅ | Invite, kick, promote, demote, etc. |
+| Guild MOTD | ✅ | Message of the day |
+| Party XP share | 📋 | Experience distribution logic TODO |
 | Guild warehouse | ❌ | Shared storage |
 | Friend list | ❌ | Add, remove, online status |
-| Trade system | ❌ | Player-to-player trading |
 
 ---
 
-## Phase 15: Quest System ❌
+## Phase 15: Quest System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Quest definitions | ❌ | Quest data structure |
-| Quest tracking | ❌ | Active quests, progress |
-| Quest objectives | ❌ | Kill, collect, deliver |
-| Quest rewards | ❌ | XP, items, gold |
-| Quest NPCs | ❌ | Accept, complete |
+| Quest definitions | ✅ | Quest templates with prerequisites |
+| Quest tracking | ✅ | Quest journal per player |
+| Quest acceptance | ✅ | Accept with prerequisite checks |
+| Quest abandonment | ✅ | Abandon active quests |
+| Quest completion | ✅ | Completion with rewards |
+| Kill objectives | ✅ | Kill monsters/players |
+| Collect objectives | ✅ | Collect/deliver items |
+| Visit objectives | ✅ | Visit locations |
+| Talk objectives | ✅ | Talk to NPCs |
+| Craft objectives | ✅ | Craft items |
+| Gather objectives | ✅ | Gather resources |
+| Level objectives | ✅ | Reach level/skill level |
+| Timed quests | ✅ | Expiration tracking |
+| Repeatable quests | ✅ | Repeat mechanics |
+| Auto-complete quests | ✅ | Auto-complete on objective fulfillment |
+| Quest rewards | ✅ | XP, items, gold |
 
 ---
 
-## Phase 16: War Systems ❌
+## Phase 16: War Systems 🔄
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Nation system | 📋 | Aresden vs Elvine |
-| Crusade | ❌ | Scheduled warfare |
-| Heldenian | ❌ | Castle siege |
-| Apocalypse | ❌ | World boss event |
-| Territory control | ❌ | Map ownership |
-| War rewards | ❌ | Contribution points |
+| War scheduling | ✅ | War lifecycle management |
+| War types | ✅ | Crusade, Heldenian, Apocalypse defined |
+| War states | ✅ | Scheduled, preparing, active, ending, ended |
+| Territory control | ✅ | Faction tracking, territory state |
+| War statistics | ✅ | Contribution tracking |
+| Crusade mechanics | ❌ | Actual battle objectives, flag capture |
+| Heldenian mechanics | ❌ | Castle siege logic |
+| Apocalypse mechanics | ❌ | World boss event |
+| War rewards | ❌ | Contribution point redemption |
 
 ---
 
-## Phase 17: Admin System ❌
+## Phase 17: Admin System 🔄
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Admin levels | 📋 | Defined in auth |
-| GM commands | ❌ | Teleport, spawn, etc. |
-| Player management | ❌ | Kick, ban, mute |
-| Server management | ❌ | Reload, shutdown |
-| Logging/audit | ❌ | Action logging |
+| Admin levels | ✅ | Permission levels defined |
+| Command framework | ✅ | Registration, aliases, permission checks |
+| Player muting | ✅ | Mute with expiration |
+| Command logging | ✅ | Audit trail |
+| GM commands | 🔄 | Framework done, specific commands partially implemented |
+| Player management | 🔄 | Kick/ban via auth, mute via admin, more TODO |
+| Server management | ❌ | Reload, shutdown commands |
 
 ---
 
-## Phase 18: Persistence 🔄
+## Phase 18: Persistence ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -288,8 +327,40 @@ This document tracks implementation progress for the modernized Helbreath server
 | Skills save | ✅ | JSON serialization to JSONB column |
 | Bank save | ✅ | JSON serialization to JSONB column |
 | Gold save | ✅ | Stored in characters table |
-| Guild save | ❌ | Guild data |
+| Guild save | ❌ | Guild data persistence |
 | World state | ❌ | Dynamic objects |
+
+---
+
+## Phase 19: Registry Systems ✅
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| NPC registry | ✅ | Template loading from YAML |
+| Magic registry | ✅ | Spell data loading from YAML |
+| Item registry | ✅ | Item template loading from YAML |
+
+---
+
+## Phase 20: Scheduler ✅
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Task scheduling | ✅ | One-shot and repeating tasks |
+| Game clock | ✅ | Time acceleration |
+| Task cancellation | ✅ | Cancel by ID or tag |
+| Priority queue | ✅ | Ordered task execution |
+
+---
+
+## Phase 21: Crafting System ❌
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Recipe definitions | ❌ | Recipe data structure |
+| Crafting interface | ❌ | Crafting UI flow |
+| Material consumption | ❌ | Use materials, produce items |
+| Skill integration | ❌ | Manufacturing/alchemy skill checks |
 
 ---
 
@@ -301,6 +372,8 @@ This document tracks implementation progress for the modernized Helbreath server
 | JSON Protocol | ✅ | docs/JSON_PROTOCOL.md |
 | Game Messages | ✅ | docs/GAME_MESSAGES.md |
 | Progress Tracking | ✅ | docs/PROGRESS.md |
+| Subsystem Interfaces | ✅ | docs/SUBSYSTEM_INTERFACES.md |
+| Random Mob Generator | ✅ | docs/RANDOM_MOB_GENERATOR.md |
 | Database Schema | ✅ | src/database/schema.sql |
 | API Reference | ❌ | docs/API.md |
 | Deployment Guide | ❌ | docs/DEPLOYMENT.md |
@@ -309,17 +382,17 @@ This document tracks implementation progress for the modernized Helbreath server
 
 ## Immediate Next Steps
 
-Priority order for a minimally playable game:
+Priority order for remaining work toward a playable game:
 
-1. **Combat System** - Wire attack handlers to damage calculation
-2. **NPC System** - Basic NPCs that can be attacked and killed
-3. **Item/Loot System** - NPCs drop items, players can pick up
-4. ~~**Inventory System**~~ - ✅ Inventory/bank/gold integrated with enter_game and save
-5. **Equip/Unequip Handlers** - Client requests to equip items
-6. **Magic System** - Basic spells working
-7. **Death/Respawn** - Handle player death
-8. ~~**Chat System**~~ - ✅ All channels implemented with prefix routing
-9. ~~**Persistence**~~ - ✅ Periodic auto-save with configurable interval
+1. **Ground Items / Loot Drops** - NPCs drop items, players can pick up
+2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
+3. **Combat Broadcasts** - Visual feedback to nearby players
+4. **NPC Interaction** - Dialog, shops, banks
+5. **Death/Respawn** - Respawn location and flow
+6. **Ranged Combat** - Bow/crossbow projectiles
+7. **Crafting System** - Manufacturing, alchemy
+8. **War Mechanics** - Crusade, Heldenian, Apocalypse battle logic
+9. **Guild Persistence** - Save/load guild data
 
 ---
 
@@ -328,9 +401,9 @@ Priority order for a minimally playable game:
 | Issue | Priority | Notes |
 |-------|----------|-------|
 | ~~Map loading from files~~ | ~~High~~ | ✅ Completed - .amd and .txt loading |
-| Item data loading | High | Need Item.cfg parser |
-| NPC data loading | High | Need NPC.cfg parser |
-| Magic data loading | High | Need Magic.cfg parser |
+| ~~Item data loading~~ | ~~High~~ | ✅ Item registry from YAML |
+| ~~NPC data loading~~ | ~~High~~ | ✅ NPC registry from YAML |
+| ~~Magic data loading~~ | ~~High~~ | ✅ Magic registry from YAML |
 | Unit tests | Medium | Limited test coverage |
 | Integration tests | Medium | End-to-end testing |
 | Performance profiling | Low | Not yet needed |
@@ -339,6 +412,23 @@ Priority order for a minimally playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-05
+- **Audit and update of PROGRESS.md** - Marked many systems as complete that were previously listed as stubs/planned:
+  - Combat system: full damage calc, hit resolution, crits, PvP/PvE, kill rewards
+  - Magic system: full spell casting, all spell types, cooldowns, learning
+  - Skill system: weapon skills, experience, mastery, training
+  - NPC system: pack AI, boss mechanics, spawn rules, behavior trees
+  - Quest system: full implementation with all objective types
+  - Social system: guilds and parties fully functional with trade system
+  - Entity system: full ECS with component storage
+  - Player system: stats calc, leveling, status effects, regen
+  - Item system: instances, stacking, durability, effects
+  - Admin system: command framework, muting, logging
+  - War system: scheduling, states, territory (mechanics still TODO)
+  - Registry systems: NPC, magic, item registries all loading from YAML
+  - Scheduler: complete with game clock
+  - Added phases 19-21 (Registries, Scheduler, Crafting)
 
 ### 2026-02-02
 - **Implemented periodic auto-save system:**

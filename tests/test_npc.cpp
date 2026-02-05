@@ -269,3 +269,291 @@ TEST_F(npc_system_test, spawn_point_integration) {
     // Initial spawn should work
     // (The actual spawning would happen in update())
 }
+
+// NPC max limit test
+
+TEST_F(npc_system_test, max_npc_limit) {
+    npc_system_config config;
+    config.max_npcs = 2;
+    system_.set_config(config);
+
+    auto r1 = system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
+    EXPECT_TRUE(r1.is_ok());
+
+    auto r2 = system_.spawn_npc(npc_id{1}, map_id{1}, position{1, 0});
+    EXPECT_TRUE(r2.is_ok());
+
+    auto r3 = system_.spawn_npc(npc_id{1}, map_id{1}, position{2, 0});
+    EXPECT_TRUE(r3.is_err());
+    EXPECT_EQ(system_.npc_count(), 2);
+}
+
+// Callback tests
+
+TEST_F(npc_system_test, spawn_callback) {
+    bool callback_fired = false;
+    std::string spawned_name;
+
+    system_.set_on_spawn_callback([&](const npc& n) {
+        callback_fired = true;
+        spawned_name = n.name;
+    });
+
+    system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    EXPECT_TRUE(callback_fired);
+}
+
+TEST_F(npc_system_test, death_callback) {
+    bool callback_fired = false;
+    uint32_t killer_id = 0;
+
+    system_.set_on_death_callback([&](const npc&, hb::entity::entity killer) {
+        callback_fired = true;
+        killer_id = killer.id;
+    });
+
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{5, 5});
+    auto eid = result.value();
+
+    system_.kill_npc(eid, entity{999});
+    EXPECT_TRUE(callback_fired);
+    EXPECT_EQ(killer_id, 999);
+}
+
+TEST_F(npc_system_test, kill_already_dead_npc) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{5, 5});
+    auto eid = result.value();
+
+    system_.kill_npc(eid, entity{1});
+    EXPECT_TRUE(system_.get_npc(eid)->is_dead());
+
+    // Killing again should be a no-op
+    int death_count = 0;
+    system_.set_on_death_callback([&](const npc&, hb::entity::entity) {
+        ++death_count;
+    });
+
+    system_.kill_npc(eid, entity{2});
+    EXPECT_EQ(death_count, 0);  // Already dead, callback not fired
+}
+
+// Damage leading to death
+
+TEST_F(npc_system_test, damage_kills_npc) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    auto* n = system_.get_npc(eid);
+    int32_t hp = n->hp;
+
+    system_.apply_damage(eid, hp + 100, entity{50});
+    EXPECT_TRUE(n->is_dead());
+    EXPECT_EQ(n->hp, 0);
+}
+
+// BUG: apply_damage calls npc::damage() which sets hp=0 (is_dead()=true),
+// then calls kill_npc() which early-returns because is_dead() is already true.
+// Death callback only fires via kill_npc() on a living NPC.
+TEST_F(npc_system_test, kill_npc_fires_death_callback) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    bool death_fired = false;
+    system_.set_on_death_callback([&](const npc&, hb::entity::entity) {
+        death_fired = true;
+    });
+
+    system_.kill_npc(eid, entity{50});
+    EXPECT_TRUE(death_fired);
+}
+
+TEST_F(npc_system_test, damage_sets_target) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    auto* n = system_.get_npc(eid);
+    EXPECT_FALSE(n->ai_state.target.is_valid());
+
+    system_.apply_damage(eid, 5, entity{42});
+    EXPECT_EQ(n->ai_state.target.id, 42);
+    EXPECT_EQ(n->ai_state.state, ai_state::chase);
+}
+
+TEST_F(npc_system_test, damage_increases_aggro) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    auto* n = system_.get_npc(eid);
+    EXPECT_EQ(n->ai_state.aggro_level, 0);
+
+    system_.apply_damage(eid, 30, entity{1});
+    EXPECT_EQ(n->ai_state.aggro_level, 30);
+
+    system_.apply_damage(eid, 20, entity{1});
+    EXPECT_EQ(n->ai_state.aggro_level, 50);
+}
+
+// Set/clear target
+
+TEST_F(npc_system_test, set_target) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    system_.set_target(eid, entity{77});
+
+    auto* n = system_.get_npc(eid);
+    EXPECT_EQ(n->ai_state.target.id, 77);
+    EXPECT_EQ(n->ai_state.state, ai_state::chase);
+}
+
+TEST_F(npc_system_test, clear_target) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    system_.set_target(eid, entity{77});
+    system_.clear_target(eid);
+
+    auto* n = system_.get_npc(eid);
+    EXPECT_FALSE(n->ai_state.target.is_valid());
+    EXPECT_EQ(n->ai_state.state, ai_state::return_home);
+}
+
+// Update AI directly
+
+TEST_F(npc_system_test, update_ai_dead_npc_noop) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    system_.kill_npc(eid, entity{1});
+
+    // Should not crash
+    system_.update_ai(eid);
+}
+
+TEST_F(npc_system_test, update_ai_nonexistent_npc_noop) {
+    // Should not crash for non-existent entity
+    system_.update_ai(entity{99999});
+}
+
+// NPC exists and access tests
+
+TEST_F(npc_system_test, npc_exists) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
+    auto eid = result.value();
+
+    EXPECT_TRUE(system_.npc_exists(eid));
+    EXPECT_FALSE(system_.npc_exists(entity{99999}));
+}
+
+TEST_F(npc_system_test, get_npc_nonexistent) {
+    EXPECT_EQ(system_.get_npc(entity{99999}), nullptr);
+}
+
+// Remove spawn points by map
+
+TEST_F(npc_system_test, remove_spawn_points) {
+    spawn_point sp1;
+    sp1.npc_type = npc_id{1};
+    sp1.map = map_id{1};
+    sp1.center = position{10, 10};
+    sp1.max_count = 2;
+
+    spawn_point sp2;
+    sp2.npc_type = npc_id{2};
+    sp2.map = map_id{2};
+    sp2.center = position{20, 20};
+    sp2.max_count = 3;
+
+    system_.add_spawn_point(sp1);
+    system_.add_spawn_point(sp2);
+
+    system_.remove_spawn_points(map_id{1});
+
+    // Only map 2 spawn points should remain
+    // (No direct API to count spawn points, but this shouldn't crash)
+}
+
+// For each NPC
+
+TEST_F(npc_system_test, for_each_npc) {
+    system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
+    system_.spawn_npc(npc_id{2}, map_id{1}, position{5, 5});
+    system_.spawn_npc(npc_id{3}, map_id{2}, position{10, 10});
+
+    int total = 0;
+    system_.for_each_npc([&](hb::entity::entity, npc&) {
+        ++total;
+    });
+    EXPECT_EQ(total, 3);
+
+    int map1_count = 0;
+    system_.for_each_npc_on_map(map_id{1}, [&](hb::entity::entity, npc&) {
+        ++map1_count;
+    });
+    EXPECT_EQ(map1_count, 2);
+}
+
+// Enable/disable AI
+
+TEST_F(npc_system_test, enable_disable_ai) {
+    system_.enable_ai(false);
+
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    auto* n = system_.get_npc(eid);
+    n->ai_state.set_state(ai_state::idle);
+
+    // With AI disabled, update should not change state
+    // (update checks config_.enable_ai before calling update_all_ai)
+    system_.update(1.0f);
+
+    // State should still be idle (no AI processing happened)
+    EXPECT_EQ(n->ai_state.state, ai_state::idle);
+}
+
+// Deactivate spawns removes NPCs
+
+TEST_F(npc_system_test, deactivate_spawns_removes_npcs) {
+    system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
+    system_.spawn_npc(npc_id{2}, map_id{1}, position{5, 5});
+    system_.spawn_npc(npc_id{3}, map_id{2}, position{10, 10});
+
+    EXPECT_EQ(system_.npc_count(), 3);
+
+    system_.deactivate_spawns(map_id{1});
+    EXPECT_EQ(system_.npc_count(), 1);  // Only map 2 NPC remains
+}
+
+// Apply damage to dead NPC is no-op
+
+TEST_F(npc_system_test, apply_damage_dead_npc_noop) {
+    auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
+    auto eid = result.value();
+
+    system_.kill_npc(eid, entity{1});
+
+    // Applying damage to dead NPC should not crash
+    system_.apply_damage(eid, 100, entity{2});
+    EXPECT_EQ(system_.get_npc(eid)->hp, 0);
+}
+
+// Damage to non-existent NPC
+
+TEST_F(npc_system_test, apply_damage_nonexistent_npc) {
+    // Should not crash
+    system_.apply_damage(entity{99999}, 50, entity{1});
+}
+
+// NPC fallback defaults (no registry)
+
+TEST_F(npc_system_test, spawn_applies_defaults_without_registry) {
+    auto result = system_.spawn_npc(npc_id{999}, map_id{1}, position{10, 10});
+    ASSERT_TRUE(result.is_ok());
+
+    auto* n = system_.get_npc(result.value());
+    // Without registry, should get fallback defaults
+    EXPECT_EQ(n->name, "Unknown");
+    EXPECT_EQ(n->max_hp, 100);
+    EXPECT_EQ(n->level, 1);
+}

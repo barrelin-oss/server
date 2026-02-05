@@ -302,3 +302,213 @@ TEST_F(magic_system_test, spell_callback) {
     EXPECT_TRUE(callback_called);
     EXPECT_EQ(received_spell.name, "Test Spell");
 }
+
+// Additional magic system tests
+
+TEST_F(magic_system_test, get_nonexistent_spell) {
+    const auto* spell = system_.get_spell(spell_id{999});
+    EXPECT_EQ(spell, nullptr);
+}
+
+TEST_F(magic_system_test, learn_same_spell_twice) {
+    entity caster{1};
+    system_.learn_spell(caster, spell_id{1});
+    system_.learn_spell(caster, spell_id{1});
+
+    // Should still know the spell at level 1 (no duplicate)
+    EXPECT_TRUE(system_.knows_spell(caster, spell_id{1}));
+    EXPECT_EQ(system_.get_spell_level(caster, spell_id{1}), 1);
+}
+
+TEST_F(magic_system_test, forget_unlearned_spell) {
+    entity caster{1};
+    // Should not crash
+    system_.forget_spell(caster, spell_id{1});
+    EXPECT_FALSE(system_.knows_spell(caster, spell_id{1}));
+}
+
+TEST_F(magic_system_test, level_up_unlearned_spell) {
+    entity caster{1};
+    // Should not crash or create knowledge
+    system_.level_up_spell(caster, spell_id{1});
+    EXPECT_FALSE(system_.knows_spell(caster, spell_id{1}));
+}
+
+TEST_F(magic_system_test, cast_unknown_spell) {
+    entity caster{1};
+    system_.learn_spell(caster, spell_id{1});
+
+    cast_target target;
+    target.target = entity{2};
+
+    auto result = system_.instant_cast(caster, spell_id{999}, target);
+    EXPECT_TRUE(result.is_err());
+}
+
+TEST_F(magic_system_test, cast_unlearned_spell) {
+    entity caster{1};
+    // Don't learn the spell
+
+    cast_target target;
+    target.target = entity{2};
+
+    auto result = system_.instant_cast(caster, spell_id{1}, target);
+    EXPECT_TRUE(result.is_err());
+}
+
+TEST_F(magic_system_test, begin_cast_channeled_spell) {
+    spell_template channel_spell;
+    channel_spell.id = spell_id{10};
+    channel_spell.name = "Big Fireball";
+    channel_spell.category = spell_category::attack;
+    channel_spell.target_type = spell_target::single_enemy;
+    channel_spell.mana_cost = 30;
+    channel_spell.cast_time_ms = 3000;
+    channel_spell.base_damage = 200;
+    system_.register_spell(channel_spell);
+
+    entity caster{1};
+    system_.learn_spell(caster, spell_id{10});
+
+    cast_target target;
+    target.target = entity{2};
+
+    auto result = system_.begin_cast(caster, spell_id{10}, target);
+    EXPECT_TRUE(result.is_ok());
+    EXPECT_TRUE(system_.is_casting(caster));
+
+    auto* state = system_.get_cast_state(caster);
+    ASSERT_NE(state, nullptr);
+    EXPECT_TRUE(state->is_active());
+    EXPECT_EQ(state->spell.value, 10);
+}
+
+TEST_F(magic_system_test, get_cast_state_not_casting) {
+    entity caster{1};
+    EXPECT_EQ(system_.get_cast_state(caster), nullptr);
+}
+
+TEST_F(magic_system_test, healing_spell) {
+    spell_template heal_spell;
+    heal_spell.id = spell_id{20};
+    heal_spell.name = "Heal";
+    heal_spell.category = spell_category::healing;
+    heal_spell.target_type = spell_target::single_ally;
+    heal_spell.mana_cost = 15;
+    heal_spell.base_heal = 100;
+    system_.register_spell(heal_spell);
+
+    entity caster{1};
+    system_.learn_spell(caster, spell_id{20});
+
+    cast_target target;
+    target.target = entity{2};
+
+    auto result = system_.instant_cast(caster, spell_id{20}, target);
+    ASSERT_TRUE(result.is_ok());
+    EXPECT_TRUE(result.value().success);
+    EXPECT_GT(result.value().heal_applied, 0);
+}
+
+TEST_F(magic_system_test, calculate_damage) {
+    entity caster{1};
+    int32_t damage = system_.calculate_damage(caster, spell_id{1});
+    EXPECT_GT(damage, 0);
+}
+
+TEST_F(magic_system_test, calculate_heal) {
+    spell_template heal_spell;
+    heal_spell.id = spell_id{30};
+    heal_spell.name = "Minor Heal";
+    heal_spell.category = spell_category::healing;
+    heal_spell.base_heal = 50;
+    system_.register_spell(heal_spell);
+
+    entity caster{1};
+    int32_t heal = system_.calculate_heal(caster, spell_id{30});
+    EXPECT_GT(heal, 0);
+}
+
+TEST_F(magic_system_test, mana_cost_with_modifier) {
+    magic_system_config config;
+    config.global_mana_cost_modifier = 2.0f;
+    system_.set_config(config);
+
+    entity caster{1};
+    int32_t cost = system_.calculate_mana_cost(caster, spell_id{1});
+    EXPECT_EQ(cost, 20);  // 10 base * 2.0 modifier
+}
+
+TEST_F(magic_system_test, set_player_spells) {
+    entity caster{1};
+
+    std::vector<spell_knowledge> spells;
+    spell_knowledge sk;
+    sk.spell = spell_id{1};
+    sk.level = 5;
+    spells.push_back(sk);
+
+    system_.set_player_spells(caster, std::move(spells));
+
+    EXPECT_TRUE(system_.knows_spell(caster, spell_id{1}));
+    EXPECT_EQ(system_.get_spell_level(caster, spell_id{1}), 5);
+
+    const auto* player_spells = system_.get_player_spells(caster);
+    ASSERT_NE(player_spells, nullptr);
+    EXPECT_EQ(player_spells->size(), 1);
+}
+
+TEST_F(magic_system_test, get_player_spells_unknown_caster) {
+    const auto* spells = system_.get_player_spells(entity{999});
+    EXPECT_EQ(spells, nullptr);
+}
+
+// Spell template feature tests
+
+TEST(spell_template_test, utility_spell) {
+    spell_template spell;
+    spell.category = spell_category::utility;
+    EXPECT_FALSE(spell.is_offensive());
+    EXPECT_FALSE(spell.is_defensive());
+}
+
+TEST(spell_template_test, summon_spell) {
+    spell_template spell;
+    spell.category = spell_category::summon;
+    EXPECT_FALSE(spell.is_offensive());
+    EXPECT_FALSE(spell.is_defensive());
+}
+
+TEST(spell_template_test, ground_target) {
+    spell_template spell;
+    spell.target_type = spell_target::ground;
+    EXPECT_FALSE(spell.is_aoe());
+
+    spell.target_type = spell_target::cone;
+    EXPECT_FALSE(spell.is_aoe());
+}
+
+TEST(cast_target_test, default_no_position) {
+    cast_target target;
+    EXPECT_FALSE(target.has_entity());
+    EXPECT_FALSE(target.has_position());
+}
+
+TEST(spell_cast_state_test, cancel_stops_activity) {
+    spell_cast_state state;
+    state.spell = spell_id{1};
+    EXPECT_TRUE(state.is_active());
+
+    state.cancel();
+    EXPECT_FALSE(state.is_active());
+    EXPECT_FLOAT_EQ(state.progress(500), 0.0f);  // Progress returns 0 when inactive
+}
+
+TEST(spell_knowledge_test, total_casts_tracking) {
+    spell_knowledge knowledge;
+    knowledge.total_casts = 5;
+    EXPECT_EQ(knowledge.total_casts, 5);
+
+    ++knowledge.total_casts;
+    EXPECT_EQ(knowledge.total_casts, 6);
+}

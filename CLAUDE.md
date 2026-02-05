@@ -109,10 +109,10 @@ cd bin
 
 ### Current Priorities
 
-1. **Combat System** - Wire attack handlers to damage calculation
-2. **NPC System** - Basic NPCs with AI and combat
-3. **Item/Loot System** - Ground items, pickup, drops
-4. **Inventory System** - Full item management
+1. **Ground Items / Loot Drops** - NPCs drop items, players can pick up
+2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
+3. **Combat Broadcasts** - Visual feedback to nearby players
+4. **NPC Interaction** - Dialog, shops, banks
 
 ---
 
@@ -187,14 +187,19 @@ src/
 | `src/auth/account.h` | Account, character data structures |
 | `src/database/database_system.*` | PostgreSQL connection pool |
 
-### Game Systems (need implementation)
+### Game Systems
 
 | File | Purpose |
 |------|---------|
-| `src/combat/combat_system.*` | Damage calculation (stub) |
-| `src/magic/magic_system.*` | Spell casting (stub) |
-| `src/npc/npc_system.*` | NPC management (stub) |
-| `src/item/item_system.*` | Item management (stub) |
+| `src/combat/combat_system.*` | Damage calculation, hit resolution, kill rewards |
+| `src/magic/magic_system.*` | Spell casting, cooldowns, buffs/debuffs |
+| `src/npc/npc_system.*` | NPC management, AI, spawning, bosses |
+| `src/item/item_system.*` | Item instances, stacking, durability |
+| `src/skill/skill_system.*` | Weapon skills, training, mastery |
+| `src/quest/quest_system.*` | Quest journal, objectives, rewards |
+| `src/social/social_system.*` | Guilds, parties, chat |
+| `src/war/war_system.*` | War scheduling, territory (mechanics WIP) |
+| `src/admin/admin_system.*` | GM commands, muting, audit logging |
 
 ### Configuration
 
@@ -240,19 +245,37 @@ The monolithic `CGame` class is being decomposed into:
 - [x] CMake build system with vcpkg
 - [x] PostgreSQL database integration
 - [x] WebSocket authentication server
-- [x] Basic player movement
+- [x] Player movement and position sync
 - [x] Map loading and spatial queries
+- [x] Combat system (damage calc, hit resolution, crits, kill rewards)
+- [x] Magic system (all spell types, cooldowns, learning)
+- [x] NPC system (AI, spawning, bosses, behavior trees)
+- [x] Skill system (weapon skills, training, mastery)
+- [x] Item system (instances, stacking, durability)
+- [x] Inventory system (slots, bank, gold, trading)
+- [x] Chat system (all channels, filtering, rate limiting)
+- [x] Social systems (guilds, parties)
+- [x] Quest system (all objective types, rewards)
+- [x] Entity ECS system
+- [x] Persistence (auto-save, full character save/load)
+- [x] Registry systems (NPC, magic, item from YAML)
+- [x] Scheduler with game clock
 
 ### In Progress
-- [ ] Combat system implementation
-- [ ] NPC spawning and AI
-- [ ] Item system
+- [ ] Ground items and loot drops
+- [ ] Equip/unequip handler wiring
+- [ ] Combat/spell visual broadcasts
+- [ ] NPC interaction (dialog, shops)
+- [ ] War battle mechanics
+- [ ] Admin GM commands
 
 ### Planned
-- [ ] Full game protocol support
-- [ ] Guild/party systems
-- [ ] War systems
 - [ ] Crafting/gathering
+- [ ] Ranged combat
+- [ ] Death/respawn flow
+- [ ] Guild persistence
+- [ ] Guild warehouse
+- [ ] Friend list
 
 ---
 
@@ -261,8 +284,8 @@ The monolithic `CGame` class is being decomposed into:
 When working on the server:
 
 1. **Ask questions frequently** - Use AskUserQuestion liberally to clarify requirements, validate assumptions, and confirm implementation approaches before writing code. When in doubt, ask.
-2. **Check PROGRESS.md** - Know what's implemented before starting
-3. **Update PROGRESS.md** - Mark features complete when done
+2. **Check PROGRESS.md first** - Know what's implemented before starting. Don't rebuild what already exists.
+3. **Update PROGRESS.md when done** - After completing a feature or significant component, update `docs/PROGRESS.md`: mark the relevant items as ✅, update the phase status, and add a dated entry under Recent Changes. Keep the "Immediate Next Steps" list current.
 4. **Protocol compatibility** - Legacy binary protocol must match original
 5. **Database transactions** - Use connection pool properly
 6. **Thread safety** - WebSocket callbacks run on separate threads

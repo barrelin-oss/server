@@ -12,6 +12,20 @@ using namespace hb::world;
 using hb::entity_id;
 using hb::map_id;
 
+namespace {
+
+auto find_map_file(const char* filename) -> std::filesystem::path
+{
+    for (auto prefix : {"bin/mapdata/", "mapdata/", "Debug/mapdata/", "../mapdata/", "../bin/mapdata/"})
+    {
+        auto p = std::filesystem::path(prefix) / filename;
+        if (std::filesystem::exists(p)) return p;
+    }
+    return {};
+}
+
+} // namespace
+
 // Position tests
 
 TEST(position_test, construction) {
@@ -432,24 +446,14 @@ TEST(map_file_test, load_from_file_not_found) {
 }
 
 TEST(map_file_test, load_from_real_file) {
-    // Try to load a real map file from the build directory
-    std::filesystem::path map_path = "mapdata/bsmith.amd";  // Small shop map
-
-    // Skip if map file doesn't exist (test runs from build directory)
-    if (!std::filesystem::exists(map_path)) {
-        // Try alternative paths
-        map_path = "Debug/mapdata/bsmith.amd";
-        if (!std::filesystem::exists(map_path)) {
-            map_path = "../mapdata/bsmith.amd";
-            if (!std::filesystem::exists(map_path)) {
-                GTEST_SKIP() << "Map file not found - skipping real file test";
-            }
-        }
+    auto map_path = find_map_file("bsmith_1.amd");
+    if (map_path.empty()) {
+        GTEST_SKIP() << "Map file not found - skipping real file test";
     }
 
     map m;
     map_config config;
-    config.name = "bsmith";
+    config.name = "bsmith_1";
     m.initialize(map_id{1}, config);
 
     auto result = m.load_from_file(map_path);
@@ -463,17 +467,9 @@ TEST(map_file_test, load_from_real_file) {
 }
 
 TEST(map_file_test, load_parses_tile_flags) {
-    // Try to load a map with varied terrain
-    std::filesystem::path map_path = "mapdata/aresden.amd";
-
-    if (!std::filesystem::exists(map_path)) {
-        map_path = "Debug/mapdata/aresden.amd";
-        if (!std::filesystem::exists(map_path)) {
-            map_path = "../mapdata/aresden.amd";
-            if (!std::filesystem::exists(map_path)) {
-                GTEST_SKIP() << "Map file not found - skipping tile flags test";
-            }
-        }
+    auto map_path = find_map_file("aresden.amd");
+    if (map_path.empty()) {
+        GTEST_SKIP() << "Map file not found - skipping tile flags test";
     }
 
     map m;
@@ -504,16 +500,9 @@ TEST(map_file_test, load_parses_tile_flags) {
 }
 
 TEST_F(world_subsystem_test, load_map_from_file) {
-    std::filesystem::path map_path = "mapdata/bsmith.amd";
-
-    if (!std::filesystem::exists(map_path)) {
-        map_path = "Debug/mapdata/bsmith.amd";
-        if (!std::filesystem::exists(map_path)) {
-            map_path = "../mapdata/bsmith.amd";
-            if (!std::filesystem::exists(map_path)) {
-                GTEST_SKIP() << "Map file not found - skipping world subsystem load test";
-            }
-        }
+    auto map_path = find_map_file("bsmith_1.amd");
+    if (map_path.empty()) {
+        GTEST_SKIP() << "Map file not found - skipping world subsystem load test";
     }
 
     auto result = world_.load_map(map_path);
@@ -527,4 +516,237 @@ TEST_F(world_subsystem_test, load_map_from_file) {
     ASSERT_NE(m, nullptr);
     EXPECT_GT(m->width(), 0);
     EXPECT_GT(m->height(), 0);
+}
+
+// Ground item tests
+
+TEST_F(world_subsystem_test, add_ground_item) {
+    map_config config;
+    config.name = "ground_item_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    ASSERT_TRUE(result.is_ok());
+    auto id = result.value();
+
+    position pos{10, 10};
+
+    EXPECT_FALSE(world_.has_ground_items(id, pos));
+    EXPECT_EQ(world_.ground_item_count(id, pos), 0);
+
+    world_.add_ground_item(id, pos, hb::item_id{100});
+    EXPECT_TRUE(world_.has_ground_items(id, pos));
+    EXPECT_EQ(world_.ground_item_count(id, pos), 1);
+}
+
+TEST_F(world_subsystem_test, multiple_ground_items) {
+    map_config config;
+    config.name = "multi_ground_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+
+    position pos{20, 20};
+
+    world_.add_ground_item(id, pos, hb::item_id{1});
+    world_.add_ground_item(id, pos, hb::item_id{2});
+    world_.add_ground_item(id, pos, hb::item_id{3});
+
+    EXPECT_EQ(world_.ground_item_count(id, pos), 3);
+
+    auto items = world_.get_ground_items(id, pos);
+    EXPECT_EQ(items.size(), 3);
+}
+
+TEST_F(world_subsystem_test, remove_top_ground_item) {
+    map_config config;
+    config.name = "remove_ground_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+
+    position pos{15, 15};
+
+    world_.add_ground_item(id, pos, hb::item_id{10});
+    world_.add_ground_item(id, pos, hb::item_id{20});
+
+    // Top item should be the last added
+    auto removed = world_.remove_top_ground_item(id, pos);
+    ASSERT_TRUE(removed.has_value());
+    EXPECT_EQ(removed->value, 20);
+    EXPECT_EQ(world_.ground_item_count(id, pos), 1);
+
+    removed = world_.remove_top_ground_item(id, pos);
+    ASSERT_TRUE(removed.has_value());
+    EXPECT_EQ(removed->value, 10);
+    EXPECT_EQ(world_.ground_item_count(id, pos), 0);
+    EXPECT_FALSE(world_.has_ground_items(id, pos));
+}
+
+TEST_F(world_subsystem_test, remove_ground_item_empty) {
+    map_config config;
+    config.name = "empty_ground_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+
+    // Removing from empty position
+    auto removed = world_.remove_top_ground_item(id, {5, 5});
+    EXPECT_FALSE(removed.has_value());
+}
+
+TEST_F(world_subsystem_test, ground_items_different_positions) {
+    map_config config;
+    config.name = "diff_pos_ground_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+
+    world_.add_ground_item(id, {10, 10}, hb::item_id{1});
+    world_.add_ground_item(id, {20, 20}, hb::item_id{2});
+
+    EXPECT_EQ(world_.ground_item_count(id, {10, 10}), 1);
+    EXPECT_EQ(world_.ground_item_count(id, {20, 20}), 1);
+    EXPECT_EQ(world_.ground_item_count(id, {30, 30}), 0);
+}
+
+TEST_F(world_subsystem_test, ground_items_invalid_map) {
+    // Operations on non-existent map should not crash
+    EXPECT_FALSE(world_.has_ground_items(map_id{255}, {10, 10}));
+    EXPECT_EQ(world_.ground_item_count(map_id{255}, {10, 10}), 0);
+    EXPECT_TRUE(world_.get_ground_items(map_id{255}, {10, 10}).empty());
+    auto removed = world_.remove_top_ground_item(map_id{255}, {10, 10});
+    EXPECT_FALSE(removed.has_value());
+}
+
+// Map feature tests
+
+TEST_F(world_subsystem_test, map_weather) {
+    map_config config;
+    config.name = "weather_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+    auto* m = world_.get_map(id);
+
+    EXPECT_EQ(m->weather(), weather_type::clear);
+
+    m->set_weather(weather_type::rain);
+    EXPECT_EQ(m->weather(), weather_type::rain);
+}
+
+TEST_F(world_subsystem_test, map_safe_zone) {
+    map_config config;
+    config.name = "safe_map";
+    config.width = 100;
+    config.height = 100;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+    auto* m = world_.get_map(id);
+
+    // By default no safe zones
+    EXPECT_FALSE(m->is_safe_zone({50, 50}));
+    EXPECT_EQ(m->safe_zone_count(), 0);
+}
+
+TEST_F(world_subsystem_test, map_dead_entity) {
+    map_config config;
+    config.name = "dead_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+    auto* m = world_.get_map(id);
+
+    position pos{25, 25};
+    EXPECT_FALSE(m->get_dead_entity(pos).has_value());
+
+    m->set_dead_entity(pos, entity_id{99}, owner_type::npc);
+    auto dead = m->get_dead_entity(pos);
+    EXPECT_TRUE(dead.has_value());
+    EXPECT_EQ(dead->value, 99);
+
+    m->clear_dead_entity(pos);
+    EXPECT_FALSE(m->get_dead_entity(pos).has_value());
+}
+
+TEST_F(world_subsystem_test, map_teleport_management) {
+    map_config config;
+    config.name = "tp_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+    auto* m = world_.get_map(id);
+
+    EXPECT_EQ(m->teleport_count(), 0);
+
+    m->add_teleport({5, 5}, {"dest_map", 10, 10, direction::north});
+    m->add_teleport({15, 15}, {"other_map", 20, 20, direction::south});
+
+    EXPECT_EQ(m->teleport_count(), 2);
+
+    EXPECT_TRUE(m->remove_teleport({5, 5}));
+    EXPECT_EQ(m->teleport_count(), 1);
+    EXPECT_FALSE(m->get_teleport_dest({5, 5}).has_value());
+
+    EXPECT_FALSE(m->remove_teleport({99, 99}));  // Non-existent
+}
+
+TEST_F(world_subsystem_test, can_move_to) {
+    map_config config;
+    config.name = "move_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    auto id = result.value();
+    auto* m = world_.get_map(id);
+
+    // Unoccupied walkable tile should allow movement
+    EXPECT_TRUE(world_.can_move_to(id, {10, 10}));
+
+    // Set occupant
+    m->set_occupant({10, 10}, entity_id{1}, owner_type::player);
+    EXPECT_FALSE(world_.can_move_to(id, {10, 10}));
+
+    // Clear and re-check
+    m->clear_occupant({10, 10});
+    EXPECT_TRUE(world_.can_move_to(id, {10, 10}));
+}
+
+TEST_F(world_subsystem_test, for_each_map) {
+    map_config c1;
+    c1.name = "map_a";
+    c1.width = 10;
+    c1.height = 10;
+
+    map_config c2;
+    c2.name = "map_b";
+    c2.width = 20;
+    c2.height = 20;
+
+    world_.create_map(c1);
+    world_.create_map(c2);
+
+    int count = 0;
+    world_.for_each_map([&](map_id, const map&) {
+        ++count;
+    });
+
+    EXPECT_EQ(count, 2);
 }

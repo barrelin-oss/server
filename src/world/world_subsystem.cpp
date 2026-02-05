@@ -240,8 +240,10 @@ auto world_subsystem::remove_top_ground_item(map_id map, const position& pos) ->
     it->second.pop_back();
 
     // Clean up empty entry
+    bool erased = false;
     if (it->second.empty()) {
         ground_items_.erase(it);
+        erased = true;
     }
 
     // Update dynamic tile item count
@@ -249,7 +251,7 @@ auto world_subsystem::remove_top_ground_item(map_id map, const position& pos) ->
     if (m) {
         auto* dyn_tile = m->get_dynamic_tile(pos);
         if (dyn_tile) {
-            dyn_tile->item_count = it != ground_items_.end() ?
+            dyn_tile->item_count = !erased ?
                 static_cast<uint8_t>(it->second.size()) : 0;
         }
     }

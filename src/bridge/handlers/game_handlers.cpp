@@ -143,6 +143,11 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             handle_set_view_range(conn_id, msg);
             break;
 
+        // Entity info
+        case network::json_message_type::entity_info_request:
+            handle_entity_info_request(conn_id, msg);
+            break;
+
         default:
             LOG_WARN(bridge, "Unhandled game message type: {}",
                 network::to_string(msg.type));
@@ -182,6 +187,8 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
     if (std::abs(player->pos.x - data.x) > 1 || std::abs(player->pos.y - data.y) > 1) {
         LOG_WARN(bridge, "Player {} position mismatch: client ({},{}) server ({},{})",
             pid.value, data.x, data.y, player->pos.x, player->pos.y);
+        // Clear destination - desync interrupts movement
+        conn->clear_destination();
         // Send correction - client should resync
         conn->send(network::make_player_move_response(
             msg.seq, false, player->pos.x, player->pos.y,
@@ -192,21 +199,45 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
     // Store old position for visibility calculations
     auto old_pos = player->pos;
 
-    // Calculate target position from direction (always 1 tile)
+    // Calculate target position from client's reported position
+    // This ensures exactly 1-tile movement from where the client thinks they are
+    // The desync check above ensures client position is within tolerance
     auto dir = static_cast<world::direction>(data.direction & 7);  // Clamp to 0-7
-    world::position target_pos = old_pos.move(dir);
+    world::position client_pos{data.x, data.y};
+    world::position target_pos = client_pos.move(dir);
 
     auto move_result = players_->try_move(pid, target_pos, dir);
 
     switch (move_result.result) {
         case player::player_system::move_result::success: {
+            // Update destination on connection if provided
+            if (data.dest_x.has_value() && data.dest_y.has_value()) {
+                conn->set_destination(*data.dest_x, *data.dest_y);
+            }
+
+            // Check if player has reached destination
+            std::optional<int16_t> broadcast_dest_x;
+            std::optional<int16_t> broadcast_dest_y;
+
+            if (conn->has_destination()) {
+                if (target_pos.x == conn->dest_x() && target_pos.y == conn->dest_y()) {
+                    // Reached destination - clear it
+                    conn->clear_destination();
+                } else {
+                    // Still moving toward destination - include in broadcast
+                    broadcast_dest_x = conn->dest_x();
+                    broadcast_dest_y = conn->dest_y();
+                }
+            }
+
             // Send success response to moving player
             auto response = network::make_player_move_response(
                 msg.seq, true, target_pos.x, target_pos.y, data.direction);
             conn->send(response);
 
-            // Broadcast position to nearby players
-            broadcast_position_update(pid, target_pos.x, target_pos.y, data.direction, data.is_running);
+            // Broadcast position to nearby players (with destination if still moving)
+            broadcast_position_update(pid, target_pos.x, target_pos.y, data.direction,
+                                      data.is_running, broadcast_dest_x, broadcast_dest_y);
 
             // Update entity visibility for all affected players
             update_entity_visibility(pid, old_pos, target_pos);
@@ -217,6 +248,9 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
         }
 
         case player::player_system::move_result::teleport: {
+            // Clear destination - teleport interrupts movement
+            conn->clear_destination();
+
             // Execute the teleport with full handling
             execute_player_teleport(pid, conn_id, msg.seq,
                 move_result.teleport_dest_map,
@@ -226,36 +260,48 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
         }
 
         case player::player_system::move_result::blocked_terrain:
+            // Clear destination - movement was interrupted
+            conn->clear_destination();
             conn->send(network::make_player_move_response(
                 msg.seq, false, player->pos.x, player->pos.y,
                 static_cast<int16_t>(player->facing), "blocked_terrain"));
             break;
 
         case player::player_system::move_result::blocked_occupied:
+            // Clear destination - movement was interrupted (bumped)
+            conn->clear_destination();
             conn->send(network::make_player_move_response(
                 msg.seq, false, player->pos.x, player->pos.y,
                 static_cast<int16_t>(player->facing), "blocked_occupied"));
             break;
 
         case player::player_system::move_result::blocked_out_of_bounds:
+            // Clear destination - movement was interrupted
+            conn->clear_destination();
             conn->send(network::make_player_move_response(
                 msg.seq, false, player->pos.x, player->pos.y,
                 static_cast<int16_t>(player->facing), "out_of_bounds"));
             break;
 
         case player::player_system::move_result::blocked_status:
+            // Clear destination - movement was interrupted
+            conn->clear_destination();
             conn->send(network::make_player_move_response(
                 msg.seq, false, player->pos.x, player->pos.y,
                 static_cast<int16_t>(player->facing), "cannot_move"));
             break;
 
         case player::player_system::move_result::blocked_dead:
+            // Clear destination - movement was interrupted
+            conn->clear_destination();
             conn->send(network::make_player_move_response(
                 msg.seq, false, player->pos.x, player->pos.y,
                 static_cast<int16_t>(player->facing), "dead"));
             break;
 
         default:
+            // Clear destination - movement was interrupted
+            conn->clear_destination();
             conn->send(network::make_player_move_response(
                 msg.seq, false, player->pos.x, player->pos.y,
                 static_cast<int16_t>(player->facing), "move_failed"));
@@ -287,6 +333,9 @@ void game_handlers::handle_player_stop(connection_id conn_id, const network::jso
         return;
     }
 
+    // Clear destination - player explicitly stopped
+    conn->clear_destination();
+
     // Update facing direction if provided
     if (data.direction.has_value()) {
         player->facing = static_cast<world::direction>(data.direction.value() & 7);
@@ -298,7 +347,7 @@ void game_handlers::handle_player_stop(connection_id conn_id, const network::jso
     conn->send(network::make_player_stop_response(
         msg.seq, true, player->pos.x, player->pos.y, direction));
 
-    // Broadcast position update to nearby players (not running = stopped)
+    // Broadcast position update to nearby players (not running = stopped, no destination)
     broadcast_position_update(pid, player->pos.x, player->pos.y, direction, false);
 
     LOG_DEBUG(bridge, "Player {} stopped at ({}, {}) facing {}",
@@ -691,7 +740,9 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
 
 void game_handlers::broadcast_position_update(player_id moved_player,
                                                int16_t x, int16_t y, int16_t direction,
-                                               bool is_running)
+                                               bool is_running,
+                                               std::optional<int16_t> dest_x,
+                                               std::optional<int16_t> dest_y)
 {
     if (!players_ || !ws_server_) return;
 
@@ -703,7 +754,7 @@ void game_handlers::broadcast_position_update(player_id moved_player,
     auto nearby = players_->get_players_in_range(moved_player, visibility_radius);
 
     auto update_msg = network::make_player_position_update(
-        moved_player.value, x, y, direction, is_running);
+        moved_player.value, x, y, direction, is_running, dest_x, dest_y);
 
     for (auto other_id : nearby) {
         if (other_id == moved_player) continue;
@@ -1512,6 +1563,15 @@ void game_handlers::on_damage_dealt(const combat::damage_event& event) {
     auto* target = players_->get_player(target_pid);
     if (!target) return;
 
+    // Clear destination - damage interrupts movement (to be fleshed out later)
+    // For now, always interrupt on any damage
+    if (target->connection.value != 0) {
+        auto* conn = ws_server_->get_connection(target->connection);
+        if (conn) {
+            conn->clear_destination();
+        }
+    }
+
     // Broadcast HP update to players who can see the target
     broadcast_hp_update(target_pid, target->hp, target->computed.max_hp);
 }
@@ -1812,6 +1872,111 @@ void game_handlers::broadcast_ground_item_removed(player_id picker, map_id map,
 
     LOG_DEBUG(bridge, "Broadcast ground item {} removed at ({}, {}) by player {}",
         item.value, pos.x, pos.y, picker.value);
+}
+
+// ========== Entity Info ==========
+
+void game_handlers::handle_entity_info_request(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_) {
+        send_error(conn_id, msg.seq, "internal_error", "Player system unavailable");
+        return;
+    }
+
+    auto data_result = network::entity_info_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto requester_pid = conn->player();
+
+    // Try to find the entity - could be a player or an NPC
+    // First check if it's a player
+    player_id target_pid{data.entity_id};
+    auto* target_player = players_->get_player(target_pid);
+
+    if (target_player) {
+        // It's a player
+        network::entity_info_response_data response;
+        response.entity_id = data.entity_id;
+        response.entity_type = "player";
+        response.name = target_player->name;
+        response.level = target_player->experience.level;
+        response.hp = target_player->hp;
+        response.hp_max = target_player->computed.max_hp;
+        response.x = target_player->pos.x;
+        response.y = target_player->pos.y;
+        response.direction = static_cast<int16_t>(target_player->facing);
+
+        // Player-specific fields
+        switch (target_player->faction) {
+            case faction::aresden:
+                response.faction = "aresden";
+                break;
+            case faction::elvine:
+                response.faction = "elvine";
+                break;
+            default:
+                response.faction = "neutral";
+                break;
+        }
+
+        response.class_type = static_cast<int16_t>(target_player->profession);
+        response.pk_count = target_player->pk.count;
+
+        // Guild name if player has one
+        if (social_) {
+            auto guild_id = social_->get_player_guild(target_pid);
+            if (guild_id.is_valid()) {
+                auto* guild = social_->get_guild(guild_id);
+                if (guild) {
+                    response.guild_name = guild->name;
+                }
+            }
+        }
+
+        conn->send(network::make_entity_info_response(msg.seq, true, &response));
+        LOG_DEBUG(bridge, "Player {} requested info about player {} ({})",
+            requester_pid.value, data.entity_id, target_player->name);
+        return;
+    }
+
+    // Not a player - check if it's an NPC
+    if (npc_) {
+        entity::entity entity_id{data.entity_id};
+        auto* target_npc = npc_->get_npc(entity_id);
+
+        if (target_npc) {
+            network::entity_info_response_data response;
+            response.entity_id = data.entity_id;
+            response.entity_type = "npc";
+            response.name = target_npc->name;
+            response.level = target_npc->level;
+            response.hp = target_npc->hp;
+            response.hp_max = target_npc->max_hp;
+            response.x = target_npc->pos.x;
+            response.y = target_npc->pos.y;
+            response.direction = static_cast<int16_t>(target_npc->facing);
+
+            // NPC-specific fields
+            response.template_id = target_npc->template_id.value;
+            // TODO: Add npc_type based on template flags when available
+
+            conn->send(network::make_entity_info_response(msg.seq, true, &response));
+            LOG_DEBUG(bridge, "Player {} requested info about NPC {} ({})",
+                requester_pid.value, data.entity_id, target_npc->name);
+            return;
+        }
+    }
+
+    // Entity not found
+    conn->send(network::make_entity_info_response(msg.seq, false, nullptr, "entity_not_found"));
+    LOG_DEBUG(bridge, "Player {} requested info about unknown entity {}",
+        requester_pid.value, data.entity_id);
 }
 
 // ========== Hunger Update ==========

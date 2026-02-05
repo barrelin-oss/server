@@ -77,6 +77,9 @@ struct npc {
     ai_config ai;
     ai_runtime_state ai_state;
 
+    // Pack membership (0 = no pack)
+    uint32_t pack{0};
+
     // Loot
     loot_table* loot{nullptr};
 

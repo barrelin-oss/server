@@ -9,6 +9,8 @@
 #include "world/map.h"
 #include "entity/entity.h"
 
+#include <optional>
+
 namespace hb::network {
     class websocket_server;
     class ws_connection;
@@ -94,6 +96,9 @@ private:
     // View range
     void handle_set_view_range(connection_id conn_id, const network::json_message& msg);
 
+    // Entity info
+    void handle_entity_info_request(connection_id conn_id, const network::json_message& msg);
+
     // Chat distribution callback - called when social_system processes a chat message
     void on_chat_message(const social::chat_message_event& event);
 
@@ -110,7 +115,9 @@ private:
 
     // Broadcast position update to nearby players
     void broadcast_position_update(player_id moved_player, int16_t x, int16_t y,
-                                    int16_t direction, bool is_running = false);
+                                    int16_t direction, bool is_running = false,
+                                    std::optional<int16_t> dest_x = std::nullopt,
+                                    std::optional<int16_t> dest_y = std::nullopt);
 
     // Handle entity visibility changes after movement
     void update_entity_visibility(player_id moved_player,

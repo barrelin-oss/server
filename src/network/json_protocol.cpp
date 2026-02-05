@@ -105,7 +105,9 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"npc_attack", json_message_type::npc_attack},
     {"npc_death", json_message_type::npc_death},
     {"ground_item_removed", json_message_type::ground_item_removed},
-    {"hunger_update", json_message_type::hunger_update}
+    {"hunger_update", json_message_type::hunger_update},
+    {"entity_info_request", json_message_type::entity_info_request},
+    {"entity_info_response", json_message_type::entity_info_response}
 };
 
 }  // namespace
@@ -356,6 +358,14 @@ auto player_move_request_data::from_json(const nlohmann::json& j)
 
         if (j.contains("timestamp") && j["timestamp"].is_number()) {
             data.timestamp = j["timestamp"].get<uint64_t>();
+        }
+
+        // Optional mouse destination coordinates
+        if (j.contains("dest_x") && j["dest_x"].is_number()) {
+            data.dest_x = safe_int16(j, "dest_x", 0);
+        }
+        if (j.contains("dest_y") && j["dest_y"].is_number()) {
+            data.dest_y = safe_int16(j, "dest_y", 0);
         }
 
         return result<player_move_request_data, std::string>::ok(std::move(data));
@@ -1263,18 +1273,28 @@ auto make_player_stop_response(uint32_t seq, bool success,
 
 auto make_player_position_update(uint32_t entity_id,
                                   int16_t x, int16_t y, int16_t direction,
-                                  bool is_running) -> json_message
+                                  bool is_running,
+                                  std::optional<int16_t> dest_x,
+                                  std::optional<int16_t> dest_y) -> json_message
 {
+    nlohmann::json data{
+        {"entity_id", entity_id},
+        {"x", x},
+        {"y", y},
+        {"direction", direction},
+        {"is_running", is_running}
+    };
+
+    // Include destination coordinates if available
+    if (dest_x.has_value() && dest_y.has_value()) {
+        data["dest_x"] = *dest_x;
+        data["dest_y"] = *dest_y;
+    }
+
     return json_message{
         .type = json_message_type::player_position_update,
         .seq = 0,  // Broadcasts don't need seq
-        .data = nlohmann::json{
-            {"entity_id", entity_id},
-            {"x", x},
-            {"y", y},
-            {"direction", direction},
-            {"is_running", is_running}
-        }
+        .data = std::move(data)
     };
 }
 
@@ -1643,6 +1663,88 @@ auto make_hunger_update(int8_t level) -> json_message {
         .type = json_message_type::hunger_update,
         .seq = 0,  // Broadcasts don't need seq
         .data = hunger_update_data{level, level <= 0}.to_json()
+    };
+}
+
+// Entity info request data from_json implementation
+
+auto entity_info_request_data::from_json(const nlohmann::json& j) -> result<entity_info_request_data, std::string> {
+    try {
+        entity_info_request_data data;
+
+        if (!j.contains("entity_id") || !j["entity_id"].is_number()) {
+            return result<entity_info_request_data, std::string>::err("Missing or invalid 'entity_id' field");
+        }
+        data.entity_id = j["entity_id"].get<uint32_t>();
+
+        return result<entity_info_request_data, std::string>::ok(std::move(data));
+
+    } catch (const nlohmann::json::exception& e) {
+        return result<entity_info_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+// Entity info response data to_json implementation
+
+auto entity_info_response_data::to_json() const -> nlohmann::json {
+    nlohmann::json j = {
+        {"entity_id", entity_id},
+        {"entity_type", entity_type},
+        {"name", name},
+        {"level", level},
+        {"hp", hp},
+        {"hp_max", hp_max},
+        {"x", x},
+        {"y", y},
+        {"direction", direction}
+    };
+
+    // Add player-specific fields if present
+    if (faction.has_value()) {
+        j["faction"] = *faction;
+    }
+    if (guild_name.has_value()) {
+        j["guild_name"] = *guild_name;
+    }
+    if (class_type.has_value()) {
+        j["class_type"] = *class_type;
+    }
+    if (pk_count.has_value()) {
+        j["pk_count"] = *pk_count;
+    }
+
+    // Add NPC-specific fields if present
+    if (template_id.has_value()) {
+        j["template_id"] = *template_id;
+    }
+    if (npc_type.has_value()) {
+        j["npc_type"] = *npc_type;
+    }
+
+    return j;
+}
+
+// Entity info response message builder
+
+auto make_entity_info_response(uint32_t seq, bool success,
+                                const entity_info_response_data* data,
+                                std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json response_data;
+    response_data["success"] = success;
+
+    if (success && data != nullptr) {
+        response_data["entity"] = data->to_json();
+    }
+
+    if (!success && error.has_value()) {
+        response_data["error"] = std::string(*error);
+    }
+
+    return json_message{
+        .type = json_message_type::entity_info_response,
+        .seq = seq,
+        .data = std::move(response_data)
     };
 }
 

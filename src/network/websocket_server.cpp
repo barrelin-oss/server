@@ -51,7 +51,7 @@ void ws_connection::send(const json_message& msg) {
 
     try {
         auto json_str = msg.to_json().dump();
-        LOG_DEBUG(network, "[SEND conn={}] {}", id_.value, json_str);
+        // LOG_DEBUG(network, "[SEND conn={}] {}", id_.value, json_str);
         socket_->send(json_str);
     } catch (const std::exception& e) {
         LOG_ERROR(network, "Failed to send message to connection {}: {}", id_.value, e.what());
@@ -198,7 +198,7 @@ auto websocket_server::start() -> hb::result<void, std::string> {
                             break;
                         }
 
-                        LOG_DEBUG(network, "[RECV conn={}] {}", conn_id.value, msg->str);
+                        // LOG_DEBUG(network, "[RECV conn={}] {}", conn_id.value, msg->str);
 
                         // Parse JSON message
                         auto parse_result = json_message::parse(msg->str);

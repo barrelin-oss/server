@@ -7,6 +7,7 @@
 #include "world/position.h"
 
 #include <chrono>
+#include <string>
 
 namespace hb::npc {
 
@@ -57,6 +58,9 @@ struct ai_config {
     int16_t wander_range{5};     // Wander distance from spawn
     int32_t think_interval_ms{500}; // AI update interval
 
+    // Behavior tree name (empty = use state machine)
+    std::string behavior_tree;
+
     [[nodiscard]] auto has_flag(ai_flags flag) const -> bool {
         return (flags & flag) != ai_flags::none;
     }
@@ -68,6 +72,9 @@ struct ai_runtime_state {
     entity::entity target{};
     hb::world::position spawn_point{};
     hb::world::position target_position{};
+
+    // Pack behavior
+    entity::entity pack_leader{};  // Leader we're following (if social/pack member)
 
     std::chrono::steady_clock::time_point last_think_time{};
     std::chrono::steady_clock::time_point last_attack_time{};

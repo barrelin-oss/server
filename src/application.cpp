@@ -361,6 +361,8 @@ void application::initialize() {
                 case network::json_message_type::command_request:
                 // View range
                 case network::json_message_type::set_view_range:
+                // Entity info
+                case network::json_message_type::entity_info_request:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 

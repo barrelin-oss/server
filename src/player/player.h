@@ -111,7 +111,8 @@ struct pk_state {
 // Player component - represents a player character
 struct player {
     // Identity
-    player_id id{};
+    player_id id{};               // Runtime ID (monotonic, for in-memory lookups)
+    player_id character_id{};     // Database character ID (for persistence)
     entity::entity ecs_entity{};  // Entity manager handle (for unified spatial queries)
     std::string name;
     std::string account_name;

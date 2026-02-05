@@ -90,6 +90,9 @@ struct npc_template {
     // Spells
     std::vector<npc_spell> spells;
 
+    // Behavior tree name (empty = default state machine)
+    std::string behavior_tree;
+
     // Flags
     bool is_aggressive{false};     // Attacks players on sight
     bool is_boss{false};           // Boss monster

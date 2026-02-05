@@ -457,6 +457,8 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         live_player_id = create_result.value();
         auto* player = players_->get_player(live_player_id);
         if (player) {
+            // Set database character ID for persistence
+            player->character_id = char_id;
             // Set account for duplicate session detection
             player->account = conn->account();
 
@@ -937,8 +939,9 @@ void auth_handlers::save_player_state(player_id pid) {
     }
 
     // Build character data from current player state
+    // Use the database character_id, not the runtime player_id
     auth::character_full_data data{
-        .id = pid,
+        .id = player->character_id,
         .account = {},  // Not needed for save
         .name = player->name,
         .level = static_cast<int16_t>(player->experience.level),

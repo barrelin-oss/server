@@ -907,7 +907,9 @@ Request to move the player character (walk or run).
     "y": 151,
     "direction": 2,
     "is_running": false,
-    "timestamp": 1234567890
+    "timestamp": 1234567890,
+    "dest_x": 110,
+    "dest_y": 160
   }
 }
 ```
@@ -919,6 +921,18 @@ Request to move the player character (walk or run).
 | `direction` | int16 | Yes | Direction to move (0-7) |
 | `is_running` | bool | No | If true, moves 2 tiles; if false/omitted, moves 1 tile |
 | `timestamp` | uint64 | No | Client timestamp in milliseconds |
+| `dest_x` | int16 | No | Mouse destination tile X (where player clicked) |
+| `dest_y` | int16 | No | Mouse destination tile Y (where player clicked) |
+
+**Notes:**
+- The `dest_x`/`dest_y` fields represent the final destination tile where the player clicked
+- The server stores this destination and includes it in broadcasts until the player reaches it
+- Destination is automatically cleared when:
+  - Player reaches the destination coordinates
+  - Move is blocked (bumped, terrain, etc.)
+  - Player sends a stop request
+  - Player is teleported
+  - Player takes damage (interrupts movement)
 
 ---
 
@@ -1028,7 +1042,9 @@ Broadcast to nearby players when someone moves or stops.
     "x": 101,
     "y": 151,
     "direction": 2,
-    "is_running": false
+    "is_running": false,
+    "dest_x": 110,
+    "dest_y": 160
   }
 }
 ```
@@ -1040,6 +1056,13 @@ Broadcast to nearby players when someone moves or stops.
 | `y` | int16 | New Y coordinate |
 | `direction` | int16 | Facing direction (0-7) |
 | `is_running` | bool | True if running, false if walking or stopped |
+| `dest_x` | int16 | Mouse destination tile X (optional, omitted if no destination) |
+| `dest_y` | int16 | Mouse destination tile Y (optional, omitted if no destination) |
+
+**Notes:**
+- `dest_x`/`dest_y` are only included when the player has an active movement destination
+- Clients can use this to predict the player's path or display movement indicators
+- When the player stops or reaches their destination, these fields are omitted
 
 ---
 
@@ -2048,6 +2071,137 @@ An NPC died.
 | `killer_id` | uint32 | Entity that killed (0 if environmental/unknown) |
 | `x` | int16 | Death location X |
 | `y` | int16 | Death location Y |
+
+---
+
+## Entity Info Messages
+
+### `entity_info_request`
+
+Request detailed information about an entity (player or NPC).
+
+**Request:**
+```json
+{
+  "type": "entity_info_request",
+  "seq": 155,
+  "data": {
+    "entity_id": 1221
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `entity_id` | uint32 | Yes | Entity ID to query |
+
+---
+
+### `entity_info_response`
+
+Server responds with detailed entity information.
+
+**Success Response (Player):**
+```json
+{
+  "type": "entity_info_response",
+  "seq": 155,
+  "data": {
+    "success": true,
+    "entity": {
+      "entity_id": 1221,
+      "entity_type": "player",
+      "name": "DarkKnight",
+      "level": 45,
+      "hp": 1250,
+      "hp_max": 2000,
+      "x": 128,
+      "y": 256,
+      "direction": 4,
+      "faction": "aresden",
+      "class_type": 0,
+      "pk_count": 12,
+      "guild_name": "BloodGuard"
+    }
+  }
+}
+```
+
+**Success Response (NPC):**
+```json
+{
+  "type": "entity_info_response",
+  "seq": 156,
+  "data": {
+    "success": true,
+    "entity": {
+      "entity_id": 50001,
+      "entity_type": "npc",
+      "name": "Orc Warrior",
+      "level": 25,
+      "hp": 450,
+      "hp_max": 800,
+      "x": 95,
+      "y": 142,
+      "direction": 2,
+      "template_id": 10
+    }
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "entity_info_response",
+  "seq": 157,
+  "data": {
+    "success": false,
+    "error": "entity_not_found"
+  }
+}
+```
+
+#### Entity Info Response Object
+
+**Common Fields (all entities):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entity_id` | uint32 | Entity ID |
+| `entity_type` | string | `"player"` or `"npc"` |
+| `name` | string | Entity display name |
+| `level` | int16 | Entity level |
+| `hp` | int32 | Current hit points |
+| `hp_max` | int32 | Maximum hit points |
+| `x` | int16 | X coordinate |
+| `y` | int16 | Y coordinate |
+| `direction` | int16 | Facing direction (0-7) |
+
+**Player-specific Fields (only when `entity_type` = `"player"`):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `faction` | string | `"aresden"`, `"elvine"`, or `"neutral"` |
+| `class_type` | int16 | Class (0=Warrior, 1=Mage, 2=Archer) |
+| `pk_count` | int32 | Total player kill count |
+| `guild_name` | string | Guild name (only if player is in a guild) |
+
+**NPC-specific Fields (only when `entity_type` = `"npc"`):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `template_id` | uint32 | NPC template ID |
+| `npc_type` | string | NPC type (e.g., `"monster"`, `"vendor"`, `"guard"`) |
+
+**Possible Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `entity_not_found` | No entity with the given ID exists |
+| `invalid_request` | Missing or invalid entity_id field |
+| `not_in_game` | Client is not in-game |
+| `internal_error` | Required subsystems unavailable |
 
 ---
 

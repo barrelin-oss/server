@@ -8,6 +8,13 @@
 #include "core/subsystem.h"
 #include "npc/npc.h"
 #include "npc/spawn_point.h"
+#include "npc/pack_system.h"
+#include "npc/script/script_loader.h"
+#include "npc/script/script_executor.h"
+#include "npc/bt/bt_loader.h"
+#include "npc/bt/bt_context.h"
+#include "npc/boss/boss_controller.h"
+#include "npc/boss/boss_loader.h"
 #include "entity/entity_manager.h"
 
 #include <unordered_map>
@@ -71,6 +78,32 @@ public:
     void update_ai(entity::entity id);
     void enable_ai(bool enabled) { config_.enable_ai = enabled; }
 
+    // Script system
+    void start_script(entity::entity npc_entity, std::string_view script_name);
+    void stop_script(entity::entity npc_entity);
+    auto reload_scripts() -> result<size_t, std::string>;
+    [[nodiscard]] auto get_script_loader() -> script::script_loader& { return script_loader_; }
+    [[nodiscard]] auto get_script_executor() -> script::script_executor& { return script_executor_; }
+
+    // Behavior tree system
+    auto reload_behavior_trees() -> result<size_t, std::string>;
+    [[nodiscard]] auto get_bt_loader() -> bt::bt_loader& { return bt_loader_; }
+
+    // Boss system
+    auto reload_boss_configs() -> result<size_t, std::string>;
+    [[nodiscard]] auto get_boss_controller() -> boss::boss_controller& { return boss_controller_; }
+    [[nodiscard]] auto get_boss_loader() -> boss::boss_loader& { return boss_loader_; }
+    void register_boss(entity::entity id, std::string_view boss_config_name);
+
+    // AI helpers accessible to BT leaf nodes
+    [[nodiscard]] auto find_aggro_target_for(const npc& npc_ref) -> entity::entity;
+    void move_npc_towards_target(npc& npc_ref);
+    void move_npc_away_from_target(npc& npc_ref);
+    void move_npc_towards_position(npc& npc_ref, hb::world::position target_pos);
+    void perform_attack(npc& npc_ref, entity::entity target);
+    void call_for_help_from(const npc& caller, entity::entity attacker);
+    void try_move(npc& npc_ref, hb::world::position new_pos);
+
     // Callback types
     // IMPORTANT: These callbacks are invoked SYNCHRONOUSLY while the NPC is valid.
     // The npc& reference is only valid during the callback invocation.
@@ -129,11 +162,30 @@ private:
     void try_move_npc(npc& npc_ref, hb::world::position new_pos);
     void perform_npc_attack(npc& npc_ref, entity::entity target);
 
+    // Pack behavior helpers
+    void call_for_help(const npc& caller, entity::entity attacker);
+    void try_form_pack(npc& npc_ref);
+
     npc_system_config config_;
     entity::entity_manager* entity_manager_{nullptr};  // Cached pointer to entity manager
 
     std::unordered_map<entity::entity, std::unique_ptr<npc>> npcs_;
     std::vector<spawn_point> spawn_points_;
+
+    // Pack behavior
+    pack_system packs_;
+
+    // Script system
+    script::script_loader script_loader_;
+    script::script_executor script_executor_;
+
+    // Behavior tree system
+    bt::bt_loader bt_loader_;
+    bt::bt_context bt_context_;
+
+    // Boss system
+    boss::boss_controller boss_controller_;
+    boss::boss_loader boss_loader_;
 
     float ai_accumulator_{0.0f};
     float spawn_accumulator_{0.0f};

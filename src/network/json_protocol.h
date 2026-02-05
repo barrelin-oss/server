@@ -119,6 +119,10 @@ enum class json_message_type {
     // Player state updates (server -> client)
     hunger_update,          // Player hunger level changed
 
+    // Entity info (client -> server -> client)
+    entity_info_request,    // Request info about an entity
+    entity_info_response,   // Entity info response
+
     // Unknown/invalid
     unknown
 };
@@ -183,6 +187,8 @@ enum class json_message_type {
         case json_message_type::npc_death: return "npc_death";
         case json_message_type::ground_item_removed: return "ground_item_removed";
         case json_message_type::hunger_update: return "hunger_update";
+        case json_message_type::entity_info_request: return "entity_info_request";
+        case json_message_type::entity_info_response: return "entity_info_response";
         default: return "unknown";
     }
 }
@@ -267,6 +273,8 @@ struct player_move_request_data {
     int16_t direction{0};  // Direction to move (0-7)
     bool is_running{false}; // True if running (moves 2 tiles), false if walking (1 tile)
     uint64_t timestamp{0}; // Client timestamp in ms
+    std::optional<int16_t> dest_x;  // Mouse destination tile X (optional)
+    std::optional<int16_t> dest_y;  // Mouse destination tile Y (optional)
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_move_request_data, std::string>;
 };
@@ -646,7 +654,9 @@ struct game_state_msg {
 
 [[nodiscard]] auto make_player_position_update(uint32_t entity_id,
                                                 int16_t x, int16_t y, int16_t direction,
-                                                bool is_running = false) -> json_message;
+                                                bool is_running = false,
+                                                std::optional<int16_t> dest_x = std::nullopt,
+                                                std::optional<int16_t> dest_y = std::nullopt) -> json_message;
 
 // Combat messages
 [[nodiscard]] auto make_player_attack_response(uint32_t seq, bool success,
@@ -786,6 +796,43 @@ struct hunger_update_data {
 
 // Hunger update message builder
 [[nodiscard]] auto make_hunger_update(int8_t level) -> json_message;
+
+// Entity info request data
+struct entity_info_request_data {
+    uint32_t entity_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<entity_info_request_data, std::string>;
+};
+
+// Entity info response data
+struct entity_info_response_data {
+    uint32_t entity_id{0};
+    std::string entity_type;      // "player" or "npc"
+    std::string name;
+    int16_t level{0};
+    int32_t hp{0};
+    int32_t hp_max{0};
+    int16_t x{0};
+    int16_t y{0};
+    int16_t direction{0};
+
+    // Player-specific fields
+    std::optional<std::string> faction;       // "aresden", "elvine", "neutral"
+    std::optional<std::string> guild_name;
+    std::optional<int16_t> class_type;
+    std::optional<int32_t> pk_count;
+
+    // NPC-specific fields
+    std::optional<uint32_t> template_id;
+    std::optional<std::string> npc_type;      // "monster", "vendor", "guard", etc.
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Entity info message builders
+[[nodiscard]] auto make_entity_info_response(uint32_t seq, bool success,
+                                              const entity_info_response_data* data = nullptr,
+                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Calculate visibility radius from screen resolution
 // ~32 pixels per tile, calculate visible tile radius with buffer for smooth scrolling

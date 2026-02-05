@@ -93,6 +93,13 @@ public:
     void set_session_token(std::string_view token);
     [[nodiscard]] auto session_token() const -> const std::string& { return session_token_; }
 
+    // Mouse destination tracking (where client clicked to walk to)
+    void set_destination(int16_t x, int16_t y) { dest_x_ = x; dest_y_ = y; has_destination_ = true; }
+    void clear_destination() { dest_x_ = 0; dest_y_ = 0; has_destination_ = false; }
+    [[nodiscard]] auto has_destination() const -> bool { return has_destination_; }
+    [[nodiscard]] auto dest_x() const -> int16_t { return dest_x_; }
+    [[nodiscard]] auto dest_y() const -> int16_t { return dest_y_; }
+
     // Send message
     void send(const json_message& msg);
     void send_raw(std::string_view data);
@@ -118,6 +125,11 @@ private:
     account_id account_{};
     player_id player_{};
     std::string session_token_;
+
+    // Mouse destination (where client clicked to walk to)
+    int16_t dest_x_{0};
+    int16_t dest_y_{0};
+    bool has_destination_{false};
 };
 
 // WebSocket server

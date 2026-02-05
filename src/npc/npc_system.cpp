@@ -52,6 +52,36 @@ void npc_system::initialize() {
         LOG_WARN(general, "NPC system: entity_manager not available, NPC components will be disabled");
     }
 
+    // Initialize script executor
+    script_executor_.set_npc_system(this);
+
+    // Load scripts from scripts/ directory
+    auto script_result = script_loader_.load_directory("scripts");
+    if (script_result.is_ok() && script_result.value() > 0)
+    {
+        LOG_INFO(general, "NPC system loaded {} scripts", script_result.value());
+    }
+
+    // Load behavior trees from behaviors/ directory
+    auto bt_result = bt_loader_.load_directory("behaviors");
+    if (bt_result.is_ok() && bt_result.value() > 0)
+    {
+        LOG_INFO(general, "NPC system loaded {} behavior trees", bt_result.value());
+    }
+
+    // Initialize BT context
+    bt_context_.npc_sys = this;
+
+    // Initialize boss controller
+    boss_controller_.set_npc_system(this);
+
+    // Load boss configs from bosses/ directory
+    auto boss_result = boss_loader_.load_directory("bosses");
+    if (boss_result.is_ok() && boss_result.value() > 0)
+    {
+        LOG_INFO(general, "NPC system loaded {} boss configurations", boss_result.value());
+    }
+
     set_initialized(true);
     LOG_INFO(general, "NPC system initialized (max_npcs: {})", config_.max_npcs);
 }
@@ -71,6 +101,9 @@ void npc_system::update(float delta_time) {
     if (config_.enable_ai) {
         update_all_ai(delta_time);
     }
+    script_executor_.update(delta_time);
+    packs_.update(delta_time);
+    boss_controller_.update(delta_time);
 }
 
 void npc_system::set_config(const npc_system_config& config) {
@@ -150,6 +183,11 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
 
         if (tmpl->is_aggressive) {
             new_npc->ai.flags = new_npc->ai.flags | ai_flags::aggressive;
+        }
+
+        // Apply behavior tree from template
+        if (!tmpl->behavior_tree.empty()) {
+            new_npc->ai.behavior_tree = tmpl->behavior_tree;
         }
 
         // LOG_DEBUG(general, "Spawned NPC '{}' (template {}) at ({}, {}) on map {} - HP: {}, Level: {}",
@@ -306,6 +344,22 @@ void npc_system::despawn_npc(entity::entity id) {
 
     auto& npc_ref = *it->second;
 
+    // Remove from pack
+    if (npc_ref.pack != 0)
+    {
+        packs_.remove_member(id);
+        npc_ref.pack = 0;
+    }
+
+    // Unregister boss
+    if (boss_controller_.is_boss(id))
+    {
+        boss_controller_.unregister_boss(id);
+    }
+
+    // Stop scripts
+    script_executor_.stop(id);
+
     // Remove from spatial index
     auto* world = subsystems().get<world::world_subsystem>();
     if (world) {
@@ -336,7 +390,14 @@ void npc_system::kill_npc(entity::entity id, entity::entity killer) {
     npc_ptr->ai_state.set_state(ai_state::dead);
     npc_ptr->ai_state.death_time = std::chrono::steady_clock::now();
 
-    // LOG_DEBUG(general, "NPC {} '{}' killed by {}", id.id, npc_ptr->name, killer.id);
+    // Unregister boss (runs on_death_script)
+    if (boss_controller_.is_boss(id))
+    {
+        boss_controller_.unregister_boss(id);
+    }
+
+    // Stop any running scripts
+    script_executor_.stop(id);
 
     // Invoke death callback
     if (on_death_callback_) {
@@ -419,6 +480,12 @@ void npc_system::apply_damage(entity::entity id, int32_t damage, entity::entity 
 
     // Increase aggro
     npc_ptr->ai_state.aggro_level += damage;
+
+    // Call for help if this NPC has the calls_help flag
+    if (npc_ptr->ai.has_flag(ai_flags::calls_help))
+    {
+        call_for_help(*npc_ptr, source);
+    }
 
     if (npc_ptr->is_dead()) {
         kill_npc(id, source);
@@ -564,6 +631,18 @@ void npc_system::process_ai_state(npc& npc_ref) {
 
     state.last_think_time = now;
 
+    // If NPC has a behavior tree, tick it instead of using the state machine
+    if (!npc_ref.ai.behavior_tree.empty())
+    {
+        auto* tree = bt_loader_.get_tree(npc_ref.ai.behavior_tree);
+        if (tree)
+        {
+            bt_context_.delta_time = static_cast<float>(npc_ref.ai.think_interval_ms) / 1000.0f;
+            const_cast<bt::bt_node*>(tree)->tick(npc_ref, bt_context_);
+            return;
+        }
+    }
+
     switch (state.state) {
         case ai_state::idle:
             process_idle_state(npc_ref);
@@ -594,7 +673,8 @@ void npc_system::process_ai_state(npc& npc_ref) {
             break;
 
         case ai_state::scripted:
-            // Follow scripted behavior
+            // Scripted NPCs are driven by the script_executor
+            // Return early to skip state machine
             break;
     }
 }
@@ -611,6 +691,12 @@ void npc_system::process_idle_state(npc& npc_ref) {
             LOG_DEBUG(general, "NPC {} acquired target {}", npc_ref.entity_id.id, target.id);
             return;
         }
+    }
+
+    // Social NPCs try to form packs
+    if (npc_ref.ai.has_flag(ai_flags::social) && npc_ref.pack == 0)
+    {
+        try_form_pack(npc_ref);
     }
 
     // Random chance to wander
@@ -638,6 +724,28 @@ void npc_system::process_wander_state(npc& npc_ref) {
     if (state.time_in_state_ms() > 5000) {
         state.set_state(ai_state::idle);
         return;
+    }
+
+    // Pack members follow their leader instead of random wander
+    if (state.pack_leader.is_valid())
+    {
+        auto leader_pos = get_entity_position(state.pack_leader);
+        if (leader_pos.has_value())
+        {
+            int dist_to_leader = npc_ref.pos.chebyshev_distance(leader_pos.value());
+            if (dist_to_leader > 3)
+            {
+                move_towards(npc_ref, leader_pos.value());
+                return;
+            }
+        }
+        else
+        {
+            // Leader gone, clear pack reference
+            state.pack_leader = entity::entity::null();
+            packs_.remove_member(npc_ref.entity_id);
+            npc_ref.pack = 0;
+        }
     }
 
     // Move randomly within wander range
@@ -932,6 +1040,187 @@ void npc_system::perform_npc_attack(npc& npc_ref, entity::entity target) {
     // Invoke attack callback
     if (on_attack_callback_) {
         on_attack_callback_(npc_ref, target, result.hit.final_damage);
+    }
+}
+
+auto npc_system::reload_boss_configs() -> result<size_t, std::string>
+{
+    return boss_loader_.reload();
+}
+
+void npc_system::register_boss(entity::entity id, std::string_view boss_config_name)
+{
+    auto* config = boss_loader_.get_config(boss_config_name);
+    if (!config)
+    {
+        LOG_WARN(general, "Boss config '{}' not found", boss_config_name);
+        return;
+    }
+
+    boss_controller_.register_boss(id, *config);
+}
+
+auto npc_system::find_aggro_target_for(const npc& npc_ref) -> entity::entity
+{
+    return find_aggro_target(npc_ref);
+}
+
+void npc_system::move_npc_towards_target(npc& npc_ref)
+{
+    if (!npc_ref.ai_state.target.is_valid()) return;
+
+    auto target_pos = get_entity_position(npc_ref.ai_state.target);
+    if (target_pos.has_value())
+    {
+        move_towards(npc_ref, target_pos.value());
+    }
+}
+
+void npc_system::move_npc_away_from_target(npc& npc_ref)
+{
+    if (!npc_ref.ai_state.target.is_valid()) return;
+
+    auto target_pos = get_entity_position(npc_ref.ai_state.target);
+    if (target_pos.has_value())
+    {
+        auto dir = hb::world::direction_to(target_pos.value(), npc_ref.pos);
+        if (dir.has_value())
+        {
+            auto new_pos = hb::world::move_in_direction(npc_ref.pos, *dir);
+            try_move_npc(npc_ref, new_pos);
+        }
+    }
+}
+
+void npc_system::move_npc_towards_position(npc& npc_ref, hb::world::position target_pos)
+{
+    move_towards(npc_ref, target_pos);
+}
+
+void npc_system::perform_attack(npc& npc_ref, entity::entity target)
+{
+    perform_npc_attack(npc_ref, target);
+}
+
+void npc_system::call_for_help_from(const npc& caller, entity::entity attacker)
+{
+    call_for_help(caller, attacker);
+}
+
+void npc_system::try_move(npc& npc_ref, hb::world::position new_pos)
+{
+    try_move_npc(npc_ref, new_pos);
+}
+
+auto npc_system::reload_behavior_trees() -> result<size_t, std::string>
+{
+    return bt_loader_.reload();
+}
+
+void npc_system::start_script(entity::entity npc_entity, std::string_view script_name)
+{
+    auto* script = script_loader_.get_script(script_name);
+    if (!script)
+    {
+        LOG_WARN(general, "Script '{}' not found", script_name);
+        return;
+    }
+
+    auto* npc_ptr = get_npc(npc_entity);
+    if (!npc_ptr) return;
+
+    npc_ptr->ai_state.set_state(ai_state::scripted);
+    script_executor_.start(npc_entity, *script);
+}
+
+void npc_system::stop_script(entity::entity npc_entity)
+{
+    script_executor_.stop(npc_entity);
+
+    auto* npc_ptr = get_npc(npc_entity);
+    if (npc_ptr && npc_ptr->ai_state.state == ai_state::scripted)
+    {
+        npc_ptr->ai_state.set_state(ai_state::idle);
+    }
+}
+
+auto npc_system::reload_scripts() -> result<size_t, std::string>
+{
+    return script_loader_.reload();
+}
+
+void npc_system::call_for_help(const npc& caller, entity::entity attacker)
+{
+    // Alert nearby NPCs of the same template to help
+    int help_range = caller.ai.aggro_range * 2;
+    auto nearby = get_npcs_in_range(caller.current_map, caller.pos, help_range);
+
+    for (auto ally_id : nearby)
+    {
+        if (ally_id == caller.entity_id) continue;
+
+        auto* ally = get_npc(ally_id);
+        if (!ally || ally->is_dead()) continue;
+
+        // Only same template or same category responds to help calls
+        if (ally->template_id != caller.template_id) continue;
+
+        // Only idle/wandering NPCs respond
+        if (ally->ai_state.state != ai_state::idle &&
+            ally->ai_state.state != ai_state::wander)
+        {
+            continue;
+        }
+
+        // Skip if already has a target
+        if (ally->ai_state.target.is_valid()) continue;
+
+        // Set attacker as target and switch to chase
+        ally->ai_state.target = attacker;
+        ally->ai_state.set_state(ai_state::chase);
+        LOG_DEBUG(general, "NPC {} '{}' responding to help call from '{}'",
+            ally->entity_id.id, ally->name, caller.name);
+    }
+}
+
+void npc_system::try_form_pack(npc& npc_ref)
+{
+    // Look for nearby same-template NPCs to form a pack
+    auto nearby = get_npcs_in_range(npc_ref.current_map, npc_ref.pos, npc_ref.ai.wander_range);
+
+    for (auto other_id : nearby)
+    {
+        if (other_id == npc_ref.entity_id) continue;
+
+        auto* other = get_npc(other_id);
+        if (!other || other->is_dead()) continue;
+        if (other->template_id != npc_ref.template_id) continue;
+        if (!other->ai.has_flag(ai_flags::social)) continue;
+
+        // Found a social ally - join or form a pack
+        if (other->pack != 0)
+        {
+            // Join existing pack
+            auto* existing_pack = packs_.get_pack(other->pack);
+            if (existing_pack && existing_pack->members.size() < 6)
+            {
+                packs_.add_member(other->pack, npc_ref.entity_id);
+                npc_ref.pack = other->pack;
+                npc_ref.ai_state.pack_leader = existing_pack->leader;
+                return;
+            }
+        }
+        else
+        {
+            // Form new pack with other as leader
+            auto pid = packs_.create_pack(other->entity_id, npc_ref.current_map);
+            other->pack = pid;
+
+            packs_.add_member(pid, npc_ref.entity_id);
+            npc_ref.pack = pid;
+            npc_ref.ai_state.pack_leader = other->entity_id;
+            return;
+        }
     }
 }
 

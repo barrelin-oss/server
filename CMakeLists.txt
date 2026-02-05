@@ -107,11 +107,18 @@ set(PLAYER_SOURCES
 
 set(NPC_SOURCES
     src/npc/npc_system.cpp
+    src/npc/pack_system.cpp
     src/npc/random_mob_generator.cpp
     src/npc/random_spawn_whitelist.cpp
     src/npc/spawn_context.cpp
     src/npc/spawn_rule.cpp
     src/npc/spawn_rule_engine.cpp
+    src/npc/script/script_loader.cpp
+    src/npc/script/script_executor.cpp
+    src/npc/bt/bt_leaves.cpp
+    src/npc/bt/bt_loader.cpp
+    src/npc/boss/boss_controller.cpp
+    src/npc/boss/boss_loader.cpp
 )
 
 set(ITEM_SOURCES

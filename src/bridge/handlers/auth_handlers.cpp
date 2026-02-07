@@ -276,7 +276,8 @@ void auth_handlers::handle_create_character(connection_id conn_id, const network
 
         LOG_INFO(bridge, "Character creation failed for '{}': {}", data.name, error_str);
 
-        auto response = network::make_create_character_response(msg.seq, false, std::nullopt, error_str);
+        auto response = network::make_create_character_response(
+            msg.seq, false, std::nullopt, error_str);
         conn->send(response);
         return;
     }
@@ -286,8 +287,16 @@ void auth_handlers::handle_create_character(connection_id conn_id, const network
     LOG_INFO(bridge, "Character '{}' created with id {} for account {}",
         data.name, char_id.value, conn->account().value);
 
+    // Send success response
     auto response = network::make_create_character_response(msg.seq, true, char_id.value);
     conn->send(response);
+
+    // Re-send the full character list so the client updates immediately
+    auto chars_result = auth_->get_characters(conn->account());
+    if (chars_result.is_ok()) {
+        auto list_response = network::make_get_characters_response(0, chars_result.value());
+        conn->send(list_response);
+    }
 }
 
 void auth_handlers::handle_delete_character(connection_id conn_id, const network::json_message& msg) {
@@ -326,6 +335,13 @@ void auth_handlers::handle_delete_character(connection_id conn_id, const network
 
     auto response = network::make_delete_character_response(msg.seq, true);
     conn->send(response);
+
+    // Re-send the full character list so the client updates immediately
+    auto chars_result = auth_->get_characters(conn->account());
+    if (chars_result.is_ok()) {
+        auto list_response = network::make_get_characters_response(0, chars_result.value());
+        conn->send(list_response);
+    }
 }
 
 void auth_handlers::handle_enter_game(connection_id conn_id, const network::json_message& msg) {
@@ -914,7 +930,7 @@ auto auth_handlers::build_visible_entities(player_id player_id)
                 .name = n.name,
                 .x = n.pos.x,
                 .y = n.pos.y,
-                .hp_percent = n.max_hp > 0 ? static_cast<int16_t>((n.hp * 100) / n.max_hp) : 100,
+                .hp_percent = n.max_hp > 0 ? static_cast<int16_t>((n.hp * 100) / n.max_hp) : static_cast<int16_t>(100),
                 .direction = static_cast<int16_t>(n.facing),
                 .template_id = n.template_id.value,
                 .level = n.level

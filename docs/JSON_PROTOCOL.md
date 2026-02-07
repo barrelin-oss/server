@@ -322,7 +322,7 @@ Get list of characters on the account. Requires authentication.
         "level": 45,
         "class_type": 1,
         "nation": 1,
-        "gender": 0,
+        "gender": 1,
         "map_name": "aresden",
         "experience": 125000,
         "hair_style": 2,
@@ -335,7 +335,7 @@ Get list of characters on the account. Requires authentication.
         "level": 30,
         "class_type": 2,
         "nation": 2,
-        "gender": 1,
+        "gender": 2,
         "map_name": "elvine",
         "experience": 50000,
         "hair_style": 1,
@@ -356,7 +356,7 @@ Get list of characters on the account. Requires authentication.
 | `level` | int16 | Character level (1-180) |
 | `class_type` | int16 | Class (0=Warrior, 1=Mage, 2=Archer, etc.) |
 | `nation` | int16 | Nation (1=Aresden, 2=Elvine) |
-| `gender` | int16 | Gender (0=Male, 1=Female) |
+| `gender` | int16 | Gender (1=Male, 2=Female) |
 | `map_name` | string | Last map location |
 | `experience` | int64 | Total experience points |
 | `hair_style` | int16 | Hair style ID (0-7) |
@@ -378,7 +378,7 @@ Create a new character on the account.
     "name": "NewHero",
     "class_type": 0,
     "nation": 1,
-    "gender": 0,
+    "gender": 1,
     "hair_style": 2,
     "hair_color": 4,
     "skin_color": 1,
@@ -398,7 +398,7 @@ Create a new character on the account.
 | `name` | string | Yes | - | Character name (3-20 chars) |
 | `class_type` | int16 | No | 0 | Starting class |
 | `nation` | int16 | No | 0 | Nation affiliation |
-| `gender` | int16 | No | 0 | Gender (0=Male, 1=Female) |
+| `gender` | int16 | No | 1 | Gender (1=Male, 2=Female) |
 | `hair_style` | int16 | No | 0 | Hair style ID (0-7) |
 | `hair_color` | int16 | No | 0 | Hair color ID (0-15) |
 | `skin_color` | int16 | No | 0 | Skin color ID (0-3) |
@@ -450,6 +450,8 @@ Create a new character on the account.
 - `Maximum characters reached`
 - `Invalid stat allocation`
 
+**Note:** On success, the server also sends an unsolicited `get_characters_response` (seq=0) with the updated character list so the client can refresh immediately without a separate fetch.
+
 ---
 
 ### `delete_character_request`
@@ -497,6 +499,8 @@ Delete a character from the account.
   }
 }
 ```
+
+**Note:** On success, the server also sends an unsolicited `get_characters_response` (seq=0) with the updated character list so the client can refresh immediately without a separate fetch.
 
 ---
 
@@ -546,7 +550,7 @@ Returns complete game state on success. This is the primary payload for game ini
       "level": 45,
       "class_type": 1,
       "nation": 1,
-      "gender": 0,
+      "gender": 1,
       "map_name": "aresden",
       "pos_x": 100,
       "pos_y": 150,
@@ -683,7 +687,7 @@ Returns complete game state on success. This is the primary payload for game ini
 | `level` | int16 | Current level (1-180) |
 | `class_type` | int16 | Character class |
 | `nation` | int16 | Nation (1=Aresden, 2=Elvine) |
-| `gender` | int16 | Gender (0=Male, 1=Female) |
+| `gender` | int16 | Gender (1=Male, 2=Female) |
 | `map_name` | string | Current map name |
 | `pos_x` | int16 | X coordinate on map |
 | `pos_y` | int16 | Y coordinate on map |

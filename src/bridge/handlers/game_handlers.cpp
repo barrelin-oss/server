@@ -2331,6 +2331,12 @@ void game_handlers::handle_set_view_range(connection_id conn_id, const network::
         return;
     }
 
+    // GM override prevents client from recalculating radii (e.g. after /setviewrange)
+    if (player->gm_view_override) {
+        LOG_DEBUG(bridge, "Player {} set_view_range ignored (GM override active)", pid.value);
+        return;
+    }
+
     auto radii = network::calculate_visibility_radius(data.screen_width, data.screen_height);
     player->visibility_radius_x = radii.x;
     player->visibility_radius_y = radii.y;

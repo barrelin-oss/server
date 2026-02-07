@@ -593,18 +593,38 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
 
             if (value == "all") {
                 target->sees_all = true;
-                if (send) send(target->id, network::make_view_range_update(
-                    target->visibility_radius_x, target->visibility_radius_y, true));
+                target->gm_view_override = true;
+                if (send) {
+                    send(target->id, network::make_view_range_update(
+                        target->visibility_radius_x, target->visibility_radius_y, true));
+                    // Switch to special mode (no fog) since player sees everything
+                    send(target->id, network::make_set_render_mode({
+                        .mode = network::view_mode::special,
+                        .fair_width = 0,
+                        .fair_height = 0
+                    }));
+                }
                 return command_result::ok(target_name + " now sees all entities on map");
             }
 
             if (value == "reset") {
                 target->sees_all = false;
+                target->gm_view_override = false;
                 target->visibility_radius_x = network::min_visibility_radius;
                 target->visibility_radius_y = network::min_visibility_radius;
-                if (send) send(target->id, network::make_view_range_update(
-                    target->visibility_radius_x, target->visibility_radius_y, false));
-                return command_result::ok(target_name + " visibility reset to default (pending client update)");
+                if (send) {
+                    send(target->id, network::make_view_range_update(
+                        target->visibility_radius_x, target->visibility_radius_y, false));
+                    // Reset render mode to extended with default fair zone
+                    auto fw = static_cast<int16_t>(network::min_visibility_radius * network::pixels_per_tile * 2);
+                    auto fh = static_cast<int16_t>(network::min_visibility_radius * network::pixels_per_tile * 2);
+                    send(target->id, network::make_set_render_mode({
+                        .mode = network::view_mode::extended,
+                        .fair_width = fw,
+                        .fair_height = fh
+                    }));
+                }
+                return command_result::ok(target_name + " visibility reset to default");
             }
 
             // Try WxH syntax (e.g., "10x8")
@@ -623,10 +643,21 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
                         std::to_string(network::max_visibility_radius));
                 }
                 target->sees_all = false;
+                target->gm_view_override = true;
                 target->visibility_radius_x = static_cast<int16_t>(rx);
                 target->visibility_radius_y = static_cast<int16_t>(ry);
-                if (send) send(target->id, network::make_view_range_update(
-                    target->visibility_radius_x, target->visibility_radius_y, false));
+                if (send) {
+                    send(target->id, network::make_view_range_update(
+                        target->visibility_radius_x, target->visibility_radius_y, false));
+                    // Update render mode fair zone to match new radii
+                    auto fw = static_cast<int16_t>(rx * network::pixels_per_tile * 2);
+                    auto fh = static_cast<int16_t>(ry * network::pixels_per_tile * 2);
+                    send(target->id, network::make_set_render_mode({
+                        .mode = network::view_mode::extended,
+                        .fair_width = fw,
+                        .fair_height = fh
+                    }));
+                }
                 return command_result::ok(target_name + " visibility set to " +
                     std::to_string(rx) + "x" + std::to_string(ry) + " tiles");
             }
@@ -644,10 +675,20 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
             }
 
             target->sees_all = false;
+            target->gm_view_override = true;
             target->visibility_radius_x = static_cast<int16_t>(radius);
             target->visibility_radius_y = static_cast<int16_t>(radius);
-            if (send) send(target->id, network::make_view_range_update(
-                target->visibility_radius_x, target->visibility_radius_y, false));
+            if (send) {
+                send(target->id, network::make_view_range_update(
+                    target->visibility_radius_x, target->visibility_radius_y, false));
+                // Update render mode fair zone to match new radius
+                auto fair = static_cast<int16_t>(radius * network::pixels_per_tile * 2);
+                send(target->id, network::make_set_render_mode({
+                    .mode = network::view_mode::extended,
+                    .fair_width = fair,
+                    .fair_height = fair
+                }));
+            }
             return command_result::ok(target_name + " visibility radius set to " + std::to_string(radius) + " tiles");
         });
     }
@@ -717,8 +758,9 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
         auto* players = ctx.players;
         auto* magic = ctx.magic;
         auto* spell_registry = ctx.spells;
+        auto send = ctx.send_to_player;
 
-        admin.register_command(info, [players, magic, spell_registry](const command_context& cmd_ctx) -> command_result {
+        admin.register_command(info, [players, magic, spell_registry, send](const command_context& cmd_ctx) -> command_result {
             if (!players || !magic || !spell_registry) {
                 return command_result::error("Required systems not available");
             }
@@ -749,6 +791,23 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
                 if (!magic->knows_spell(target->ecs_entity, spell_tmpl.id)) {
                     magic->learn_spell(target->ecs_entity, spell_tmpl.id);
                     ++learned;
+                }
+            }
+
+            // Send updated spell list to client
+            if (send && learned > 0) {
+                const auto* known = magic->get_player_spells(target->ecs_entity);
+                if (known) {
+                    std::vector<network::known_spell_msg> spell_list;
+                    spell_list.reserve(known->size());
+                    for (const auto& sk : *known) {
+                        spell_list.push_back({
+                            .spell_id = sk.spell.value,
+                            .level = sk.level,
+                            .total_casts = sk.total_casts
+                        });
+                    }
+                    send(target->id, network::make_spell_list_update(spell_list));
                 }
             }
 

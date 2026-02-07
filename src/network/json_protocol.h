@@ -136,6 +136,7 @@ enum class json_message_type {
     player_unequip_response,
     equipment_change_broadcast,
     stat_update,
+    spell_list_update,
 
     // NPC interaction - shops
     shop_buy_request,
@@ -236,6 +237,7 @@ enum class json_message_type {
         case json_message_type::player_unequip_response: return "player_unequip_response";
         case json_message_type::equipment_change_broadcast: return "equipment_change_broadcast";
         case json_message_type::stat_update: return "stat_update";
+        case json_message_type::spell_list_update: return "spell_list_update";
         case json_message_type::shop_buy_request: return "shop_buy_request";
         case json_message_type::shop_buy_response: return "shop_buy_response";
         case json_message_type::shop_sell_request: return "shop_sell_request";
@@ -1056,6 +1058,9 @@ struct stat_update_data {
 [[nodiscard]] auto make_player_unequip_response(uint32_t seq, const unequip_result_msg& result) -> json_message;
 [[nodiscard]] auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message;
 [[nodiscard]] auto make_stat_update(const stat_update_data& data) -> json_message;
+
+// Spell list update - sends full known spell list to client
+[[nodiscard]] auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message;
 
 // === NPC Interaction: Shop request/response data ===
 

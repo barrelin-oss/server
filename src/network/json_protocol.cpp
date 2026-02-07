@@ -119,6 +119,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"player_unequip_response", json_message_type::player_unequip_response},
     {"equipment_change_broadcast", json_message_type::equipment_change_broadcast},
     {"stat_update", json_message_type::stat_update},
+    {"spell_list_update", json_message_type::spell_list_update},
     {"shop_buy_request", json_message_type::shop_buy_request},
     {"shop_buy_response", json_message_type::shop_buy_response},
     {"shop_sell_request", json_message_type::shop_sell_request},
@@ -2357,6 +2358,18 @@ auto make_stat_update(const stat_update_data& data) -> json_message {
         .type = json_message_type::stat_update,
         .seq = 0,
         .data = data.to_json()
+    };
+}
+
+auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message {
+    auto spell_array = nlohmann::json::array();
+    for (const auto& s : spells) {
+        spell_array.push_back(s.to_json());
+    }
+    return json_message{
+        .type = json_message_type::spell_list_update,
+        .seq = 0,
+        .data = nlohmann::json{{"spells", std::move(spell_array)}}
     };
 }
 

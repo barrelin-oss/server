@@ -419,7 +419,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     }
 
     // Only PvP for now (target must be a player)
-    if (data.target_type != network::target_type::player) {
+    if (data.tgt_type != network::target_type::player) {
         network::attack_result_msg result{
             .hit = false,
             .target_id = data.target_id,
@@ -744,7 +744,7 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
 
     conn->send(network::make_player_interact_response(msg.seq, false, &result, "not_implemented"));
     LOG_DEBUG(bridge, "Player {} interact request (target={}, type={})",
-        pid.value, data.target_id, static_cast<int>(data.target_type));
+        pid.value, data.target_id, static_cast<int>(data.tgt_type));
 }
 
 void game_handlers::broadcast_position_update(player_id moved_player,

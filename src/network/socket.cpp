@@ -41,8 +41,10 @@ auto get_last_error() -> socket_error {
     }
 #else
     switch (errno) {
-        case EAGAIN:
+        case EAGAIN: return socket_error::would_block;
+#if EWOULDBLOCK != EAGAIN
         case EWOULDBLOCK: return socket_error::would_block;
+#endif
         case ECONNRESET: return socket_error::connection_reset;
         case ECONNREFUSED: return socket_error::connection_refused;
         case ENOTCONN: return socket_error::not_connected;

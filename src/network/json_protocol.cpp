@@ -227,7 +227,7 @@ auto create_character_request_data::from_json(const nlohmann::json& j)
         // Optional fields with defaults - use safe parsing with range validation
         data.class_type = safe_int16(j, "class_type", 0);
         data.nation = safe_int16(j, "nation", 0);
-        data.gender = safe_int16(j, "gender", 0);
+        data.gender = safe_int16(j, "gender", 1);
         data.hair_style = safe_int16(j, "hair_style", 0);
         data.hair_color = safe_int16(j, "hair_color", 0);
         data.skin_color = safe_int16(j, "skin_color", 0);
@@ -472,7 +472,7 @@ auto player_attack_request_data::from_json(const nlohmann::json& j)
         }
 
         if (j.contains("target_type")) {
-            data.target_type = parse_target_type(j["target_type"]);
+            data.tgt_type = parse_target_type(j["target_type"]);
         }
 
         if (j.contains("target_id") && j["target_id"].is_number()) {
@@ -519,7 +519,7 @@ auto player_magic_request_data::from_json(const nlohmann::json& j)
         data.spell_id = j["spell_id"].get<uint32_t>();
 
         if (j.contains("target_type")) {
-            data.target_type = parse_target_type(j["target_type"]);
+            data.tgt_type = parse_target_type(j["target_type"]);
         }
 
         if (j.contains("target_id") && j["target_id"].is_number()) {
@@ -570,7 +570,7 @@ auto player_skill_request_data::from_json(const nlohmann::json& j)
         data.skill_id = j["skill_id"].get<uint32_t>();
 
         if (j.contains("target_type")) {
-            data.target_type = parse_target_type(j["target_type"]);
+            data.tgt_type = parse_target_type(j["target_type"]);
         }
 
         if (j.contains("target_id") && j["target_id"].is_number()) {
@@ -641,7 +641,7 @@ auto player_interact_request_data::from_json(const nlohmann::json& j)
         data.y = *y_opt;
 
         if (j.contains("target_type")) {
-            data.target_type = parse_target_type(j["target_type"]);
+            data.tgt_type = parse_target_type(j["target_type"]);
         }
 
         if (!j.contains("target_id") || !j["target_id"].is_number()) {

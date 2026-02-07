@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS characters (
     level           SMALLINT DEFAULT 1 CHECK (level >= 1 AND level <= 255),
     class_type      SMALLINT NOT NULL CHECK (class_type >= 0),
     nation          SMALLINT NOT NULL CHECK (nation >= 0 AND nation <= 2),
-    gender          SMALLINT NOT NULL CHECK (gender >= 0 AND gender <= 1),
+    gender          SMALLINT NOT NULL CHECK (gender >= 1 AND gender <= 2),
 
     -- Location
     -- Note: pos_x/pos_y = -1 indicates "use map's initial spawn point"

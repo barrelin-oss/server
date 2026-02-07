@@ -632,12 +632,12 @@ TEST_F(player_system_test, add_stat_point) {
     auto id = result.value();
 
     auto* p = system_.get_player(id);
-    p->stat_points.available = 5;
+    p->stats_pts.available = 5;
     int16_t initial_str = p->base.strength;
 
     system_.add_stat_point(id, 0);  // 0 = strength
     EXPECT_EQ(p->base.strength, initial_str + 1);
-    EXPECT_EQ(p->stat_points.available, 4);
+    EXPECT_EQ(p->stats_pts.available, 4);
 }
 
 TEST_F(player_system_test, add_stat_point_no_points) {
@@ -647,7 +647,7 @@ TEST_F(player_system_test, add_stat_point_no_points) {
     auto id = result.value();
 
     auto* p = system_.get_player(id);
-    p->stat_points.available = 0;
+    p->stats_pts.available = 0;
     int16_t initial_str = p->base.strength;
 
     system_.add_stat_point(id, 0);
@@ -661,10 +661,10 @@ TEST_F(player_system_test, add_stat_point_invalid_index) {
     auto id = result.value();
 
     auto* p = system_.get_player(id);
-    p->stat_points.available = 5;
+    p->stats_pts.available = 5;
 
     system_.add_stat_point(id, 10);  // Invalid index
-    EXPECT_EQ(p->stat_points.available, 5);  // Unchanged
+    EXPECT_EQ(p->stats_pts.available, 5);  // Unchanged
 }
 
 // Status effect tests

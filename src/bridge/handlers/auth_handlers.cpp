@@ -436,7 +436,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         player::player_create_info create_info{
             .name = char_data.name,
             .account_name = "",  // Could look up account name if needed
-            .sex = char_data.gender == 0 ? player::gender::male : player::gender::female,
+            .sex = char_data.gender == 1 ? player::gender::male : player::gender::female,
             .profession = static_cast<player::player_class>(char_data.class_type),
             .faction = static_cast<hb::faction>(char_data.nation),
             .initial_stats = player::base_stats{

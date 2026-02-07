@@ -312,7 +312,7 @@ TEST(player_attack_request_data_test, from_json_regular_attack) {
     EXPECT_EQ(data.x, 100);
     EXPECT_EQ(data.y, 100);
     EXPECT_EQ(data.type, attack_type::regular);
-    EXPECT_EQ(data.target_type, target_type::npc);
+    EXPECT_EQ(data.tgt_type, target_type::npc);
     EXPECT_EQ(data.target_id, 500);
 }
 
@@ -331,7 +331,7 @@ TEST(player_attack_request_data_test, from_json_dash_attack) {
 
     auto data = result.value();
     EXPECT_EQ(data.type, attack_type::dash);
-    EXPECT_EQ(data.target_type, target_type::player);
+    EXPECT_EQ(data.tgt_type, target_type::player);
 }
 
 // ========== Player Magic Request Data Tests ==========
@@ -351,7 +351,7 @@ TEST(player_magic_request_data_test, from_json_targeted) {
 
     auto data = result.value();
     EXPECT_EQ(data.spell_id, 10);
-    EXPECT_EQ(data.target_type, target_type::npc);
+    EXPECT_EQ(data.tgt_type, target_type::npc);
     EXPECT_EQ(data.target_id, 300);
 }
 
@@ -370,7 +370,7 @@ TEST(player_magic_request_data_test, from_json_ground_target) {
     ASSERT_TRUE(result.is_ok());
 
     auto data = result.value();
-    EXPECT_EQ(data.target_type, target_type::ground);
+    EXPECT_EQ(data.tgt_type, target_type::ground);
     EXPECT_EQ(data.target_x, 150);
     EXPECT_EQ(data.target_y, 175);
 }

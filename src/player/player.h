@@ -18,10 +18,10 @@
 
 namespace hb::player {
 
-// Player gender
+// Player gender (matches original Helbreath: 1=male, 2=female)
 enum class gender : uint8_t {
-    male = 0,
-    female = 1
+    male = 1,
+    female = 2
 };
 
 // Player class/profession
@@ -131,7 +131,7 @@ struct player {
     stat_modifiers equipment_modifiers;  // From equipment only
     stat_modifiers effect_modifiers;     // From active spell effects
     computed_stats computed;
-    stat_points stat_points;
+    stat_points stats_pts;
 
     // Resources
     int32_t hp{0};

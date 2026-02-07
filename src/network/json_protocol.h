@@ -229,7 +229,7 @@ struct create_character_request_data {
     std::string name;
     int16_t class_type{0};
     int16_t nation{0};
-    int16_t gender{0};
+    int16_t gender{1};       // 1 = male, 2 = female
     int16_t hair_style{0};
     int16_t hair_color{0};
     int16_t skin_color{0};
@@ -297,7 +297,7 @@ struct player_attack_request_data {
     int16_t y{0};
     int16_t direction{0};      // Direction facing
     attack_type type{attack_type::regular};
-    target_type target_type{target_type::none};
+    target_type tgt_type{target_type::none};
     uint32_t target_id{0};     // Target entity ID
     uint64_t timestamp{0};     // Client timestamp in ms
 
@@ -310,7 +310,7 @@ struct player_magic_request_data {
     int16_t y{0};
     int16_t direction{0};      // Direction facing
     uint32_t spell_id{0};      // Spell to cast
-    target_type target_type{target_type::none};
+    target_type tgt_type{target_type::none};
     uint32_t target_id{0};     // Target entity ID (for targeted spells)
     int16_t target_x{0};       // Target location (for ground-targeted spells)
     int16_t target_y{0};
@@ -325,7 +325,7 @@ struct player_skill_request_data {
     int16_t y{0};
     int16_t direction{0};      // Direction facing
     uint32_t skill_id{0};      // Skill to use
-    target_type target_type{target_type::none};
+    target_type tgt_type{target_type::none};
     uint32_t target_id{0};     // Target entity ID (if applicable)
     uint64_t timestamp{0};     // Client timestamp in ms
 
@@ -346,7 +346,7 @@ struct player_pickup_request_data {
 struct player_interact_request_data {
     int16_t x{0};              // Current position for validation
     int16_t y{0};
-    target_type target_type{target_type::none};
+    target_type tgt_type{target_type::none};
     uint32_t target_id{0};     // Target NPC or object ID
     uint64_t timestamp{0};     // Client timestamp in ms
 

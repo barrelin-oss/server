@@ -4,6 +4,7 @@
 #include "auth/auth_system.h"
 #include "auth/password_hash.h"
 #include "database/database_system.h"
+#include "player/stats.h"
 #include "core/logger.h"
 
 #include <algorithm>
@@ -416,12 +417,24 @@ auto auth_system::create_character(account_id id, const character_create_info& i
     int16_t mag = info.magic.value_or(10);
     int16_t cha = info.charisma.value_or(10);
 
+    // Compute initial HP/MP/SP from base stats (same formulas as base_stats)
+    player::base_stats initial_stats{
+        .strength = str, .dexterity = dex, .vitality = vit,
+        .intelligence = intel, .magic = mag, .charisma = cha,
+        .level_bonus = 0
+    };
+    int32_t max_hp = initial_stats.max_hp();
+    int32_t max_mp = initial_stats.max_mp();
+    int32_t max_sp = initial_stats.max_sp();
+
     // Insert character
     auto db_result = database_->execute_params(
         R"(INSERT INTO characters
            (account_id, name, class_type, nation, gender, hair_style, hair_color, skin_color,
-            underwear_color, strength, dexterity, vitality, intelligence, magic, charisma)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            underwear_color, strength, dexterity, vitality, intelligence, magic, charisma,
+            hp, hp_max, mp, mp_max, sp, sp_max)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+                   $16, $17, $18, $19, $20, $21)
            RETURNING id)",
         static_cast<int>(id.value),
         info.name,
@@ -437,7 +450,10 @@ auto auth_system::create_character(account_id id, const character_create_info& i
         static_cast<int>(vit),
         static_cast<int>(intel),
         static_cast<int>(mag),
-        static_cast<int>(cha)
+        static_cast<int>(cha),
+        max_hp, max_hp,   // hp = hp_max (start full)
+        max_mp, max_mp,   // mp = mp_max
+        max_sp, max_sp    // sp = sp_max
     );
 
     if (db_result.is_err()) {

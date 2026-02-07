@@ -41,7 +41,7 @@ struct character_summary {
     int16_t level{1};
     int16_t class_type{0};
     int16_t nation{0};
-    int16_t gender{0};
+    int16_t gender{1};
     std::string map_name;
     int64_t experience{0};
 
@@ -58,7 +58,7 @@ struct character_create_info {
     std::string name;
     int16_t class_type{0};   // 0 = warrior, 1 = mage, etc.
     int16_t nation{0};       // 0 = neutral, 1 = aresden, 2 = elvine
-    int16_t gender{0};       // 0 = male, 1 = female
+    int16_t gender{1};       // 1 = male, 2 = female
     int16_t hair_style{0};
     int16_t hair_color{0};
     int16_t skin_color{0};
@@ -81,7 +81,7 @@ struct character_full_data {
     int16_t level{1};
     int16_t class_type{0};
     int16_t nation{0};
-    int16_t gender{0};
+    int16_t gender{1};
 
     // Location
     std::string map_name;

@@ -74,7 +74,7 @@ auto player_system::create_player(const player_create_info& info) -> result<play
 
     // Set initial level
     new_player->experience.level = 1;
-    new_player->stat_points.available = 0;
+    new_player->stats_pts.available = 0;
 
     // Calculate stats and restore to full
     new_player->recalculate_stats();
@@ -241,7 +241,7 @@ void player_system::add_experience(player_id id, int64_t amount) {
     int levels_gained = p->experience.add_experience(amount);
     if (levels_gained > 0) {
         // Award stat points (3 per level typically)
-        p->stat_points.award(static_cast<int16_t>(levels_gained * 3));
+        p->stats_pts.award(static_cast<int16_t>(levels_gained * 3));
 
         // Recalculate stats with new level
         p->recalculate_stats();
@@ -252,10 +252,10 @@ void player_system::add_experience(player_id id, int64_t amount) {
 
 void player_system::add_stat_point(player_id id, int16_t stat_index) {
     auto* p = get_player(id);
-    if (!p || p->stat_points.available <= 0) return;
+    if (!p || p->stats_pts.available <= 0) return;
     if (stat_index < 0 || stat_index > 5) return;
 
-    if (!p->stat_points.allocate(1)) return;
+    if (!p->stats_pts.allocate(1)) return;
 
     switch (stat_index) {
         case 0: ++p->base.strength; break;

@@ -262,7 +262,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Guild ranks | ✅ | Master, officer, veteran, member, recruit |
 | Guild permissions | ✅ | Invite, kick, promote, demote, etc. |
 | Guild MOTD | ✅ | Message of the day |
-| Party XP share | 📋 | Experience distribution logic TODO |
+| Party XP share | ✅ | Party exp sharing with original bonus table, equal split + level-weighted modes |
 | Guild warehouse | ❌ | Shared storage |
 | Friend list | ❌ | Add, remove, online status |
 
@@ -390,7 +390,7 @@ This document tracks implementation progress for the modernized Helbreath server
 Priority order for remaining work toward a playable game:
 
 1. ~~**Ground Items / Loot Drops**~~ - ✅ NPC loot drops, ground item spawn/despawn, YAML drop tables
-2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
+2. ~~**Equip/Unequip Handlers**~~ - ✅ Full equip/unequip flow with stat updates and broadcasts
 3. ~~**Combat/Spell Visual Broadcasts**~~ - ✅ Unified `combat_effect` broadcast + magic handler wired
 4. ~~**NPC Interaction**~~ - ✅ Dialog trees, shop buy/sell/repair, bank deposit/withdraw
 5. ~~**Death/Respawn**~~ - ✅ XP penalty, PK tracking, bounty, delayed respawn
@@ -418,6 +418,16 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-07 (g)
+- **Party XP Share** - NPC kill XP distribution with party sharing
+  - `calculate_party_exp_share()` and `calculate_level_weighted_exp()` pure functions in `party.h`
+  - Original Helbreath bonus table: 2→2%, 3→5%, 4→7%, 5→10%, 6→14%, 7→17%, 8→20%
+  - Three modes: individual (full to killer), equal_split, level_weighted
+  - Low XP threshold: kills under 10 XP go entirely to killer (matches legacy)
+  - Filters eligible members: same map + alive (hp > 0)
+  - `distribute_npc_kill_exp()` wired into NPC death callback in game_handlers
+  - 19 new unit tests for both sharing functions
 
 ### 2026-02-07 (f)
 - **Equip/Unequip Handlers** - Full client-facing equip/unequip flow with stat updates and broadcasts

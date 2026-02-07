@@ -246,6 +246,9 @@ private:
     void broadcast_ground_item_removed(player_id picker, map_id map,
                                        const world::position& pos, item_id item);
 
+    // XP distribution
+    void distribute_npc_kill_exp(entity::entity killer, int32_t base_exp);
+
     // Loot drop handlers
     void handle_npc_loot_drop(const npc::npc& n, entity::entity killer);
     void handle_npc_despawn_drop(const npc::npc& n);

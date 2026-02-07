@@ -5,9 +5,11 @@
 
 #include "core/types.h"
 
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <string>
 #include <vector>
-#include <cstdint>
 
 namespace hb::social {
 
@@ -255,5 +257,42 @@ struct party {
         return false;
     }
 };
+
+// Party size bonus table from original Helbreath
+// Index = eligible member count, value = bonus multiplier
+// 1→0%, 2→2%, 3→5%, 4→7%, 5→10%, 6→14%, 7→17%, 8→20%
+inline constexpr std::array<double, 9> party_exp_bonus = {
+    0.0, 0.0, 0.02, 0.05, 0.07, 0.10, 0.14, 0.17, 0.20
+};
+
+// Calculate per-member XP share for equal_split mode.
+// Returns XP each eligible member receives, minimum 1.
+inline auto calculate_party_exp_share(int32_t base_exp, int eligible_count) -> int32_t
+{
+    if (eligible_count <= 0 || base_exp <= 0) return 0;
+    if (eligible_count == 1) return base_exp;
+
+    auto idx = static_cast<size_t>(std::min(eligible_count, 8));
+    double bonus = party_exp_bonus[idx];
+    auto per_member = static_cast<int32_t>(std::round(
+        (base_exp * (1.0 + bonus)) / eligible_count));
+    return std::max(per_member, 1);
+}
+
+// Calculate per-member XP share for level_weighted mode.
+// Returns XP for a specific member based on their level relative to the group.
+inline auto calculate_level_weighted_exp(int32_t base_exp, int eligible_count,
+                                          int16_t member_level, int32_t total_levels) -> int32_t
+{
+    if (eligible_count <= 0 || base_exp <= 0 || total_levels <= 0) return 0;
+    if (eligible_count == 1) return base_exp;
+
+    auto idx = static_cast<size_t>(std::min(eligible_count, 8));
+    double bonus = party_exp_bonus[idx];
+    double pool = base_exp * (1.0 + bonus);
+    double weight = static_cast<double>(member_level) / static_cast<double>(total_levels);
+    auto result = static_cast<int32_t>(std::round(pool * weight));
+    return std::max(result, 1);
+}
 
 }  // namespace hb::social

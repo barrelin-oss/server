@@ -321,6 +321,7 @@ add_executable(hgserver_tests
     tests/test_shop_pricing.cpp
     tests/test_shop_registry.cpp
     tests/test_dialog_registry.cpp
+    tests/test_party_exp_share.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

@@ -26,6 +26,7 @@
 #include "player/equip_mapping.h"
 #include "magic/magic_system.h"
 #include "magic/spell.h"
+#include "social/party.h"
 #include "scheduler/scheduler.h"
 #include "config/config_system.h"
 #include "core/subsystem.h"
@@ -112,6 +113,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         npc_->set_on_death_callback([this](const npc::npc& n, entity::entity killer) {
             broadcast_npc_death(n, killer);  // Copies data immediately
             handle_npc_loot_drop(n, killer); // Generate and drop loot
+            distribute_npc_kill_exp(killer, n.exp_reward); // Award XP
         });
         npc_->set_on_attack_callback([this](const npc::npc& n, entity::entity target, int32_t damage) {
             broadcast_npc_attack(n, target, damage);  // Copies data immediately
@@ -3755,6 +3757,75 @@ void game_handlers::send_stat_update(connection_id conn_id, const player::player
         .critical_rate = plr.computed.critical_rate
     };
     conn->send(network::make_stat_update(data));
+}
+
+void game_handlers::distribute_npc_kill_exp(entity::entity killer, int32_t base_exp) {
+    if (!players_ || base_exp <= 0) return;
+
+    // Resolve killer to player_id
+    auto killer_pid_opt = players_->get_player_id_by_entity(killer);
+    if (!killer_pid_opt) return;
+    auto killer_pid = *killer_pid_opt;
+
+    auto* killer_player = players_->get_player(killer_pid);
+    if (!killer_player) return;
+
+    // Check party membership
+    social::party* pt = nullptr;
+    if (social_) {
+        auto party_id = social_->get_player_party(killer_pid);
+        if (party_id.is_valid()) {
+            pt = social_->get_party(party_id);
+        }
+    }
+
+    // No party, or individual mode, or low XP — award all to killer
+    if (!pt || pt->experience == social::exp_mode::individual || base_exp < 10) {
+        players_->add_experience(killer_pid, base_exp);
+        LOG_DEBUG(bridge, "Awarded {} XP to player '{}' (solo kill)", base_exp, killer_player->name);
+        return;
+    }
+
+    // Get eligible party members: same map, alive (hp > 0)
+    auto same_map_ids = pt->members_in_map(killer_player->current_map);
+    std::vector<std::pair<player_id, int16_t>> eligible; // pid, level
+    int32_t total_levels = 0;
+    for (auto pid : same_map_ids) {
+        auto* p = players_->get_player(pid);
+        if (p && !p->is_dead()) {
+            eligible.emplace_back(pid, p->experience.level);
+            total_levels += p->experience.level;
+        }
+    }
+
+    if (eligible.empty()) return;
+
+    // Single eligible member gets full XP (no bonus)
+    if (eligible.size() == 1) {
+        players_->add_experience(eligible[0].first, base_exp);
+        LOG_DEBUG(bridge, "Awarded {} XP to player (party of 1 eligible)", base_exp);
+        return;
+    }
+
+    auto eligible_count = static_cast<int>(eligible.size());
+
+    if (pt->experience == social::exp_mode::equal_split) {
+        auto per_member = social::calculate_party_exp_share(base_exp, eligible_count);
+        for (auto& [pid, level] : eligible) {
+            players_->add_experience(pid, per_member);
+        }
+        LOG_DEBUG(bridge, "Party equal split: {} base XP -> {} each for {} members",
+                  base_exp, per_member, eligible_count);
+    }
+    else if (pt->experience == social::exp_mode::level_weighted) {
+        for (auto& [pid, level] : eligible) {
+            auto share = social::calculate_level_weighted_exp(
+                base_exp, eligible_count, level, total_levels);
+            players_->add_experience(pid, share);
+        }
+        LOG_DEBUG(bridge, "Party level-weighted: {} base XP for {} members (total levels {})",
+                  base_exp, eligible_count, total_levels);
+    }
 }
 
 }  // namespace hb::bridge

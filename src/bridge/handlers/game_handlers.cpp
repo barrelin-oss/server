@@ -22,6 +22,8 @@
 #include "registry/item_registry.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
+#include "item/item_effect.h"
+#include "player/equip_mapping.h"
 #include "magic/magic_system.h"
 #include "magic/spell.h"
 #include "scheduler/scheduler.h"
@@ -206,6 +208,14 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             break;
         case network::json_message_type::player_interact_request:
             handle_player_interact(conn_id, msg);
+            break;
+
+        // Equipment
+        case network::json_message_type::player_equip_request:
+            handle_player_equip(conn_id, msg);
+            break;
+        case network::json_message_type::player_unequip_request:
+            handle_player_unequip(conn_id, msg);
             break;
 
         // NPC interaction - shops
@@ -3420,6 +3430,331 @@ void game_handlers::send_hunger_update(player_id pid, int8_t level) {
 
     LOG_DEBUG(bridge, "Sent hunger update to player {}: level={}, starving={}",
         pid.value, level, level <= 0);
+}
+
+// ========== Equipment Handling ==========
+
+void game_handlers::handle_player_equip(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_ || !inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Required systems unavailable");
+        return;
+    }
+
+    auto data_result = network::player_equip_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    // Check alive
+    if (plr->is_dead()) {
+        send_error(conn_id, msg.seq, "player_dead", "Cannot equip while dead");
+        return;
+    }
+
+    // Check not trading
+    auto trade_partner = inventory_->get_trade_partner(plr->ecs_entity.id);
+    if (trade_partner.is_valid()) {
+        send_error(conn_id, msg.seq, "player_busy", "Cannot equip while trading");
+        return;
+    }
+
+    // Get inventory and validate slot
+    auto* inv = inventory_->get_inventory(plr->ecs_entity.id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "internal_error", "Inventory not found");
+        return;
+    }
+
+    auto* inv_slot = inv->get_slot(data.inventory_slot);
+    if (!inv_slot || inv_slot->is_empty()) {
+        send_error(conn_id, msg.seq, "invalid_slot", "Inventory slot is empty");
+        return;
+    }
+
+    // Get the item
+    auto* itm = item_->get_item(inv_slot->item);
+    if (!itm) {
+        send_error(conn_id, msg.seq, "item_not_found", "Item not found");
+        return;
+    }
+
+    // Validate item is equipment
+    if (!itm->is_equipment() || itm->equip_position == item::equip_pos::none) {
+        send_error(conn_id, msg.seq, "not_equippable", "Item cannot be equipped");
+        return;
+    }
+
+    // Validate durability
+    if (itm->is_broken()) {
+        send_error(conn_id, msg.seq, "item_broken", "Item is broken and cannot be equipped");
+        return;
+    }
+
+    // Validate target slot
+    auto target_slot = static_cast<player::equip_slot>(data.target_slot);
+    if (!player::is_valid_slot_for_item(itm->equip_position, target_slot)) {
+        send_error(conn_id, msg.seq, "invalid_slot", "Item cannot go in that slot");
+        return;
+    }
+
+    // Check stat requirements
+    auto req = item::check_requirements(*itm,
+        plr->experience.level,
+        plr->computed.strength,
+        plr->computed.dexterity,
+        plr->computed.intelligence,
+        plr->computed.magic);
+    if (!req.can_use()) {
+        send_error(conn_id, msg.seq, "requirements_not_met", "You do not meet the requirements");
+        return;
+    }
+
+    network::equip_result_msg result;
+    result.slot = data.target_slot;
+
+    // Two-handed weapon logic: if equipping a 2H weapon and shield is occupied
+    if (itm->two_handed && plr->equipment.has_equipped(player::equip_slot::shield)) {
+        // Need an extra free inventory slot for the shield (beyond the one being freed)
+        if (inv->free_slots() < 1) {
+            send_error(conn_id, msg.seq, "inventory_full",
+                "Need a free slot to unequip shield for two-handed weapon");
+            return;
+        }
+        // Unequip shield to inventory
+        auto shield_equipped = players_->unequip_item(pid, player::equip_slot::shield);
+        auto shield_inv_slot = inv->find_empty_slot();
+        if (shield_inv_slot.has_value()) {
+            inv->get_slot(*shield_inv_slot)->set(shield_equipped.id, 1);
+            result.unequipped_shield_id = shield_equipped.id.value;
+            result.shield_to_inv_slot = static_cast<uint8_t>(*shield_inv_slot);
+            broadcast_equipment_change(pid, player::equip_slot::shield, item_id{});
+        }
+    }
+
+    // Shield equip + 2H weapon currently equipped: check the weapon in weapon slot
+    if (target_slot == player::equip_slot::shield &&
+        plr->equipment.has_equipped(player::equip_slot::weapon))
+    {
+        auto* weapon_itm = item_->get_item(plr->equipment.weapon().id);
+        if (weapon_itm && weapon_itm->two_handed) {
+            send_error(conn_id, msg.seq, "two_handed_weapon_equipped",
+                "Cannot equip shield while using a two-handed weapon");
+            return;
+        }
+    }
+
+    // Swap logic: if target equipment slot is occupied
+    if (plr->equipment.has_equipped(target_slot)) {
+        auto old_equipped = players_->unequip_item(pid, target_slot);
+        // Place old item in the inventory slot being freed by the new equip
+        inv_slot->set(old_equipped.id, 1);
+        result.swapped_item_id = old_equipped.id.value;
+        result.swapped_to_inv_slot = static_cast<uint8_t>(data.inventory_slot);
+    } else {
+        // Just clear the inventory slot
+        inv_slot->clear();
+    }
+
+    // Equip new item
+    players_->equip_item(pid, target_slot, itm->id,
+        static_cast<uint16_t>(itm->durability),
+        static_cast<uint16_t>(itm->max_durability));
+
+    // Recalculate stats
+    players_->recalculate_equipment_modifiers(pid);
+
+    // Build success response
+    result.success = true;
+    result.item_id = itm->id.value;
+    result.item_name = itm->name;
+    result.durability = itm->durability;
+    result.max_durability = itm->max_durability;
+
+    conn->send(network::make_player_equip_response(msg.seq, result));
+
+    // Send stat update
+    // Re-fetch player since recalculate may have changed computed stats
+    plr = players_->get_player(pid);
+    if (plr) {
+        send_stat_update(conn_id, *plr);
+    }
+
+    // Broadcast to nearby players
+    broadcast_equipment_change(pid, target_slot, itm->id);
+
+    LOG_DEBUG(bridge, "Player {} equipped item {} ('{}') to slot {}",
+        pid.value, itm->id.value, itm->name, data.target_slot);
+}
+
+void game_handlers::handle_player_unequip(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_ || !inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Required systems unavailable");
+        return;
+    }
+
+    auto data_result = network::player_unequip_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    // Check alive
+    if (plr->is_dead()) {
+        send_error(conn_id, msg.seq, "player_dead", "Cannot unequip while dead");
+        return;
+    }
+
+    // Check not trading
+    auto trade_partner = inventory_->get_trade_partner(plr->ecs_entity.id);
+    if (trade_partner.is_valid()) {
+        send_error(conn_id, msg.seq, "player_busy", "Cannot unequip while trading");
+        return;
+    }
+
+    // Validate slot
+    if (data.equip_slot >= static_cast<uint8_t>(player::equip_slot::count)) {
+        send_error(conn_id, msg.seq, "invalid_slot", "Invalid equipment slot");
+        return;
+    }
+
+    auto slot = static_cast<player::equip_slot>(data.equip_slot);
+    if (!plr->equipment.has_equipped(slot)) {
+        send_error(conn_id, msg.seq, "slot_empty", "Nothing equipped in that slot");
+        return;
+    }
+
+    // Check inventory space
+    auto* inv = inventory_->get_inventory(plr->ecs_entity.id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "internal_error", "Inventory not found");
+        return;
+    }
+
+    if (inv->is_full()) {
+        send_error(conn_id, msg.seq, "inventory_full", "Inventory is full");
+        return;
+    }
+
+    // Unequip
+    auto equipped = players_->unequip_item(pid, slot);
+
+    // Add to inventory
+    auto inv_slot = inv->find_empty_slot();
+    if (!inv_slot.has_value()) {
+        // Rollback - re-equip
+        players_->equip_item(pid, slot, equipped.id, equipped.durability, equipped.max_durability);
+        send_error(conn_id, msg.seq, "inventory_full", "Failed to find inventory slot");
+        return;
+    }
+
+    inv->get_slot(*inv_slot)->set(equipped.id, 1);
+
+    // Recalculate stats
+    players_->recalculate_equipment_modifiers(pid);
+
+    // Get item name for response
+    auto* itm = item_->get_item(equipped.id);
+    std::string item_name = itm ? itm->name : "Unknown";
+
+    // Build response
+    network::unequip_result_msg result;
+    result.success = true;
+    result.slot = data.equip_slot;
+    result.item_id = equipped.id.value;
+    result.item_name = item_name;
+    result.inventory_slot = static_cast<uint8_t>(*inv_slot);
+
+    conn->send(network::make_player_unequip_response(msg.seq, result));
+
+    // Send stat update
+    plr = players_->get_player(pid);
+    if (plr) {
+        send_stat_update(conn_id, *plr);
+    }
+
+    // Broadcast to nearby (slot now empty)
+    broadcast_equipment_change(pid, slot, item_id{});
+
+    LOG_DEBUG(bridge, "Player {} unequipped item {} ('{}') from slot {}",
+        pid.value, equipped.id.value, item_name, data.equip_slot);
+}
+
+void game_handlers::broadcast_equipment_change(player_id pid, player::equip_slot slot, item_id itm) {
+    if (!players_ || !ws_server_) return;
+
+    auto* plr = players_->get_player(pid);
+    if (!plr) return;
+
+    uint32_t template_id = 0;
+    if (itm.is_valid() && item_) {
+        auto* item_inst = item_->get_item(itm);
+        if (item_inst) {
+            template_id = item_inst->template_id.value;
+        }
+    }
+
+    network::equipment_change_broadcast_data data{
+        .entity_id = plr->ecs_entity.id,
+        .slot = static_cast<uint8_t>(slot),
+        .item_id = itm.value,
+        .template_id = template_id
+    };
+    auto msg = network::make_equipment_change_broadcast(data);
+
+    auto nearby = players_->get_players_who_can_see(plr->current_map, plr->pos);
+    for (auto nearby_pid : nearby) {
+        if (nearby_pid == pid) continue;  // Don't send to self
+        auto* np = players_->get_player(nearby_pid);
+        if (!np || np->connection.value == 0) continue;
+        auto* conn = ws_server_->get_connection(np->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+}
+
+void game_handlers::send_stat_update(connection_id conn_id, const player::player& plr) {
+    if (!ws_server_) return;
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (!conn || !conn->is_open()) return;
+
+    network::stat_update_data data{
+        .max_hp = plr.computed.max_hp,
+        .max_mp = plr.computed.max_mp,
+        .max_sp = plr.computed.max_sp,
+        .attack_power = plr.computed.attack_power,
+        .magic_power = plr.computed.magic_power,
+        .defense = plr.computed.defense,
+        .magic_defense = plr.computed.magic_defense,
+        .hit_rate = plr.computed.hit_rate,
+        .dodge_rate = plr.computed.dodge_rate,
+        .critical_rate = plr.computed.critical_rate
+    };
+    conn->send(network::make_stat_update(data));
 }
 
 }  // namespace hb::bridge

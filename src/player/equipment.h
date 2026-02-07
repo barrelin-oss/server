@@ -90,11 +90,6 @@ struct equipment_state {
         return get(equip_slot::shield);
     }
 
-    [[nodiscard]] auto is_two_handed() const -> bool {
-        // When using a two-handed weapon, shield slot is blocked
-        return has_equipped(equip_slot::weapon) && !has_equipped(equip_slot::shield);
-    }
-
     void equip(equip_slot slot, item_id id, uint16_t dur, uint16_t max_dur) {
         auto& item = slots[static_cast<size_t>(slot)];
         item.id = id;

@@ -253,8 +253,9 @@ void item_system::populate_from_template(item& itm, item_id template_id) {
         itm.equip_position = equip_pos::pants;
     } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::boots)) {
         itm.equip_position = equip_pos::boots;
-    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::left_hand) ||
-               equip_val == static_cast<uint8_t>(hb::item_equip_pos::right_hand)) {
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::left_hand)) {
+        itm.equip_position = equip_pos::shield;
+    } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::right_hand)) {
         itm.equip_position = equip_pos::weapon;
     } else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::two_hand)) {
         itm.equip_position = equip_pos::twohand;
@@ -302,7 +303,7 @@ void item_system::populate_from_template(item& itm, item_id template_id) {
     // Flags
     itm.tradeable = tmpl->is_tradeable;
     itm.droppable = tmpl->is_droppable;
-    itm.two_handed = tmpl->is_two_handed;
+    itm.two_handed = (itm.equip_position == equip_pos::twohand);
 
     // Apply stat bonuses from template as effects
     size_t effect_idx = 0;

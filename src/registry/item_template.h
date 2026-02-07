@@ -87,7 +87,7 @@ struct item_template {
     bool is_tradeable{true};
     bool is_droppable{true};
     bool is_destroyable{true};
-    bool is_two_handed{false};
+    int16_t two_hand_modifier{0};  // STR scaling modifier for two-handed weapons (-10 to +10)
     bool is_consumable{false};
     bool is_quest_item{false};
 

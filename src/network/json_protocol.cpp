@@ -111,6 +111,12 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"hunger_update", json_message_type::hunger_update},
     {"entity_info_request", json_message_type::entity_info_request},
     {"entity_info_response", json_message_type::entity_info_response},
+    {"player_equip_request", json_message_type::player_equip_request},
+    {"player_equip_response", json_message_type::player_equip_response},
+    {"player_unequip_request", json_message_type::player_unequip_request},
+    {"player_unequip_response", json_message_type::player_unequip_response},
+    {"equipment_change_broadcast", json_message_type::equipment_change_broadcast},
+    {"stat_update", json_message_type::stat_update},
     {"shop_buy_request", json_message_type::shop_buy_request},
     {"shop_buy_response", json_message_type::shop_buy_response},
     {"shop_sell_request", json_message_type::shop_sell_request},
@@ -2211,6 +2217,144 @@ auto make_dialog_choice_response(uint32_t seq, bool success,
         .type = json_message_type::dialog_choice_response,
         .seq = seq,
         .data = std::move(data)
+    };
+}
+
+// === Equipment: Equip/Unequip ===
+
+auto player_equip_request_data::from_json(const nlohmann::json& j)
+    -> result<player_equip_request_data, std::string>
+{
+    try {
+        player_equip_request_data data;
+        auto slot = safe_int16_required(j, "inventory_slot");
+        if (!slot) {
+            return result<player_equip_request_data, std::string>::err("Missing or invalid 'inventory_slot'");
+        }
+        data.inventory_slot = *slot;
+
+        if (!j.contains("target_slot") || !j["target_slot"].is_number()) {
+            return result<player_equip_request_data, std::string>::err("Missing or invalid 'target_slot'");
+        }
+        data.target_slot = j["target_slot"].get<uint8_t>();
+
+        return result<player_equip_request_data, std::string>::ok(std::move(data));
+    } catch (const nlohmann::json::exception& e) {
+        return result<player_equip_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto player_unequip_request_data::from_json(const nlohmann::json& j)
+    -> result<player_unequip_request_data, std::string>
+{
+    try {
+        player_unequip_request_data data;
+        if (!j.contains("equip_slot") || !j["equip_slot"].is_number()) {
+            return result<player_unequip_request_data, std::string>::err("Missing or invalid 'equip_slot'");
+        }
+        data.equip_slot = j["equip_slot"].get<uint8_t>();
+        return result<player_unequip_request_data, std::string>::ok(std::move(data));
+    } catch (const nlohmann::json::exception& e) {
+        return result<player_unequip_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto equip_result_msg::to_json() const -> nlohmann::json {
+    nlohmann::json j;
+    j["success"] = success;
+    j["slot"] = slot;
+    if (success) {
+        j["item_id"] = item_id;
+        j["item_name"] = item_name;
+        j["durability"] = durability;
+        j["max_durability"] = max_durability;
+        if (swapped_item_id.has_value()) {
+            j["swapped_item_id"] = *swapped_item_id;
+            if (swapped_to_inv_slot.has_value()) {
+                j["swapped_to_inv_slot"] = *swapped_to_inv_slot;
+            }
+        }
+        if (unequipped_shield_id.has_value()) {
+            j["unequipped_shield_id"] = *unequipped_shield_id;
+            if (shield_to_inv_slot.has_value()) {
+                j["shield_to_inv_slot"] = *shield_to_inv_slot;
+            }
+        }
+    }
+    if (!success && !error.empty()) {
+        j["error"] = error;
+    }
+    return j;
+}
+
+auto unequip_result_msg::to_json() const -> nlohmann::json {
+    nlohmann::json j;
+    j["success"] = success;
+    j["slot"] = slot;
+    if (success) {
+        j["item_id"] = item_id;
+        j["item_name"] = item_name;
+        j["inventory_slot"] = inventory_slot;
+    }
+    if (!success && !error.empty()) {
+        j["error"] = error;
+    }
+    return j;
+}
+
+auto equipment_change_broadcast_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"entity_id", entity_id},
+        {"slot", slot},
+        {"item_id", item_id},
+        {"template_id", template_id}
+    };
+}
+
+auto stat_update_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"max_hp", max_hp},
+        {"max_mp", max_mp},
+        {"max_sp", max_sp},
+        {"attack_power", attack_power},
+        {"magic_power", magic_power},
+        {"defense", defense},
+        {"magic_defense", magic_defense},
+        {"hit_rate", hit_rate},
+        {"dodge_rate", dodge_rate},
+        {"critical_rate", critical_rate}
+    };
+}
+
+auto make_player_equip_response(uint32_t seq, const equip_result_msg& result) -> json_message {
+    return json_message{
+        .type = json_message_type::player_equip_response,
+        .seq = seq,
+        .data = result.to_json()
+    };
+}
+
+auto make_player_unequip_response(uint32_t seq, const unequip_result_msg& result) -> json_message {
+    return json_message{
+        .type = json_message_type::player_unequip_response,
+        .seq = seq,
+        .data = result.to_json()
+    };
+}
+
+auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::equipment_change_broadcast,
+        .seq = 0,
+        .data = data.to_json()
+    };
+}
+
+auto make_stat_update(const stat_update_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::stat_update,
+        .seq = 0,
+        .data = data.to_json()
     };
 }
 

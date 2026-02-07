@@ -885,6 +885,177 @@ Update full equipment state.
 
 ---
 
+### `player_equip_request`
+
+Equip an item from inventory to an equipment slot.
+
+**Client Request:**
+```json
+{
+  "type": "player_equip_request",
+  "seq": 100,
+  "data": {
+    "inventory_slot": 3,
+    "target_slot": 5
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `inventory_slot` | int16 | Source inventory slot index (0-49) |
+| `target_slot` | uint8 | Target equipment slot (see equip_slot enum) |
+
+**Equipment Slots:**
+| Value | Slot |
+|-------|------|
+| 0 | Head |
+| 1 | Body |
+| 2 | Arms |
+| 3 | Pants |
+| 4 | Boots |
+| 5 | Weapon |
+| 6 | Shield |
+| 7 | Ring (Left) |
+| 8 | Ring (Right) |
+| 9 | Amulet |
+| 10 | Cape |
+
+---
+
+### `player_equip_response`
+
+Result of an equip attempt.
+
+**Server Response:**
+```json
+{
+  "type": "player_equip_response",
+  "seq": 100,
+  "data": {
+    "success": true,
+    "slot": 5,
+    "item_id": 1234,
+    "item_name": "Iron Sword",
+    "durability": 100,
+    "max_durability": 100,
+    "swapped_item_id": 1200,
+    "swapped_to_inv_slot": 3
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether equip succeeded |
+| `slot` | uint8 | Equipment slot |
+| `item_id` | uint32 | Equipped item ID |
+| `item_name` | string | Item display name |
+| `durability` | int16 | Current durability |
+| `max_durability` | int16 | Maximum durability |
+| `swapped_item_id` | uint32? | Old item ID if slot was occupied |
+| `swapped_to_inv_slot` | uint8? | Inventory slot where old item went |
+| `unequipped_shield_id` | uint32? | Shield ID if 2H weapon forced removal |
+| `shield_to_inv_slot` | uint8? | Where shield went |
+| `error` | string? | Error code on failure |
+
+**Error codes:** `not_equippable`, `item_broken`, `invalid_slot`, `requirements_not_met`, `inventory_full`, `two_handed_weapon_equipped`, `player_dead`, `player_busy`
+
+---
+
+### `player_unequip_request`
+
+Unequip an item from an equipment slot to inventory.
+
+**Client Request:**
+```json
+{
+  "type": "player_unequip_request",
+  "seq": 101,
+  "data": {
+    "equip_slot": 5
+  }
+}
+```
+
+---
+
+### `player_unequip_response`
+
+Result of an unequip attempt.
+
+**Server Response:**
+```json
+{
+  "type": "player_unequip_response",
+  "seq": 101,
+  "data": {
+    "success": true,
+    "slot": 5,
+    "item_id": 1234,
+    "item_name": "Iron Sword",
+    "inventory_slot": 3
+  }
+}
+```
+
+**Error codes:** `invalid_slot`, `slot_empty`, `inventory_full`, `player_dead`, `player_busy`
+
+---
+
+### `equipment_change_broadcast`
+
+Broadcast to nearby players when a player's equipment changes.
+
+**Server Broadcast:**
+```json
+{
+  "type": "equipment_change_broadcast",
+  "seq": 0,
+  "data": {
+    "entity_id": 42,
+    "slot": 5,
+    "item_id": 1234,
+    "template_id": 100
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entity_id` | uint32 | Player's entity ID |
+| `slot` | uint8 | Equipment slot that changed |
+| `item_id` | uint32 | New item ID (0 = now empty) |
+| `template_id` | uint32 | Item template for sprite lookup |
+
+---
+
+### `stat_update`
+
+Sent to a player after equipment changes to reflect updated computed stats.
+
+**Server Message:**
+```json
+{
+  "type": "stat_update",
+  "seq": 0,
+  "data": {
+    "max_hp": 350,
+    "max_mp": 200,
+    "max_sp": 250,
+    "attack_power": 85,
+    "magic_power": 45,
+    "defense": 30,
+    "magic_defense": 15,
+    "hit_rate": 120,
+    "dodge_rate": 60,
+    "critical_rate": 15
+  }
+}
+```
+
+---
+
 ### `skills_data`
 
 Update skill levels.

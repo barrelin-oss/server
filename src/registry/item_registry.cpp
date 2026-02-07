@@ -198,7 +198,7 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path)
             if (node["defense"]) item.defense = static_cast<int16_t>(node["defense"].as<int>());
             if (node["hit_prob"]) item.hit_prob_bonus = static_cast<int16_t>(node["hit_prob"].as<int>());
             if (node["dodge_prob"]) item.dodge_prob_bonus = static_cast<int16_t>(node["dodge_prob"].as<int>());
-            if (node["is_two_handed"]) item.is_two_handed = node["is_two_handed"].as<int>() > 0;
+            if (node["is_two_handed"]) item.two_hand_modifier = static_cast<int16_t>(node["is_two_handed"].as<int>());
 
             // Store item
             auto index = items_.size();

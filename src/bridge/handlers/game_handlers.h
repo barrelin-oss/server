@@ -9,6 +9,7 @@
 #include "world/position.h"
 #include "world/map.h"
 #include "entity/entity.h"
+#include "player/equipment.h"
 
 #include <optional>
 #include <functional>
@@ -142,6 +143,12 @@ private:
     };
     auto validate_npc_interaction(connection_id conn_id, uint32_t seq, uint32_t npc_entity_id)
         -> npc_interaction_check;
+
+    // Equipment
+    void handle_player_equip(connection_id conn_id, const network::json_message& msg);
+    void handle_player_unequip(connection_id conn_id, const network::json_message& msg);
+    void broadcast_equipment_change(player_id pid, player::equip_slot slot, item_id itm);
+    void send_stat_update(connection_id conn_id, const player::player& plr);
 
     // Chat
     void handle_chat_message(connection_id conn_id, const network::json_message& msg);

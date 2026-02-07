@@ -263,9 +263,9 @@ The monolithic `CGame` class is being decomposed into:
 
 ### In Progress
 - [x] Ground items and loot drops
-- [ ] Equip/unequip handler wiring
-- [ ] Combat/spell visual broadcasts
-- [ ] NPC interaction (dialog, shops)
+- [x] Equip/unequip handler wiring
+- [x] Combat/spell visual broadcasts
+- [x] NPC interaction (dialog, shops)
 - [ ] War battle mechanics
 - [ ] Admin GM commands
 

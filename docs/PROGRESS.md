@@ -210,7 +210,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Add/remove items | ✅ | Full inventory management |
 | Move items | ✅ | Slot swap/move |
 | Equipment slots | ✅ | 12+ slots defined, serialized to JSONB |
-| Equip/unequip | 🔄 | Slot management works, handler wiring TODO |
+| Equip/unequip | ✅ | Full equip/unequip handlers with stat update and broadcast |
 | Bank system | ✅ | 200 slots, deposit/withdraw |
 | Gold management | ✅ | Loaded/saved with character |
 | Trading | ✅ | Trade window, item/gold offering, confirm/lock, completion |
@@ -418,6 +418,21 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-07 (f)
+- **Equip/Unequip Handlers** - Full client-facing equip/unequip flow with stat updates and broadcasts
+  - 6 new protocol messages: `player_equip_request/response`, `player_unequip_request/response`, `equipment_change_broadcast`, `stat_update`
+  - `equip_mapping.h` utility maps item `equip_pos` to player `equip_slot` with validation
+  - Two-handed weapon logic: auto-unequips shield (with inventory space check), blocks shield equip
+  - Swap logic: old equipped item goes to freed inventory slot (no extra slot needed)
+  - Stat recalculation + `stat_update` message sent to player after every equipment change
+  - `equipment_change_broadcast` sent to nearby players for visual updates
+  - Requirement checks (level, STR, DEX, INT, MAG) before equipping
+  - Rejects equip/unequip while dead or trading
+  - **Bug fix:** Shield mapping - `left_hand` (equip_pos 7) was incorrectly mapped to `weapon` instead of `shield`
+  - **Bug fix:** Two-handed flag derived from `equip_pos == twohand` instead of unreliable YAML `is_two_handed` numeric field
+  - Renamed `item_template::is_two_handed` to `two_hand_modifier` (int16_t) preserving STR scaling value
+  - Removed misleading `equipment_state::is_two_handed()` method
 
 ### 2026-02-07 (e)
 - **Combat/Spell Visual Broadcasts** - Unified `combat_effect` message for all combat/spell visual feedback

@@ -408,6 +408,9 @@ void application::initialize() {
                 case network::json_message_type::set_view_range:
                 // Entity info
                 case network::json_message_type::entity_info_request:
+                // Equipment
+                case network::json_message_type::player_equip_request:
+                case network::json_message_type::player_unequip_request:
                 // NPC interaction
                 case network::json_message_type::shop_buy_request:
                 case network::json_message_type::shop_sell_request:

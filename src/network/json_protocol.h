@@ -127,6 +127,14 @@ enum class json_message_type {
     entity_info_request,    // Request info about an entity
     entity_info_response,   // Entity info response
 
+    // Equipment
+    player_equip_request,
+    player_equip_response,
+    player_unequip_request,
+    player_unequip_response,
+    equipment_change_broadcast,
+    stat_update,
+
     // NPC interaction - shops
     shop_buy_request,
     shop_buy_response,
@@ -218,6 +226,12 @@ enum class json_message_type {
         case json_message_type::hunger_update: return "hunger_update";
         case json_message_type::entity_info_request: return "entity_info_request";
         case json_message_type::entity_info_response: return "entity_info_response";
+        case json_message_type::player_equip_request: return "player_equip_request";
+        case json_message_type::player_equip_response: return "player_equip_response";
+        case json_message_type::player_unequip_request: return "player_unequip_request";
+        case json_message_type::player_unequip_response: return "player_unequip_response";
+        case json_message_type::equipment_change_broadcast: return "equipment_change_broadcast";
+        case json_message_type::stat_update: return "stat_update";
         case json_message_type::shop_buy_request: return "shop_buy_request";
         case json_message_type::shop_buy_response: return "shop_buy_response";
         case json_message_type::shop_sell_request: return "shop_sell_request";
@@ -960,6 +974,84 @@ struct entity_info_response_data {
 [[nodiscard]] auto make_entity_info_response(uint32_t seq, bool success,
                                               const entity_info_response_data* data = nullptr,
                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// === Equipment: Equip/Unequip request/response data ===
+
+// Equip request from client
+struct player_equip_request_data {
+    int16_t inventory_slot{-1};  // Source inventory slot
+    uint8_t target_slot{0};      // Target equip_slot
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_equip_request_data, std::string>;
+};
+
+// Unequip request from client
+struct player_unequip_request_data {
+    uint8_t equip_slot{0};       // Slot to unequip
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_unequip_request_data, std::string>;
+};
+
+// Equip result response
+struct equip_result_msg {
+    bool success{false};
+    uint8_t slot{0};
+    uint32_t item_id{0};
+    std::string item_name;
+    int16_t durability{0};
+    int16_t max_durability{0};
+    std::optional<uint32_t> swapped_item_id;       // Old item returned to inventory
+    std::optional<uint8_t> swapped_to_inv_slot;     // Where old item went
+    std::optional<uint32_t> unequipped_shield_id;   // If 2H forced shield removal
+    std::optional<uint8_t> shield_to_inv_slot;
+    std::string error;
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Unequip result response
+struct unequip_result_msg {
+    bool success{false};
+    uint8_t slot{0};
+    uint32_t item_id{0};
+    std::string item_name;
+    uint8_t inventory_slot{0};   // Where it was placed
+    std::string error;
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Equipment change broadcast to nearby players
+struct equipment_change_broadcast_data {
+    uint32_t entity_id{0};       // Player's ECS entity ID (client-facing)
+    uint8_t slot{0};
+    uint32_t item_id{0};         // 0 = now empty
+    uint32_t template_id{0};     // For client sprite lookup
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Stat update sent to equipping player after equipment change
+struct stat_update_data {
+    int32_t max_hp{0};
+    int32_t max_mp{0};
+    int32_t max_sp{0};
+    int32_t attack_power{0};
+    int32_t magic_power{0};
+    int32_t defense{0};
+    int32_t magic_defense{0};
+    int32_t hit_rate{0};
+    int32_t dodge_rate{0};
+    int32_t critical_rate{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Equipment message builders
+[[nodiscard]] auto make_player_equip_response(uint32_t seq, const equip_result_msg& result) -> json_message;
+[[nodiscard]] auto make_player_unequip_response(uint32_t seq, const unequip_result_msg& result) -> json_message;
+[[nodiscard]] auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message;
+[[nodiscard]] auto make_stat_update(const stat_update_data& data) -> json_message;
 
 // === NPC Interaction: Shop request/response data ===
 

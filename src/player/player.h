@@ -165,7 +165,8 @@ struct player {
     map_id current_map{};
     hb::world::position pos{};
     hb::world::direction facing{hb::world::direction::south};
-    int16_t visibility_radius{20};  // Tiles player can see (varies by resolution/zoom)
+    int16_t visibility_radius_x{20};  // Tiles player can see horizontally (varies by resolution)
+    int16_t visibility_radius_y{15};  // Tiles player can see vertically
     bool sees_all{false};            // Admin mode: receives all events on the map
     uint8_t view_mode{0};            // 0=scaled, 1=extended, 2=special (mirrors network::view_mode)
 

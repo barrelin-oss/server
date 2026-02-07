@@ -205,7 +205,8 @@ private:
                                       const world::teleport_dest* dest);
 
     [[nodiscard]] auto build_visible_entities_at(map_id map, const world::position& pos,
-                                                  int visibility_radius)
+                                                  int visibility_radius_x,
+                                                  int visibility_radius_y)
         -> std::vector<network::visible_entity_msg>;
 
     // Combat event callbacks
@@ -255,7 +256,8 @@ private:
 
     // Send visible ground items to a player
     void send_visible_ground_items(connection_id conn_id, map_id map,
-                                    const world::position& pos, int radius);
+                                    const world::position& pos,
+                                    int radius_x, int radius_y);
 
     // Hunger update helper
     void send_hunger_update(player_id pid, int8_t level);

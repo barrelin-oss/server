@@ -2378,12 +2378,13 @@ auto make_set_render_mode(const render_mode_data& data) -> json_message {
     };
 }
 
-auto make_view_range_update(int16_t radius, bool sees_all) -> json_message {
+auto make_view_range_update(int16_t radius_x, int16_t radius_y, bool sees_all) -> json_message {
     return json_message{
         .type = json_message_type::view_range_update,
         .seq = 0,
         .data = nlohmann::json{
-            {"radius", radius},
+            {"radius_x", radius_x},
+            {"radius_y", radius_y},
             {"sees_all", sees_all}
         }
     };

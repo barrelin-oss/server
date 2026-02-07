@@ -20,6 +20,14 @@ namespace hb::inventory {
     class inventory_system;
 }
 
+namespace hb::magic {
+    class magic_system;
+}
+
+namespace hb {
+    class magic_registry;
+}
+
 namespace hb::admin {
 
 class admin_system;
@@ -32,6 +40,8 @@ struct gm_command_context {
     player::player_system* players{nullptr};
     world::world_subsystem* world{nullptr};
     inventory::inventory_system* inventory{nullptr};
+    magic::magic_system* magic{nullptr};
+    magic_registry* spells{nullptr};
     send_to_player_fn send_to_player;
 };
 

@@ -375,6 +375,8 @@ void application::initialize() {
                 .players = player_sys,
                 .world = subsystems().get<world::world_subsystem>(),
                 .inventory = subsystems().get<inventory::inventory_system>(),
+                .magic = subsystems().get<magic::magic_system>(),
+                .spells = subsystems().get<magic_registry>(),
                 .send_to_player = [player_sys, ws](player_id pid, const network::json_message& msg) {
                     if (!player_sys || !ws) return;
                     auto* plr = player_sys->get_player(pid);

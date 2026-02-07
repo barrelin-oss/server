@@ -375,8 +375,8 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     auto& data = data_result.value();
     auto char_id = player_id{data.character_id};
 
-    // Calculate initial visibility radius from client viewport
-    int16_t visibility_radius = network::calculate_visibility_radius(data.screen_width, data.screen_height);
+    // Calculate initial visibility radii from client viewport
+    auto vis_radii = network::calculate_visibility_radius(data.screen_width, data.screen_height);
 
     LOG_DEBUG(bridge, "Enter game request for character {} by account {}",
         char_id.value, conn->account().value);
@@ -647,8 +647,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 }
             }
 
-            // Set visibility radius from client resolution
-            player->visibility_radius = visibility_radius;
+            // Set visibility radii from client resolution
+            player->visibility_radius_x = vis_radii.x;
+            player->visibility_radius_y = vis_radii.y;
 
             // Bind connection to player
             players_->bind_connection(live_player_id, conn_id);
@@ -883,9 +884,10 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
             // Send visible ground items at player's position
             if (item_) {
-                int radius = player->visibility_radius > 0 ? player->visibility_radius : 20;
-                for (int16_t dx = static_cast<int16_t>(-radius); dx <= radius; ++dx) {
-                    for (int16_t dy = static_cast<int16_t>(-radius); dy <= radius; ++dy) {
+                int rx = player->visibility_radius_x > 0 ? player->visibility_radius_x : 20;
+                int ry = player->visibility_radius_y > 0 ? player->visibility_radius_y : 15;
+                for (int16_t dx = static_cast<int16_t>(-rx); dx <= rx; ++dx) {
+                    for (int16_t dy = static_cast<int16_t>(-ry); dy <= ry; ++dy) {
                         world::position tile_pos{
                             static_cast<int16_t>(player->pos.x + dx),
                             static_cast<int16_t>(player->pos.y + dy)
@@ -960,7 +962,8 @@ auto auth_handlers::build_visible_entities(player_id player_id)
     if (!player) return entities;
 
     // Get players within this player's visibility radius
-    auto nearby_players = players_->get_players_in_range(player_id, player->visibility_radius);
+    auto nearby_players = players_->get_players_in_range(player_id,
+        std::max(player->visibility_radius_x, player->visibility_radius_y));
 
     for (auto other_id : nearby_players) {
         if (other_id == player_id) continue;  // Skip self
@@ -985,8 +988,9 @@ auto auth_handlers::build_visible_entities(player_id player_id)
             // Skip dead NPCs
             if (n.ai_state.state == npc::ai_state::dead) return;
 
-            // Check if NPC is within visibility radius
-            if (player->pos.chebyshev_distance(n.pos) > player->visibility_radius) return;
+            // Check if NPC is within rectangular visibility
+            if (std::abs(player->pos.x - n.pos.x) > player->visibility_radius_x
+                || std::abs(player->pos.y - n.pos.y) > player->visibility_radius_y) return;
 
             entities.push_back(network::visible_entity_msg{
                 .entity_id = id.id,

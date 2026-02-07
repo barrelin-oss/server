@@ -7,6 +7,8 @@
 #include "world/world_subsystem.h"
 #include "world/map.h"
 #include "inventory/inventory_system.h"
+#include "magic/magic_system.h"
+#include "registry/magic_registry.h"
 #include "network/json_protocol.h"
 #include "core/logger.h"
 
@@ -578,7 +580,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
             }
 
             if (cmd_ctx.args.size() < 2) {
-                return command_result::error("Usage: /setviewrange <player_name> <radius|all|reset>");
+                return command_result::error("Usage: /setviewrange <player_name> <radius|WxH|all|reset>");
             }
 
             const std::string& target_name = cmd_ctx.args[0].string_value;
@@ -591,33 +593,61 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
 
             if (value == "all") {
                 target->sees_all = true;
-                if (send) send(target->id, network::make_view_range_update(target->visibility_radius, true));
+                if (send) send(target->id, network::make_view_range_update(
+                    target->visibility_radius_x, target->visibility_radius_y, true));
                 return command_result::ok(target_name + " now sees all entities on map");
             }
 
             if (value == "reset") {
                 target->sees_all = false;
-                target->visibility_radius = network::min_visibility_radius;
-                if (send) send(target->id, network::make_view_range_update(target->visibility_radius, false));
+                target->visibility_radius_x = network::min_visibility_radius;
+                target->visibility_radius_y = network::min_visibility_radius;
+                if (send) send(target->id, network::make_view_range_update(
+                    target->visibility_radius_x, target->visibility_radius_y, false));
                 return command_result::ok(target_name + " visibility reset to default (pending client update)");
             }
 
-            // Parse as integer radius
+            // Try WxH syntax (e.g., "10x8")
+            auto x_pos = value.find('x');
+            if (x_pos != std::string::npos && x_pos > 0 && x_pos < value.size() - 1) {
+                auto rx_result = command_parser::parse_int(value.substr(0, x_pos));
+                auto ry_result = command_parser::parse_int(value.substr(x_pos + 1));
+                if (rx_result.is_err() || ry_result.is_err()) {
+                    return command_result::error("Invalid WxH format. Example: /setviewrange zero 10x8");
+                }
+                auto rx = rx_result.value();
+                auto ry = ry_result.value();
+                if (rx < 1 || rx > network::max_visibility_radius
+                    || ry < 1 || ry > network::max_visibility_radius) {
+                    return command_result::error("Radii must be between 1 and " +
+                        std::to_string(network::max_visibility_radius));
+                }
+                target->sees_all = false;
+                target->visibility_radius_x = static_cast<int16_t>(rx);
+                target->visibility_radius_y = static_cast<int16_t>(ry);
+                if (send) send(target->id, network::make_view_range_update(
+                    target->visibility_radius_x, target->visibility_radius_y, false));
+                return command_result::ok(target_name + " visibility set to " +
+                    std::to_string(rx) + "x" + std::to_string(ry) + " tiles");
+            }
+
+            // Parse as single integer radius (sets both X and Y)
             auto radius_result = command_parser::parse_int(value);
             if (radius_result.is_err()) {
-                return command_result::error("Invalid radius. Use a number (15-80), 'all', or 'reset'");
+                return command_result::error("Invalid radius. Use a number (1-80), 'WxH', 'all', or 'reset'");
             }
 
             auto radius = radius_result.value();
-            if (radius < network::min_visibility_radius || radius > network::max_visibility_radius) {
-                return command_result::error("Radius must be between " +
-                    std::to_string(network::min_visibility_radius) + " and " +
+            if (radius < 1 || radius > network::max_visibility_radius) {
+                return command_result::error("Radius must be between 1 and " +
                     std::to_string(network::max_visibility_radius));
             }
 
             target->sees_all = false;
-            target->visibility_radius = static_cast<int16_t>(radius);
-            if (send) send(target->id, network::make_view_range_update(target->visibility_radius, false));
+            target->visibility_radius_x = static_cast<int16_t>(radius);
+            target->visibility_radius_y = static_cast<int16_t>(radius);
+            if (send) send(target->id, network::make_view_range_update(
+                target->visibility_radius_x, target->visibility_radius_y, false));
             return command_result::ok(target_name + " visibility radius set to " + std::to_string(radius) + " tiles");
         });
     }
@@ -674,8 +704,61 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
         });
     }
 
+    // /learnallspells [player] - Grant all spells from the magic registry
+    {
+        command_info info;
+        info.name = "learnallspells";
+        info.aliases = {"allspells", "grantspells"};
+        info.description = "Grant all magic spells to a player";
+        info.usage = "/learnallspells [player_name]";
+        info.required_level = admin_level::admin;
+        info.arguments = {make_arg("player", arg_type::player_name, false, "", "Player to grant spells (default: self)")};
+
+        auto* players = ctx.players;
+        auto* magic = ctx.magic;
+        auto* spell_registry = ctx.spells;
+
+        admin.register_command(info, [players, magic, spell_registry](const command_context& cmd_ctx) -> command_result {
+            if (!players || !magic || !spell_registry) {
+                return command_result::error("Required systems not available");
+            }
+
+            player::player* target = nullptr;
+            std::string target_name;
+
+            if (cmd_ctx.args.empty()) {
+                target = players->get_player(cmd_ctx.executor);
+                target_name = cmd_ctx.executor_name;
+            } else {
+                target_name = cmd_ctx.args[0].string_value;
+                target = players->get_player_by_name(target_name);
+            }
+
+            if (!target) {
+                return command_result::error("Player not found");
+            }
+
+            if (!target->ecs_entity.is_valid()) {
+                return command_result::error("Player has no valid entity");
+            }
+
+            const auto& all_spells = spell_registry->all();
+            int learned = 0;
+
+            for (const auto& spell_tmpl : all_spells) {
+                if (!magic->knows_spell(target->ecs_entity, spell_tmpl.id)) {
+                    magic->learn_spell(target->ecs_entity, spell_tmpl.id);
+                    ++learned;
+                }
+            }
+
+            return command_result::ok("Granted " + std::to_string(learned) + " new spells to " +
+                target_name + " (" + std::to_string(all_spells.size()) + " total in registry)");
+        });
+    }
+
     LOG_INFO(admin, "Registered {} GM commands",
-        12);  // Update this count when adding more commands
+        13);  // Update this count when adding more commands
 }
 
 }  // namespace hb::admin

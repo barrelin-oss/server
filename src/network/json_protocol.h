@@ -1232,7 +1232,7 @@ struct render_mode_data
 };
 
 [[nodiscard]] auto make_set_render_mode(const render_mode_data& data) -> json_message;
-[[nodiscard]] auto make_view_range_update(int16_t radius, bool sees_all) -> json_message;
+[[nodiscard]] auto make_view_range_update(int16_t radius_x, int16_t radius_y, bool sees_all) -> json_message;
 
 // Visibility range constants
 inline constexpr int16_t min_visibility_radius = 15;
@@ -1240,22 +1240,35 @@ inline constexpr int16_t max_visibility_radius = 80;
 inline constexpr float visibility_buffer_ratio = 0.2f;  // 20% proportional buffer
 inline constexpr int pixels_per_tile = 32;
 
-// Calculate visibility radius from effective viewport dimensions
+// Separate X/Y visibility radii matching the rectangular viewport
+struct visibility_radii
+{
+    int16_t x;
+    int16_t y;
+};
+
+// Calculate visibility radii from effective viewport dimensions.
+// Each axis is computed independently: (tiles/2) + buffer, clamped to [min, max].
 // Client sends actual screen resolution for normal play, or max effective viewport
 // (screen_res / min_zoom) when in a mode that allows zooming out further.
-[[nodiscard]] inline auto calculate_visibility_radius(int16_t screen_width, int16_t screen_height) -> int16_t
+[[nodiscard]] inline auto calculate_visibility_radius(int16_t screen_width, int16_t screen_height) -> visibility_radii
 {
     auto tiles_wide = static_cast<float>(screen_width) / pixels_per_tile;
     auto tiles_high = static_cast<float>(screen_height) / pixels_per_tile;
 
-    // Half the larger dimension = base radius
-    auto base_radius = std::max(tiles_wide, tiles_high) / 2.0f;
+    auto base_x = tiles_wide / 2.0f;
+    auto base_y = tiles_high / 2.0f;
 
-    // Proportional buffer for smooth entity pop-in (minimum 5 tiles)
-    auto buffer = std::max(5.0f, base_radius * visibility_buffer_ratio);
+    auto buffer_x = std::max(5.0f, base_x * visibility_buffer_ratio);
+    auto buffer_y = std::max(5.0f, base_y * visibility_buffer_ratio);
 
-    auto radius = static_cast<int16_t>(base_radius + buffer);
-    return std::clamp(radius, min_visibility_radius, max_visibility_radius);
+    auto rx = static_cast<int16_t>(base_x + buffer_x);
+    auto ry = static_cast<int16_t>(base_y + buffer_y);
+
+    return {
+        std::clamp(rx, min_visibility_radius, max_visibility_radius),
+        std::clamp(ry, min_visibility_radius, max_visibility_radius)
+    };
 }
 
 }  // namespace hb::network

@@ -760,8 +760,10 @@ auto player_system::get_players_who_can_see(map_id map,
         auto* p = get_player(pid);
         if (!p) continue;
 
-        // Admin sees_all bypasses distance check; normal players use their visibility_radius
-        if (p->sees_all || pos.chebyshev_distance(p->pos) <= p->visibility_radius) {
+        // Admin sees_all bypasses distance check; normal players use rectangular visibility
+        if (p->sees_all
+            || (std::abs(pos.x - p->pos.x) <= p->visibility_radius_x
+                && std::abs(pos.y - p->pos.y) <= p->visibility_radius_y)) {
             result.push_back(pid);
         }
     }

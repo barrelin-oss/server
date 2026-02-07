@@ -1,0 +1,19 @@
+{
+    "name": "mcp-broker",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "start": "tsx broker.ts"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.26.0",
+        "express": "^5.1.0",
+        "zod": "^3.25.0"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.0",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}

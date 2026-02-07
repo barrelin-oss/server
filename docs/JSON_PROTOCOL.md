@@ -2433,23 +2433,27 @@ Client updates its effective viewport dimensions. Sent when resolution changes, 
 ```
 tiles_wide  = screen_width / 32
 tiles_high  = screen_height / 32
-base_radius = max(tiles_wide, tiles_high) / 2
-buffer      = max(5, base_radius * 0.2)   // 20% proportional buffer, minimum 5 tiles
-radius      = clamp(base_radius + buffer, 15, 80)
+base_x      = tiles_wide / 2
+base_y      = tiles_high / 2
+buffer_x    = max(5, base_x * 0.2)   // 20% proportional buffer, minimum 5 tiles
+buffer_y    = max(5, base_y * 0.2)
+radius_x    = clamp(base_x + buffer_x, 15, 80)
+radius_y    = clamp(base_y + buffer_y, 15, 80)
 ```
 
-The server uses this radius (Chebyshev distance) to determine which entities, NPCs, ground items, and events to send to the player. Each player has their own visibility radius based on their reported viewport.
+The server uses rectangular visibility (`abs(dx) <= radius_x && abs(dy) <= radius_y`) to determine which entities, NPCs, ground items, and events to send to the player. Each player has their own visibility radii based on their reported viewport. Widescreen resolutions produce a wider X radius than Y, matching the actual viewport shape and reducing unnecessary bandwidth.
 
 ### `view_range_update`
 
-Server informs the client of its effective visibility radius. Sent when an admin overrides the player's view range, or when `sees_all` mode is toggled.
+Server informs the client of its effective visibility radii. Sent when an admin overrides the player's view range, or when `sees_all` mode is toggled.
 
 **Server -> Client:**
 ```json
 {
   "type": "view_range_update",
   "data": {
-    "radius": 40,
+    "radius_x": 36,
+    "radius_y": 21,
     "sees_all": false
   }
 }
@@ -2457,12 +2461,13 @@ Server informs the client of its effective visibility radius. Sent when an admin
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `radius` | int16 | Current server-side visibility radius in tiles (15-80) |
+| `radius_x` | int16 | Current server-side horizontal visibility radius in tiles (15-80) |
+| `radius_y` | int16 | Current server-side vertical visibility radius in tiles (15-80) |
 | `sees_all` | bool | If `true`, player receives all events on their current map regardless of distance |
 
 **Notes:**
-- This is informational — the server enforces the radius regardless. The client uses it to adjust rendering (e.g., fog of war distance, entity culling).
-- When `sees_all` is `true`, `radius` still reflects the last computed value but is effectively ignored server-side.
+- This is informational — the server enforces the radii regardless. The client uses them to adjust rendering (e.g., fog of war distance, entity culling).
+- When `sees_all` is `true`, the radii still reflect the last computed values but are effectively ignored server-side.
 - Triggered by `/setviewrange` admin command. Not sent during normal `set_view_range` requests from the client.
 
 ### Admin Visibility Override

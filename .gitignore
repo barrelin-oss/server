@@ -58,3 +58,5 @@ hbio-server/x64/
 .claude/
 tools/migrate/node_modules/
 tools/migrate/dist/
+tools/mcp-broker/node_modules/
+tools/mcp-broker/dist/

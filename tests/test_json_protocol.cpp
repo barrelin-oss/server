@@ -690,53 +690,72 @@ TEST(chat_message_broadcast_data_test, to_json_with_flags) {
 // ========== Visibility Calculation Tests ==========
 
 TEST(visibility_test, calculate_visibility_radius_640x480) {
-    auto radius = calculate_visibility_radius(640, 480);
-    // base = max(20, 15) / 2 = 10, buffer = max(5, 10*0.2) = 5
-    EXPECT_EQ(radius, 15);
+    auto [rx, ry] = calculate_visibility_radius(640, 480);
+    // x: tiles=20, base=10, buf=max(5,2)=5 → 15; y: tiles=15, base=7.5, buf=5 → 15 (clamped)
+    EXPECT_EQ(rx, 15);
+    EXPECT_EQ(ry, 15);
 }
 
 TEST(visibility_test, calculate_visibility_radius_1920x1080) {
-    auto radius = calculate_visibility_radius(1920, 1080);
-    // base = max(60, 33.75) / 2 = 30, buffer = max(5, 30*0.2) = 6
-    EXPECT_EQ(radius, 36);
+    auto [rx, ry] = calculate_visibility_radius(1920, 1080);
+    // x: tiles=60, base=30, buf=max(5,6)=6 → 36; y: tiles=33.75, base=16.875, buf=5 → 21
+    EXPECT_EQ(rx, 36);
+    EXPECT_EQ(ry, 21);
 }
 
 TEST(visibility_test, calculate_visibility_radius_1280x720) {
-    auto radius = calculate_visibility_radius(1280, 720);
-    // base = max(40, 22.5) / 2 = 20, buffer = max(5, 20*0.2) = 5
-    EXPECT_EQ(radius, 25);
+    auto [rx, ry] = calculate_visibility_radius(1280, 720);
+    // x: tiles=40, base=20, buf=max(5,4)=5 → 25; y: tiles=22.5, base=11.25, buf=5 → 16
+    EXPECT_EQ(rx, 25);
+    EXPECT_EQ(ry, 16);
 }
 
 TEST(visibility_test, calculate_visibility_radius_800x600) {
-    auto radius = calculate_visibility_radius(800, 600);
-    // base = max(25, 18.75) / 2 = 12.5, buffer = max(5, 12.5*0.2) = 5
-    EXPECT_EQ(radius, 17);
+    auto [rx, ry] = calculate_visibility_radius(800, 600);
+    // x: tiles=25, base=12.5, buf=max(5,2.5)=5 → 17; y: tiles=18.75, base=9.375, buf=5 → 15 (clamped)
+    EXPECT_EQ(rx, 17);
+    EXPECT_EQ(ry, 15);
+}
+
+TEST(visibility_test, widescreen_x_greater_than_y) {
+    // For widescreen resolutions, X radius should exceed Y radius
+    auto [rx, ry] = calculate_visibility_radius(1920, 1080);
+    EXPECT_GT(rx, ry);
+}
+
+TEST(visibility_test, square_input_equal_x_y) {
+    // Square viewport produces equal X and Y radii
+    auto [rx, ry] = calculate_visibility_radius(800, 800);
+    EXPECT_EQ(rx, ry);
 }
 
 TEST(visibility_test, larger_viewport_increases_radius) {
     // Commander mode sends larger effective viewport (e.g., screen / min_zoom)
-    auto normal = calculate_visibility_radius(800, 600);
-    auto commander = calculate_visibility_radius(1600, 1200);  // 2x effective viewport
-    EXPECT_GT(commander, normal);
+    auto [nx, ny] = calculate_visibility_radius(800, 600);
+    auto [cx, cy] = calculate_visibility_radius(1600, 1200);  // 2x effective viewport
+    EXPECT_GT(cx, nx);
+    EXPECT_GT(cy, ny);
 }
 
 TEST(visibility_test, radius_never_below_minimum) {
-    auto radius = calculate_visibility_radius(320, 240);
-    EXPECT_GE(radius, min_visibility_radius);
+    auto [rx, ry] = calculate_visibility_radius(320, 240);
+    EXPECT_GE(rx, min_visibility_radius);
+    EXPECT_GE(ry, min_visibility_radius);
 }
 
 TEST(visibility_test, radius_never_above_maximum) {
-    // Even with huge effective viewport, radius is capped
-    auto radius = calculate_visibility_radius(8000, 6000);
-    EXPECT_LE(radius, max_visibility_radius);
+    // Even with huge effective viewport, radii are capped
+    auto [rx, ry] = calculate_visibility_radius(8000, 6000);
+    EXPECT_LE(rx, max_visibility_radius);
+    EXPECT_LE(ry, max_visibility_radius);
 }
 
 TEST(visibility_test, proportional_buffer_kicks_in_at_large_viewports) {
-    // At 1920x1080: base=30, 20% buffer=6 > min buffer of 5
-    auto radius = calculate_visibility_radius(1920, 1080);
+    // At 1920x1080 X axis: base=30, 20% buffer=6 > min buffer of 5
+    auto [rx, ry] = calculate_visibility_radius(1920, 1080);
     // Without proportional buffer (flat +5): would be 35
     // With proportional buffer (+6): should be 36
-    EXPECT_EQ(radius, 36);
+    EXPECT_EQ(rx, 36);
 }
 
 // ========== Teleporter Message Tests ==========

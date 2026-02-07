@@ -1741,10 +1741,13 @@ void game_handlers::update_entity_visibility(player_id moved_player,
         if (!other || other->connection.value == 0) continue;
 
         // Check if other player could see the moved player at old/new positions
-        // Uses other's visibility_radius (sees_all always sees everything)
-        auto other_range = other->visibility_radius;
-        bool was_visible = other->sees_all || old_pos.chebyshev_distance(other->pos) <= other_range;
-        bool is_visible = other->sees_all || new_pos.chebyshev_distance(other->pos) <= other_range;
+        // Uses other's rectangular visibility (sees_all always sees everything)
+        auto orx = other->visibility_radius_x;
+        auto ory = other->visibility_radius_y;
+        bool was_visible = other->sees_all
+            || (std::abs(old_pos.x - other->pos.x) <= orx && std::abs(old_pos.y - other->pos.y) <= ory);
+        bool is_visible = other->sees_all
+            || (std::abs(new_pos.x - other->pos.x) <= orx && std::abs(new_pos.y - other->pos.y) <= ory);
 
         auto* other_conn = ws_server_->get_connection(other->connection);
         if (!other_conn || !other_conn->is_open()) continue;
@@ -2328,10 +2331,12 @@ void game_handlers::handle_set_view_range(connection_id conn_id, const network::
         return;
     }
 
-    player->visibility_radius = network::calculate_visibility_radius(data.screen_width, data.screen_height);
+    auto radii = network::calculate_visibility_radius(data.screen_width, data.screen_height);
+    player->visibility_radius_x = radii.x;
+    player->visibility_radius_y = radii.y;
 
-    LOG_DEBUG(bridge, "Player {} updated visibility radius to {} ({}x{})",
-        pid.value, player->visibility_radius, data.screen_width, data.screen_height);
+    LOG_DEBUG(bridge, "Player {} updated visibility radii to {}x{} (screen {}x{})",
+        pid.value, radii.x, radii.y, data.screen_width, data.screen_height);
 }
 
 // ========== Teleportation Handling ==========
@@ -2383,7 +2388,8 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
 
     // Build visible entities at destination using teleporting player's visibility
     auto visible_entities = build_visible_entities_at(teleport_result.new_map, dest_pos,
-                                                       player->visibility_radius);
+                                                       player->visibility_radius_x,
+                                                       player->visibility_radius_y);
 
     // Build and send player_teleport message
     network::player_teleport_msg teleport_msg{
@@ -2408,7 +2414,8 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
 
         // Send visible ground items at destination
         send_visible_ground_items(conn_id, teleport_result.new_map, dest_pos,
-                                   player->visibility_radius);
+                                   player->visibility_radius_x,
+                                   player->visibility_radius_y);
     }
 
     // Spawn to players who can see NEW position
@@ -2513,7 +2520,8 @@ void game_handlers::broadcast_teleporter_update(map_id map, const std::string& a
 }
 
 auto game_handlers::build_visible_entities_at(map_id map, const world::position& pos,
-                                               int visibility_radius)
+                                               int visibility_radius_x,
+                                               int visibility_radius_y)
     -> std::vector<network::visible_entity_msg>
 {
     std::vector<network::visible_entity_msg> entities;
@@ -2523,13 +2531,18 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
     auto* m = world_->get_map(map);
     if (!m) return entities;
 
-    // Get all entities in the visibility range from spatial index
-    auto nearby_entities = m->get_entities_in_range(pos, visibility_radius);
+    // Use max of X/Y as coarse filter for spatial index, then rect-filter below
+    auto coarse_radius = std::max(visibility_radius_x, visibility_radius_y);
+    auto nearby_entities = m->get_entities_in_range(pos, coarse_radius);
 
     for (auto eid : nearby_entities) {
         // Spatial index stores ecs_entity.index() - resolve via entity lookup
         auto* p = players_->get_player_by_entity(entity::entity{eid.value});
         if (p) {
+            // Rect-filter: skip entities outside the rectangular viewport
+            if (std::abs(p->pos.x - pos.x) > visibility_radius_x
+                || std::abs(p->pos.y - pos.y) > visibility_radius_y) continue;
+
             entities.push_back(network::visible_entity_msg{
                 .entity_id = p->ecs_entity.id,
                 .type = "player",
@@ -3317,15 +3330,16 @@ void game_handlers::handle_npc_despawn_drop(const npc::npc& n) {
 }
 
 void game_handlers::send_visible_ground_items(connection_id conn_id, map_id map,
-                                               const world::position& pos, int radius) {
+                                               const world::position& pos,
+                                               int radius_x, int radius_y) {
     if (!world_ || !ws_server_ || !item_) return;
 
     auto* conn = ws_server_->get_connection(conn_id);
     if (!conn || !conn->is_open()) return;
 
-    // Scan tiles in radius for ground items
-    for (int16_t dx = static_cast<int16_t>(-radius); dx <= radius; ++dx) {
-        for (int16_t dy = static_cast<int16_t>(-radius); dy <= radius; ++dy) {
+    // Scan tiles in rectangular visibility for ground items
+    for (int16_t dx = static_cast<int16_t>(-radius_x); dx <= radius_x; ++dx) {
+        for (int16_t dy = static_cast<int16_t>(-radius_y); dy <= radius_y; ++dy) {
             world::position tile_pos{
                 static_cast<int16_t>(pos.x + dx),
                 static_cast<int16_t>(pos.y + dy)

@@ -7,6 +7,7 @@
 #include "world/world_subsystem.h"
 #include "world/map.h"
 #include "inventory/inventory_system.h"
+#include "network/json_protocol.h"
 #include "core/logger.h"
 
 #include <sstream>
@@ -555,8 +556,116 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
         });
     }
 
+    // /setviewrange <player> <radius|all|reset> - Override visibility radius
+    {
+        command_info info;
+        info.name = "setviewrange";
+        info.aliases = {"viewrange", "svr"};
+        info.description = "Set a player's visibility radius (or 'all' for full map)";
+        info.usage = "/setviewrange <player_name> <radius|all|reset>";
+        info.required_level = admin_level::admin;
+        info.arguments = {
+            make_arg("player", arg_type::player_name, true, "", "Player to modify"),
+            make_arg("radius", arg_type::string, true, "", "Radius in tiles (15-80), 'all' for full map, 'reset' to restore default")
+        };
+
+        auto* players = ctx.players;
+
+        admin.register_command(info, [players](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            if (cmd_ctx.args.size() < 2) {
+                return command_result::error("Usage: /setviewrange <player_name> <radius|all|reset>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+            const std::string& value = cmd_ctx.args[1].string_value;
+
+            auto* target = players->get_player_by_name(target_name);
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            if (value == "all") {
+                target->sees_all = true;
+                return command_result::ok(target_name + " now sees all entities on map");
+            }
+
+            if (value == "reset") {
+                target->sees_all = false;
+                // Will be recalculated on next set_view_range from client
+                target->visibility_radius = network::min_visibility_radius;
+                return command_result::ok(target_name + " visibility reset to default (pending client update)");
+            }
+
+            // Parse as integer radius
+            auto radius_result = command_parser::parse_int(value);
+            if (radius_result.is_err()) {
+                return command_result::error("Invalid radius. Use a number (15-80), 'all', or 'reset'");
+            }
+
+            auto radius = radius_result.value();
+            if (radius < network::min_visibility_radius || radius > network::max_visibility_radius) {
+                return command_result::error("Radius must be between " +
+                    std::to_string(network::min_visibility_radius) + " and " +
+                    std::to_string(network::max_visibility_radius));
+            }
+
+            target->sees_all = false;
+            target->visibility_radius = static_cast<int16_t>(radius);
+            return command_result::ok(target_name + " visibility radius set to " + std::to_string(radius) + " tiles");
+        });
+    }
+
+    // /setviewmode <player> <scaled|extended|special> - Override player's render mode
+    {
+        command_info info;
+        info.name = "setviewmode";
+        info.aliases = {"viewmode", "rendermode"};
+        info.description = "Set a player's rendering mode";
+        info.usage = "/setviewmode <player_name> <scaled|extended|special>";
+        info.required_level = admin_level::admin;
+        info.arguments = {
+            make_arg("player", arg_type::player_name, true, "", "Player to modify"),
+            make_arg("mode", arg_type::string, true, "", "Render mode: scaled, extended, or special")
+        };
+
+        auto* players = ctx.players;
+
+        admin.register_command(info, [players](const command_context& cmd_ctx) -> command_result {
+            if (!players) {
+                return command_result::error("Player system not available");
+            }
+
+            if (cmd_ctx.args.size() < 2) {
+                return command_result::error("Usage: /setviewmode <player_name> <scaled|extended|special>");
+            }
+
+            const std::string& target_name = cmd_ctx.args[0].string_value;
+            const std::string& mode_str = cmd_ctx.args[1].string_value;
+
+            auto* target = players->get_player_by_name(target_name);
+            if (!target) {
+                return command_result::error("Player '" + target_name + "' not found");
+            }
+
+            if (mode_str != "scaled" && mode_str != "extended" && mode_str != "special") {
+                return command_result::error("Invalid mode. Use: scaled, extended, or special");
+            }
+
+            auto mode = network::parse_view_mode(mode_str);
+            target->view_mode = static_cast<uint8_t>(mode);
+
+            // TODO: Send set_render_mode message to client when sending is wired up
+
+            return command_result::ok(target_name + " render mode set to " + mode_str);
+        });
+    }
+
     LOG_INFO(admin, "Registered {} GM commands",
-        10);  // Update this count when adding more commands
+        12);  // Update this count when adding more commands
 }
 
 }  // namespace hb::admin

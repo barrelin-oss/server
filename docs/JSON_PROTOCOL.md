@@ -528,8 +528,8 @@ Enter the game world with a character.
 |-------|------|----------|---------|-------------|
 | `character_id` | uint32 | Yes | - | ID of character to play |
 | `force_disconnect` | bool | No | false | Disconnect existing session for this account |
-| `screen_width` | int16 | No | 640 | Client screen width for visibility calculation |
-| `screen_height` | int16 | No | 480 | Client screen height for visibility calculation |
+| `screen_width` | int16 | No | 800 | Client effective viewport width (see [View Mode System](#view-mode-system)) |
+| `screen_height` | int16 | No | 600 | Client effective viewport height (see [View Mode System](#view-mode-system)) |
 
 ---
 
@@ -2363,11 +2363,50 @@ Sent when the player's hunger level changes (due to decay or consuming food).
 
 ---
 
-## View/Resolution Messages
+## View Mode System
+
+The server controls how clients render the game world to prevent higher-resolution displays from gaining a competitive advantage.
+
+### Rendering Modes
+
+| Mode | Description | Visibility | Use Case |
+|------|-------------|------------|----------|
+| **`scaled`** | Game world renders at fair resolution internally, upscaled to display. All players see identical game area. | Fair resolution only | Competitive PvP zones |
+| **`extended`** | Native resolution rendering, but entities/effects only visible within centered fair zone. Dark fog overlay outside. Terrain visible everywhere. | Fair zone for entities, full display for terrain | Semi-competitive areas |
+| **`special`** | Unrestricted native resolution with zoom support. Current/legacy behavior. | Full display resolution | Towns, safe areas, admin mode |
+
+### `set_render_mode`
+
+Server tells the client which rendering mode to use. Sent on login, zone entry, or admin override. If never sent, client defaults to `special` mode (backward compatible).
+
+**Server -> Client:**
+```json
+{
+  "type": "set_render_mode",
+  "data": {
+    "mode": "scaled",
+    "fair_width": 800,
+    "fair_height": 600
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | string | `"scaled"`, `"extended"`, or `"special"` |
+| `fair_width` | int16 | Fair zone width in pixels (ignored in `special` mode) |
+| `fair_height` | int16 | Fair zone height in pixels (ignored in `special` mode) |
+
+**Notes:**
+- The server is the authority on mode and fair resolution. Clients cannot override.
+- Fair resolution is a server-wide default (configurable in `game_config`) with optional per-map overrides.
+- Players can configure cosmetic preferences (letterbox/stretch, nearest/bilinear, UI scale) that don't affect gameplay.
+- Mode can be switched mid-session. Client handles transitions cleanly.
+- After receiving `set_render_mode`, the client immediately sends `set_view_range` with updated viewport dimensions.
 
 ### `set_view_range`
 
-Client updates visibility radius based on screen resolution.
+Client updates its effective viewport dimensions. Sent when resolution changes, view mode changes, or after receiving `set_render_mode`.
 
 **Request:**
 ```json
@@ -2375,18 +2414,35 @@ Client updates visibility radius based on screen resolution.
   "type": "set_view_range",
   "seq": 500,
   "data": {
-    "screen_width": 1920,
-    "screen_height": 1080
+    "screen_width": 800,
+    "screen_height": 600
   }
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `screen_width` | int16 | No | Client screen width in pixels |
-| `screen_height` | int16 | No | Client screen height in pixels |
+| `screen_width` | int16 | No | Effective viewport width in pixels |
+| `screen_height` | int16 | No | Effective viewport height in pixels |
 
-The server calculates visibility radius as: `max(width, height) / 32 / 2 + 5` tiles.
+**What the client sends per mode:**
+- **`scaled`/`extended`:** Sends the fair resolution (e.g., 800x600), not the display resolution.
+- **`special`:** Sends actual display resolution (e.g., 1920x1080).
+
+**Server visibility calculation:**
+```
+tiles_wide  = screen_width / 32
+tiles_high  = screen_height / 32
+base_radius = max(tiles_wide, tiles_high) / 2
+buffer      = max(5, base_radius * 0.2)   // 20% proportional buffer, minimum 5 tiles
+radius      = clamp(base_radius + buffer, 15, 80)
+```
+
+The server uses this radius (Chebyshev distance) to determine which entities, NPCs, ground items, and events to send to the player. Each player has their own visibility radius based on their reported viewport.
+
+### Admin Visibility Override
+
+Admins can use `sees_all` mode which bypasses all distance checks, receiving every event on their current map regardless of position. This is controlled via the `/setviewrange` admin command.
 
 ---
 
@@ -3328,4 +3384,5 @@ Connected
 3. **Maintain entity cache** updated by spawn/despawn/position messages
 4. **Reconnect logic:** Re-authenticate and enter game on disconnect
 5. **Optimistic movement:** Show movement immediately, correct on rejection
-6. **Update view range** when resolution changes using `set_view_range`
+6. **Update view range** when resolution or view mode changes using `set_view_range`
+7. **Handle `set_render_mode`** to switch rendering modes as directed by the server

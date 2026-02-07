@@ -17,6 +17,7 @@
 #include "entity/components/transform.h"
 #include "entity/components/combat_stats.h"
 
+#include <array>
 #include <random>
 
 namespace hb::npc {
@@ -194,6 +195,9 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
         if (!tmpl->behavior_tree.empty()) {
             new_npc->ai.behavior_tree = tmpl->behavior_tree;
         }
+
+        // Set action interval from template (with 0-299ms spawn jitter to desynchronize NPCs)
+        new_npc->ai.think_interval_ms = tmpl->action_time + random_int(0, 299);
 
         // Loot is generated at death/despawn time by config-driven loot generator
         // (see loot_generator.h) using sprite_id and gold_min/gold_max from template
@@ -680,11 +684,23 @@ void npc_system::process_ai_state(npc& npc_ref) {
     auto now = std::chrono::steady_clock::now();
     auto& state = npc_ref.ai_state;
 
-    // Check think interval
+    // Calculate effective action interval
     auto time_since_think = std::chrono::duration_cast<std::chrono::milliseconds>(
         now - state.last_think_time).count();
 
-    if (time_since_think < npc_ref.ai.think_interval_ms) {
+    int32_t effective_interval = npc_ref.ai.think_interval_ms;
+
+    // Attack mode: randomly reduce interval (legacy d7 roll)
+    if (state.state == ai_state::attack) {
+        static constexpr std::array<int32_t, 7> reductions = {0, 100, 200, 300, 400, 600, 700};
+        effective_interval -= reductions[random_int(0, 6)];
+        if (effective_interval < 600) effective_interval = 600;
+    }
+
+    // TODO: Ice magic effect adds +50% to action time
+    // if (npc_ref has ice effect) effective_interval += effective_interval / 2;
+
+    if (time_since_think < effective_interval) {
         return;
     }
 
@@ -895,17 +911,9 @@ void npc_system::process_attack_state(npc& npc_ref) {
         return;
     }
 
-    // Perform attack if cooldown is ready
-    auto now = std::chrono::steady_clock::now();
-    auto time_since_attack = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now - state.last_attack_time).count();
-
-    int attack_cooldown = 1000 * 100 / npc_ref.attack_speed;  // Attack speed affects cooldown
-
-    if (time_since_attack >= attack_cooldown) {
-        perform_npc_attack(npc_ref, state.target);
-        state.last_attack_time = now;
-    }
+    // Attack once per AI tick (action interval already gates frequency)
+    perform_npc_attack(npc_ref, state.target);
+    state.last_attack_time = std::chrono::steady_clock::now();
 }
 
 void npc_system::process_flee_state(npc& npc_ref) {

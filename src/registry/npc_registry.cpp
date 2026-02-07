@@ -254,6 +254,11 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path)
             npc.attack_speed = static_cast<int16_t>(node["attack_speed"].as<int>());
         }
 
+        // Parse action_time (legacy m_dwActionTime - base AI tick interval in ms)
+        if (node["action_time"]) {
+            npc.action_time = node["action_time"].as<int32_t>();
+        }
+
         // Parse sight/detection range
         if (node["detection_range"]) {
             npc.sight_range = static_cast<int16_t>(node["detection_range"].as<int>());

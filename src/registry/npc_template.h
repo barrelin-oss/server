@@ -74,11 +74,12 @@ struct npc_template {
     int8_t resist_ice{0};
     int8_t resist_lightning{0};
 
-    // Movement
+    // Movement & Timing
     int16_t move_speed{0};
     int16_t attack_speed{0};
     int16_t attack_range{1};
     int16_t sight_range{10};
+    int32_t action_time{1000};   // Base AI action interval (ms) - legacy m_dwActionTime
 
     // Rewards
     int32_t exp_reward{0};

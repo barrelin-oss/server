@@ -1,21 +1,13 @@
 -- schema.sql
 -- PostgreSQL schema for Helbreath server authentication and persistence
--- Run this file to set up the database: psql -U hgserver -d helbreath -f schema.sql
 --
--- MIGRATION: If upgrading from BYTEA to JSONB columns, run:
---   ALTER TABLE characters
---     ALTER COLUMN skills_data TYPE JSONB USING COALESCE(skills_data::text::jsonb, '[]'::jsonb),
---     ALTER COLUMN inventory_data TYPE JSONB USING COALESCE(inventory_data::text::jsonb, '[]'::jsonb),
---     ALTER COLUMN equipment_data TYPE JSONB USING COALESCE(equipment_data::text::jsonb, '[]'::jsonb),
---     ALTER COLUMN bank_data TYPE JSONB USING COALESCE(bank_data::text::jsonb, '[]'::jsonb),
---     ALTER COLUMN quest_data TYPE JSONB USING COALESCE(quest_data::text::jsonb, '[]'::jsonb),
---     ALTER COLUMN magic_data TYPE JSONB USING COALESCE(magic_data::text::jsonb, '[]'::jsonb);
+-- FRESH INSTALL: psql -U hgserver -d helbreath -f schema.sql
+-- EXISTING DB:   cd tools/migrate && npx tsx migrate.ts
 --
--- MIGRATION: If upgrading pos_x/pos_y defaults from 0 to -1 (map initial point), run:
---   ALTER TABLE characters ALTER COLUMN pos_x SET DEFAULT -1;
---   ALTER TABLE characters ALTER COLUMN pos_y SET DEFAULT -1;
---   -- Optionally reset existing characters at (0,0) to use initial spawn:
---   -- UPDATE characters SET pos_x = -1, pos_y = -1 WHERE pos_x = 0 AND pos_y = 0;
+-- This file represents the current schema state. Keep it in sync with
+-- migration files in tools/migrate/migrations/ so fresh installs match
+-- migrated databases. Never hand-edit an existing database — always
+-- create a migration file instead.
 
 -- Enable UUID extension for session tokens
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

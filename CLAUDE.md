@@ -106,6 +106,8 @@ cd bin
 | [docs/JSON_PROTOCOL.md](docs/JSON_PROTOCOL.md) | WebSocket JSON protocol |
 | [docs/GAME_MESSAGES.md](docs/GAME_MESSAGES.md) | In-game message formats |
 | [docs/SUBSYSTEM_INTERFACES.md](docs/SUBSYSTEM_INTERFACES.md) | Detailed subsystem interface specs |
+| [src/database/schema.sql](src/database/schema.sql) | Full database schema (for fresh installs) |
+| [tools/migrate/](tools/migrate/) | Database migration tool and migration files |
 
 ### Current Priorities
 
@@ -129,7 +131,7 @@ src/
 ├── network/                    # WebSocket server
 ├── bridge/handlers/            # Message handlers
 ├── auth/                       # Authentication, sessions
-├── database/                   # PostgreSQL connection
+├── database/                   # PostgreSQL connection, schema.sql
 ├── player/                     # Player state, queries
 ├── world/                      # Maps, spatial queries
 ├── entity/                     # Entity system
@@ -138,6 +140,10 @@ src/
 ├── npc/                        # NPC management
 ├── item/                       # Item system
 └── ...                         # Other game systems
+tools/
+└── migrate/                    # Database migration tool
+    ├── migrate.ts              # CLI: migrate, rollback, status, create
+    └── migrations/             # SQL migration files (tracked in git)
 ```
 
 ### Key Subsystems
@@ -290,3 +296,4 @@ When working on the server:
 5. **Database transactions** - Use connection pool properly
 6. **Thread safety** - WebSocket callbacks run on separate threads
 7. **Update JSON_PROTOCOL.md** - Any changes to WebSocket message structures must be documented in `docs/JSON_PROTOCOL.md` so the client stays in sync
+8. **Create migrations for DB changes** - Any change to the PostgreSQL schema (new tables, columns, indexes, constraints, functions) must include a migration file. Run `cd tools/migrate && npx tsx migrate.ts create <description>` to scaffold one, then fill in the `-- up` and `-- down` SQL. Also update `src/database/schema.sql` to match so fresh installs get the current schema. Never modify existing migration files that have already been applied.

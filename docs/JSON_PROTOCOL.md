@@ -2440,6 +2440,31 @@ radius      = clamp(base_radius + buffer, 15, 80)
 
 The server uses this radius (Chebyshev distance) to determine which entities, NPCs, ground items, and events to send to the player. Each player has their own visibility radius based on their reported viewport.
 
+### `view_range_update`
+
+Server informs the client of its effective visibility radius. Sent when an admin overrides the player's view range, or when `sees_all` mode is toggled.
+
+**Server -> Client:**
+```json
+{
+  "type": "view_range_update",
+  "data": {
+    "radius": 40,
+    "sees_all": false
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `radius` | int16 | Current server-side visibility radius in tiles (15-80) |
+| `sees_all` | bool | If `true`, player receives all events on their current map regardless of distance |
+
+**Notes:**
+- This is informational — the server enforces the radius regardless. The client uses it to adjust rendering (e.g., fog of war distance, entity culling).
+- When `sees_all` is `true`, `radius` still reflects the last computed value but is effectively ignored server-side.
+- Triggered by `/setviewrange` admin command. Not sent during normal `set_view_range` requests from the client.
+
 ### Admin Visibility Override
 
 Admins can use `sees_all` mode which bypasses all distance checks, receiving every event on their current map regardless of position. This is controlled via the `/setviewrange` admin command.

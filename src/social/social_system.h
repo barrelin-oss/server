@@ -16,6 +16,9 @@
 #include <vector>
 #include <regex>
 
+namespace hb::database { class database_system; }
+namespace hb::player { class player_system; }
+
 namespace hb::social {
 
 // Guild events
@@ -153,6 +156,15 @@ public:
     // Configuration
     void set_config(const social_system_config& config);
 
+    // Database and player system dependencies
+    void set_database(database::database_system* db);
+    void set_player_system(player::player_system* players);
+
+    // Guild persistence
+    auto load_guilds_from_database() -> result<void, std::string>;
+    void connect_guild_member(player_id character_id, player_id runtime_id, const std::string& name);
+    void disconnect_guild_member(player_id runtime_id, player_id character_id);
+
     // Player management
     void register_player(player_id id, const std::string& name);
     void unregister_player(player_id id);
@@ -238,11 +250,22 @@ private:
     auto generate_guild_id() -> guild_id;
     auto generate_party_id() -> party_id;
 
+    // Persistence helpers
+    auto save_guild_to_database(guild_id gid) -> result<void, std::string>;
+    auto insert_guild_to_database(const guild& g) -> result<void, std::string>;
+    auto delete_guild_from_database(guild_id gid) -> result<void, std::string>;
+    auto lookup_character_id(player_id runtime_id) -> player_id;
+
     social_system_config config_;
+
+    // Database and player system dependencies
+    database::database_system* database_{nullptr};
+    player::player_system* player_system_{nullptr};
 
     // Guilds
     std::unordered_map<guild_id, guild> guilds_;
-    std::unordered_map<player_id, guild_id> player_guilds_;
+    std::unordered_map<player_id, guild_id> player_guilds_;         // runtime_id → guild_id
+    std::unordered_map<player_id, guild_id> character_guild_index_;  // character_id → guild_id
     uint32_t next_guild_id_{1};
 
     // Parties

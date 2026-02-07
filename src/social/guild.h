@@ -60,7 +60,8 @@ inline auto has_permission(guild_permission flags, guild_permission perm) -> boo
 
 // Guild member data
 struct guild_member {
-    player_id player{};
+    player_id player{};           // Runtime ID (0 when offline)
+    player_id character_id{};     // Persistent DB character ID (always set after load/create)
     std::string name;
     guild_rank rank{guild_rank::recruit};
     std::chrono::system_clock::time_point joined_at{};
@@ -166,6 +167,20 @@ struct guild {
 
     [[nodiscard]] auto is_member(player_id player) const -> bool {
         return get_member(player) != nullptr;
+    }
+
+    [[nodiscard]] auto get_member_by_character_id(player_id char_id) -> guild_member* {
+        for (auto& member : members) {
+            if (member.character_id == char_id) return &member;
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] auto get_member_by_character_id(player_id char_id) const -> const guild_member* {
+        for (const auto& member : members) {
+            if (member.character_id == char_id) return &member;
+        }
+        return nullptr;
     }
 
     [[nodiscard]] auto get_rank_permissions(guild_rank rank) const -> guild_permission {

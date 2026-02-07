@@ -307,6 +307,7 @@ add_executable(hgserver_tests
     tests/test_skill.cpp
     tests/test_quest.cpp
     tests/test_social.cpp
+    tests/test_guild_persistence.cpp
     tests/test_war.cpp
     tests/test_persistence.cpp
     tests/test_admin.cpp

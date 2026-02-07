@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-02-07
 
 ---
 
@@ -332,7 +332,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Skills save | ✅ | JSON serialization to JSONB column |
 | Bank save | ✅ | JSON serialization to JSONB column |
 | Gold save | ✅ | Stored in characters table |
-| Guild save | ❌ | Guild data persistence |
+| Guild save | ✅ | Guilds and members persist to PostgreSQL across server restarts |
 | World state | ❌ | Dynamic objects |
 
 ---
@@ -398,7 +398,7 @@ Priority order for remaining work toward a playable game:
 7. **Ranged Combat** - Bow/crossbow projectiles
 8. **Crafting System** - Manufacturing, alchemy
 9. **War Mechanics** - Crusade, Heldenian, Apocalypse battle logic
-10. **Guild Persistence** - Save/load guild data
+10. ~~**Guild Persistence**~~ - ✅ Guilds and members persist to PostgreSQL, guild info on login
 
 ---
 
@@ -418,6 +418,9 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-07 (c)
+- **Guild Persistence** - Guilds and members persist to PostgreSQL across server restarts, players see guild info on login
 
 ### 2026-02-07 (b)
 - **YAML-Driven Loot System Refactor** - Complete rewrite of loot generation:

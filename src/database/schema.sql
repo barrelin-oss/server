@@ -107,12 +107,23 @@ CREATE TABLE IF NOT EXISTS characters (
 CREATE TABLE IF NOT EXISTS guilds (
     id              SERIAL PRIMARY KEY,
     name            VARCHAR(32) UNIQUE NOT NULL,
+    tag             VARCHAR(8) NOT NULL DEFAULT '',
+    motd            TEXT NOT NULL DEFAULT '',
     nation          SMALLINT NOT NULL CHECK (nation >= 0 AND nation <= 2),
     leader_id       INTEGER REFERENCES characters(id) ON DELETE SET NULL,
 
+    -- Guild progression
+    level           INTEGER NOT NULL DEFAULT 1,
+    experience      BIGINT NOT NULL DEFAULT 0,
+
     -- Guild stats
-    gold            BIGINT DEFAULT 0,
+    total_kills     BIGINT NOT NULL DEFAULT 0,
+    total_deaths    BIGINT NOT NULL DEFAULT 0,
+    gold_bank       BIGINT NOT NULL DEFAULT 0,
     warehouse_data  BYTEA,
+
+    -- Rank configuration (JSON array of {name, permissions})
+    rank_configs    JSONB NOT NULL DEFAULT '[]'::jsonb,
 
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
@@ -126,6 +137,7 @@ CREATE TABLE IF NOT EXISTS guild_members (
     rank            SMALLINT DEFAULT 0 CHECK (rank >= 0 AND rank <= 10),
     joined_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     contribution    BIGINT DEFAULT 0,
+    note            TEXT NOT NULL DEFAULT '',
 
     PRIMARY KEY (guild_id, character_id)
 );

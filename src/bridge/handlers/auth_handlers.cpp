@@ -17,6 +17,7 @@
 #include "npc/npc.h"
 #include "item/item_system.h"
 #include "item/item.h"
+#include "social/social_system.h"
 #include "magic/magic_system.h"
 #include "quest/quest_system.h"
 #include "core/logger.h"
@@ -34,7 +35,8 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
                                 inventory::inventory_system* inventory,
                                 admin::admin_system* admin,
                                 npc::npc_system* npc,
-                                item::item_system* item) {
+                                item::item_system* item,
+                                social::social_system* social) {
     ws_server_ = ws_server;
     auth_ = auth;
     players_ = players;
@@ -43,13 +45,15 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
     admin_ = admin;
     npc_ = npc;
     item_ = item;
-    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {}, item: {})",
+    social_ = social;
+    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {}, item: {}, social: {})",
         players_ != nullptr ? "yes" : "no",
         world_ != nullptr ? "yes" : "no",
         inventory_ != nullptr ? "yes" : "no",
         admin_ != nullptr ? "yes" : "no",
         npc_ != nullptr ? "yes" : "no",
-        item_ != nullptr ? "yes" : "no");
+        item_ != nullptr ? "yes" : "no",
+        social_ != nullptr ? "yes" : "no");
 }
 
 void auth_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
@@ -142,6 +146,15 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
 
         // Save player state
         save_player_state(pid);
+
+        // Disconnect from guild
+        if (social_ && players_) {
+            auto* player = players_->get_player(pid);
+            if (player) {
+                social_->disconnect_guild_member(pid, player->character_id);
+            }
+            social_->unregister_player(pid);
+        }
 
         // Notify nearby players of despawn
         if (players_ && ws_server_) {
@@ -570,6 +583,23 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             // Recalculate computed stats
             player->base.level_bonus = char_data.level;
             player->recalculate_stats();
+
+            // Connect guild membership
+            if (social_) {
+                social_->register_player(live_player_id, char_data.name);
+                social_->connect_guild_member(char_id, live_player_id, char_data.name);
+
+                auto guild = social_->get_player_guild(live_player_id);
+                if (guild.is_valid()) {
+                    auto* g = social_->get_guild(guild);
+                    if (g) {
+                        player->guild_name = g->name;
+                        auto* member = g->get_member(live_player_id);
+                        if (member)
+                            player->guild_rank = static_cast<uint8_t>(member->rank);
+                    }
+                }
+            }
 
             // Set position if world system is available
             if (world_) {
@@ -1177,6 +1207,15 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
 
     // Save player state
     save_player_state(pid);
+
+    // Disconnect from guild (before removing player)
+    if (social_) {
+        auto* player = players_ ? players_->get_player(pid) : nullptr;
+        if (player) {
+            social_->disconnect_guild_member(pid, player->character_id);
+        }
+        social_->unregister_player(pid);
+    }
 
     // Notify nearby players of despawn
     if (players_ && ws_server_) {

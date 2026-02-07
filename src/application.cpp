@@ -309,6 +309,17 @@ void application::initialize() {
 
     // Start self-contained auth services (WebSocket server)
     if (server_cfg.self_contained) {
+        // Load guilds from database
+        auto* social_sys = subsystems().get<social::social_system>();
+        if (social_sys) {
+            social_sys->set_database(&db_sys);
+            social_sys->set_player_system(subsystems().get<player::player_system>());
+            auto guild_load = social_sys->load_guilds_from_database();
+            if (guild_load.is_err()) {
+                LOG_ERROR(general, "Failed to load guilds: {}", guild_load.error());
+            }
+        }
+
         // Create and configure WebSocket server
         ws_server_ = std::make_unique<network::websocket_server>();
         network::websocket_config ws_config{
@@ -330,7 +341,8 @@ void application::initialize() {
             subsystems().get<inventory::inventory_system>(),
             subsystems().get<admin::admin_system>(),
             subsystems().get<npc::npc_system>(),
-            subsystems().get<item::item_system>()
+            subsystems().get<item::item_system>(),
+            subsystems().get<social::social_system>()
         );
 
         // Create and initialize game handlers

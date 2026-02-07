@@ -101,6 +101,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"player_teleport", json_message_type::player_teleport},
     {"set_view_range", json_message_type::set_view_range},
     {"set_render_mode", json_message_type::set_render_mode},
+    {"view_range_update", json_message_type::view_range_update},
     {"npc_spawn", json_message_type::npc_spawn},
     {"npc_despawn", json_message_type::npc_despawn},
     {"npc_move", json_message_type::npc_move},
@@ -2374,6 +2375,17 @@ auto make_set_render_mode(const render_mode_data& data) -> json_message {
         .type = json_message_type::set_render_mode,
         .seq = 0,
         .data = data.to_json()
+    };
+}
+
+auto make_view_range_update(int16_t radius, bool sees_all) -> json_message {
+    return json_message{
+        .type = json_message_type::view_range_update,
+        .seq = 0,
+        .data = nlohmann::json{
+            {"radius", radius},
+            {"sees_all", sees_all}
+        }
     };
 }
 

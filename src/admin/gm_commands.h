@@ -3,6 +3,11 @@
 // gm_commands.h
 // Game Master commands for testing and administration
 
+#include "core/types.h"
+#include "network/json_protocol.h"
+
+#include <functional>
+
 namespace hb::player {
     class player_system;
 }
@@ -19,11 +24,15 @@ namespace hb::admin {
 
 class admin_system;
 
+// Callback to send a protocol message to a specific player
+using send_to_player_fn = std::function<void(player_id, const network::json_message&)>;
+
 // Context for GM commands - provides access to game subsystems
 struct gm_command_context {
     player::player_system* players{nullptr};
     world::world_subsystem* world{nullptr};
     inventory::inventory_system* inventory{nullptr};
+    send_to_player_fn send_to_player;
 };
 
 // Register GM commands with the admin system

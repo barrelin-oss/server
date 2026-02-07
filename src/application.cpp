@@ -282,15 +282,7 @@ void application::initialize() {
     // Register spawn points (must be after NPC registry is loaded)
     register_spawn_points();
 
-    // Register GM commands with admin system
-    if (auto* admin_sys = subsystems().get<admin::admin_system>()) {
-        admin::gm_command_context gm_ctx{
-            .players = subsystems().get<player::player_system>(),
-            .world = subsystems().get<world::world_subsystem>(),
-            .inventory = subsystems().get<inventory::inventory_system>()
-        };
-        admin::register_gm_commands(*admin_sys, gm_ctx);
-    }
+    // GM commands registered after ws_server_ is created (below)
 
     // Initialize protocol bridge and register wave handlers
     LOG_INFO(general, "Initializing protocol bridge...");
@@ -374,6 +366,26 @@ void application::initialize() {
                 auth_handlers_->save_player(pid);
             }
         });
+
+        // Register GM commands with admin system (after ws_server_ is ready)
+        if (auto* admin_sys = subsystems().get<admin::admin_system>()) {
+            auto* player_sys = subsystems().get<player::player_system>();
+            auto* ws = ws_server_.get();
+            admin::gm_command_context gm_ctx{
+                .players = player_sys,
+                .world = subsystems().get<world::world_subsystem>(),
+                .inventory = subsystems().get<inventory::inventory_system>(),
+                .send_to_player = [player_sys, ws](player_id pid, const network::json_message& msg) {
+                    if (!player_sys || !ws) return;
+                    auto* plr = player_sys->get_player(pid);
+                    if (!plr || plr->connection.value == 0) return;
+                    auto* conn = ws->get_connection(plr->connection);
+                    if (!conn || !conn->is_open()) return;
+                    conn->send(msg);
+                }
+            };
+            admin::register_gm_commands(*admin_sys, gm_ctx);
+        }
 
         // Set up WebSocket message routing - dispatch to appropriate handler
         ws_server_->on_message([this](connection_id conn_id, const network::json_message& msg) {

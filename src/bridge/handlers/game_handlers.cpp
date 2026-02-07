@@ -10,6 +10,7 @@
 #include "world/world_subsystem.h"
 #include "social/social_system.h"
 #include "admin/admin_system.h"
+#include "admin/command.h"
 #include "combat/combat_system.h"
 #include "combat/combat_events.h"
 #include "npc/npc_system.h"
@@ -1861,12 +1862,14 @@ auto parse_chat_channel(std::string_view content, const std::optional<std::strin
                 return {social::chat_channel::guild, msg_content};
             case '$':  // Party
                 return {social::chat_channel::party, msg_content};
-            case '#':  // Whisper (legacy - normally use recipient field)
-                return {social::chat_channel::whisper, msg_content};
-            case '^':  // Global guild (treat as shout for single server)
-                return {social::chat_channel::shout, msg_content};
-            case '~':  // Trade channel
+            case '#':  // Say override (local) during whisper mode
+                return {social::chat_channel::local, msg_content};
+            case '%':  // Trade channel
                 return {social::chat_channel::trade, msg_content};
+            case '~':  // Faction chat
+                return {social::chat_channel::faction, msg_content};
+            case '^':  // GM chat
+                return {social::chat_channel::gm, msg_content};
             default:
                 break;
         }
@@ -1952,6 +1955,23 @@ void game_handlers::handle_chat_message(connection_id conn_id, const network::js
         return;
     }
 
+    // Intercept /commands from chat and route to command handler
+    if (!content.empty() && content[0] == '/') {
+        auto parsed = admin::command_parser::parse(content, '/');
+        if (parsed.valid) {
+            // Build a synthetic command_request message and route it
+            network::json_message cmd_msg;
+            cmd_msg.type = network::json_message_type::command_request;
+            cmd_msg.seq = msg.seq;
+            cmd_msg.data = nlohmann::json{
+                {"command", parsed.command_name},
+                {"args", parsed.raw_args}
+            };
+            handle_command(conn_id, cmd_msg);
+            return;
+        }
+    }
+
     // Handle based on channel type
     social::filter_result result;
 
@@ -1998,6 +2018,14 @@ void game_handlers::handle_chat_message(connection_id conn_id, const network::js
 
         case social::chat_channel::trade:
             // Trade channel is global for now
+            result = social_->send_global_chat(pid, content);
+            break;
+
+        case social::chat_channel::gm:
+            if (!player->is_gm()) {
+                conn->send(network::make_chat_message_response(msg.seq, false, "not_authorized"));
+                return;
+            }
             result = social_->send_global_chat(pid, content);
             break;
 
@@ -2203,6 +2231,18 @@ void game_handlers::on_chat_message(const social::chat_message_event& event) {
             auto all_players = players_->get_all_players();
             for (auto pid : all_players) {
                 send_chat_to_player(pid, broadcast);
+            }
+            break;
+        }
+
+        case social::chat_channel::gm: {
+            // Only deliver to players with GM permissions
+            auto all_players = players_->get_all_players();
+            for (auto pid : all_players) {
+                auto* p = players_->get_player(pid);
+                if (p && p->is_gm()) {
+                    send_chat_to_player(pid, broadcast);
+                }
             }
             break;
         }

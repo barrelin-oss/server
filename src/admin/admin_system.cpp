@@ -176,11 +176,11 @@ auto admin_system::execute(player_id executor, std::string_view command_string) 
 
     // Check permission
     auto admin_info_it = admins_.find(executor);
-    admin_level executor_level = admin_level::player;
+    admin_level executor_level = config_.dev_all_admin ? admin_level::owner : admin_level::player;
     std::string executor_name;
 
     if (admin_info_it != admins_.end()) {
-        executor_level = admin_info_it->second.level;
+        executor_level = config_.dev_all_admin ? admin_level::owner : admin_info_it->second.level;
         executor_name = admin_info_it->second.name;
 
         // Check cooldown

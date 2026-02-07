@@ -570,8 +570,9 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
         };
 
         auto* players = ctx.players;
+        auto send = ctx.send_to_player;
 
-        admin.register_command(info, [players](const command_context& cmd_ctx) -> command_result {
+        admin.register_command(info, [players, send](const command_context& cmd_ctx) -> command_result {
             if (!players) {
                 return command_result::error("Player system not available");
             }
@@ -590,13 +591,14 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
 
             if (value == "all") {
                 target->sees_all = true;
+                if (send) send(target->id, network::make_view_range_update(target->visibility_radius, true));
                 return command_result::ok(target_name + " now sees all entities on map");
             }
 
             if (value == "reset") {
                 target->sees_all = false;
-                // Will be recalculated on next set_view_range from client
                 target->visibility_radius = network::min_visibility_radius;
+                if (send) send(target->id, network::make_view_range_update(target->visibility_radius, false));
                 return command_result::ok(target_name + " visibility reset to default (pending client update)");
             }
 
@@ -615,6 +617,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
 
             target->sees_all = false;
             target->visibility_radius = static_cast<int16_t>(radius);
+            if (send) send(target->id, network::make_view_range_update(target->visibility_radius, false));
             return command_result::ok(target_name + " visibility radius set to " + std::to_string(radius) + " tiles");
         });
     }
@@ -633,8 +636,9 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
         };
 
         auto* players = ctx.players;
+        auto send = ctx.send_to_player;
 
-        admin.register_command(info, [players](const command_context& cmd_ctx) -> command_result {
+        admin.register_command(info, [players, send](const command_context& cmd_ctx) -> command_result {
             if (!players) {
                 return command_result::error("Player system not available");
             }
@@ -658,7 +662,13 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
             auto mode = network::parse_view_mode(mode_str);
             target->view_mode = static_cast<uint8_t>(mode);
 
-            // TODO: Send set_render_mode message to client when sending is wired up
+            if (send) {
+                network::render_mode_data rmd;
+                rmd.mode = mode;
+                rmd.fair_width = 800;   // TODO: source from game_config
+                rmd.fair_height = 600;
+                send(target->id, network::make_set_render_mode(rmd));
+            }
 
             return command_result::ok(target_name + " render mode set to " + mode_str);
         });

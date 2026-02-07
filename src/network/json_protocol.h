@@ -108,6 +108,7 @@ enum class json_message_type {
     // View/Resolution
     set_view_range,         // Client updates visibility radius
     set_render_mode,        // Server tells client which rendering mode to use
+    view_range_update,      // Server tells client its effective visibility range
 
     // NPC messages (server -> client)
     npc_spawn,              // NPC appears in view
@@ -217,6 +218,7 @@ enum class json_message_type {
         case json_message_type::player_teleport: return "player_teleport";
         case json_message_type::set_view_range: return "set_view_range";
         case json_message_type::set_render_mode: return "set_render_mode";
+        case json_message_type::view_range_update: return "view_range_update";
         case json_message_type::npc_spawn: return "npc_spawn";
         case json_message_type::npc_despawn: return "npc_despawn";
         case json_message_type::npc_move: return "npc_move";
@@ -1230,6 +1232,7 @@ struct render_mode_data
 };
 
 [[nodiscard]] auto make_set_render_mode(const render_mode_data& data) -> json_message;
+[[nodiscard]] auto make_view_range_update(int16_t radius, bool sees_all) -> json_message;
 
 // Visibility range constants
 inline constexpr int16_t min_visibility_radius = 15;

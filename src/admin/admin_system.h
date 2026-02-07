@@ -27,6 +27,7 @@ struct admin_config {
     std::string log_file{"admin_commands.log"};
     bool broadcast_major_actions{true};  // Broadcast bans, kicks, etc. to other GMs
     int32_t command_cooldown_ms{0};      // Minimum time between commands (0=disabled)
+    bool dev_all_admin{false};           // Grant all players owner-level admin (for testing)
 };
 
 // Player admin info

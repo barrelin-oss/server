@@ -46,6 +46,12 @@ namespace hb::combat {
     struct death_event;
 }
 
+namespace hb::magic {
+    class magic_system;
+    struct spell_template;
+    struct spell_effect_result;
+}
+
 namespace hb::npc {
     class npc_system;
     struct npc;
@@ -90,7 +96,8 @@ public:
                     scheduler* sched = nullptr,
                     loot_registry* loot = nullptr,
                     shop_registry* shops = nullptr,
-                    dialog_registry* dialogs = nullptr);
+                    dialog_registry* dialogs = nullptr,
+                    magic::magic_system* magic = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -210,6 +217,15 @@ private:
     // Combat broadcast helpers
     void broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max);
     void broadcast_entity_death(player_id victim, player_id killer);
+    void broadcast_combat_effect(map_id map, const world::position& pos,
+                                 const network::combat_effect_data& data);
+    void broadcast_combat_effect_to_faction(map_id map, const world::position& pos,
+                                            hb::faction faction,
+                                            const network::combat_effect_data& data);
+
+    // Spell cast callback
+    void on_spell_cast(entity::entity caster, const magic::spell_template& spell,
+                       const magic::spell_effect_result& result);
 
     // NPC broadcast helpers
     void broadcast_npc_spawn(const npc::npc& n);
@@ -247,6 +263,7 @@ private:
     loot_registry* loot_registry_{nullptr};
     shop_registry* shop_registry_{nullptr};
     dialog_registry* dialog_registry_{nullptr};
+    magic::magic_system* magic_{nullptr};
     save_player_callback save_callback_;
 };
 

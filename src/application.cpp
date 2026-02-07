@@ -364,7 +364,8 @@ void application::initialize() {
             subsystems().get<scheduler>(),
             subsystems().get<loot_registry>(),
             subsystems().get<shop_registry>(),
-            subsystems().get<dialog_registry>()
+            subsystems().get<dialog_registry>(),
+            subsystems().get<magic::magic_system>()
         );
 
         // Set save callback for death penalty persistence

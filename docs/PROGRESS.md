@@ -111,7 +111,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Combat state | ✅ | In-combat tracking, invulnerability |
 | Kill rewards | ✅ | Experience and gold on kill |
 | Death detection | ✅ | Death events, kill/death counters |
-| Combat broadcasts | 🔄 | Damage events fire, visual broadcast to clients TODO |
+| Combat broadcasts | ✅ | Unified `combat_effect` broadcast for melee damage, spell effects, buffs/debuffs |
 | Ranged combat | 📋 | Bow/crossbow, projectiles |
 | PK system | ✅ | PK point gain on innocent kill, bounty rewards, criminal/murderer status |
 
@@ -391,7 +391,7 @@ Priority order for remaining work toward a playable game:
 
 1. ~~**Ground Items / Loot Drops**~~ - ✅ NPC loot drops, ground item spawn/despawn, YAML drop tables
 2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
-3. **Combat/Spell Visual Broadcasts** - Damage, effect applied/removed to nearby players
+3. ~~**Combat/Spell Visual Broadcasts**~~ - ✅ Unified `combat_effect` broadcast + magic handler wired
 4. ~~**NPC Interaction**~~ - ✅ Dialog trees, shop buy/sell/repair, bank deposit/withdraw
 5. ~~**Death/Respawn**~~ - ✅ XP penalty, PK tracking, bounty, delayed respawn
 6. ~~**Spell Effects System**~~ - ✅ Duration tracking, group slots, DoT/HoT, stat pipeline
@@ -418,6 +418,14 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-07 (e)
+- **Combat/Spell Visual Broadcasts** - Unified `combat_effect` message for all combat/spell visual feedback
+  - New `combat_effect` protocol message with effect_type discriminator (damage/heal/miss/dodge/block/resist/buff/debuff)
+  - Wired `magic_system` to `game_handlers` - replaced TODO stub with actual spell casting via `instant_cast`/`begin_cast`
+  - Spell cast callback broadcasts damage/heal/buff/debuff effects to nearby players
+  - `on_damage_dealt` enriched with `combat_effect` broadcast (derives effect_type from hit_result flags)
+  - Faction-scoped broadcasts for buff/debuff effects (only same-faction players see them)
 
 ### 2026-02-07 (d)
 - **NPC Interaction System** - Dialog trees, shop buy/sell/repair, bank deposit/withdraw

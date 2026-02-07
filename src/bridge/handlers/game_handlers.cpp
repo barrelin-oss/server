@@ -22,6 +22,8 @@
 #include "registry/item_registry.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
+#include "magic/magic_system.h"
+#include "magic/spell.h"
 #include "scheduler/scheduler.h"
 #include "config/config_system.h"
 #include "core/subsystem.h"
@@ -53,7 +55,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 scheduler* sched,
                                 loot_registry* loot,
                                 shop_registry* shops,
-                                dialog_registry* dialogs) {
+                                dialog_registry* dialogs,
+                                magic::magic_system* magic) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -67,6 +70,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     loot_registry_ = loot;
     shop_registry_ = shops;
     dialog_registry_ = dialogs;
+    magic_ = magic;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -112,6 +116,14 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
         npc_->set_on_despawn_callback([this](const npc::npc& n) {
             handle_npc_despawn_drop(n);  // Generate despawn loot (body parts, rares, boss multi-drops)
+        });
+    }
+
+    // Register magic spell cast callback for visual broadcasts
+    if (magic_) {
+        magic_->on_spell_cast([this](entity::entity caster, const magic::spell_template& spell,
+                                      const magic::spell_effect_result& result) {
+            on_spell_cast(caster, spell, result);
         });
     }
 
@@ -659,19 +671,72 @@ void game_handlers::handle_player_magic(connection_id conn_id, const network::js
         return;
     }
 
-    // TODO: Implement actual magic through magic_system
-    // Placeholder response
-    network::magic_result_msg result{
-        .success = false,
-        .spell_id = data.spell_id,
-        .mana_cost = 0,
-        .damage = 0,
-        .heal = 0,
-        .target_id = data.target_id,
-        .caster_mp = static_cast<int16_t>(player->mp)
-    };
+    if (!magic_) {
+        send_error(conn_id, msg.seq, "internal_error", "Magic system unavailable");
+        return;
+    }
 
-    conn->send(network::make_player_magic_response(msg.seq, false, &result, "not_implemented"));
+    // Build cast target from request data
+    magic::cast_target target{};
+    if (data.tgt_type == network::target_type::player || data.tgt_type == network::target_type::npc) {
+        target.target = entity::entity{data.target_id};
+    }
+    if (data.target_x != 0 || data.target_y != 0) {
+        target.target_pos = world::position{data.target_x, data.target_y};
+    }
+
+    // Look up spell to determine cast type
+    auto sid = spell_id(static_cast<int>(data.spell_id));
+    auto* spell_tmpl = magic_->get_spell(sid);
+    if (!spell_tmpl) {
+        conn->send(network::make_player_magic_response(msg.seq, false, nullptr, "unknown_spell"));
+        return;
+    }
+
+    if (spell_tmpl->cast_time_ms > 0) {
+        // Channeled/cast time spell
+        auto cast_result = magic_->begin_cast(player->ecs_entity, sid, target);
+        if (cast_result.is_err()) {
+            conn->send(network::make_player_magic_response(msg.seq, false, nullptr,
+                                                            cast_result.error()));
+            return;
+        }
+
+        // Cast started - result will come via callback when cast completes
+        network::magic_result_msg result{
+            .success = true,
+            .spell_id = data.spell_id,
+            .mana_cost = spell_tmpl->mana_cost,
+            .damage = 0,
+            .heal = 0,
+            .target_id = data.target_id,
+            .caster_mp = static_cast<int16_t>(player->mp)
+        };
+        conn->send(network::make_player_magic_response(msg.seq, true, &result));
+    } else {
+        // Instant cast
+        auto cast_result = magic_->instant_cast(player->ecs_entity, sid, target);
+        if (cast_result.is_err()) {
+            conn->send(network::make_player_magic_response(msg.seq, false, nullptr,
+                                                            cast_result.error()));
+            return;
+        }
+
+        auto& effect = cast_result.value();
+        network::magic_result_msg result{
+            .success = effect.success,
+            .spell_id = data.spell_id,
+            .mana_cost = spell_tmpl->mana_cost,
+            .damage = effect.damage_dealt,
+            .heal = effect.heal_applied,
+            .target_id = data.target_id,
+            .caster_mp = static_cast<int16_t>(player->mp)
+        };
+
+        conn->send(network::make_player_magic_response(msg.seq, effect.success, &result,
+            effect.success ? std::optional<std::string_view>{} : std::optional<std::string_view>{"cast_failed"}));
+    }
+
     LOG_DEBUG(bridge, "Player {} magic request (spell={}, target={})",
         pid.value, data.spell_id, data.target_id);
 }
@@ -2431,6 +2496,38 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
 
 // ========== Combat Event Callbacks ==========
 
+namespace {
+
+auto damage_type_to_string(combat::damage_type dt) -> std::string_view
+{
+    switch (dt) {
+        case combat::damage_type::physical:  return "physical";
+        case combat::damage_type::magic:     return "magic";
+        case combat::damage_type::fire:      return "fire";
+        case combat::damage_type::ice:       return "ice";
+        case combat::damage_type::lightning: return "lightning";
+        case combat::damage_type::poison:    return "poison";
+        case combat::damage_type::holy:      return "holy";
+        case combat::damage_type::dark:      return "dark";
+        case combat::damage_type::pure:      return "pure";
+        default: return "physical";
+    }
+}
+
+auto spell_element_to_damage_type_string(magic::spell_element elem) -> std::string_view
+{
+    switch (elem) {
+        case magic::spell_element::fire:      return "fire";
+        case magic::spell_element::ice:       return "ice";
+        case magic::spell_element::lightning: return "lightning";
+        case magic::spell_element::holy:      return "holy";
+        case magic::spell_element::dark:      return "dark";
+        default: return "magic";
+    }
+}
+
+}  // namespace
+
 void game_handlers::on_damage_dealt(const combat::damage_event& event) {
     if (!players_ || !ws_server_) return;
 
@@ -2450,6 +2547,41 @@ void game_handlers::on_damage_dealt(const combat::damage_event& event) {
 
     // Broadcast HP update to players who can see the target
     broadcast_hp_update(target_pid, target->hp, target->computed.max_hp);
+
+    // Broadcast combat_effect for visual feedback (floating damage numbers, etc.)
+    auto& hr = event.result;
+    std::string effect_type;
+    if (hr.is_miss()) {
+        effect_type = "miss";
+    } else if (hr.is_dodged()) {
+        effect_type = "dodge";
+    } else if (hr.is_blocked()) {
+        effect_type = "block";
+    } else if (hr.is_hit()) {
+        effect_type = "damage";
+    } else {
+        return;  // No visual effect for this result
+    }
+
+    // Resolve source entity_id for client
+    uint32_t source_eid = event.source.id;
+    if (auto* src = players_->get_player(player_id{event.source.id})) {
+        source_eid = src->ecs_entity.id;
+    }
+
+    network::combat_effect_data effect{
+        .source_id = source_eid,
+        .target_id = target->ecs_entity.id,
+        .effect_type = std::move(effect_type),
+        .value = hr.final_damage,
+        .damage_type = std::string(damage_type_to_string(hr.type)),
+        .spell_id = 0,
+        .is_critical = hr.is_critical(),
+        .target_x = target->pos.x,
+        .target_y = target->pos.y
+    };
+
+    broadcast_combat_effect(target->current_map, target->pos, effect);
 }
 
 void game_handlers::on_entity_death(const combat::death_event& event) {
@@ -2682,6 +2814,176 @@ void game_handlers::broadcast_entity_death(player_id victim, player_id killer) {
         if (other_conn && other_conn->is_open()) {
             other_conn->send(death_msg);
         }
+    }
+}
+
+// ========== Combat Effect Broadcast Methods ==========
+
+void game_handlers::broadcast_combat_effect(map_id map, const world::position& pos,
+                                             const network::combat_effect_data& data)
+{
+    if (!players_ || !ws_server_) return;
+
+    auto msg = network::make_combat_effect(data);
+    auto viewers = players_->get_players_who_can_see(map, pos);
+
+    for (auto pid : viewers) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+}
+
+void game_handlers::broadcast_combat_effect_to_faction(map_id map, const world::position& pos,
+                                                        hb::faction fac,
+                                                        const network::combat_effect_data& data)
+{
+    if (!players_ || !ws_server_) return;
+
+    auto msg = network::make_combat_effect(data);
+    auto viewers = players_->get_players_who_can_see(map, pos);
+
+    for (auto pid : viewers) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+        if (p->faction != fac) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+}
+
+void game_handlers::on_spell_cast(entity::entity caster, const magic::spell_template& spell,
+                                   const magic::spell_effect_result& result)
+{
+    if (!players_ || !ws_server_) return;
+    if (!result.success) return;  // Failed casts aren't visible
+
+    // Find caster position - could be player or NPC
+    auto* caster_player = players_->get_player(player_id{caster.id});
+    if (!caster_player) return;  // Only handle player casters for now
+
+    auto caster_map = caster_player->current_map;
+    auto caster_pos = caster_player->pos;
+    auto caster_eid = caster_player->ecs_entity.id;
+    auto dmg_type = std::string(spell_element_to_damage_type_string(spell.element));
+
+    // Determine broadcast based on spell category
+    switch (spell.category) {
+        case magic::spell_category::attack:
+        case magic::spell_category::debuff: {
+            for (auto target_ent : result.affected_targets) {
+                // Determine target position for the broadcast
+                int16_t tx = caster_pos.x;
+                int16_t ty = caster_pos.y;
+                uint32_t target_eid = target_ent.id;
+
+                // Try to get target position from player or NPC
+                if (auto* tp = players_->get_player(player_id{target_ent.id})) {
+                    tx = tp->pos.x;
+                    ty = tp->pos.y;
+                    target_eid = tp->ecs_entity.id;
+                } else if (npc_) {
+                    if (auto* tn = npc_->get_npc(entity::entity{target_ent.id})) {
+                        tx = tn->pos.x;
+                        ty = tn->pos.y;
+                        target_eid = tn->entity_id.id;
+                    }
+                }
+
+                auto effect_type = spell.category == magic::spell_category::attack ? "damage" : "debuff";
+                auto value = spell.category == magic::spell_category::attack
+                    ? result.damage_dealt : spell.effect_value;
+
+                network::combat_effect_data effect{
+                    .source_id = caster_eid,
+                    .target_id = target_eid,
+                    .effect_type = effect_type,
+                    .value = value,
+                    .damage_type = dmg_type,
+                    .spell_id = spell.id.value,
+                    .is_critical = false,
+                    .target_x = tx,
+                    .target_y = ty
+                };
+
+                if (spell.category == magic::spell_category::debuff) {
+                    broadcast_combat_effect_to_faction(caster_map, world::position{tx, ty},
+                                                       caster_player->faction, effect);
+                } else {
+                    broadcast_combat_effect(caster_map, world::position{tx, ty}, effect);
+                }
+            }
+            break;
+        }
+
+        case magic::spell_category::healing: {
+            for (auto target_ent : result.affected_targets) {
+                int16_t tx = caster_pos.x;
+                int16_t ty = caster_pos.y;
+                uint32_t target_eid = target_ent.id;
+
+                if (auto* tp = players_->get_player(player_id{target_ent.id})) {
+                    tx = tp->pos.x;
+                    ty = tp->pos.y;
+                    target_eid = tp->ecs_entity.id;
+                }
+
+                network::combat_effect_data effect{
+                    .source_id = caster_eid,
+                    .target_id = target_eid,
+                    .effect_type = "heal",
+                    .value = result.heal_applied,
+                    .damage_type = dmg_type,
+                    .spell_id = spell.id.value,
+                    .is_critical = false,
+                    .target_x = tx,
+                    .target_y = ty
+                };
+
+                broadcast_combat_effect(caster_map, world::position{tx, ty}, effect);
+            }
+            break;
+        }
+
+        case magic::spell_category::buff: {
+            for (auto target_ent : result.affected_targets) {
+                int16_t tx = caster_pos.x;
+                int16_t ty = caster_pos.y;
+                uint32_t target_eid = target_ent.id;
+
+                if (auto* tp = players_->get_player(player_id{target_ent.id})) {
+                    tx = tp->pos.x;
+                    ty = tp->pos.y;
+                    target_eid = tp->ecs_entity.id;
+                }
+
+                network::combat_effect_data effect{
+                    .source_id = caster_eid,
+                    .target_id = target_eid,
+                    .effect_type = "buff",
+                    .value = spell.effect_value,
+                    .damage_type = {},
+                    .spell_id = spell.id.value,
+                    .is_critical = false,
+                    .target_x = tx,
+                    .target_y = ty
+                };
+
+                broadcast_combat_effect_to_faction(caster_map, world::position{tx, ty},
+                                                    caster_player->faction, effect);
+            }
+            break;
+        }
+
+        default:
+            break;
     }
 }
 

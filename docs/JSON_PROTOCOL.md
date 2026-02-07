@@ -1306,6 +1306,51 @@ Broadcast when an entity dies.
 
 ---
 
+### `combat_effect`
+
+Unified visual effect broadcast for all combat and spell events. Covers melee damage, spell damage, healing, misses, dodges, blocks, resists, buffs, and debuffs. Clients use this to render floating damage numbers, spell animations, and status effect indicators.
+
+**Server Broadcast:**
+```json
+{
+  "type": "combat_effect",
+  "seq": 0,
+  "data": {
+    "source_id": 12345,
+    "target_id": 67890,
+    "effect_type": "damage",
+    "value": 42,
+    "damage_type": "fire",
+    "spell_id": 5,
+    "is_critical": true,
+    "target_x": 100,
+    "target_y": 200
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_id` | uint32 | Entity that caused the effect |
+| `target_id` | uint32 | Entity that received the effect |
+| `effect_type` | string | One of: `"damage"`, `"heal"`, `"miss"`, `"dodge"`, `"block"`, `"resist"`, `"buff"`, `"debuff"` |
+| `value` | int32 | Amount (damage/heal for damage/heal, 0 for miss/dodge/block) |
+| `damage_type` | string | *(optional)* One of: `"physical"`, `"magic"`, `"fire"`, `"ice"`, `"lightning"`, `"poison"`, `"holy"`, `"dark"`, `"pure"`. Omitted for non-damage effects |
+| `spell_id` | uint32 | *(optional)* Spell ID if caused by a spell. Omitted (or 0) for melee |
+| `is_critical` | bool | Whether this was a critical hit |
+| `target_x` | int16 | Target position X (for positioning floating text) |
+| `target_y` | int16 | Target position Y |
+
+**Visibility Rules:**
+- `damage`, `heal`, `miss`, `dodge`, `block`, `resist` — broadcast to all nearby players (via `get_players_who_can_see`)
+- `buff`, `debuff` — broadcast only to same-faction players nearby
+
+**When Emitted:**
+- Melee attacks: emitted from `on_damage_dealt` callback (effect_type derived from hit_result flags)
+- Spell casts: emitted from `on_spell_cast` callback (effect_type derived from spell category)
+
+---
+
 ### `player_death_info`
 
 Sent to the dead player with death details, penalties applied, and respawn information.

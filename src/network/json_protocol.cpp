@@ -83,6 +83,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"combat_attack_broadcast", json_message_type::combat_attack_broadcast},
     {"entity_hp_update", json_message_type::entity_hp_update},
     {"entity_death", json_message_type::entity_death},
+    {"combat_effect", json_message_type::combat_effect},
     {"player_magic_request", json_message_type::player_magic_request},
     {"player_magic_response", json_message_type::player_magic_response},
     {"player_skill_request", json_message_type::player_skill_request},
@@ -1600,6 +1601,37 @@ auto make_entity_death(uint32_t victim_id, uint32_t killer_id,
             {"x", x},
             {"y", y}
         }
+    };
+}
+
+// Combat effect data to_json implementation
+
+auto combat_effect_data::to_json() const -> nlohmann::json {
+    nlohmann::json j{
+        {"source_id", source_id},
+        {"target_id", target_id},
+        {"effect_type", effect_type},
+        {"value", value},
+        {"is_critical", is_critical},
+        {"target_x", target_x},
+        {"target_y", target_y}
+    };
+
+    if (!damage_type.empty()) {
+        j["damage_type"] = damage_type;
+    }
+    if (spell_id != 0) {
+        j["spell_id"] = spell_id;
+    }
+
+    return j;
+}
+
+auto make_combat_effect(const combat_effect_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::combat_effect,
+        .seq = 0,
+        .data = data.to_json()
     };
 }
 

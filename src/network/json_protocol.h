@@ -80,6 +80,7 @@ enum class json_message_type {
     combat_attack_broadcast,  // Broadcast attack to nearby players
     entity_hp_update,         // HP changed (damage or heal)
     entity_death,             // Entity died
+    combat_effect,            // Visual combat/spell effect broadcast (damage, heal, miss, etc.)
 
     // Actions
     player_magic_request,
@@ -189,6 +190,7 @@ enum class json_message_type {
         case json_message_type::combat_attack_broadcast: return "combat_attack_broadcast";
         case json_message_type::entity_hp_update: return "entity_hp_update";
         case json_message_type::entity_death: return "entity_death";
+        case json_message_type::combat_effect: return "combat_effect";
         case json_message_type::player_magic_request: return "player_magic_request";
         case json_message_type::player_magic_response: return "player_magic_response";
         case json_message_type::player_skill_request: return "player_skill_request";
@@ -746,6 +748,23 @@ struct game_state_msg {
 
 [[nodiscard]] auto make_entity_death(uint32_t victim_id, uint32_t killer_id,
                                       int16_t x, int16_t y) -> json_message;
+
+// Combat effect broadcast data (unified visual feedback for all combat/spell events)
+struct combat_effect_data {
+    uint32_t source_id{0};
+    uint32_t target_id{0};
+    std::string effect_type;     // "damage","heal","miss","dodge","block","resist","buff","debuff"
+    int32_t value{0};
+    std::string damage_type;     // "physical","magic","fire","ice","lightning","poison","holy","dark","pure"
+    uint32_t spell_id{0};        // 0 for melee
+    bool is_critical{false};
+    int16_t target_x{0};
+    int16_t target_y{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+[[nodiscard]] auto make_combat_effect(const combat_effect_data& data) -> json_message;
 
 // Magic messages
 [[nodiscard]] auto make_player_magic_response(uint32_t seq, bool success,

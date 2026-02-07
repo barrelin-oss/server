@@ -318,7 +318,8 @@ void application::initialize() {
             subsystems().get<world::world_subsystem>(),
             subsystems().get<inventory::inventory_system>(),
             subsystems().get<admin::admin_system>(),
-            subsystems().get<npc::npc_system>()
+            subsystems().get<npc::npc_system>(),
+            subsystems().get<item::item_system>()
         );
 
         // Create and initialize game handlers

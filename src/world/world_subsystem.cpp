@@ -215,7 +215,10 @@ auto world_subsystem::get_all_entities_in_range(map_id mid, const position& cent
 // Ground item management
 void world_subsystem::add_ground_item(map_id map, const position& pos, item_id item) {
     map_position_key key{map, pos};
-    ground_items_[key].push_back(item);
+    ground_items_[key].push_back(ground_item_entry{
+        .item = item,
+        .drop_time = std::chrono::steady_clock::now()
+    });
 
     // Update dynamic tile item count
     auto* m = get_map(map);
@@ -236,7 +239,7 @@ auto world_subsystem::remove_top_ground_item(map_id map, const position& pos) ->
     }
 
     // Top-most item is at the back of the vector
-    item_id item = it->second.back();
+    item_id item = it->second.back().item;
     it->second.pop_back();
 
     // Clean up empty entry
@@ -262,7 +265,14 @@ auto world_subsystem::remove_top_ground_item(map_id map, const position& pos) ->
 auto world_subsystem::get_ground_items(map_id map, const position& pos) const -> std::vector<item_id> {
     map_position_key key{map, pos};
     auto it = ground_items_.find(key);
-    return it != ground_items_.end() ? it->second : std::vector<item_id>{};
+    if (it == ground_items_.end()) return {};
+
+    std::vector<item_id> result;
+    result.reserve(it->second.size());
+    for (const auto& entry : it->second) {
+        result.push_back(entry.item);
+    }
+    return result;
 }
 
 auto world_subsystem::has_ground_items(map_id map, const position& pos) const -> bool {
@@ -275,6 +285,52 @@ auto world_subsystem::ground_item_count(map_id map, const position& pos) const -
     map_position_key key{map, pos};
     auto it = ground_items_.find(key);
     return it != ground_items_.end() ? it->second.size() : 0;
+}
+
+auto world_subsystem::remove_expired_ground_items(std::chrono::seconds max_age)
+    -> std::vector<std::tuple<map_id, position, item_id>>
+{
+    std::vector<std::tuple<map_id, position, item_id>> expired;
+    auto now = std::chrono::steady_clock::now();
+
+    for (auto it = ground_items_.begin(); it != ground_items_.end(); ) {
+        auto& entries = it->second;
+        auto map = it->first.map;
+        auto pos = it->first.pos;
+
+        for (auto eit = entries.begin(); eit != entries.end(); ) {
+            if (now - eit->drop_time >= max_age) {
+                expired.emplace_back(map, pos, eit->item);
+                eit = entries.erase(eit);
+            } else {
+                ++eit;
+            }
+        }
+
+        if (entries.empty()) {
+            // Update dynamic tile
+            auto* m = get_map(map);
+            if (m) {
+                auto* dyn_tile = m->get_dynamic_tile(pos);
+                if (dyn_tile) {
+                    dyn_tile->item_count = 0;
+                }
+            }
+            it = ground_items_.erase(it);
+        } else {
+            // Update dynamic tile count
+            auto* m = get_map(map);
+            if (m) {
+                auto* dyn_tile = m->get_dynamic_tile(pos);
+                if (dyn_tile) {
+                    dyn_tile->item_count = static_cast<uint8_t>(entries.size());
+                }
+            }
+            ++it;
+        }
+    }
+
+    return expired;
 }
 
 }  // namespace hb::world

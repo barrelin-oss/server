@@ -1601,9 +1601,45 @@ Server confirms or rejects the pickup attempt.
 
 ---
 
+### `ground_item_spawn`
+
+Broadcast to nearby players when an item appears on the ground (NPC loot drop, or sent on enter game / teleport for existing ground items).
+
+**Server Broadcast:**
+```json
+{
+  "type": "ground_item_spawn",
+  "seq": 0,
+  "data": {
+    "item_id": 456,
+    "template_id": 12,
+    "item_name": "Short Sword",
+    "count": 1,
+    "x": 100,
+    "y": 150
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | uint32 | Unique item instance ID |
+| `template_id` | uint32 | Item template ID (for sprite lookup) |
+| `item_name` | string | Display name of item |
+| `count` | int16 | Stack count |
+| `x` | int16 | X coordinate on map |
+| `y` | int16 | Y coordinate on map |
+
+**Notes:**
+- Sent to all players within visibility radius when an NPC drops loot
+- Also sent individually to players on enter game and teleport for pre-existing ground items
+- Items despawn automatically after 3 minutes (server sends `ground_item_removed` with `picker_id: 0`)
+
+---
+
 ### `ground_item_removed`
 
-Broadcast to nearby players (excluding the picker) when an item is picked up from the ground.
+Broadcast to nearby players when an item is removed from the ground (picked up or despawned).
 
 **Server Broadcast:**
 ```json
@@ -1632,7 +1668,8 @@ Broadcast to nearby players (excluding the picker) when an item is picked up fro
 
 **Notes:**
 - Sent only to players within visibility radius
-- The picker does NOT receive this broadcast (they get the response instead)
+- When `picker_id` is non-zero: a player picked up the item (they get the pickup response instead of this broadcast)
+- When `picker_id` is 0: the item despawned (3-minute ground lifetime expired)
 - Clients should remove the item from their ground item cache
 
 ---

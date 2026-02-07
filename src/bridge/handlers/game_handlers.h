@@ -185,8 +185,16 @@ private:
     void broadcast_npc_hp_update(const npc::npc& n);
 
     // Item broadcast helpers
+    void broadcast_ground_item_spawn(map_id map, const world::position& pos, item_id item);
     void broadcast_ground_item_removed(player_id picker, map_id map,
                                        const world::position& pos, item_id item);
+
+    // Loot drop handler
+    void handle_npc_loot_drop(const npc::npc& n, entity::entity killer);
+
+    // Send visible ground items to a player
+    void send_visible_ground_items(connection_id conn_id, map_id map,
+                                    const world::position& pos, int radius);
 
     // Hunger update helper
     void send_hunger_update(player_id pid, int8_t level);

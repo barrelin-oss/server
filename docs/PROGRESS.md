@@ -196,8 +196,8 @@ This document tracks implementation progress for the modernized Helbreath server
 | Durability | ✅ | Wear, repair system |
 | Item effects | ✅ | Stat bonuses, equipment slot mapping |
 | Item properties | ✅ | Weight, price, level requirements, tradeable/droppable flags |
-| Ground items | ❌ | Items on map, pickup |
-| Loot drops | ❌ | NPC drop tables |
+| Ground items | ✅ | Items on map, pickup, despawn timer |
+| Loot drops | ✅ | NPC drop tables from YAML, gold + item drops on kill |
 
 ---
 
@@ -388,7 +388,7 @@ This document tracks implementation progress for the modernized Helbreath server
 
 Priority order for remaining work toward a playable game:
 
-1. **Ground Items / Loot Drops** - NPCs drop items, players can pick up
+1. ~~**Ground Items / Loot Drops**~~ - ✅ NPC loot drops, ground item spawn/despawn, YAML drop tables
 2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
 3. **Combat/Spell Visual Broadcasts** - Damage, effect applied/removed to nearby players
 4. **NPC Interaction** - Dialog, shops, banks
@@ -417,6 +417,24 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-07
+- **Ground Items & Loot Drops** - Full NPC loot pipeline:
+  - Real RNG in `loot_table.h` using `thread_local std::mt19937` (replaces placeholder stubs)
+  - `npc::loot` changed from raw `loot_table*` to `std::optional<loot_table>` for RAII
+  - Loot tables built during NPC spawn from template gold range + drop entries
+  - YAML `drops` array parsing in `npc_registry.cpp` for NPC drop table configuration
+  - Sample drops added to Slime, Orc, Skeleton in `npcs.yaml`
+  - Gold awarded directly to killer on NPC death via `inventory_->add_gold()`
+  - Item drops: `create_from_template()` → `add_ground_item()` → broadcast `ground_item_spawn`
+  - New `ground_item_spawn` protocol message (type + data struct + builder)
+  - `broadcast_ground_item_spawn()` sends to all players who can see the drop position
+  - `send_visible_ground_items()` sends existing ground items on teleport and enter game
+  - Ground item despawn timer: 30s sweep, 3-minute lifetime, broadcasts `ground_item_removed` with `picker_id: 0`
+  - `ground_item_entry` struct with `steady_clock::time_point` tracks drop timestamps
+  - `remove_expired_ground_items()` in `world_subsystem` returns expired items for cleanup
+  - `auth_handlers` receives `item_system*` to send ground items on enter game
+  - Updated `JSON_PROTOCOL.md` with `ground_item_spawn` message documentation
 
 ### 2026-02-05
 - **Spell Effects System** - Full implementation (`src/effect/`):

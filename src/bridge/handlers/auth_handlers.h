@@ -35,6 +35,10 @@ namespace hb::npc {
     class npc_system;
 }
 
+namespace hb::item {
+    class item_system;
+}
+
 namespace hb::bridge {
 
 // Authentication message handler
@@ -51,7 +55,8 @@ public:
                     world::world_subsystem* world = nullptr,
                     inventory::inventory_system* inventory = nullptr,
                     admin::admin_system* admin = nullptr,
-                    npc::npc_system* npc = nullptr);
+                    npc::npc_system* npc = nullptr,
+                    item::item_system* item = nullptr);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -103,6 +108,7 @@ private:
     inventory::inventory_system* inventory_{nullptr};
     admin::admin_system* admin_{nullptr};
     npc::npc_system* npc_{nullptr};
+    item::item_system* item_{nullptr};
 };
 
 }  // namespace hb::bridge

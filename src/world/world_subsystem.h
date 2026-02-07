@@ -10,7 +10,9 @@
 #include "world/position.h"
 #include "entity/entity.h"
 
+#include <chrono>
 #include <memory>
+#include <tuple>
 #include <unordered_map>
 #include <filesystem>
 #include <string>
@@ -80,6 +82,10 @@ public:
     [[nodiscard]] auto has_ground_items(map_id map, const position& pos) const -> bool;
     [[nodiscard]] auto ground_item_count(map_id map, const position& pos) const -> size_t;
 
+    // Remove ground items older than max_age, returns list of (map, pos, item_id) removed
+    auto remove_expired_ground_items(std::chrono::seconds max_age)
+        -> std::vector<std::tuple<map_id, position, item_id>>;
+
     // Iterate over all maps
     template<typename Func>
     void for_each_map(Func&& func) {
@@ -107,6 +113,11 @@ private:
     std::unordered_map<std::string, map_id> name_to_id_;
 
     // Ground items - map of map_id -> position -> list of items (top-most is back())
+    struct ground_item_entry {
+        item_id item;
+        std::chrono::steady_clock::time_point drop_time;
+    };
+
     struct map_position_key {
         map_id map;
         position pos;
@@ -124,7 +135,7 @@ private:
         }
     };
 
-    std::unordered_map<map_position_key, std::vector<item_id>, map_position_hash> ground_items_;
+    std::unordered_map<map_position_key, std::vector<ground_item_entry>, map_position_hash> ground_items_;
 };
 
 }  // namespace hb::world

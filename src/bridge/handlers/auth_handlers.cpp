@@ -15,6 +15,8 @@
 #include "admin/admin_system.h"
 #include "npc/npc_system.h"
 #include "npc/npc.h"
+#include "item/item_system.h"
+#include "item/item.h"
 #include "magic/magic_system.h"
 #include "quest/quest_system.h"
 #include "core/logger.h"
@@ -31,7 +33,8 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
                                 world::world_subsystem* world,
                                 inventory::inventory_system* inventory,
                                 admin::admin_system* admin,
-                                npc::npc_system* npc) {
+                                npc::npc_system* npc,
+                                item::item_system* item) {
     ws_server_ = ws_server;
     auth_ = auth;
     players_ = players;
@@ -39,12 +42,14 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
     inventory_ = inventory;
     admin_ = admin;
     npc_ = npc;
-    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {})",
+    item_ = item;
+    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {}, item: {})",
         players_ != nullptr ? "yes" : "no",
         world_ != nullptr ? "yes" : "no",
         inventory_ != nullptr ? "yes" : "no",
         admin_ != nullptr ? "yes" : "no",
-        npc_ != nullptr ? "yes" : "no");
+        npc_ != nullptr ? "yes" : "no",
+        item_ != nullptr ? "yes" : "no");
 }
 
 void auth_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
@@ -843,6 +848,36 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
                 LOG_DEBUG(bridge, "Sent {} teleporters for map {} to player {}",
                     teleporters_msg.teleporters.size(), current_map->name(), live_player_id.value);
+            }
+
+            // Send visible ground items at player's position
+            if (item_) {
+                int radius = player->visibility_radius > 0 ? player->visibility_radius : 20;
+                for (int16_t dx = static_cast<int16_t>(-radius); dx <= radius; ++dx) {
+                    for (int16_t dy = static_cast<int16_t>(-radius); dy <= radius; ++dy) {
+                        world::position tile_pos{
+                            static_cast<int16_t>(player->pos.x + dx),
+                            static_cast<int16_t>(player->pos.y + dy)
+                        };
+
+                        auto items = world_->get_ground_items(player->current_map, tile_pos);
+                        for (auto ground_item : items) {
+                            auto* itm = item_->get_item(ground_item);
+                            if (!itm) continue;
+
+                            network::ground_item_spawn_data spawn_data{
+                                .item_id = ground_item.value,
+                                .template_id = itm->template_id.value,
+                                .item_name = itm->name,
+                                .count = itm->count,
+                                .x = tile_pos.x,
+                                .y = tile_pos.y
+                            };
+
+                            conn->send(network::make_ground_item_spawn(spawn_data));
+                        }
+                    }
+                }
             }
         }
     }

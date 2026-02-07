@@ -9,6 +9,7 @@
 #include "npc/ai_behavior.h"
 #include "npc/loot_table.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -37,6 +38,7 @@ struct npc {
     entity::entity entity_id{};
     npc_id template_id{};
     std::string name;
+    int16_t sprite_id{0};  // Legacy m_sType - used for drop level tiers
     npc_category category{npc_category::monster};
 
     // Owner (for pets/summons)
@@ -64,6 +66,8 @@ struct npc {
 
     // Rewards
     int32_t exp_reward{0};
+    int32_t gold_min{0};
+    int32_t gold_max{0};
 
     // Location
     map_id current_map{};
@@ -81,7 +85,7 @@ struct npc {
     uint32_t pack{0};
 
     // Loot
-    loot_table* loot{nullptr};
+    std::optional<loot_table> loot;
 
     // Helper methods
     [[nodiscard]] auto is_alive() const -> bool { return hp > 0; }

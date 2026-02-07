@@ -146,12 +146,15 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
     if (tmpl) {
         // Apply template stats
         new_npc->name = tmpl->name;
+        new_npc->sprite_id = tmpl->sprite_id;
         new_npc->max_hp = tmpl->hp;
         new_npc->hp = tmpl->hp;
         new_npc->max_mp = tmpl->mp;
         new_npc->mp = tmpl->mp;
         new_npc->level = tmpl->level;
         new_npc->exp_reward = tmpl->exp_reward;
+        new_npc->gold_min = tmpl->gold_min;
+        new_npc->gold_max = tmpl->gold_max;
         new_npc->attack_dice = tmpl->attack_dice;
         new_npc->attack_sides = tmpl->attack_sides;
         new_npc->attack_bonus = tmpl->attack_bonus;
@@ -190,6 +193,9 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
         if (!tmpl->behavior_tree.empty()) {
             new_npc->ai.behavior_tree = tmpl->behavior_tree;
         }
+
+        // Loot is generated at death time by the legacy loot generator
+        // (see loot_generator.h) using sprite_id and gold_min/gold_max from template
 
         // LOG_DEBUG(general, "Spawned NPC '{}' (template {}) at ({}, {}) on map {} - HP: {}, Level: {}",
         //     new_npc->name, template_id.value, pos.x, pos.y, map.value, new_npc->hp, new_npc->level);

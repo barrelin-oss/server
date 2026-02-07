@@ -114,6 +114,7 @@ enum class json_message_type {
     npc_death,              // NPC died
 
     // Ground item messages (server -> client)
+    ground_item_spawn,      // Item appeared on ground
     ground_item_removed,    // Item picked up from ground
 
     // Player state updates (server -> client)
@@ -186,6 +187,7 @@ enum class json_message_type {
         case json_message_type::npc_move: return "npc_move";
         case json_message_type::npc_attack: return "npc_attack";
         case json_message_type::npc_death: return "npc_death";
+        case json_message_type::ground_item_spawn: return "ground_item_spawn";
         case json_message_type::ground_item_removed: return "ground_item_removed";
         case json_message_type::player_death_info: return "player_death_info";
         case json_message_type::hunger_update: return "hunger_update";
@@ -803,6 +805,21 @@ struct npc_death_data {
 [[nodiscard]] auto make_npc_move_message(const npc_move_data& data) -> json_message;
 [[nodiscard]] auto make_npc_attack_message(const npc_attack_data& data) -> json_message;
 [[nodiscard]] auto make_npc_death_message(const npc_death_data& data) -> json_message;
+
+// Ground item spawn data (broadcast when item appears on ground)
+struct ground_item_spawn_data {
+    uint32_t item_id{0};         // Item instance ID
+    uint32_t template_id{0};     // Item template ID
+    std::string item_name;       // Item name for display
+    int16_t count{1};            // Stack count
+    int16_t x{0};                // Position
+    int16_t y{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Ground item spawn message builder
+[[nodiscard]] auto make_ground_item_spawn(const ground_item_spawn_data& data) -> json_message;
 
 // Ground item removed data (broadcast when item is picked up)
 struct ground_item_removed_data {

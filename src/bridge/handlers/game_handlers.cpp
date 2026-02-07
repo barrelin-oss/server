@@ -14,6 +14,7 @@
 #include "combat/combat_events.h"
 #include "npc/npc_system.h"
 #include "npc/npc.h"
+#include "npc/loot_generator.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
 #include "scheduler/scheduler.h"
@@ -93,10 +94,54 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
         npc_->set_on_death_callback([this](const npc::npc& n, entity::entity killer) {
             broadcast_npc_death(n, killer);  // Copies data immediately
+            handle_npc_loot_drop(n, killer); // Generate and drop loot
         });
         npc_->set_on_attack_callback([this](const npc::npc& n, entity::entity target, int32_t damage) {
             broadcast_npc_attack(n, target, damage);  // Copies data immediately
         });
+    }
+
+    // Schedule ground item despawn timer (every 30 seconds, expire after 3 minutes)
+    if (scheduler_ && world_) {
+        scheduler_->schedule_repeating_tagged(
+            duration_ms{30000},
+            "ground_item_cleanup",
+            [this]() {
+                auto expired = world_->remove_expired_ground_items(std::chrono::seconds(180));
+                for (const auto& [map, pos, item] : expired) {
+                    // Broadcast removal with picker_id 0 (despawn, not picked up)
+                    if (players_ && ws_server_) {
+                        network::ground_item_removed_data data{
+                            .picker_id = 0,
+                            .picker_name = "",
+                            .item_id = item.value,
+                            .item_name = "",
+                            .x = pos.x,
+                            .y = pos.y
+                        };
+                        auto msg = network::make_ground_item_removed(data);
+
+                        auto players = players_->get_players_who_can_see(map, pos);
+                        for (auto pid : players) {
+                            auto* p = players_->get_player(pid);
+                            if (!p || p->connection.value == 0) continue;
+                            auto* conn = ws_server_->get_connection(p->connection);
+                            if (conn && conn->is_open()) {
+                                conn->send(msg);
+                            }
+                        }
+                    }
+
+                    // Destroy the expired item
+                    if (item_) {
+                        item_->destroy_item(item);
+                    }
+                }
+
+                if (!expired.empty()) {
+                    LOG_DEBUG(bridge, "Despawned {} expired ground items", expired.size());
+                }
+            });
     }
 
     LOG_INFO(bridge, "Game handlers initialized (chat: {}, admin: {}, combat: {}, npc: {}, inventory: {}, item: {})",
@@ -1424,6 +1469,10 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
                 send_map_teleporters(conn_id, *new_map);
             }
         }
+
+        // Send visible ground items at destination
+        send_visible_ground_items(conn_id, teleport_result.new_map, dest_pos,
+                                   player->visibility_radius);
     }
 
     // Spawn to players who can see NEW position
@@ -1981,6 +2030,115 @@ void game_handlers::broadcast_ground_item_removed(player_id picker, map_id map,
 
     LOG_DEBUG(bridge, "Broadcast ground item {} removed at ({}, {}) by player {}",
         item.value, pos.x, pos.y, picker.value);
+}
+
+void game_handlers::broadcast_ground_item_spawn(map_id map, const world::position& pos, item_id item) {
+    if (!players_ || !ws_server_ || !item_) return;
+
+    auto* itm = item_->get_item(item);
+    if (!itm) return;
+
+    network::ground_item_spawn_data data{
+        .item_id = item.value,
+        .template_id = itm->template_id.value,
+        .item_name = itm->name,
+        .count = itm->count,
+        .x = pos.x,
+        .y = pos.y
+    };
+
+    auto msg = network::make_ground_item_spawn(data);
+
+    auto players = players_->get_players_who_can_see(map, pos);
+    for (auto pid : players) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+}
+
+void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity killer) {
+    if (!item_ || !world_) return;
+
+    // Copy needed data from the npc reference (only valid during callback)
+    auto npc_map = n.current_map;
+    auto npc_pos = n.pos;
+
+    // Build loot info from NPC instance
+    npc::loot_npc_info info{
+        .sprite_id = n.sprite_id,
+        .gold_min = n.gold_min,
+        .gold_max = n.gold_max,
+        .is_summoned = n.has_owner()
+    };
+
+    // Generate loot using legacy algorithm
+    auto drop = npc::generate_npc_loot(info);
+    if (!drop.has_drop()) return;
+
+    // Handle gold drops - award directly to killer
+    if (drop.item_template == item_id{90}) {
+        if (drop.gold_amount > 0 && inventory_) {
+            auto killer_entity = entity_id{killer.id};
+            inventory_->add_gold(killer_entity, drop.gold_amount);
+            LOG_DEBUG(bridge, "NPC '{}' dropped {} gold to killer {}", n.name, drop.gold_amount, killer.id);
+        }
+        return;
+    }
+
+    // Create item instance from template and place on ground
+    auto create_result = item_->create_from_template(drop.item_template, 1);
+    if (create_result.is_err()) {
+        LOG_WARN(bridge, "Failed to create drop item from template {}: {}",
+            drop.item_template.value, create_result.error());
+        return;
+    }
+
+    auto dropped_item = create_result.value();
+    world_->add_ground_item(npc_map, npc_pos, dropped_item);
+    broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item);
+
+    LOG_DEBUG(bridge, "NPC '{}' dropped item {} (template {}) at ({}, {})",
+        n.name, dropped_item.value, drop.item_template.value, npc_pos.x, npc_pos.y);
+}
+
+void game_handlers::send_visible_ground_items(connection_id conn_id, map_id map,
+                                               const world::position& pos, int radius) {
+    if (!world_ || !ws_server_ || !item_) return;
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (!conn || !conn->is_open()) return;
+
+    // Scan tiles in radius for ground items
+    for (int16_t dx = static_cast<int16_t>(-radius); dx <= radius; ++dx) {
+        for (int16_t dy = static_cast<int16_t>(-radius); dy <= radius; ++dy) {
+            world::position tile_pos{
+                static_cast<int16_t>(pos.x + dx),
+                static_cast<int16_t>(pos.y + dy)
+            };
+
+            auto items = world_->get_ground_items(map, tile_pos);
+            for (auto item : items) {
+                auto* itm = item_->get_item(item);
+                if (!itm) continue;
+
+                network::ground_item_spawn_data data{
+                    .item_id = item.value,
+                    .template_id = itm->template_id.value,
+                    .item_name = itm->name,
+                    .count = itm->count,
+                    .x = tile_pos.x,
+                    .y = tile_pos.y
+                };
+
+                conn->send(network::make_ground_item_spawn(data));
+            }
+        }
+    }
 }
 
 // ========== Entity Info ==========

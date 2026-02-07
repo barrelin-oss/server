@@ -174,9 +174,11 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path)
         }
         npc.name = node["name"].as<std::string>();
 
-        // Parse sprite_id -> sprite
+        // Parse sprite_id -> sprite + numeric sprite_id
         if (node["sprite_id"]) {
-            npc.sprite = std::to_string(node["sprite_id"].as<int>());
+            auto sid = node["sprite_id"].as<int>();
+            npc.sprite = std::to_string(sid);
+            npc.sprite_id = static_cast<int16_t>(sid);
         }
 
         // Parse HP (YAML has base HP values)
@@ -212,6 +214,28 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path)
         }
         if (node["gold_max"]) {
             npc.gold_max = node["gold_max"].as<int32_t>();
+        }
+
+        // Parse drop table
+        if (node["drops"] && node["drops"].IsSequence()) {
+            for (const auto& drop_node : node["drops"]) {
+                npc_drop drop;
+                if (drop_node["item_id"]) {
+                    drop.item = item_id{static_cast<uint32_t>(drop_node["item_id"].as<int>())};
+                }
+                if (drop_node["chance"]) {
+                    drop.chance = static_cast<int16_t>(drop_node["chance"].as<int>());
+                }
+                if (drop_node["min_count"]) {
+                    drop.count_min = static_cast<int16_t>(drop_node["min_count"].as<int>());
+                }
+                if (drop_node["max_count"]) {
+                    drop.count_max = static_cast<int16_t>(drop_node["max_count"].as<int>());
+                }
+                if (drop.item.is_valid() && drop.chance > 0) {
+                    npc.drops.push_back(drop);
+                }
+            }
         }
 
         // Parse attack dice and sides

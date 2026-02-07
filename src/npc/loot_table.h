@@ -7,8 +7,16 @@
 
 #include <vector>
 #include <cstdint>
+#include <random>
 
 namespace hb::npc {
+
+namespace detail {
+    inline auto loot_rng() -> std::mt19937& {
+        thread_local std::mt19937 rng{std::random_device{}()};
+        return rng;
+    }
+}  // namespace detail
 
 // Single loot entry
 struct loot_entry {
@@ -18,14 +26,14 @@ struct loot_entry {
     int16_t drop_chance{100};  // Per 10000 (100 = 1%)
 
     [[nodiscard]] auto roll_drop() const -> bool {
-        // Would use actual random number generator
-        return true;  // Placeholder
+        std::uniform_int_distribution<int> dist(1, 10000);
+        return dist(detail::loot_rng()) <= drop_chance;
     }
 
     [[nodiscard]] auto roll_count() const -> int16_t {
         if (min_count == max_count) return min_count;
-        // Would use actual random number generator
-        return min_count;  // Placeholder
+        std::uniform_int_distribution<int16_t> dist(min_count, max_count);
+        return dist(detail::loot_rng());
     }
 };
 
@@ -36,9 +44,9 @@ struct gold_drop {
     int16_t drop_chance{10000};  // Per 10000
 
     [[nodiscard]] auto roll_gold() const -> int32_t {
-        if (min_gold == max_gold) return min_gold;
-        // Would use actual random number generator
-        return min_gold;  // Placeholder
+        if (min_gold >= max_gold) return min_gold;
+        std::uniform_int_distribution<int32_t> dist(min_gold, max_gold);
+        return dist(detail::loot_rng());
     }
 };
 

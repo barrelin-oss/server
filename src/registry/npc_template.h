@@ -45,6 +45,7 @@ struct npc_template {
     npc_id id{0};
     std::string name;
     std::string sprite;
+    int16_t sprite_id{0};  // Legacy m_sType - used for drop level tiers
 
     // Classification
     npc_type type{npc_type::monster};

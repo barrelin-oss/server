@@ -262,7 +262,7 @@ The monolithic `CGame` class is being decomposed into:
 - [x] Scheduler with game clock
 
 ### In Progress
-- [ ] Ground items and loot drops
+- [x] Ground items and loot drops
 - [ ] Equip/unequip handler wiring
 - [ ] Combat/spell visual broadcasts
 - [ ] NPC interaction (dialog, shops)

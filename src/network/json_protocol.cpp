@@ -104,6 +104,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"npc_move", json_message_type::npc_move},
     {"npc_attack", json_message_type::npc_attack},
     {"npc_death", json_message_type::npc_death},
+    {"ground_item_spawn", json_message_type::ground_item_spawn},
     {"ground_item_removed", json_message_type::ground_item_removed},
     {"player_death_info", json_message_type::player_death_info},
     {"hunger_update", json_message_type::hunger_update},
@@ -1667,6 +1668,29 @@ auto make_npc_death_message(const npc_death_data& data) -> json_message {
     return json_message{
         .type = json_message_type::npc_death,
         .seq = 0,
+        .data = data.to_json()
+    };
+}
+
+// Ground item spawn data to_json implementation
+
+auto ground_item_spawn_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"item_id", item_id},
+        {"template_id", template_id},
+        {"item_name", item_name},
+        {"count", count},
+        {"x", x},
+        {"y", y}
+    };
+}
+
+// Ground item spawn message builder
+
+auto make_ground_item_spawn(const ground_item_spawn_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::ground_item_spawn,
+        .seq = 0,  // Broadcasts don't need seq
         .data = data.to_json()
     };
 }

@@ -61,6 +61,9 @@ public:
     [[nodiscard]] auto get_player_by_name(std::string_view name) -> player*;
     [[nodiscard]] auto get_player_by_connection(connection_id conn) -> player*;
     [[nodiscard]] auto get_player_by_session(session_id sess) -> player*;
+    [[nodiscard]] auto get_player_by_entity(entity::entity eid) -> player*;
+    [[nodiscard]] auto get_player_by_entity(entity::entity eid) const -> const player*;
+    [[nodiscard]] auto get_player_id_by_entity(entity::entity eid) const -> std::optional<player_id>;
 
     // Player queries
     [[nodiscard]] auto player_count() const -> size_t { return players_.size(); }

@@ -150,7 +150,7 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
                 constexpr int visibility_radius = 20;
                 auto nearby = players_->get_players_in_range(pid, visibility_radius);
 
-                auto despawn_msg = network::make_entity_despawn(0, pid.value);
+                auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
 
                 for (auto other_id : nearby) {
                     if (other_id == pid) continue;
@@ -940,7 +940,7 @@ auto auth_handlers::build_visible_entities(player_id player_id)
         if (!other) continue;
 
         entities.push_back(network::visible_entity_msg{
-            .entity_id = other_id.value,
+            .entity_id = other->ecs_entity.id,
             .type = "player",
             .name = other->name,
             .x = other->pos.x,

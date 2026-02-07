@@ -166,6 +166,24 @@ auto player_system::get_player_by_session(session_id sess) -> player* {
     return it != session_to_id_.end() ? get_player(it->second) : nullptr;
 }
 
+auto player_system::get_player_by_entity(entity::entity eid) -> player* {
+    auto it = ecs_index_to_id_.find(eid.index());
+    if (it == ecs_index_to_id_.end()) return nullptr;
+    return get_player(it->second);
+}
+
+auto player_system::get_player_by_entity(entity::entity eid) const -> const player* {
+    auto it = ecs_index_to_id_.find(eid.index());
+    if (it == ecs_index_to_id_.end()) return nullptr;
+    return get_player(it->second);
+}
+
+auto player_system::get_player_id_by_entity(entity::entity eid) const -> std::optional<player_id> {
+    auto it = ecs_index_to_id_.find(eid.index());
+    if (it == ecs_index_to_id_.end()) return std::nullopt;
+    return it->second;
+}
+
 void player_system::bind_connection(player_id id, connection_id conn) {
     auto* p = get_player(id);
     if (!p) return;
@@ -836,9 +854,10 @@ auto player_system::get_player_at(map_id map, hb::world::position pos) const -> 
         return std::nullopt;
     }
 
-    player_id pid{occupant.value().value};
-    if (player_exists(pid)) {
-        return pid;
+    // Occupant value is the ecs_entity index, not the player_id
+    auto it = ecs_index_to_id_.find(occupant.value().value);
+    if (it != ecs_index_to_id_.end()) {
+        return it->second;
     }
 
     return std::nullopt;

@@ -481,9 +481,9 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         return;
     }
 
-    // Get target player
-    player_id target_pid{data.target_id};
-    auto* target = players_->get_player(target_pid);
+    // Get target player - resolve entity_id from client to player_id
+    auto target_pid_opt = players_->get_player_id_by_entity(entity::entity{data.target_id});
+    auto* target = target_pid_opt ? players_->get_player(*target_pid_opt) : nullptr;
     if (!target) {
         network::attack_result_msg result{
             .hit = false,
@@ -542,7 +542,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     // Build attack event
     combat::attack_event attack;
     attack.attacker = entity::entity{pid.value};
-    attack.defender = entity::entity{target_pid.value};
+    attack.defender = entity::entity{target_pid_opt->value};
     attack.type = combat::damage_type::physical;
     attack.base_damage = 0;  // Let combat_system calculate from stats
     attack.is_skill = false;
@@ -571,8 +571,8 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
 
     // Create broadcast message
     auto broadcast_msg = network::make_combat_attack_broadcast(
-        pid.value,
-        target_pid.value,
+        attacker->ecs_entity.id,
+        target->ecs_entity.id,
         attacker->pos.x, attacker->pos.y,
         target->pos.x, target->pos.y,
         combat_result.hit.is_hit(),
@@ -593,7 +593,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     }
 
     LOG_DEBUG(bridge, "Player {} attacked player {} (hit={}, crit={}, dmg={}, target_hp={})",
-        pid.value, target_pid.value,
+        pid.value, target_pid_opt->value,
         combat_result.hit.is_hit(), combat_result.hit.is_critical(),
         combat_result.hit.final_damage, target->hp);
 }
@@ -814,7 +814,7 @@ void game_handlers::broadcast_position_update(player_id moved_player,
     auto nearby = players_->get_players_in_range(moved_player, visibility_radius);
 
     auto update_msg = network::make_player_position_update(
-        moved_player.value, x, y, direction, is_running, dest_x, dest_y);
+        player->ecs_entity.id, x, y, direction, is_running, dest_x, dest_y);
 
     for (auto other_id : nearby) {
         if (other_id == moved_player) continue;
@@ -861,7 +861,7 @@ void game_handlers::update_entity_visibility(player_id moved_player,
         if (!was_visible && is_visible) {
             // Player just came into view - send entity_spawn to other
             auto spawn_msg = network::make_entity_spawn(0, network::visible_entity_msg{
-                .entity_id = moved_player.value,
+                .entity_id = player->ecs_entity.id,
                 .type = "player",
                 .name = player->name,
                 .x = new_pos.x,
@@ -875,7 +875,7 @@ void game_handlers::update_entity_visibility(player_id moved_player,
             auto* my_conn = ws_server_->get_connection(player->connection);
             if (my_conn && my_conn->is_open()) {
                 auto other_spawn_msg = network::make_entity_spawn(0, network::visible_entity_msg{
-                    .entity_id = other_id.value,
+                    .entity_id = other->ecs_entity.id,
                     .type = "player",
                     .name = other->name,
                     .x = other->pos.x,
@@ -888,13 +888,13 @@ void game_handlers::update_entity_visibility(player_id moved_player,
         }
         else if (was_visible && !is_visible) {
             // Player just left view - send entity_despawn to other
-            auto despawn_msg = network::make_entity_despawn(0, moved_player.value);
+            auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
             other_conn->send(despawn_msg);
 
             // Also despawn the other player from the moving player's view
             auto* my_conn = ws_server_->get_connection(player->connection);
             if (my_conn && my_conn->is_open()) {
-                auto other_despawn_msg = network::make_entity_despawn(0, other_id.value);
+                auto other_despawn_msg = network::make_entity_despawn(0, other->ecs_entity.id);
                 my_conn->send(other_despawn_msg);
             }
         }
@@ -1485,7 +1485,7 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
     auto new_viewers = players_->get_players_who_can_see(teleport_result.new_map, dest_pos);
 
     network::visible_entity_msg spawn_entity{
-        .entity_id = pid.value,
+        .entity_id = player->ecs_entity.id,
         .type = "player",
         .name = player->name,
         .x = dest_pos.x,
@@ -1596,13 +1596,12 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
     // Get all entities in the visibility range from spatial index
     auto nearby_entities = m->get_entities_in_range(pos, visibility_radius);
 
-    for (auto entity_id : nearby_entities) {
-        // Check if this is a player
-        player_id pid{entity_id.value};
-        auto* p = players_->get_player(pid);
+    for (auto eid : nearby_entities) {
+        // Spatial index stores ecs_entity.index() - resolve via entity lookup
+        auto* p = players_->get_player_by_entity(entity::entity{eid.value});
         if (p) {
             entities.push_back(network::visible_entity_msg{
-                .entity_id = pid.value,
+                .entity_id = p->ecs_entity.id,
                 .type = "player",
                 .name = p->name,
                 .x = p->pos.x,
@@ -1718,8 +1717,14 @@ void game_handlers::handle_player_death(player_id pid, const combat::death_event
         respawn_delay = cfg_sys->game().respawn_delay_ms;
     }
 
+    // Use ecs_entity.id for client-visible killer ID
+    uint32_t killer_eid = 0;
+    if (killer) {
+        killer_eid = killer->ecs_entity.id;
+    }
+
     network::player_death_info_data death_info{
-        .killer_id = killer_pid.value,
+        .killer_id = killer_eid,
         .killer_name = killer_name,
         .is_pvp = event.is_pvp,
         .xp_lost = xp_lost,
@@ -1819,7 +1824,7 @@ void game_handlers::broadcast_hp_update(player_id target, int32_t hp, int32_t hp
     auto* player = players_->get_player(target);
     if (!player) return;
 
-    auto hp_msg = network::make_entity_hp_update(target.value, hp, hp_max);
+    auto hp_msg = network::make_entity_hp_update(player->ecs_entity.id, hp, hp_max);
 
     // Broadcast to players who can see this target
     auto viewers = players_->get_players_who_can_see(player->current_map, player->pos);
@@ -1841,8 +1846,15 @@ void game_handlers::broadcast_entity_death(player_id victim, player_id killer) {
     auto* victim_player = players_->get_player(victim);
     if (!victim_player) return;
 
+    // Resolve killer's entity_id (may be offline/disconnected)
+    uint32_t killer_entity_id = 0;
+    auto* killer_player = players_->get_player(killer);
+    if (killer_player) {
+        killer_entity_id = killer_player->ecs_entity.id;
+    }
+
     auto death_msg = network::make_entity_death(
-        victim.value, killer.value,
+        victim_player->ecs_entity.id, killer_entity_id,
         victim_player->pos.x, victim_player->pos.y
     );
 
@@ -2194,9 +2206,10 @@ void game_handlers::handle_entity_info_request(connection_id conn_id, const netw
     auto requester_pid = conn->player();
 
     // Try to find the entity - could be a player or an NPC
-    // First check if it's a player
-    player_id target_pid{data.entity_id};
-    auto* target_player = players_->get_player(target_pid);
+    // First check if it's a player (resolve ecs entity_id → player_id)
+    entity::entity target_entity{data.entity_id};
+    auto target_pid_opt = players_->get_player_id_by_entity(target_entity);
+    auto* target_player = target_pid_opt ? players_->get_player(*target_pid_opt) : nullptr;
 
     if (target_player) {
         // It's a player
@@ -2229,7 +2242,7 @@ void game_handlers::handle_entity_info_request(connection_id conn_id, const netw
 
         // Guild name if player has one
         if (social_) {
-            auto guild_id = social_->get_player_guild(target_pid);
+            auto guild_id = social_->get_player_guild(*target_pid_opt);
             if (guild_id.is_valid()) {
                 auto* guild = social_->get_guild(guild_id);
                 if (guild) {

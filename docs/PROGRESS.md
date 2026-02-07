@@ -176,7 +176,8 @@ This document tracks implementation progress for the modernized Helbreath server
 | Boss mechanics | ✅ | Phase system, boss controller |
 | Spawn rules | ✅ | Time, weather, event-based spawning |
 | Behavior trees | ✅ | Custom NPC behavior scripting |
-| NPC loot | ❌ | Drop tables, gold |
+| NPC loot | ✅ | YAML-driven loot tables, on_kill + on_despawn phases, boss multi-drops |
+| Corpse cleanup | ✅ | 15s linger timer, despawn callback fires body part/rare/boss drops |
 | NPC dialog | ❌ | Conversation trees |
 | Shop NPCs | ❌ | Buy/sell interface |
 | Quest NPCs | ❌ | Quest givers |
@@ -197,7 +198,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Item effects | ✅ | Stat bonuses, equipment slot mapping |
 | Item properties | ✅ | Weight, price, level requirements, tradeable/droppable flags |
 | Ground items | ✅ | Items on map, pickup, despawn timer |
-| Loot drops | ✅ | NPC drop tables from YAML, gold + item drops on kill |
+| Loot drops | ✅ | YAML-driven loot_tables.yaml, flat percentages, on_kill + on_despawn phases |
 
 ---
 
@@ -418,10 +419,22 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
-### 2026-02-07
+### 2026-02-07 (b)
+- **YAML-Driven Loot System Refactor** - Complete rewrite of loot generation:
+  - New `loot_registry` subsystem loads `loot_tables.yaml` with named item pools and per-NPC configs
+  - Flat percentage system replaces nested dice chains (gold + items roll independently)
+  - Two drop phases: `on_kill` (immediate gold + item drops) and `on_despawn` (body parts, rares, boss multi-drops)
+  - Corpse cleanup timer in `npc_system` (5s check interval, 15s linger) fires `on_despawn_callback`
+  - All legacy loot data ported: 10 melee tiers, wand tiers, 10 armor tiers, potions, body parts, rare pools
+  - Boss multi-drops: Wyvern (5-15 items), Fire-Wyvern (5-15), Abaddon (12-20) on corpse despawn
+  - Hellclaw and Tigerworm: guaranteed rare drops on despawn (100% chance from unique pools)
+  - Deleted `loot_table.h`, removed unused `std::optional<loot_table>` from `npc.h`
+  - New files: `loot_config.h`, `loot_registry.h/.cpp`, `loot_tables.yaml`
+  - Rewritten: `loot_generator.h` (config-driven via `loot_registry`)
+
+### 2026-02-07 (a)
 - **Ground Items & Loot Drops** - Full NPC loot pipeline:
   - Real RNG in `loot_table.h` using `thread_local std::mt19937` (replaces placeholder stubs)
-  - `npc::loot` changed from raw `loot_table*` to `std::optional<loot_table>` for RAII
   - Loot tables built during NPC spawn from template gold range + drop entries
   - YAML `drops` array parsing in `npc_registry.cpp` for NPC drop table configuration
   - Sample drops added to Slime, Orc, Skeleton in `npcs.yaml`

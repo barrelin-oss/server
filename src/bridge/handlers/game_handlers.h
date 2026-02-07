@@ -58,6 +58,10 @@ namespace hb::item {
     class item_system;
 }
 
+namespace hb {
+    class loot_registry;
+}
+
 namespace hb::bridge {
 
 // Game message handler
@@ -80,7 +84,8 @@ public:
                     npc::npc_system* npc = nullptr,
                     inventory::inventory_system* inventory = nullptr,
                     item::item_system* item = nullptr,
-                    scheduler* sched = nullptr);
+                    scheduler* sched = nullptr,
+                    loot_registry* loot = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -189,8 +194,9 @@ private:
     void broadcast_ground_item_removed(player_id picker, map_id map,
                                        const world::position& pos, item_id item);
 
-    // Loot drop handler
+    // Loot drop handlers
     void handle_npc_loot_drop(const npc::npc& n, entity::entity killer);
+    void handle_npc_despawn_drop(const npc::npc& n);
 
     // Send visible ground items to a player
     void send_visible_ground_items(connection_id conn_id, map_id map,
@@ -209,6 +215,7 @@ private:
     inventory::inventory_system* inventory_{nullptr};
     item::item_system* item_{nullptr};
     scheduler* scheduler_{nullptr};
+    loot_registry* loot_registry_{nullptr};
     save_player_callback save_callback_;
 };
 

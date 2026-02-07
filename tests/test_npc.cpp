@@ -6,7 +6,8 @@
 #include "entity/entity.h"
 #include "npc/ai_behavior.h"
 #include "npc/spawn_point.h"
-#include "npc/loot_table.h"
+#include "npc/loot_config.h"
+#include "npc/loot_generator.h"
 #include "npc/npc.h"
 #include "npc/npc_system.h"
 
@@ -81,40 +82,57 @@ TEST(spawn_point_test, on_death) {
     EXPECT_EQ(spawn.current_count, 1);
 }
 
-// Loot table tests
+// Loot config tests
 
-TEST(loot_entry_test, creation) {
-    loot_entry entry;
-    entry.item = item_id{100};
-    entry.min_count = 1;
-    entry.max_count = 5;
-    entry.drop_chance = 500;  // 5%
+TEST(loot_config_test, weighted_item) {
+    weighted_item wi;
+    wi.item = item_id{100};
+    wi.weight = 50;
 
-    EXPECT_EQ(entry.item.value, 100);
+    EXPECT_EQ(wi.item.value, 100);
+    EXPECT_EQ(wi.weight, 50);
 }
 
-TEST(loot_table_test, generate_drops) {
-    loot_table table;
+TEST(loot_config_test, item_pool) {
+    item_pool pool;
+    pool.name = "test_pool";
+    pool.items.push_back({item_id{1}, 10});
+    pool.items.push_back({item_id{2}, 20});
+    pool.total_weight = 30;
 
-    loot_entry guaranteed;
-    guaranteed.item = item_id{1};
-    guaranteed.min_count = 1;
-    guaranteed.max_count = 1;
-    table.guaranteed.push_back(guaranteed);
-
-    auto drops = table.generate_drops();
-    EXPECT_GE(drops.size(), 1);
-    EXPECT_EQ(drops[0].first.value, 1);
+    EXPECT_EQ(pool.items.size(), 2);
+    EXPECT_EQ(pool.total_weight, 30);
 }
 
-TEST(gold_drop_test, configuration) {
-    gold_drop gold;
-    gold.min_gold = 100;
-    gold.max_gold = 500;
-    gold.drop_chance = 10000;
+TEST(loot_config_test, pick_from_pool) {
+    item_pool pool;
+    pool.name = "single";
+    pool.items.push_back({item_id{42}, 1});
+    pool.total_weight = 1;
 
-    auto amount = gold.roll_gold();
-    EXPECT_GE(amount, gold.min_gold);
+    // Single item pool always returns that item
+    auto picked = detail::pick_from_pool(pool);
+    EXPECT_EQ(picked.value, 42);
+}
+
+TEST(loot_config_test, loot_phase_config) {
+    loot_phase_config phase;
+    phase.gold_chance = 2100;
+    phase.drops.push_back({"potions", 1260});
+    phase.drops.push_back({"melee_tier1", 67});
+
+    EXPECT_EQ(phase.gold_chance, 2100);
+    EXPECT_EQ(phase.drops.size(), 2);
+    EXPECT_EQ(phase.drops[0].pool_name, "potions");
+}
+
+TEST(loot_config_test, multi_drop_config) {
+    loot_phase_config phase;
+    phase.multi_drop = multi_drop_config{5, 15};
+
+    EXPECT_TRUE(phase.multi_drop.has_value());
+    EXPECT_EQ(phase.multi_drop->min_count, 5);
+    EXPECT_EQ(phase.multi_drop->max_count, 15);
 }
 
 // NPC component tests

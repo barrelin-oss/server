@@ -15,6 +15,7 @@
 #include "npc/npc_system.h"
 #include "npc/npc.h"
 #include "npc/loot_generator.h"
+#include "registry/loot_registry.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
 #include "scheduler/scheduler.h"
@@ -45,7 +46,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 npc::npc_system* npc,
                                 inventory::inventory_system* inventory,
                                 item::item_system* item,
-                                scheduler* sched) {
+                                scheduler* sched,
+                                loot_registry* loot) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -56,6 +58,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     inventory_ = inventory;
     item_ = item;
     scheduler_ = sched;
+    loot_registry_ = loot;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -98,6 +101,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
         npc_->set_on_attack_callback([this](const npc::npc& n, entity::entity target, int32_t damage) {
             broadcast_npc_attack(n, target, damage);  // Copies data immediately
+        });
+        npc_->set_on_despawn_callback([this](const npc::npc& n) {
+            handle_npc_despawn_drop(n);  // Generate despawn loot (body parts, rares, boss multi-drops)
         });
     }
 
@@ -2062,48 +2068,74 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
 }
 
 void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity killer) {
-    if (!item_ || !world_) return;
+    if (!item_ || !world_ || !loot_registry_) return;
 
     // Copy needed data from the npc reference (only valid during callback)
     auto npc_map = n.current_map;
     auto npc_pos = n.pos;
+    auto npc_name = n.name;
 
-    // Build loot info from NPC instance
-    npc::loot_npc_info info{
-        .sprite_id = n.sprite_id,
-        .gold_min = n.gold_min,
-        .gold_max = n.gold_max,
-        .is_summoned = n.has_owner()
-    };
+    // Generate on_kill loot using config-driven system
+    auto drop = npc::generate_kill_loot(*loot_registry_,
+        n.sprite_id, n.gold_min, n.gold_max, n.has_owner());
 
-    // Generate loot using legacy algorithm
-    auto drop = npc::generate_npc_loot(info);
-    if (!drop.has_drop()) return;
+    // Award gold directly to killer
+    if (drop.gold > 0 && inventory_) {
+        auto killer_entity = entity_id{killer.id};
+        inventory_->add_gold(killer_entity, drop.gold);
+        LOG_DEBUG(bridge, "NPC '{}' dropped {} gold to killer {}", npc_name, drop.gold, killer.id);
+    }
 
-    // Handle gold drops - award directly to killer
-    if (drop.item_template == item_id{90}) {
-        if (drop.gold_amount > 0 && inventory_) {
-            auto killer_entity = entity_id{killer.id};
-            inventory_->add_gold(killer_entity, drop.gold_amount);
-            LOG_DEBUG(bridge, "NPC '{}' dropped {} gold to killer {}", n.name, drop.gold_amount, killer.id);
+    // Place item drops on ground
+    for (auto tmpl_id : drop.items) {
+        auto create_result = item_->create_from_template(tmpl_id, 1);
+        if (create_result.is_err()) {
+            LOG_WARN(bridge, "Failed to create drop item from template {}: {}",
+                tmpl_id.value, create_result.error());
+            continue;
         }
-        return;
+
+        auto dropped_item = create_result.value();
+        world_->add_ground_item(npc_map, npc_pos, dropped_item);
+        broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item);
+
+        LOG_DEBUG(bridge, "NPC '{}' dropped item {} (template {}) at ({}, {})",
+            npc_name, dropped_item.value, tmpl_id.value, npc_pos.x, npc_pos.y);
+    }
+}
+
+void game_handlers::handle_npc_despawn_drop(const npc::npc& n) {
+    if (!item_ || !world_ || !loot_registry_) return;
+
+    // Copy needed data from the npc reference (only valid during callback)
+    auto npc_map = n.current_map;
+    auto npc_pos = n.pos;
+    auto npc_name = n.name;
+
+    // Generate on_despawn loot (body parts, rares, boss multi-drops)
+    auto drop = npc::generate_despawn_loot(*loot_registry_, n.sprite_id);
+
+    // Place item drops on ground
+    for (auto tmpl_id : drop.items) {
+        auto create_result = item_->create_from_template(tmpl_id, 1);
+        if (create_result.is_err()) {
+            LOG_WARN(bridge, "Failed to create despawn drop item from template {}: {}",
+                tmpl_id.value, create_result.error());
+            continue;
+        }
+
+        auto dropped_item = create_result.value();
+        world_->add_ground_item(npc_map, npc_pos, dropped_item);
+        broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item);
+
+        LOG_DEBUG(bridge, "NPC '{}' despawn dropped item {} (template {}) at ({}, {})",
+            npc_name, dropped_item.value, tmpl_id.value, npc_pos.x, npc_pos.y);
     }
 
-    // Create item instance from template and place on ground
-    auto create_result = item_->create_from_template(drop.item_template, 1);
-    if (create_result.is_err()) {
-        LOG_WARN(bridge, "Failed to create drop item from template {}: {}",
-            drop.item_template.value, create_result.error());
-        return;
+    if (!drop.items.empty()) {
+        LOG_DEBUG(bridge, "NPC '{}' corpse despawned with {} item drops",
+            npc_name, drop.items.size());
     }
-
-    auto dropped_item = create_result.value();
-    world_->add_ground_item(npc_map, npc_pos, dropped_item);
-    broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item);
-
-    LOG_DEBUG(bridge, "NPC '{}' dropped item {} (template {}) at ({}, {})",
-        n.name, dropped_item.value, drop.item_template.value, npc_pos.x, npc_pos.y);
 }
 
 void game_handlers::send_visible_ground_items(connection_id conn_id, map_id map,

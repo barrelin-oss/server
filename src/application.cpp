@@ -11,6 +11,7 @@
 #include "registry/item_registry.h"
 #include "registry/npc_registry.h"
 #include "registry/magic_registry.h"
+#include "registry/loot_registry.h"
 #include "platform/clock.h"
 #include "platform/platform.h"
 
@@ -132,6 +133,8 @@ auto application::parse_args(int argc, char* argv[]) -> bool {
             bool result = auth::verify_password(password, hash);
             std::cout << "Result: " << (result ? "MATCH" : "NO MATCH") << std::endl;
             std::exit(result ? 0 : 1);
+        } else if (arg == "--dump-loot-tables") {
+            dump_loot_tables_requested_ = true;
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "Helbreath Game Server\n"
                       << "Usage: hgserver [options]\n"
@@ -139,6 +142,7 @@ auto application::parse_args(int argc, char* argv[]) -> bool {
                       << "  --config <file>            Configuration file (default: server.yaml)\n"
                       << "  --hash-password <pw>       Hash a password and exit (for SQL insertion)\n"
                       << "  --verify-password <pw> <hash>  Verify a password against a hash\n"
+                      << "  --dump-loot-tables         Print realized loot probabilities and exit\n"
                       << "  --help, -h                 Show this help message\n";
             return false;
         }
@@ -171,6 +175,7 @@ void application::initialize() {
     subsystems().create_subsystem<item_registry>();
     subsystems().create_subsystem<npc_registry>();
     subsystems().create_subsystem<magic_registry>();
+    subsystems().create_subsystem<loot_registry>();
 
     // Register database subsystem (for self-contained auth)
     auto& db_sys = subsystems().create_subsystem<database::database_system>();
@@ -264,6 +269,12 @@ void application::initialize() {
     // Load game configuration files (items, NPCs, magic, etc.)
     load_game_configs();
 
+    // Dump loot tables and exit if requested
+    if (dump_loot_tables_requested_) {
+        dump_loot_tables();
+        std::exit(0);
+    }
+
     // Register spawn points (must be after NPC registry is loaded)
     register_spawn_points();
 
@@ -334,7 +345,8 @@ void application::initialize() {
             subsystems().get<npc::npc_system>(),
             subsystems().get<inventory::inventory_system>(),
             subsystems().get<item::item_system>(),
-            subsystems().get<scheduler>()
+            subsystems().get<scheduler>(),
+            subsystems().get<loot_registry>()
         );
 
         // Set save callback for death penalty persistence
@@ -743,6 +755,22 @@ void application::load_game_configs() {
         }
     }
 
+    // Load loot tables
+    auto* loot = subsystems().get<loot_registry>();
+    if (loot) {
+        auto loot_yaml = config_dir / "loot_tables.yaml";
+        if (std::filesystem::exists(loot_yaml)) {
+            auto result = loot->load_from_file(loot_yaml);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} loot entries from loot_tables.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load loot_tables.yaml: {}", result.error());
+            }
+        } else {
+            LOG_WARN(general, "No loot_tables.yaml found (NPC drops will be disabled)");
+        }
+    }
+
     // Load spawn tables
     auto* spawn_engine = subsystems().get<npc::spawn_rule_engine>();
     if (spawn_engine) {
@@ -761,6 +789,94 @@ void application::load_game_configs() {
 
     // TODO: Load magic definitions from magic.yaml or Magic.cfg
     // TODO: Load skill definitions from skills.yaml or Skill.cfg
+}
+
+void application::dump_loot_tables() {
+    auto* loot = subsystems().get<loot_registry>();
+    auto* items = subsystems().get<item_registry>();
+    auto* npcs = subsystems().get<npc_registry>();
+
+    if (!loot || loot->config_count() == 0) {
+        std::cout << "No loot tables loaded.\n";
+        return;
+    }
+
+    // Build sprite_id -> NPC name map
+    std::unordered_map<int16_t, std::string> npc_names;
+    if (npcs) {
+        for (const auto& tmpl : npcs->all()) {
+            if (tmpl.sprite_id != 0 && !npc_names.contains(tmpl.sprite_id)) {
+                npc_names[tmpl.sprite_id] = tmpl.name;
+            }
+        }
+    }
+
+    // Helper to get item name
+    auto item_name = [&](item_id id) -> std::string {
+        if (items) {
+            if (auto* tmpl = items->get(id)) {
+                return tmpl->name;
+            }
+        }
+        return "Item#" + std::to_string(id.value);
+    };
+
+    // Helper to print one phase
+    auto print_phase = [&](const std::string& phase_name, const npc::loot_phase_config& phase) {
+        bool has_content = phase.gold_chance > 0 || !phase.drops.empty();
+        if (!has_content) return;
+
+        std::cout << "  " << phase_name << ":\n";
+
+        if (phase.gold_chance > 0) {
+            double pct = phase.gold_chance / 100.0;
+            std::printf("    %-40s %8.2f%%\n", "Gold", pct);
+        }
+
+        if (phase.multi_drop.has_value()) {
+            std::printf("    [multi-drop: %d-%d iterations]\n",
+                phase.multi_drop->min_count, phase.multi_drop->max_count);
+        }
+
+        for (const auto& drop : phase.drops) {
+            double pool_pct = drop.chance / 100.0;
+            auto* pool = loot->get_pool(drop.pool_name);
+            if (!pool || pool->items.empty()) {
+                std::printf("    %-40s %8.2f%%  (pool '%s' not found)\n",
+                    "???", pool_pct, drop.pool_name.c_str());
+                continue;
+            }
+
+            for (const auto& wi : pool->items) {
+                double item_pct = pool_pct * (static_cast<double>(wi.weight) / pool->total_weight);
+                std::string label = item_name(wi.item) + " (" + std::to_string(wi.item.value) + ")";
+                std::printf("    %-40s %8.4f%%  [%s @ %.2f%%]\n",
+                    label.c_str(), item_pct, drop.pool_name.c_str(), pool_pct);
+            }
+        }
+    };
+
+    // Sort configs by sprite_id for consistent output
+    std::vector<std::pair<int16_t, const npc::npc_loot_config*>> sorted;
+    for (const auto& [sid, cfg] : loot->configs()) {
+        sorted.emplace_back(sid, &cfg);
+    }
+    std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) {
+        return a.first < b.first;
+    });
+
+    std::cout << "=== Loot Tables (" << sorted.size() << " NPCs) ===\n\n";
+
+    for (const auto& [sprite_id, config] : sorted) {
+        auto name_it = npc_names.find(sprite_id);
+        std::string npc_label = name_it != npc_names.end() ? name_it->second : "Unknown";
+        std::cout << "--- " << npc_label << " (sprite " << sprite_id << ") ---\n";
+
+        print_phase("on_kill", config->on_kill);
+        print_phase("on_despawn", config->on_despawn);
+
+        std::cout << "\n";
+    }
 }
 
 void application::on_tick() {

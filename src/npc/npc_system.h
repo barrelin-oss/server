@@ -30,6 +30,8 @@ struct npc_system_config {
     uint32_t max_npcs{10000};
     int32_t ai_update_interval_ms{100};
     int32_t spawn_check_interval_ms{1000};
+    int32_t corpse_check_interval_ms{5000};
+    int32_t corpse_linger_ms{15000};
     bool enable_ai{true};
 };
 
@@ -113,12 +115,14 @@ public:
     using on_npc_move_callback = std::function<void(const npc&)>;
     using on_npc_death_callback = std::function<void(const npc&, entity::entity killer)>;
     using on_npc_attack_callback = std::function<void(const npc&, entity::entity target, int32_t damage)>;
+    using on_npc_despawn_callback = std::function<void(const npc&)>;
 
     // Register callbacks
     void set_on_spawn_callback(on_npc_spawn_callback cb) { on_spawn_callback_ = std::move(cb); }
     void set_on_move_callback(on_npc_move_callback cb) { on_move_callback_ = std::move(cb); }
     void set_on_death_callback(on_npc_death_callback cb) { on_death_callback_ = std::move(cb); }
     void set_on_attack_callback(on_npc_attack_callback cb) { on_attack_callback_ = std::move(cb); }
+    void set_on_despawn_callback(on_npc_despawn_callback cb) { on_despawn_callback_ = std::move(cb); }
 
     // Iteration
     template<typename Func>
@@ -144,6 +148,7 @@ public:
 private:
     void update_spawns(float delta_time);
     void update_all_ai(float delta_time);
+    void update_corpses(float delta_time);
     void process_ai_state(npc& npc_ref);
 
     // AI state handlers
@@ -189,12 +194,14 @@ private:
 
     float ai_accumulator_{0.0f};
     float spawn_accumulator_{0.0f};
+    float corpse_accumulator_{0.0f};
 
     // Event callbacks
     on_npc_spawn_callback on_spawn_callback_;
     on_npc_move_callback on_move_callback_;
     on_npc_death_callback on_death_callback_;
     on_npc_attack_callback on_attack_callback_;
+    on_npc_despawn_callback on_despawn_callback_;
 };
 
 }  // namespace hb::npc

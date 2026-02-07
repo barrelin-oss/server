@@ -99,6 +99,7 @@ void npc_system::shutdown() {
 
 void npc_system::update(float delta_time) {
     update_spawns(delta_time);
+    update_corpses(delta_time);
     if (config_.enable_ai) {
         update_all_ai(delta_time);
     }
@@ -194,7 +195,7 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
             new_npc->ai.behavior_tree = tmpl->behavior_tree;
         }
 
-        // Loot is generated at death time by the legacy loot generator
+        // Loot is generated at death/despawn time by config-driven loot generator
         // (see loot_generator.h) using sprite_id and gold_min/gold_max from template
 
         // LOG_DEBUG(general, "Spawned NPC '{}' (template {}) at ({}, {}) on map {} - HP: {}, Level: {}",
@@ -612,6 +613,41 @@ void npc_system::update_spawns(float delta_time) {
         if (sp.can_spawn()) {
             spawn_npc_at(sp);
         }
+    }
+}
+
+void npc_system::update_corpses(float delta_time) {
+    corpse_accumulator_ += delta_time * 1000.0f;
+
+    if (corpse_accumulator_ < static_cast<float>(config_.corpse_check_interval_ms)) {
+        return;
+    }
+
+    corpse_accumulator_ -= static_cast<float>(config_.corpse_check_interval_ms);
+
+    // Collect expired corpse IDs first to avoid iterator invalidation
+    std::vector<entity::entity> expired;
+    for (const auto& [id, npc_ptr] : npcs_) {
+        if (!npc_ptr->is_dead()) continue;
+        if (npc_ptr->ai_state.time_since_death_ms() >= config_.corpse_linger_ms) {
+            expired.push_back(id);
+        }
+    }
+
+    for (auto id : expired) {
+        auto* npc_ptr = get_npc(id);
+        if (!npc_ptr) continue;
+
+        // Fire despawn callback before removing the NPC
+        if (on_despawn_callback_) {
+            on_despawn_callback_(*npc_ptr);
+        }
+
+        despawn_npc(id);
+    }
+
+    if (!expired.empty()) {
+        LOG_DEBUG(general, "Cleaned up {} corpses", expired.size());
     }
 }
 

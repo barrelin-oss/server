@@ -73,6 +73,7 @@ set(REGISTRY_SOURCES
     src/registry/item_registry.cpp
     src/registry/npc_registry.cpp
     src/registry/magic_registry.cpp
+    src/registry/loot_registry.cpp
 )
 
 set(NETWORK_SOURCES

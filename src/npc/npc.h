@@ -7,9 +7,7 @@
 #include "entity/entity.h"
 #include "world/position.h"
 #include "npc/ai_behavior.h"
-#include "npc/loot_table.h"
 
-#include <optional>
 #include <string>
 #include <string_view>
 
@@ -83,9 +81,6 @@ struct npc {
 
     // Pack membership (0 = no pack)
     uint32_t pack{0};
-
-    // Loot
-    std::optional<loot_table> loot;
 
     // Helper methods
     [[nodiscard]] auto is_alive() const -> bool { return hp > 0; }

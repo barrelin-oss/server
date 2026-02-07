@@ -74,6 +74,7 @@ private:
     void load_game_configs();
     void register_spawn_points();
     void wire_effect_system();
+    void dump_loot_tables();
 
     // Timer callback
     void on_tick();
@@ -89,6 +90,7 @@ private:
     std::unique_ptr<platform::timer> game_timer_;
 
     bool initialized_ = false;
+    bool dump_loot_tables_requested_ = false;
     uint64_t tick_count_ = 0;
 
     // For measuring delta time

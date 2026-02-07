@@ -8,6 +8,7 @@
 #include "auth/account.h"
 
 #include <nlohmann/json.hpp>
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <optional>
@@ -125,6 +126,28 @@ enum class json_message_type {
     entity_info_request,    // Request info about an entity
     entity_info_response,   // Entity info response
 
+    // NPC interaction - shops
+    shop_buy_request,
+    shop_buy_response,
+    shop_sell_request,
+    shop_sell_response,
+    shop_sell_confirm_request,
+    shop_sell_confirm_response,
+    shop_repair_request,
+    shop_repair_response,
+    shop_repair_confirm_request,
+    shop_repair_confirm_response,
+
+    // NPC interaction - banking
+    bank_deposit_request,
+    bank_deposit_response,
+    bank_withdraw_request,
+    bank_withdraw_response,
+
+    // NPC interaction - dialog
+    dialog_choice_request,
+    dialog_choice_response,
+
     // Unknown/invalid
     unknown
 };
@@ -193,6 +216,22 @@ enum class json_message_type {
         case json_message_type::hunger_update: return "hunger_update";
         case json_message_type::entity_info_request: return "entity_info_request";
         case json_message_type::entity_info_response: return "entity_info_response";
+        case json_message_type::shop_buy_request: return "shop_buy_request";
+        case json_message_type::shop_buy_response: return "shop_buy_response";
+        case json_message_type::shop_sell_request: return "shop_sell_request";
+        case json_message_type::shop_sell_response: return "shop_sell_response";
+        case json_message_type::shop_sell_confirm_request: return "shop_sell_confirm_request";
+        case json_message_type::shop_sell_confirm_response: return "shop_sell_confirm_response";
+        case json_message_type::shop_repair_request: return "shop_repair_request";
+        case json_message_type::shop_repair_response: return "shop_repair_response";
+        case json_message_type::shop_repair_confirm_request: return "shop_repair_confirm_request";
+        case json_message_type::shop_repair_confirm_response: return "shop_repair_confirm_response";
+        case json_message_type::bank_deposit_request: return "bank_deposit_request";
+        case json_message_type::bank_deposit_response: return "bank_deposit_response";
+        case json_message_type::bank_withdraw_request: return "bank_withdraw_request";
+        case json_message_type::bank_withdraw_response: return "bank_withdraw_response";
+        case json_message_type::dialog_choice_request: return "dialog_choice_request";
+        case json_message_type::dialog_choice_response: return "dialog_choice_response";
         default: return "unknown";
     }
 }
@@ -256,16 +295,16 @@ struct delete_character_request_data {
 struct enter_game_request_data {
     uint32_t character_id{0};
     bool force_disconnect{false};  // If true, disconnect existing session for this account
-    int16_t screen_width{640};     // Client screen width for visibility calculation
-    int16_t screen_height{480};    // Client screen height for visibility calculation
+    int16_t screen_width{640};     // Client effective viewport width for visibility calculation
+    int16_t screen_height{480};    // Client effective viewport height for visibility calculation
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<enter_game_request_data, std::string>;
 };
 
-// Set view range request from client (when resolution changes)
+// Set view range request from client (when resolution or view mode changes)
 struct set_view_range_request_data {
-    int16_t screen_width{640};
-    int16_t screen_height{480};
+    int16_t screen_width{640};     // Effective viewport width
+    int16_t screen_height{480};    // Effective viewport height
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<set_view_range_request_data, std::string>;
 };
@@ -903,14 +942,161 @@ struct entity_info_response_data {
                                               const entity_info_response_data* data = nullptr,
                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-// Calculate visibility radius from screen resolution
-// ~32 pixels per tile, calculate visible tile radius with buffer for smooth scrolling
-[[nodiscard]] inline auto calculate_visibility_radius(int16_t screen_width, int16_t screen_height) -> int16_t {
-    constexpr int pixels_per_tile = 32;
-    int16_t tiles_wide = screen_width / pixels_per_tile;
-    int16_t tiles_high = screen_height / pixels_per_tile;
-    // Use larger dimension / 2 as radius, add buffer for smooth scrolling
-    return static_cast<int16_t>(std::max(tiles_wide, tiles_high) / 2 + 5);
+// === NPC Interaction: Shop request/response data ===
+
+// Shop buy request from client
+struct shop_buy_request_data {
+    uint32_t npc_entity_id{0};
+    uint32_t item_template_id{0};
+    int16_t count{1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_buy_request_data, std::string>;
+};
+
+// Shop sell request from client (requests a price quote)
+struct shop_sell_request_data {
+    uint32_t npc_entity_id{0};
+    int16_t inventory_slot{-1};
+    int16_t count{1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_sell_request_data, std::string>;
+};
+
+// Shop sell confirm request from client
+struct shop_sell_confirm_request_data {
+    uint32_t npc_entity_id{0};
+    int16_t inventory_slot{-1};
+    int16_t count{1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_sell_confirm_request_data, std::string>;
+};
+
+// Shop repair request from client (requests a cost quote)
+struct shop_repair_request_data {
+    uint32_t npc_entity_id{0};
+    int16_t inventory_slot{-1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_repair_request_data, std::string>;
+};
+
+// Shop repair confirm request from client
+struct shop_repair_confirm_request_data {
+    uint32_t npc_entity_id{0};
+    int16_t inventory_slot{-1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_repair_confirm_request_data, std::string>;
+};
+
+// Bank deposit request from client
+struct bank_deposit_request_data {
+    uint32_t npc_entity_id{0};
+    int16_t inventory_slot{-1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<bank_deposit_request_data, std::string>;
+};
+
+// Bank withdraw request from client
+struct bank_withdraw_request_data {
+    uint32_t npc_entity_id{0};
+    int16_t bank_slot{-1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<bank_withdraw_request_data, std::string>;
+};
+
+// Dialog choice request from client
+struct dialog_choice_request_data {
+    uint32_t npc_entity_id{0};
+    std::string node_id;
+    int16_t choice_index{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<dialog_choice_request_data, std::string>;
+};
+
+// === NPC Interaction response builders ===
+
+// Shop buy response
+[[nodiscard]] auto make_shop_buy_response(uint32_t seq, bool success,
+                                           std::string_view item_name = "",
+                                           int16_t count = 0,
+                                           int32_t price_paid = 0,
+                                           int64_t gold_remaining = 0,
+                                           std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Shop sell quote response
+[[nodiscard]] auto make_shop_sell_response(uint32_t seq, bool success,
+                                            std::string_view item_name = "",
+                                            int32_t offered_price = 0,
+                                            int16_t durability = 0,
+                                            std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Shop sell confirm response
+[[nodiscard]] auto make_shop_sell_confirm_response(uint32_t seq, bool success,
+                                                    int32_t gold_received = 0,
+                                                    int64_t gold_total = 0,
+                                                    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Shop repair quote response
+[[nodiscard]] auto make_shop_repair_response(uint32_t seq, bool success,
+                                              std::string_view item_name = "",
+                                              int32_t repair_cost = 0,
+                                              int16_t durability = 0,
+                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Shop repair confirm response
+[[nodiscard]] auto make_shop_repair_confirm_response(uint32_t seq, bool success,
+                                                      int16_t new_durability = 0,
+                                                      int32_t gold_spent = 0,
+                                                      int64_t gold_remaining = 0,
+                                                      std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Bank deposit response
+[[nodiscard]] auto make_bank_deposit_response(uint32_t seq, bool success,
+                                               std::string_view item_name = "",
+                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Bank withdraw response
+[[nodiscard]] auto make_bank_withdraw_response(uint32_t seq, bool success,
+                                                std::string_view item_name = "",
+                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Dialog choice response - returns next dialog state or action result
+struct dialog_option_msg {
+    std::string label;
+    std::string action;
+    std::string next_node;
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+[[nodiscard]] auto make_dialog_choice_response(uint32_t seq, bool success,
+                                                std::string_view action = "",
+                                                std::string_view node_id = "",
+                                                std::string_view text = "",
+                                                const std::vector<dialog_option_msg>& options = {},
+                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Visibility range constants
+inline constexpr int16_t min_visibility_radius = 15;
+inline constexpr int16_t max_visibility_radius = 80;
+inline constexpr float visibility_buffer_ratio = 0.2f;  // 20% proportional buffer
+inline constexpr int pixels_per_tile = 32;
+
+// Calculate visibility radius from effective viewport dimensions
+// Client sends actual screen resolution for normal play, or max effective viewport
+// (screen_res / min_zoom) when in a mode that allows zooming out further.
+[[nodiscard]] inline auto calculate_visibility_radius(int16_t screen_width, int16_t screen_height) -> int16_t
+{
+    auto tiles_wide = static_cast<float>(screen_width) / pixels_per_tile;
+    auto tiles_high = static_cast<float>(screen_height) / pixels_per_tile;
+
+    // Half the larger dimension = base radius
+    auto base_radius = std::max(tiles_wide, tiles_high) / 2.0f;
+
+    // Proportional buffer for smooth entity pop-in (minimum 5 tiles)
+    auto buffer = std::max(5.0f, base_radius * visibility_buffer_ratio);
+
+    auto radius = static_cast<int16_t>(base_radius + buffer);
+    return std::clamp(radius, min_visibility_radius, max_visibility_radius);
 }
 
 }  // namespace hb::network

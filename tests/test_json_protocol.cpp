@@ -691,23 +691,52 @@ TEST(chat_message_broadcast_data_test, to_json_with_flags) {
 
 TEST(visibility_test, calculate_visibility_radius_640x480) {
     auto radius = calculate_visibility_radius(640, 480);
-    // 640/32 = 20 tiles, 480/32 = 15 tiles
-    // max(20, 15) / 2 + 5 = 10 + 5 = 15
+    // base = max(20, 15) / 2 = 10, buffer = max(5, 10*0.2) = 5
     EXPECT_EQ(radius, 15);
 }
 
 TEST(visibility_test, calculate_visibility_radius_1920x1080) {
     auto radius = calculate_visibility_radius(1920, 1080);
-    // 1920/32 = 60 tiles, 1080/32 = 33 tiles
-    // max(60, 33) / 2 + 5 = 30 + 5 = 35
-    EXPECT_EQ(radius, 35);
+    // base = max(60, 33.75) / 2 = 30, buffer = max(5, 30*0.2) = 6
+    EXPECT_EQ(radius, 36);
 }
 
 TEST(visibility_test, calculate_visibility_radius_1280x720) {
     auto radius = calculate_visibility_radius(1280, 720);
-    // 1280/32 = 40 tiles, 720/32 = 22 tiles
-    // max(40, 22) / 2 + 5 = 20 + 5 = 25
+    // base = max(40, 22.5) / 2 = 20, buffer = max(5, 20*0.2) = 5
     EXPECT_EQ(radius, 25);
+}
+
+TEST(visibility_test, calculate_visibility_radius_800x600) {
+    auto radius = calculate_visibility_radius(800, 600);
+    // base = max(25, 18.75) / 2 = 12.5, buffer = max(5, 12.5*0.2) = 5
+    EXPECT_EQ(radius, 17);
+}
+
+TEST(visibility_test, larger_viewport_increases_radius) {
+    // Commander mode sends larger effective viewport (e.g., screen / min_zoom)
+    auto normal = calculate_visibility_radius(800, 600);
+    auto commander = calculate_visibility_radius(1600, 1200);  // 2x effective viewport
+    EXPECT_GT(commander, normal);
+}
+
+TEST(visibility_test, radius_never_below_minimum) {
+    auto radius = calculate_visibility_radius(320, 240);
+    EXPECT_GE(radius, min_visibility_radius);
+}
+
+TEST(visibility_test, radius_never_above_maximum) {
+    // Even with huge effective viewport, radius is capped
+    auto radius = calculate_visibility_radius(8000, 6000);
+    EXPECT_LE(radius, max_visibility_radius);
+}
+
+TEST(visibility_test, proportional_buffer_kicks_in_at_large_viewports) {
+    // At 1920x1080: base=30, 20% buffer=6 > min buffer of 5
+    auto radius = calculate_visibility_radius(1920, 1080);
+    // Without proportional buffer (flat +5): would be 35
+    // With proportional buffer (+6): should be 36
+    EXPECT_EQ(radius, 36);
 }
 
 // ========== Teleporter Message Tests ==========

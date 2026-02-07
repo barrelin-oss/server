@@ -1707,9 +1707,9 @@ Request to interact with an NPC or object.
 
 ### `player_interact_response`
 
-Server responds with interaction result.
+Server responds with interaction result. The response includes structured `interaction_data` whose contents depend on the `interaction_type`.
 
-**Success Response:**
+**Success Response (Shop):**
 ```json
 {
   "type": "player_interact_response",
@@ -1719,11 +1719,78 @@ Server responds with interaction result.
     "result": {
       "success": true,
       "target_id": 5001,
+      "interaction_type": "shop",
+      "interaction_data": {
+        "npc_name": "Blacksmith",
+        "items": [
+          {
+            "template_id": 10,
+            "name": "Short Sword",
+            "price": 500,
+            "category": "weapon"
+          },
+          {
+            "template_id": 301,
+            "name": "Leather Armor",
+            "price": 1200,
+            "category": "armor"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+**Success Response (Bank):**
+```json
+{
+  "type": "player_interact_response",
+  "seq": 211,
+  "data": {
+    "success": true,
+    "result": {
+      "success": true,
+      "target_id": 5002,
+      "interaction_type": "bank",
+      "interaction_data": {
+        "npc_name": "Banker",
+        "items": [
+          {
+            "slot": 0,
+            "item_id": 101,
+            "name": "Long Sword",
+            "count": 1,
+            "durability": 45,
+            "max_durability": 50
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+**Success Response (Dialog):**
+```json
+{
+  "type": "player_interact_response",
+  "seq": 212,
+  "data": {
+    "success": true,
+    "result": {
+      "success": true,
+      "target_id": 5003,
       "interaction_type": "dialog",
       "interaction_data": {
-        "npc_name": "Shop Keeper",
-        "dialog_text": "Welcome to my shop!",
-        "options": ["Buy", "Sell", "Leave"]
+        "npc_name": "Elder",
+        "node_id": "start",
+        "text": "Greetings, traveler. How may I help you?",
+        "options": [
+          { "label": "Tell me about this town", "action": "goto_node", "next_node": "town_info" },
+          { "label": "Open shop", "action": "open_shop" },
+          { "label": "Goodbye", "action": "close" }
+        ]
       }
     }
   }
@@ -1748,8 +1815,48 @@ Server responds with interaction result.
 |-------|------|-------------|
 | `success` | bool | Whether interaction succeeded |
 | `target_id` | uint32 | Target entity ID |
-| `interaction_type` | string | Type: `"dialog"`, `"shop"`, `"bank"`, etc. |
-| `interaction_data` | object | Type-specific data |
+| `interaction_type` | string | Type: `"dialog"`, `"shop"`, `"bank"` |
+| `interaction_data` | object | Type-specific data (see below) |
+
+#### Shop Interaction Data
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `npc_name` | string | NPC display name |
+| `items` | array | Array of shop item objects |
+
+**Shop Item Object:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `template_id` | uint32 | Item template ID |
+| `name` | string | Item display name |
+| `price` | int32 | Buy price in gold |
+| `category` | string | Item category (e.g., `"weapon"`, `"armor"`, `"potion"`) |
+
+#### Bank Interaction Data
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `npc_name` | string | NPC display name |
+| `items` | array | Array of bank item objects (same format as Inventory Item Object) |
+
+#### Dialog Interaction Data
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `npc_name` | string | NPC display name |
+| `node_id` | string | Current dialog node ID |
+| `text` | string | Dialog text to display |
+| `options` | array | Array of dialog option objects |
+
+**Dialog Option Object:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `label` | string | Display text for the option |
+| `action` | string | Action type: `"goto_node"`, `"close"`, `"open_shop"`, `"open_bank"` |
+| `next_node` | string | Next dialog node ID (only for `"goto_node"` action) |
 
 ---
 
@@ -2336,6 +2443,620 @@ Server responds with detailed entity information.
 | `invalid_request` | Missing or invalid entity_id field |
 | `not_in_game` | Client is not in-game |
 | `internal_error` | Required subsystems unavailable |
+
+---
+
+## NPC Interaction Messages
+
+These messages handle shop transactions, bank operations, and dialog choices after the initial `player_interact_request`/`player_interact_response` exchange has opened the interaction.
+
+### `shop_buy_request`
+
+Request to buy an item from a shop NPC.
+
+**Request:**
+```json
+{
+  "type": "shop_buy_request",
+  "seq": 220,
+  "data": {
+    "npc_entity_id": 5001,
+    "item_template_id": 10,
+    "count": 1
+  }
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `npc_entity_id` | uint32 | Yes | - | Entity ID of the shop NPC |
+| `item_template_id` | uint32 | Yes | - | Template ID of the item to buy |
+| `count` | int16 | No | 1 | Number of items to buy |
+
+---
+
+### `shop_buy_response`
+
+Server confirms or rejects the purchase.
+
+**Success Response:**
+```json
+{
+  "type": "shop_buy_response",
+  "seq": 220,
+  "data": {
+    "success": true,
+    "item_name": "Short Sword",
+    "count": 1,
+    "price_paid": 500,
+    "gold_remaining": 14500
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "shop_buy_response",
+  "seq": 220,
+  "data": {
+    "success": false,
+    "error": "Not enough gold"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether purchase succeeded |
+| `item_name` | string | Name of item purchased (on success) |
+| `count` | int16 | Number of items purchased (on success) |
+| `price_paid` | int32 | Total gold spent (on success) |
+| `gold_remaining` | int32 | Player's gold after purchase (on success) |
+| `error` | string | Error message (on failure) |
+
+**Possible Errors:**
+- `Not enough gold`
+- `Inventory full`
+- `Item not sold here`
+- `NPC not found`
+- `Not in range`
+
+---
+
+### `shop_sell_request`
+
+Request a price quote for selling an item to a shop NPC. This does not complete the sale -- the client must follow up with `shop_sell_confirm_request` to finalize.
+
+**Request:**
+```json
+{
+  "type": "shop_sell_request",
+  "seq": 221,
+  "data": {
+    "npc_entity_id": 5001,
+    "inventory_slot": 3,
+    "count": 1
+  }
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `npc_entity_id` | uint32 | Yes | - | Entity ID of the shop NPC |
+| `inventory_slot` | int16 | Yes | - | Inventory slot of the item to sell |
+| `count` | int16 | No | - | Number of items to sell (for stackable items; omit for all) |
+
+---
+
+### `shop_sell_response`
+
+Server responds with the offered price for the item.
+
+**Success Response:**
+```json
+{
+  "type": "shop_sell_response",
+  "seq": 221,
+  "data": {
+    "success": true,
+    "item_name": "Short Sword",
+    "offered_price": 250,
+    "durability": 45
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "shop_sell_response",
+  "seq": 221,
+  "data": {
+    "success": false,
+    "error": "Item cannot be sold"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether price quote succeeded |
+| `item_name` | string | Name of item (on success) |
+| `offered_price` | int32 | Gold the NPC will pay (on success) |
+| `durability` | int16 | Current durability of the item (on success) |
+| `error` | string | Error message (on failure) |
+
+**Possible Errors:**
+- `Item cannot be sold`
+- `Invalid inventory slot`
+- `NPC not found`
+- `Not in range`
+
+---
+
+### `shop_sell_confirm_request`
+
+Confirm the sale of an item to a shop NPC after receiving a price quote via `shop_sell_response`.
+
+**Request:**
+```json
+{
+  "type": "shop_sell_confirm_request",
+  "seq": 222,
+  "data": {
+    "npc_entity_id": 5001,
+    "inventory_slot": 3,
+    "count": 1
+  }
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `npc_entity_id` | uint32 | Yes | - | Entity ID of the shop NPC |
+| `inventory_slot` | int16 | Yes | - | Inventory slot of the item to sell |
+| `count` | int16 | No | - | Number of items to sell (for stackable items; omit for all) |
+
+---
+
+### `shop_sell_confirm_response`
+
+Server confirms or rejects the finalized sale.
+
+**Success Response:**
+```json
+{
+  "type": "shop_sell_confirm_response",
+  "seq": 222,
+  "data": {
+    "success": true,
+    "gold_received": 250,
+    "gold_total": 14750
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "shop_sell_confirm_response",
+  "seq": 222,
+  "data": {
+    "success": false,
+    "error": "Item no longer in slot"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether sale succeeded |
+| `gold_received` | int32 | Gold earned from the sale (on success) |
+| `gold_total` | int32 | Player's total gold after sale (on success) |
+| `error` | string | Error message (on failure) |
+
+**Possible Errors:**
+- `Item no longer in slot`
+- `Item cannot be sold`
+- `NPC not found`
+- `Not in range`
+
+---
+
+### `shop_repair_request`
+
+Request a cost quote for repairing an item at a shop NPC. This does not complete the repair -- the client must follow up with `shop_repair_confirm_request` to finalize.
+
+**Request:**
+```json
+{
+  "type": "shop_repair_request",
+  "seq": 223,
+  "data": {
+    "npc_entity_id": 5001,
+    "inventory_slot": 0
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `npc_entity_id` | uint32 | Yes | Entity ID of the shop NPC |
+| `inventory_slot` | int16 | Yes | Inventory slot of the item to repair |
+
+---
+
+### `shop_repair_response`
+
+Server responds with the repair cost estimate.
+
+**Success Response:**
+```json
+{
+  "type": "shop_repair_response",
+  "seq": 223,
+  "data": {
+    "success": true,
+    "item_name": "Long Sword",
+    "repair_cost": 350,
+    "durability": 25
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "shop_repair_response",
+  "seq": 223,
+  "data": {
+    "success": false,
+    "error": "Item does not need repair"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether repair quote succeeded |
+| `item_name` | string | Name of item (on success) |
+| `repair_cost` | int32 | Gold cost to repair (on success) |
+| `durability` | int16 | Current durability before repair (on success) |
+| `error` | string | Error message (on failure) |
+
+**Possible Errors:**
+- `Item does not need repair`
+- `Item cannot be repaired`
+- `Invalid inventory slot`
+- `NPC not found`
+- `Not in range`
+
+---
+
+### `shop_repair_confirm_request`
+
+Confirm the repair of an item after receiving a cost quote via `shop_repair_response`.
+
+**Request:**
+```json
+{
+  "type": "shop_repair_confirm_request",
+  "seq": 224,
+  "data": {
+    "npc_entity_id": 5001,
+    "inventory_slot": 0
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `npc_entity_id` | uint32 | Yes | Entity ID of the shop NPC |
+| `inventory_slot` | int16 | Yes | Inventory slot of the item to repair |
+
+---
+
+### `shop_repair_confirm_response`
+
+Server confirms or rejects the finalized repair.
+
+**Success Response:**
+```json
+{
+  "type": "shop_repair_confirm_response",
+  "seq": 224,
+  "data": {
+    "success": true,
+    "new_durability": 50,
+    "gold_spent": 350,
+    "gold_remaining": 14150
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "shop_repair_confirm_response",
+  "seq": 224,
+  "data": {
+    "success": false,
+    "error": "Not enough gold"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether repair succeeded |
+| `new_durability` | int16 | Item's durability after repair (on success) |
+| `gold_spent` | int32 | Gold spent on repair (on success) |
+| `gold_remaining` | int32 | Player's gold after repair (on success) |
+| `error` | string | Error message (on failure) |
+
+**Possible Errors:**
+- `Not enough gold`
+- `Item no longer in slot`
+- `Item cannot be repaired`
+- `NPC not found`
+- `Not in range`
+
+---
+
+### `bank_deposit_request`
+
+Request to deposit an item from inventory into the bank.
+
+**Request:**
+```json
+{
+  "type": "bank_deposit_request",
+  "seq": 230,
+  "data": {
+    "npc_entity_id": 5002,
+    "inventory_slot": 5
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `npc_entity_id` | uint32 | Yes | Entity ID of the bank NPC |
+| `inventory_slot` | int16 | Yes | Inventory slot of the item to deposit |
+
+---
+
+### `bank_deposit_response`
+
+Server confirms or rejects the deposit.
+
+**Success Response:**
+```json
+{
+  "type": "bank_deposit_response",
+  "seq": 230,
+  "data": {
+    "success": true,
+    "item_name": "Health Potion"
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "bank_deposit_response",
+  "seq": 230,
+  "data": {
+    "success": false,
+    "error": "Bank is full"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether deposit succeeded |
+| `item_name` | string | Name of item deposited (on success) |
+| `error` | string | Error message (on failure) |
+
+**Possible Errors:**
+- `Bank is full`
+- `Invalid inventory slot`
+- `NPC not found`
+- `Not in range`
+
+---
+
+### `bank_withdraw_request`
+
+Request to withdraw an item from the bank into inventory.
+
+**Request:**
+```json
+{
+  "type": "bank_withdraw_request",
+  "seq": 231,
+  "data": {
+    "npc_entity_id": 5002,
+    "bank_slot": 0
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `npc_entity_id` | uint32 | Yes | Entity ID of the bank NPC |
+| `bank_slot` | int16 | Yes | Bank slot of the item to withdraw |
+
+---
+
+### `bank_withdraw_response`
+
+Server confirms or rejects the withdrawal.
+
+**Success Response:**
+```json
+{
+  "type": "bank_withdraw_response",
+  "seq": 231,
+  "data": {
+    "success": true,
+    "item_name": "Health Potion"
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "bank_withdraw_response",
+  "seq": 231,
+  "data": {
+    "success": false,
+    "error": "Inventory full"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether withdrawal succeeded |
+| `item_name` | string | Name of item withdrawn (on success) |
+| `error` | string | Error message (on failure) |
+
+**Possible Errors:**
+- `Inventory full`
+- `Invalid bank slot`
+- `NPC not found`
+- `Not in range`
+
+---
+
+### `dialog_choice_request`
+
+Send a dialog choice to an NPC during a dialog interaction.
+
+**Request:**
+```json
+{
+  "type": "dialog_choice_request",
+  "seq": 240,
+  "data": {
+    "npc_entity_id": 5003,
+    "node_id": "start",
+    "choice_index": 0
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `npc_entity_id` | uint32 | Yes | Entity ID of the dialog NPC |
+| `node_id` | string | Yes | Current dialog node ID |
+| `choice_index` | int16 | Yes | Index of the chosen option in the `options` array |
+
+---
+
+### `dialog_choice_response`
+
+Server responds with the result of the dialog choice.
+
+**Success Response (goto_node -- continues dialog):**
+```json
+{
+  "type": "dialog_choice_response",
+  "seq": 240,
+  "data": {
+    "success": true,
+    "action": "goto_node",
+    "node_id": "town_info",
+    "text": "This town was founded many years ago by the great king...",
+    "options": [
+      { "label": "Tell me more", "action": "goto_node", "next_node": "town_history" },
+      { "label": "Back", "action": "goto_node", "next_node": "start" },
+      { "label": "Goodbye", "action": "close" }
+    ]
+  }
+}
+```
+
+**Success Response (open_shop -- transitions to shop):**
+```json
+{
+  "type": "dialog_choice_response",
+  "seq": 241,
+  "data": {
+    "success": true,
+    "action": "open_shop"
+  }
+}
+```
+
+**Success Response (open_bank -- transitions to bank):**
+```json
+{
+  "type": "dialog_choice_response",
+  "seq": 242,
+  "data": {
+    "success": true,
+    "action": "open_bank"
+  }
+}
+```
+
+**Success Response (close -- ends dialog):**
+```json
+{
+  "type": "dialog_choice_response",
+  "seq": 243,
+  "data": {
+    "success": true,
+    "action": "close"
+  }
+}
+```
+
+**Success Response (not_implemented):**
+```json
+{
+  "type": "dialog_choice_response",
+  "seq": 244,
+  "data": {
+    "success": true,
+    "action": "not_implemented"
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "dialog_choice_response",
+  "seq": 240,
+  "data": {
+    "success": false,
+    "error": "Invalid choice index"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether the choice was processed |
+| `action` | string | Result action: `"goto_node"`, `"close"`, `"open_shop"`, `"open_bank"`, `"not_implemented"` |
+| `node_id` | string | New dialog node ID (only for `"goto_node"`) |
+| `text` | string | Dialog text for the new node (only for `"goto_node"`) |
+| `options` | array | Array of dialog option objects (only for `"goto_node"`, see Dialog Option Object) |
+| `error` | string | Error message (on failure) |
+
+**Possible Errors:**
+- `Invalid choice index`
+- `Invalid node`
+- `NPC not found`
+- `Not in range`
+- `No active dialog`
 
 ---
 

@@ -74,6 +74,8 @@ set(REGISTRY_SOURCES
     src/registry/npc_registry.cpp
     src/registry/magic_registry.cpp
     src/registry/loot_registry.cpp
+    src/registry/shop_registry.cpp
+    src/registry/dialog_registry.cpp
 )
 
 set(NETWORK_SOURCES
@@ -316,6 +318,9 @@ add_executable(hgserver_tests
     tests/test_effect.cpp
     tests/test_death_respawn.cpp
     tests/test_integration.cpp
+    tests/test_shop_pricing.cpp
+    tests/test_shop_registry.cpp
+    tests/test_dialog_registry.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

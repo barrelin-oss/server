@@ -385,9 +385,8 @@ void broadcast_item_removal(const handler_context& ctx, const player::player& pi
         return;
     }
 
-    // Get players in visibility range
-    constexpr int visibility_radius = 20;
-    auto nearby = player_sys->get_players_in_range(ctx.player, visibility_radius);
+    // Get players who can see this position
+    auto nearby = player_sys->get_players_who_can_see(picker.current_map, picker.pos);
 
     // Build del_dynamic_object notification
     protocol::message_writer notify_msg;

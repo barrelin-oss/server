@@ -752,7 +752,7 @@ auto player_system::get_players_who_can_see(map_id map,
 {
     std::vector<player_id> result;
 
-    // Use max possible visibility range to get candidates
+    // Use max possible visibility range to get candidates from spatial index
     constexpr int max_visibility = 100;  // Support high resolution displays
     auto candidates = get_players_on_map_in_range(map, pos, max_visibility);
 
@@ -760,11 +760,18 @@ auto player_system::get_players_who_can_see(map_id map,
         auto* p = get_player(pid);
         if (!p) continue;
 
-        // Check if THIS player can see the position (one-way visibility)
-        if (pos.chebyshev_distance(p->pos) <= p->visibility_radius) {
+        // Admin sees_all bypasses distance check; normal players use their visibility_radius
+        if (p->sees_all || pos.chebyshev_distance(p->pos) <= p->visibility_radius) {
             result.push_back(pid);
         }
     }
+
+    // Find sees_all admins on this map who are beyond the spatial query range
+    auto far_admins = find_players_if([&](const player& p) {
+        return p.sees_all && p.current_map == map
+            && pos.chebyshev_distance(p.pos) > max_visibility;
+    });
+    result.insert(result.end(), far_admins.begin(), far_admins.end());
 
     return result;
 }

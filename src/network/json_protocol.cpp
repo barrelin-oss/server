@@ -109,7 +109,23 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"player_death_info", json_message_type::player_death_info},
     {"hunger_update", json_message_type::hunger_update},
     {"entity_info_request", json_message_type::entity_info_request},
-    {"entity_info_response", json_message_type::entity_info_response}
+    {"entity_info_response", json_message_type::entity_info_response},
+    {"shop_buy_request", json_message_type::shop_buy_request},
+    {"shop_buy_response", json_message_type::shop_buy_response},
+    {"shop_sell_request", json_message_type::shop_sell_request},
+    {"shop_sell_response", json_message_type::shop_sell_response},
+    {"shop_sell_confirm_request", json_message_type::shop_sell_confirm_request},
+    {"shop_sell_confirm_response", json_message_type::shop_sell_confirm_response},
+    {"shop_repair_request", json_message_type::shop_repair_request},
+    {"shop_repair_response", json_message_type::shop_repair_response},
+    {"shop_repair_confirm_request", json_message_type::shop_repair_confirm_request},
+    {"shop_repair_confirm_response", json_message_type::shop_repair_confirm_response},
+    {"bank_deposit_request", json_message_type::bank_deposit_request},
+    {"bank_deposit_response", json_message_type::bank_deposit_response},
+    {"bank_withdraw_request", json_message_type::bank_withdraw_request},
+    {"bank_withdraw_response", json_message_type::bank_withdraw_response},
+    {"dialog_choice_request", json_message_type::dialog_choice_request},
+    {"dialog_choice_response", json_message_type::dialog_choice_response}
 };
 
 }  // namespace
@@ -1843,6 +1859,326 @@ auto make_entity_info_response(uint32_t seq, bool success,
         .type = json_message_type::entity_info_response,
         .seq = seq,
         .data = std::move(response_data)
+    };
+}
+
+// === NPC Interaction: from_json implementations ===
+
+auto shop_buy_request_data::from_json(const nlohmann::json& j) -> result<shop_buy_request_data, std::string> {
+    shop_buy_request_data data;
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+        return result<shop_buy_request_data, std::string>::err("Missing npc_entity_id");
+    }
+    data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (!j.contains("item_template_id") || !j["item_template_id"].is_number()) {
+        return result<shop_buy_request_data, std::string>::err("Missing item_template_id");
+    }
+    data.item_template_id = j["item_template_id"].get<uint32_t>();
+
+    if (j.contains("count") && j["count"].is_number()) {
+        data.count = static_cast<int16_t>(j["count"].get<int>());
+    }
+    return result<shop_buy_request_data, std::string>::ok(std::move(data));
+}
+
+auto shop_sell_request_data::from_json(const nlohmann::json& j) -> result<shop_sell_request_data, std::string> {
+    shop_sell_request_data data;
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+        return result<shop_sell_request_data, std::string>::err("Missing npc_entity_id");
+    }
+    data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+        return result<shop_sell_request_data, std::string>::err("Missing inventory_slot");
+    }
+    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+
+    if (j.contains("count") && j["count"].is_number()) {
+        data.count = static_cast<int16_t>(j["count"].get<int>());
+    }
+    return result<shop_sell_request_data, std::string>::ok(std::move(data));
+}
+
+auto shop_sell_confirm_request_data::from_json(const nlohmann::json& j) -> result<shop_sell_confirm_request_data, std::string> {
+    shop_sell_confirm_request_data data;
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+        return result<shop_sell_confirm_request_data, std::string>::err("Missing npc_entity_id");
+    }
+    data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+        return result<shop_sell_confirm_request_data, std::string>::err("Missing inventory_slot");
+    }
+    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+
+    if (j.contains("count") && j["count"].is_number()) {
+        data.count = static_cast<int16_t>(j["count"].get<int>());
+    }
+    return result<shop_sell_confirm_request_data, std::string>::ok(std::move(data));
+}
+
+auto shop_repair_request_data::from_json(const nlohmann::json& j) -> result<shop_repair_request_data, std::string> {
+    shop_repair_request_data data;
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+        return result<shop_repair_request_data, std::string>::err("Missing npc_entity_id");
+    }
+    data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+        return result<shop_repair_request_data, std::string>::err("Missing inventory_slot");
+    }
+    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+    return result<shop_repair_request_data, std::string>::ok(std::move(data));
+}
+
+auto shop_repair_confirm_request_data::from_json(const nlohmann::json& j) -> result<shop_repair_confirm_request_data, std::string> {
+    shop_repair_confirm_request_data data;
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+        return result<shop_repair_confirm_request_data, std::string>::err("Missing npc_entity_id");
+    }
+    data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+        return result<shop_repair_confirm_request_data, std::string>::err("Missing inventory_slot");
+    }
+    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+    return result<shop_repair_confirm_request_data, std::string>::ok(std::move(data));
+}
+
+auto bank_deposit_request_data::from_json(const nlohmann::json& j) -> result<bank_deposit_request_data, std::string> {
+    bank_deposit_request_data data;
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+        return result<bank_deposit_request_data, std::string>::err("Missing npc_entity_id");
+    }
+    data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+        return result<bank_deposit_request_data, std::string>::err("Missing inventory_slot");
+    }
+    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+    return result<bank_deposit_request_data, std::string>::ok(std::move(data));
+}
+
+auto bank_withdraw_request_data::from_json(const nlohmann::json& j) -> result<bank_withdraw_request_data, std::string> {
+    bank_withdraw_request_data data;
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+        return result<bank_withdraw_request_data, std::string>::err("Missing npc_entity_id");
+    }
+    data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (!j.contains("bank_slot") || !j["bank_slot"].is_number()) {
+        return result<bank_withdraw_request_data, std::string>::err("Missing bank_slot");
+    }
+    data.bank_slot = static_cast<int16_t>(j["bank_slot"].get<int>());
+    return result<bank_withdraw_request_data, std::string>::ok(std::move(data));
+}
+
+auto dialog_choice_request_data::from_json(const nlohmann::json& j) -> result<dialog_choice_request_data, std::string> {
+    dialog_choice_request_data data;
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+        return result<dialog_choice_request_data, std::string>::err("Missing npc_entity_id");
+    }
+    data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (j.contains("node_id") && j["node_id"].is_string()) {
+        data.node_id = j["node_id"].get<std::string>();
+    }
+    if (j.contains("choice_index") && j["choice_index"].is_number()) {
+        data.choice_index = static_cast<int16_t>(j["choice_index"].get<int>());
+    }
+    return result<dialog_choice_request_data, std::string>::ok(std::move(data));
+}
+
+// === NPC Interaction: builder implementations ===
+
+auto make_shop_buy_response(uint32_t seq, bool success,
+                             std::string_view item_name,
+                             int16_t count,
+                             int32_t price_paid,
+                             int64_t gold_remaining,
+                             std::optional<std::string_view> error) -> json_message {
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["item_name"] = std::string(item_name);
+        data["count"] = count;
+        data["price_paid"] = price_paid;
+        data["gold_remaining"] = gold_remaining;
+    }
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::shop_buy_response,
+        .seq = seq,
+        .data = std::move(data)
+    };
+}
+
+auto make_shop_sell_response(uint32_t seq, bool success,
+                              std::string_view item_name,
+                              int32_t offered_price,
+                              int16_t durability,
+                              std::optional<std::string_view> error) -> json_message {
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["item_name"] = std::string(item_name);
+        data["offered_price"] = offered_price;
+        data["durability"] = durability;
+    }
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::shop_sell_response,
+        .seq = seq,
+        .data = std::move(data)
+    };
+}
+
+auto make_shop_sell_confirm_response(uint32_t seq, bool success,
+                                      int32_t gold_received,
+                                      int64_t gold_total,
+                                      std::optional<std::string_view> error) -> json_message {
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["gold_received"] = gold_received;
+        data["gold_total"] = gold_total;
+    }
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::shop_sell_confirm_response,
+        .seq = seq,
+        .data = std::move(data)
+    };
+}
+
+auto make_shop_repair_response(uint32_t seq, bool success,
+                                std::string_view item_name,
+                                int32_t repair_cost,
+                                int16_t durability,
+                                std::optional<std::string_view> error) -> json_message {
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["item_name"] = std::string(item_name);
+        data["repair_cost"] = repair_cost;
+        data["durability"] = durability;
+    }
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::shop_repair_response,
+        .seq = seq,
+        .data = std::move(data)
+    };
+}
+
+auto make_shop_repair_confirm_response(uint32_t seq, bool success,
+                                        int16_t new_durability,
+                                        int32_t gold_spent,
+                                        int64_t gold_remaining,
+                                        std::optional<std::string_view> error) -> json_message {
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["new_durability"] = new_durability;
+        data["gold_spent"] = gold_spent;
+        data["gold_remaining"] = gold_remaining;
+    }
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::shop_repair_confirm_response,
+        .seq = seq,
+        .data = std::move(data)
+    };
+}
+
+auto make_bank_deposit_response(uint32_t seq, bool success,
+                                 std::string_view item_name,
+                                 std::optional<std::string_view> error) -> json_message {
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["item_name"] = std::string(item_name);
+    }
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::bank_deposit_response,
+        .seq = seq,
+        .data = std::move(data)
+    };
+}
+
+auto make_bank_withdraw_response(uint32_t seq, bool success,
+                                  std::string_view item_name,
+                                  std::optional<std::string_view> error) -> json_message {
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["item_name"] = std::string(item_name);
+    }
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::bank_withdraw_response,
+        .seq = seq,
+        .data = std::move(data)
+    };
+}
+
+auto dialog_option_msg::to_json() const -> nlohmann::json {
+    nlohmann::json j;
+    j["label"] = label;
+    j["action"] = action;
+    if (!next_node.empty()) {
+        j["next_node"] = next_node;
+    }
+    return j;
+}
+
+auto make_dialog_choice_response(uint32_t seq, bool success,
+                                  std::string_view action,
+                                  std::string_view node_id,
+                                  std::string_view text,
+                                  const std::vector<dialog_option_msg>& options,
+                                  std::optional<std::string_view> error) -> json_message {
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["action"] = std::string(action);
+        if (!node_id.empty()) {
+            data["node_id"] = std::string(node_id);
+        }
+        if (!text.empty()) {
+            data["text"] = std::string(text);
+        }
+        if (!options.empty()) {
+            auto opts = nlohmann::json::array();
+            for (const auto& opt : options) {
+                opts.push_back(opt.to_json());
+            }
+            data["options"] = std::move(opts);
+        }
+    }
+    if (!success && error.has_value()) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::dialog_choice_response,
+        .seq = seq,
+        .data = std::move(data)
     };
 }
 

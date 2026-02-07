@@ -15,7 +15,11 @@
 #include "npc/npc_system.h"
 #include "npc/npc.h"
 #include "npc/loot_generator.h"
+#include "npc/shop_pricing.h"
 #include "registry/loot_registry.h"
+#include "registry/shop_registry.h"
+#include "registry/dialog_registry.h"
+#include "registry/item_registry.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
 #include "scheduler/scheduler.h"
@@ -47,7 +51,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 inventory::inventory_system* inventory,
                                 item::item_system* item,
                                 scheduler* sched,
-                                loot_registry* loot) {
+                                loot_registry* loot,
+                                shop_registry* shops,
+                                dialog_registry* dialogs) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -59,6 +65,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     item_ = item;
     scheduler_ = sched;
     loot_registry_ = loot;
+    shop_registry_ = shops;
+    dialog_registry_ = dialogs;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -186,6 +194,36 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             break;
         case network::json_message_type::player_interact_request:
             handle_player_interact(conn_id, msg);
+            break;
+
+        // NPC interaction - shops
+        case network::json_message_type::shop_buy_request:
+            handle_shop_buy(conn_id, msg);
+            break;
+        case network::json_message_type::shop_sell_request:
+            handle_shop_sell(conn_id, msg);
+            break;
+        case network::json_message_type::shop_sell_confirm_request:
+            handle_shop_sell_confirm(conn_id, msg);
+            break;
+        case network::json_message_type::shop_repair_request:
+            handle_shop_repair(conn_id, msg);
+            break;
+        case network::json_message_type::shop_repair_confirm_request:
+            handle_shop_repair_confirm(conn_id, msg);
+            break;
+
+        // NPC interaction - banking
+        case network::json_message_type::bank_deposit_request:
+            handle_bank_deposit(conn_id, msg);
+            break;
+        case network::json_message_type::bank_withdraw_request:
+            handle_bank_withdraw(conn_id, msg);
+            break;
+
+        // NPC interaction - dialog
+        case network::json_message_type::dialog_choice_request:
+            handle_dialog_choice(conn_id, msg);
             break;
 
         // Chat
@@ -565,9 +603,8 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     // Send response to attacker
     conn->send(network::make_player_attack_response(msg.seq, true, &result));
 
-    // Broadcast attack to nearby players
-    constexpr int visibility_radius = 20;
-    auto nearby = players_->get_players_in_range(pid, visibility_radius);
+    // Broadcast attack to players who can see the attacker
+    auto nearby = players_->get_players_who_can_see(attacker->current_map, attacker->pos);
 
     // Create broadcast message
     auto broadcast_msg = network::make_combat_attack_broadcast(
@@ -764,11 +801,6 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
     auto* conn = require_in_game(conn_id, msg.seq);
     if (!conn) return;
 
-    if (!players_) {
-        send_error(conn_id, msg.seq, "internal_error", "Player system unavailable");
-        return;
-    }
-
     auto data_result = network::player_interact_request_data::from_json(msg.data);
     if (data_result.is_err()) {
         send_error(conn_id, msg.seq, "invalid_request", data_result.error());
@@ -776,26 +808,808 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
     }
 
     auto& data = data_result.value();
-    auto pid = conn->player();
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.target_id);
+    if (!check.valid) return;
 
-    auto* player = players_->get_player(pid);
-    if (!player) {
-        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+    auto* player = check.plr;
+    auto* target = check.target_npc;
+
+    // Route based on NPC type and available registries
+
+    // 1. Check if NPC has a shop
+    if (shop_registry_) {
+        auto* shop = shop_registry_->get_shop(target->name);
+        if (shop) {
+            // Check territory restriction
+            if (world_) {
+                auto* map = world_->get_map(player->current_map);
+                if (map && !npc::can_buy_in_territory(player->faction, map->location_name())) {
+                    send_error(conn_id, msg.seq, "hostile_territory",
+                        "You cannot trade in hostile territory");
+                    return;
+                }
+            }
+
+            // Build shop item list for client
+            auto* item_reg = subsystems().get<item_registry>();
+            nlohmann::json shop_data;
+            shop_data["shop_type"] = target->name;
+            auto items_array = nlohmann::json::array();
+            for (const auto& entry : shop->items) {
+                nlohmann::json item_json;
+                item_json["item_id"] = entry.item.value;
+                item_json["count"] = entry.default_count;
+                if (item_reg) {
+                    if (auto* tmpl = item_reg->get(entry.item)) {
+                        item_json["name"] = tmpl->name;
+                        item_json["price"] = npc::calculate_buy_price(
+                            tmpl->price, 1, player->base.charisma);
+                        item_json["base_price"] = tmpl->price;
+                    }
+                }
+                items_array.push_back(std::move(item_json));
+            }
+            shop_data["items"] = std::move(items_array);
+
+            network::interact_result_msg result{
+                .success = true,
+                .target_id = data.target_id,
+                .interaction_type = "shop",
+                .interaction_data = std::move(shop_data)
+            };
+            conn->send(network::make_player_interact_response(msg.seq, true, &result));
+            LOG_DEBUG(bridge, "Player {} opened shop at NPC '{}'",
+                player->id.value, target->name);
+            return;
+        }
+    }
+
+    // 2. Check if NPC is a banker/warehouse
+    if (target->category == npc::npc_category::banker ||
+        target->category == npc::npc_category::warehouse) {
+        // Send bank contents
+        nlohmann::json bank_data;
+        bank_data["npc_name"] = target->name;
+
+        auto items_array = nlohmann::json::array();
+        if (inventory_) {
+            auto* bank = inventory_->get_bank(entity_id(player->id.value));
+            if (bank) {
+                for (int16_t i = 0; i < bank->capacity(); ++i) {
+                    auto* slot = bank->get_slot(i);
+                    if (slot && !slot->is_empty()) {
+                        nlohmann::json slot_json;
+                        slot_json["slot"] = i;
+                        slot_json["item_id"] = slot->item.value;
+                        slot_json["count"] = slot->count;
+                        if (item_) {
+                            auto* itm = item_->get_item(slot->item);
+                            if (itm) {
+                                slot_json["name"] = itm->name;
+                                slot_json["durability"] = itm->durability;
+                                slot_json["max_durability"] = itm->max_durability;
+                            }
+                        }
+                        items_array.push_back(std::move(slot_json));
+                    }
+                }
+            }
+        }
+        bank_data["items"] = std::move(items_array);
+
+        network::interact_result_msg result{
+            .success = true,
+            .target_id = data.target_id,
+            .interaction_type = "bank",
+            .interaction_data = std::move(bank_data)
+        };
+        conn->send(network::make_player_interact_response(msg.seq, true, &result));
+        LOG_DEBUG(bridge, "Player {} opened bank at NPC '{}'",
+            player->id.value, target->name);
         return;
     }
 
-    // TODO: Implement actual interaction through npc_system or world_subsystem
-    // Placeholder response
+    // 3. Check if NPC has a dialog tree
+    if (dialog_registry_) {
+        auto* dialog = dialog_registry_->get_dialog(target->name);
+        if (dialog) {
+            auto* start = dialog_registry_->get_node(target->name, dialog->start_node);
+            nlohmann::json dialog_data;
+            dialog_data["npc_name"] = target->name;
+            dialog_data["greeting"] = dialog->greeting;
+            if (start) {
+                dialog_data["node_id"] = start->id;
+                dialog_data["text"] = start->text;
+                auto opts = nlohmann::json::array();
+                for (const auto& opt : start->options) {
+                    nlohmann::json opt_json;
+                    opt_json["label"] = opt.label;
+                    opt_json["action"] = static_cast<int>(opt.action);
+                    if (!opt.next_node.empty()) {
+                        opt_json["next_node"] = opt.next_node;
+                    }
+                    opts.push_back(std::move(opt_json));
+                }
+                dialog_data["options"] = std::move(opts);
+            }
+
+            network::interact_result_msg result{
+                .success = true,
+                .target_id = data.target_id,
+                .interaction_type = "dialog",
+                .interaction_data = std::move(dialog_data)
+            };
+            conn->send(network::make_player_interact_response(msg.seq, true, &result));
+            LOG_DEBUG(bridge, "Player {} opened dialog with NPC '{}'",
+                player->id.value, target->name);
+            return;
+        }
+    }
+
+    // No interaction available
     network::interact_result_msg result{
         .success = false,
         .target_id = data.target_id,
-        .interaction_type = "unknown",
+        .interaction_type = "none",
         .interaction_data = nlohmann::json::object()
     };
+    conn->send(network::make_player_interact_response(msg.seq, false, &result, "npc_no_interaction"));
+    LOG_DEBUG(bridge, "Player {} interact request with NPC '{}' - no interaction available",
+        player->id.value, target->name);
+}
 
-    conn->send(network::make_player_interact_response(msg.seq, false, &result, "not_implemented"));
-    LOG_DEBUG(bridge, "Player {} interact request (target={}, type={})",
-        pid.value, data.target_id, static_cast<int>(data.tgt_type));
+auto game_handlers::validate_npc_interaction(connection_id conn_id, uint32_t seq, uint32_t npc_entity_id)
+    -> npc_interaction_check
+{
+    auto* conn = require_in_game(conn_id, seq);
+    if (!conn) return {.valid = false, .error = "not_in_game"};
+
+    if (!players_ || !npc_) {
+        send_error(conn_id, seq, "internal_error", "Required systems unavailable");
+        return {.valid = false, .error = "internal_error"};
+    }
+
+    auto pid = conn->player();
+    auto* player = players_->get_player(pid);
+    if (!player) {
+        send_error(conn_id, seq, "invalid_player", "Player not found");
+        return {.valid = false, .error = "invalid_player"};
+    }
+
+    auto* target = npc_->get_npc(entity::entity{npc_entity_id});
+    if (!target) {
+        send_error(conn_id, seq, "npc_not_found", "NPC not found");
+        return {.valid = false, .error = "npc_not_found"};
+    }
+
+    if (!target->is_alive()) {
+        send_error(conn_id, seq, "npc_dead", "NPC is dead");
+        return {.valid = false, .error = "npc_dead"};
+    }
+
+    if (!target->is_friendly()) {
+        send_error(conn_id, seq, "npc_hostile", "Cannot interact with hostile NPC");
+        return {.valid = false, .error = "npc_hostile"};
+    }
+
+    // Check range (must be within 3 tiles)
+    if (player->current_map != target->current_map ||
+        player->pos.distance(target->pos) > 3) {
+        send_error(conn_id, seq, "too_far", "NPC is too far away");
+        return {.valid = false, .error = "too_far"};
+    }
+
+    return {.plr = player, .target_npc = target, .valid = true};
+}
+
+void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_message& msg) {
+    auto data_result = network::shop_buy_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    auto& data = data_result.value();
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid) return;
+
+    if (!shop_registry_ || !inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Shop system unavailable");
+        return;
+    }
+
+    auto* shop = shop_registry_->get_shop(check.target_npc->name);
+    if (!shop) {
+        send_error(conn_id, msg.seq, "not_a_shop", "This NPC does not have a shop");
+        return;
+    }
+
+    // Territory check
+    if (world_) {
+        auto* map = world_->get_map(check.plr->current_map);
+        if (map && !npc::can_buy_in_territory(check.plr->faction, map->location_name())) {
+            send_error(conn_id, msg.seq, "hostile_territory", "Cannot buy in hostile territory");
+            return;
+        }
+    }
+
+    // Verify the item is in the shop
+    bool item_in_shop = false;
+    for (const auto& entry : shop->items) {
+        if (entry.item.value == data.item_template_id) {
+            item_in_shop = true;
+            break;
+        }
+    }
+    if (!item_in_shop) {
+        send_error(conn_id, msg.seq, "item_not_in_shop", "Item not available in this shop");
+        return;
+    }
+
+    // Look up item template for price
+    auto* item_reg = subsystems().get<item_registry>();
+    if (!item_reg) {
+        send_error(conn_id, msg.seq, "internal_error", "Item registry unavailable");
+        return;
+    }
+
+    auto* tmpl = item_reg->get(item_id{data.item_template_id});
+    if (!tmpl) {
+        send_error(conn_id, msg.seq, "item_not_found", "Item template not found");
+        return;
+    }
+
+    int16_t count = std::max<int16_t>(data.count, 1);
+    int32_t total_price = npc::calculate_buy_price(tmpl->price, count, check.plr->base.charisma);
+
+    auto owner_id = entity_id(check.plr->id.value);
+
+    // Check gold
+    if (!inventory_->has_gold(owner_id, total_price)) {
+        send_error(conn_id, msg.seq, "insufficient_gold", "Not enough gold");
+        return;
+    }
+
+    // Check inventory space
+    if (inventory_->is_full(owner_id)) {
+        send_error(conn_id, msg.seq, "inventory_full", "Inventory is full");
+        return;
+    }
+
+    // Create the item
+    auto create_result = item_->create_from_template(item_id{data.item_template_id}, count);
+    if (create_result.is_err()) {
+        send_error(conn_id, msg.seq, "create_failed", "Failed to create item");
+        return;
+    }
+
+    auto new_item_id = create_result.value();
+
+    // Add to inventory
+    auto add_result = inventory_->add_item(owner_id, new_item_id, count);
+    if (add_result != inventory::inventory_result::success) {
+        item_->destroy_item(new_item_id);
+        send_error(conn_id, msg.seq, "add_failed", "Failed to add item to inventory");
+        return;
+    }
+
+    // Deduct gold
+    inventory_->remove_gold(owner_id, total_price);
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (conn) {
+        conn->send(network::make_shop_buy_response(msg.seq, true,
+            tmpl->name, count, total_price, inventory_->get_gold(owner_id)));
+    }
+
+    LOG_DEBUG(bridge, "Player {} bought {}x '{}' for {} gold",
+        check.plr->id.value, count, tmpl->name, total_price);
+}
+
+void game_handlers::handle_shop_sell(connection_id conn_id, const network::json_message& msg) {
+    auto data_result = network::shop_sell_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    auto& data = data_result.value();
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid) return;
+
+    if (!shop_registry_ || !inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Shop system unavailable");
+        return;
+    }
+
+    auto* shop = shop_registry_->get_shop(check.target_npc->name);
+    if (!shop) {
+        send_error(conn_id, msg.seq, "not_a_shop", "This NPC does not have a shop");
+        return;
+    }
+
+    auto owner_id = entity_id(check.plr->id.value);
+    auto* inv = inventory_->get_inventory(owner_id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "no_inventory", "No inventory found");
+        return;
+    }
+
+    auto* slot = inv->get_slot(data.inventory_slot);
+    if (!slot || slot->is_empty()) {
+        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        return;
+    }
+
+    auto* itm = item_->get_item(slot->item);
+    if (!itm) {
+        send_error(conn_id, msg.seq, "item_not_found", "Item not found");
+        return;
+    }
+
+    // Check category
+    auto* item_reg = subsystems().get<item_registry>();
+    if (item_reg) {
+        auto* tmpl = item_reg->get(itm->template_id);
+        if (tmpl && !npc::is_category_accepted(*shop, static_cast<uint8_t>(tmpl->category))) {
+            send_error(conn_id, msg.seq, "category_rejected", "Shop does not buy this type of item");
+            return;
+        }
+    }
+
+    // Calculate sell price (quote)
+    bool is_neutral = false;
+    if (world_) {
+        auto* map = world_->get_map(check.plr->current_map);
+        if (map) {
+            is_neutral = npc::is_neutral_territory(map->location_name());
+        }
+    }
+
+    int32_t offered_price = 0;
+    if (itm->is_equipment()) {
+        offered_price = npc::calculate_sell_price_equipment(
+            itm->price, itm->durability, itm->max_durability, is_neutral);
+    } else {
+        offered_price = npc::calculate_sell_price_consumable(
+            itm->price, itm->count, is_neutral);
+    }
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (conn) {
+        conn->send(network::make_shop_sell_response(msg.seq, true,
+            itm->name, offered_price, itm->durability));
+    }
+}
+
+void game_handlers::handle_shop_sell_confirm(connection_id conn_id, const network::json_message& msg) {
+    auto data_result = network::shop_sell_confirm_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    auto& data = data_result.value();
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid) return;
+
+    if (!shop_registry_ || !inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Shop system unavailable");
+        return;
+    }
+
+    auto* shop = shop_registry_->get_shop(check.target_npc->name);
+    if (!shop) {
+        send_error(conn_id, msg.seq, "not_a_shop", "This NPC does not have a shop");
+        return;
+    }
+
+    auto owner_id = entity_id(check.plr->id.value);
+    auto* inv = inventory_->get_inventory(owner_id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "no_inventory", "No inventory found");
+        return;
+    }
+
+    auto* slot = inv->get_slot(data.inventory_slot);
+    if (!slot || slot->is_empty()) {
+        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        return;
+    }
+
+    auto sell_item_id = slot->item;
+    auto* itm = item_->get_item(sell_item_id);
+    if (!itm) {
+        send_error(conn_id, msg.seq, "item_not_found", "Item not found");
+        return;
+    }
+
+    // Recalculate price (don't trust client)
+    bool is_neutral = false;
+    if (world_) {
+        auto* map = world_->get_map(check.plr->current_map);
+        if (map) {
+            is_neutral = npc::is_neutral_territory(map->location_name());
+        }
+    }
+
+    int32_t sell_price = 0;
+    if (itm->is_equipment()) {
+        sell_price = npc::calculate_sell_price_equipment(
+            itm->price, itm->durability, itm->max_durability, is_neutral);
+    } else {
+        sell_price = npc::calculate_sell_price_consumable(
+            itm->price, itm->count, is_neutral);
+    }
+
+    if (sell_price <= 0) {
+        send_error(conn_id, msg.seq, "worthless", "This item has no value");
+        return;
+    }
+
+    // Remove item from inventory
+    inv->clear_slot(data.inventory_slot);
+    item_->destroy_item(sell_item_id);
+
+    // Add gold
+    inventory_->add_gold(owner_id, sell_price);
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (conn) {
+        conn->send(network::make_shop_sell_confirm_response(msg.seq, true,
+            sell_price, inventory_->get_gold(owner_id)));
+    }
+
+    LOG_DEBUG(bridge, "Player {} sold item for {} gold", check.plr->id.value, sell_price);
+}
+
+void game_handlers::handle_shop_repair(connection_id conn_id, const network::json_message& msg) {
+    auto data_result = network::shop_repair_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    auto& data = data_result.value();
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid) return;
+
+    if (!shop_registry_ || !inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Shop system unavailable");
+        return;
+    }
+
+    auto* shop = shop_registry_->get_shop(check.target_npc->name);
+    if (!shop) {
+        send_error(conn_id, msg.seq, "not_a_shop", "This NPC does not have a shop");
+        return;
+    }
+
+    auto owner_id = entity_id(check.plr->id.value);
+    auto* inv = inventory_->get_inventory(owner_id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "no_inventory", "No inventory found");
+        return;
+    }
+
+    auto* slot = inv->get_slot(data.inventory_slot);
+    if (!slot || slot->is_empty()) {
+        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        return;
+    }
+
+    auto* itm = item_->get_item(slot->item);
+    if (!itm) {
+        send_error(conn_id, msg.seq, "item_not_found", "Item not found");
+        return;
+    }
+
+    if (!itm->is_equipment()) {
+        send_error(conn_id, msg.seq, "not_repairable", "This item cannot be repaired");
+        return;
+    }
+
+    // Check if this shop can repair this category
+    auto* item_reg = subsystems().get<item_registry>();
+    if (item_reg) {
+        auto* tmpl = item_reg->get(itm->template_id);
+        if (tmpl && !npc::is_category_repairable(*shop, static_cast<uint8_t>(tmpl->category))) {
+            send_error(conn_id, msg.seq, "cant_repair_type", "Shop cannot repair this type of item");
+            return;
+        }
+    }
+
+    if (itm->durability >= itm->max_durability) {
+        send_error(conn_id, msg.seq, "already_repaired", "Item is already at full durability");
+        return;
+    }
+
+    int32_t repair_cost = npc::calculate_repair_cost(itm->price, itm->durability, itm->max_durability);
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (conn) {
+        conn->send(network::make_shop_repair_response(msg.seq, true,
+            itm->name, repair_cost, itm->durability));
+    }
+}
+
+void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const network::json_message& msg) {
+    auto data_result = network::shop_repair_confirm_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    auto& data = data_result.value();
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid) return;
+
+    if (!shop_registry_ || !inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Shop system unavailable");
+        return;
+    }
+
+    auto owner_id = entity_id(check.plr->id.value);
+    auto* inv = inventory_->get_inventory(owner_id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "no_inventory", "No inventory found");
+        return;
+    }
+
+    auto* slot = inv->get_slot(data.inventory_slot);
+    if (!slot || slot->is_empty()) {
+        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        return;
+    }
+
+    auto* itm = item_->get_item(slot->item);
+    if (!itm) {
+        send_error(conn_id, msg.seq, "item_not_found", "Item not found");
+        return;
+    }
+
+    if (itm->durability >= itm->max_durability) {
+        send_error(conn_id, msg.seq, "already_repaired", "Item is already at full durability");
+        return;
+    }
+
+    int32_t repair_cost = npc::calculate_repair_cost(itm->price, itm->durability, itm->max_durability);
+
+    if (!inventory_->has_gold(owner_id, repair_cost)) {
+        send_error(conn_id, msg.seq, "insufficient_gold", "Not enough gold");
+        return;
+    }
+
+    // Repair the item
+    item_->repair_item_full(slot->item);
+    inventory_->remove_gold(owner_id, repair_cost);
+
+    // Re-fetch for updated durability
+    itm = item_->get_item(slot->item);
+    int16_t new_dur = itm ? itm->durability : 0;
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (conn) {
+        conn->send(network::make_shop_repair_confirm_response(msg.seq, true,
+            new_dur, repair_cost, inventory_->get_gold(owner_id)));
+    }
+
+    LOG_DEBUG(bridge, "Player {} repaired item for {} gold", check.plr->id.value, repair_cost);
+}
+
+void game_handlers::handle_bank_deposit(connection_id conn_id, const network::json_message& msg) {
+    auto data_result = network::bank_deposit_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    auto& data = data_result.value();
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid) return;
+
+    if (check.target_npc->category != npc::npc_category::banker &&
+        check.target_npc->category != npc::npc_category::warehouse) {
+        send_error(conn_id, msg.seq, "not_a_bank", "This NPC is not a banker");
+        return;
+    }
+
+    if (!inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Inventory system unavailable");
+        return;
+    }
+
+    auto owner_id = entity_id(check.plr->id.value);
+
+    // Get item name before deposit (for response)
+    auto* inv = inventory_->get_inventory(owner_id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "no_inventory", "No inventory found");
+        return;
+    }
+
+    auto* slot = inv->get_slot(data.inventory_slot);
+    if (!slot || slot->is_empty()) {
+        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        return;
+    }
+
+    std::string item_name;
+    if (auto* itm = item_->get_item(slot->item)) {
+        item_name = itm->name;
+    }
+
+    auto result = inventory_->deposit_item(owner_id, data.inventory_slot);
+    if (result != inventory::inventory_result::success) {
+        send_error(conn_id, msg.seq, "deposit_failed", "Failed to deposit item");
+        return;
+    }
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (conn) {
+        conn->send(network::make_bank_deposit_response(msg.seq, true, item_name));
+    }
+
+    LOG_DEBUG(bridge, "Player {} deposited '{}'", check.plr->id.value, item_name);
+}
+
+void game_handlers::handle_bank_withdraw(connection_id conn_id, const network::json_message& msg) {
+    auto data_result = network::bank_withdraw_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    auto& data = data_result.value();
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid) return;
+
+    if (check.target_npc->category != npc::npc_category::banker &&
+        check.target_npc->category != npc::npc_category::warehouse) {
+        send_error(conn_id, msg.seq, "not_a_bank", "This NPC is not a banker");
+        return;
+    }
+
+    if (!inventory_ || !item_) {
+        send_error(conn_id, msg.seq, "internal_error", "Inventory system unavailable");
+        return;
+    }
+
+    auto owner_id = entity_id(check.plr->id.value);
+
+    // Get item name before withdraw (for response)
+    auto* bank = inventory_->get_bank(owner_id);
+    if (!bank) {
+        send_error(conn_id, msg.seq, "no_bank", "No bank storage found");
+        return;
+    }
+
+    auto* slot = bank->get_slot(data.bank_slot);
+    if (!slot || slot->is_empty()) {
+        send_error(conn_id, msg.seq, "empty_slot", "No item in that bank slot");
+        return;
+    }
+
+    std::string item_name;
+    if (auto* itm = item_->get_item(slot->item)) {
+        item_name = itm->name;
+    }
+
+    auto result = inventory_->withdraw_item(owner_id, data.bank_slot);
+    if (result != inventory::inventory_result::success) {
+        std::string error_msg = "Failed to withdraw item";
+        if (result == inventory::inventory_result::inventory_full) {
+            error_msg = "Inventory is full";
+        }
+        send_error(conn_id, msg.seq, "withdraw_failed", error_msg);
+        return;
+    }
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (conn) {
+        conn->send(network::make_bank_withdraw_response(msg.seq, true, item_name));
+    }
+
+    LOG_DEBUG(bridge, "Player {} withdrew '{}'", check.plr->id.value, item_name);
+}
+
+void game_handlers::handle_dialog_choice(connection_id conn_id, const network::json_message& msg) {
+    auto data_result = network::dialog_choice_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    auto& data = data_result.value();
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid) return;
+
+    if (!dialog_registry_) {
+        send_error(conn_id, msg.seq, "internal_error", "Dialog system unavailable");
+        return;
+    }
+
+    auto* dialog = dialog_registry_->get_dialog(check.target_npc->name);
+    if (!dialog) {
+        send_error(conn_id, msg.seq, "no_dialog", "NPC has no dialog");
+        return;
+    }
+
+    auto* node = dialog_registry_->get_node(check.target_npc->name, data.node_id);
+    if (!node) {
+        send_error(conn_id, msg.seq, "invalid_node", "Dialog node not found");
+        return;
+    }
+
+    if (data.choice_index < 0 || data.choice_index >= static_cast<int16_t>(node->options.size())) {
+        send_error(conn_id, msg.seq, "invalid_choice", "Choice index out of range");
+        return;
+    }
+
+    auto& chosen = node->options[static_cast<size_t>(data.choice_index)];
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (!conn) return;
+
+    switch (chosen.action) {
+        case npc::dialog_action::goto_node: {
+            auto* next = dialog_registry_->get_node(check.target_npc->name, chosen.next_node);
+            if (!next) {
+                send_error(conn_id, msg.seq, "invalid_node", "Next dialog node not found");
+                return;
+            }
+            std::vector<network::dialog_option_msg> opts;
+            for (const auto& opt : next->options) {
+                std::string action_str;
+                switch (opt.action) {
+                    case npc::dialog_action::goto_node: action_str = "goto_node"; break;
+                    case npc::dialog_action::close: action_str = "close"; break;
+                    case npc::dialog_action::open_shop: action_str = "open_shop"; break;
+                    case npc::dialog_action::open_bank: action_str = "open_bank"; break;
+                    case npc::dialog_action::open_quests: action_str = "open_quests"; break;
+                    case npc::dialog_action::offer_citizenship: action_str = "offer_citizenship"; break;
+                    case npc::dialog_action::select_crusade_job: action_str = "select_crusade_job"; break;
+                    case npc::dialog_action::claim_rewards: action_str = "claim_rewards"; break;
+                }
+                opts.push_back({opt.label, action_str, opt.next_node});
+            }
+            conn->send(network::make_dialog_choice_response(
+                msg.seq, true, "goto_node", next->id, next->text, opts));
+            break;
+        }
+
+        case npc::dialog_action::close:
+            conn->send(network::make_dialog_choice_response(msg.seq, true, "close"));
+            break;
+
+        case npc::dialog_action::open_shop:
+            // Re-trigger interact to open shop
+            conn->send(network::make_dialog_choice_response(msg.seq, true, "open_shop"));
+            break;
+
+        case npc::dialog_action::open_bank:
+            conn->send(network::make_dialog_choice_response(msg.seq, true, "open_bank"));
+            break;
+
+        case npc::dialog_action::open_quests:
+        case npc::dialog_action::offer_citizenship:
+        case npc::dialog_action::select_crusade_job:
+        case npc::dialog_action::claim_rewards: {
+            // Stub actions - infrastructure is in place for when backend systems are ready
+            std::string action_name;
+            switch (chosen.action) {
+                case npc::dialog_action::open_quests: action_name = "open_quests"; break;
+                case npc::dialog_action::offer_citizenship: action_name = "offer_citizenship"; break;
+                case npc::dialog_action::select_crusade_job: action_name = "select_crusade_job"; break;
+                case npc::dialog_action::claim_rewards: action_name = "claim_rewards"; break;
+                default: action_name = "unknown"; break;
+            }
+            conn->send(network::make_dialog_choice_response(
+                msg.seq, true, "not_implemented", "", "This feature is not yet available."));
+            LOG_DEBUG(bridge, "Player {} triggered stub dialog action '{}'",
+                check.plr->id.value, action_name);
+            break;
+        }
+    }
 }
 
 void game_handlers::broadcast_position_update(player_id moved_player,
@@ -809,9 +1623,8 @@ void game_handlers::broadcast_position_update(player_id moved_player,
     auto* player = players_->get_player(moved_player);
     if (!player) return;
 
-    // Get players in range who can see this movement
-    constexpr int visibility_radius = 20;
-    auto nearby = players_->get_players_in_range(moved_player, visibility_radius);
+    // Get players who can see this movement
+    auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
     auto update_msg = network::make_player_position_update(
         player->ecs_entity.id, x, y, direction, is_running, dest_x, dest_y);
@@ -838,11 +1651,9 @@ void game_handlers::update_entity_visibility(player_id moved_player,
     auto* player = players_->get_player(moved_player);
     if (!player) return;
 
-    constexpr int visibility_radius = 20;
-
-    // Get all players who could possibly be affected
-    // (those who were in range at old position or are in range at new position)
-    auto old_nearby = players_->get_players_in_range(moved_player, visibility_radius + 5);
+    // Get all players who could possibly be affected (use max radius as coarse filter)
+    constexpr int coarse_radius = network::max_visibility_radius + 5;
+    auto old_nearby = players_->get_players_in_range(moved_player, coarse_radius);
 
     // For each player in the expanded range, check visibility changes
     for (auto other_id : old_nearby) {
@@ -851,9 +1662,11 @@ void game_handlers::update_entity_visibility(player_id moved_player,
         auto* other = players_->get_player(other_id);
         if (!other || other->connection.value == 0) continue;
 
-        // Check if this player was visible before and after
-        bool was_visible = old_pos.chebyshev_distance(other->pos) <= visibility_radius;
-        bool is_visible = new_pos.chebyshev_distance(other->pos) <= visibility_radius;
+        // Check if other player could see the moved player at old/new positions
+        // Uses other's visibility_radius (sees_all always sees everything)
+        auto other_range = other->visibility_radius;
+        bool was_visible = other->sees_all || old_pos.chebyshev_distance(other->pos) <= other_range;
+        bool is_visible = other->sees_all || new_pos.chebyshev_distance(other->pos) <= other_range;
 
         auto* other_conn = ws_server_->get_connection(other->connection);
         if (!other_conn || !other_conn->is_open()) continue;
@@ -2031,8 +2844,7 @@ void game_handlers::broadcast_ground_item_removed(player_id picker, map_id map,
     auto msg = network::make_ground_item_removed(data);
 
     // Broadcast to all players who can see this position, EXCEPT the picker
-    constexpr int visibility_radius = 20;
-    auto nearby = players_->get_players_in_range(picker, visibility_radius);
+    auto nearby = players_->get_players_who_can_see(picker_player->current_map, pos);
 
     for (auto other_id : nearby) {
         if (other_id == picker) continue;  // Don't send to the picker (they got the response)

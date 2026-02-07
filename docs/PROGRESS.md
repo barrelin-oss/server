@@ -178,8 +178,8 @@ This document tracks implementation progress for the modernized Helbreath server
 | Behavior trees | ✅ | Custom NPC behavior scripting |
 | NPC loot | ✅ | YAML-driven loot tables, on_kill + on_despawn phases, boss multi-drops |
 | Corpse cleanup | ✅ | 15s linger timer, despawn callback fires body part/rare/boss drops |
-| NPC dialog | ❌ | Conversation trees |
-| Shop NPCs | ❌ | Buy/sell interface |
+| NPC dialog | ✅ | YAML-driven dialog trees with action routing |
+| Shop NPCs | ✅ | Buy/sell/repair with charisma pricing |
 | Quest NPCs | ❌ | Quest givers |
 | Guard NPCs | ❌ | Town protection |
 
@@ -223,11 +223,11 @@ This document tracks implementation progress for the modernized Helbreath server
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Interact handler | 🔄 | Request parsing done, logic TODO |
-| NPC interaction | ❌ | Dialog, shop, bank |
+| Interact handler | ✅ | Request parsing and NPC routing |
+| NPC interaction | ✅ | Dialog trees, shop, bank |
 | Object interaction | ❌ | Doors, chests, etc. |
-| Shop interface | ❌ | Buy/sell transactions |
-| Bank interface | ❌ | Deposit/withdraw UI flow |
+| Shop interface | ✅ | Buy/sell/repair with charisma discount, territory restrictions |
+| Bank interface | ✅ | Deposit/withdraw via NPC dialog action |
 
 ---
 
@@ -392,7 +392,7 @@ Priority order for remaining work toward a playable game:
 1. ~~**Ground Items / Loot Drops**~~ - ✅ NPC loot drops, ground item spawn/despawn, YAML drop tables
 2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
 3. **Combat/Spell Visual Broadcasts** - Damage, effect applied/removed to nearby players
-4. **NPC Interaction** - Dialog, shops, banks
+4. ~~**NPC Interaction**~~ - ✅ Dialog trees, shop buy/sell/repair, bank deposit/withdraw
 5. ~~**Death/Respawn**~~ - ✅ XP penalty, PK tracking, bounty, delayed respawn
 6. ~~**Spell Effects System**~~ - ✅ Duration tracking, group slots, DoT/HoT, stat pipeline
 7. **Ranged Combat** - Bow/crossbow projectiles
@@ -418,6 +418,14 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-07 (d)
+- **NPC Interaction System** - Dialog trees, shop buy/sell/repair, bank deposit/withdraw
+  - YAML-driven shop registry (`shops.yaml`) and dialog registry (`dialogs.yaml`)
+  - Shop pricing with charisma discount, territory restrictions, neutral map penalties
+  - Two-step sell/repair flow (quote then confirm)
+  - Dialog tree navigation with action routing (close, open_shop, open_bank, stub actions for citizenship/crusade/rewards)
+  - 48 new unit tests for pricing, shop registry, and dialog registry
 
 ### 2026-02-07 (c)
 - **Guild Persistence** - Guilds and members persist to PostgreSQL across server restarts, players see guild info on login

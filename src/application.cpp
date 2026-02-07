@@ -12,6 +12,8 @@
 #include "registry/npc_registry.h"
 #include "registry/magic_registry.h"
 #include "registry/loot_registry.h"
+#include "registry/shop_registry.h"
+#include "registry/dialog_registry.h"
 #include "platform/clock.h"
 #include "platform/platform.h"
 
@@ -176,6 +178,8 @@ void application::initialize() {
     subsystems().create_subsystem<npc_registry>();
     subsystems().create_subsystem<magic_registry>();
     subsystems().create_subsystem<loot_registry>();
+    subsystems().create_subsystem<shop_registry>();
+    subsystems().create_subsystem<dialog_registry>();
 
     // Register database subsystem (for self-contained auth)
     auto& db_sys = subsystems().create_subsystem<database::database_system>();
@@ -358,7 +362,9 @@ void application::initialize() {
             subsystems().get<inventory::inventory_system>(),
             subsystems().get<item::item_system>(),
             subsystems().get<scheduler>(),
-            subsystems().get<loot_registry>()
+            subsystems().get<loot_registry>(),
+            subsystems().get<shop_registry>(),
+            subsystems().get<dialog_registry>()
         );
 
         // Set save callback for death penalty persistence
@@ -401,6 +407,15 @@ void application::initialize() {
                 case network::json_message_type::set_view_range:
                 // Entity info
                 case network::json_message_type::entity_info_request:
+                // NPC interaction
+                case network::json_message_type::shop_buy_request:
+                case network::json_message_type::shop_sell_request:
+                case network::json_message_type::shop_sell_confirm_request:
+                case network::json_message_type::shop_repair_request:
+                case network::json_message_type::shop_repair_confirm_request:
+                case network::json_message_type::bank_deposit_request:
+                case network::json_message_type::bank_withdraw_request:
+                case network::json_message_type::dialog_choice_request:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -796,6 +811,38 @@ void application::load_game_configs() {
             }
         } else {
             LOG_INFO(general, "No spawn_tables.yaml found (using legacy random_mob_generator)");
+        }
+    }
+
+    // Load shop configs
+    auto* shops = subsystems().get<shop_registry>();
+    if (shops) {
+        auto shops_yaml = config_dir / "shops.yaml";
+        if (std::filesystem::exists(shops_yaml)) {
+            auto result = shops->load_from_file(shops_yaml);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} shops from shops.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load shops.yaml: {}", result.error());
+            }
+        } else {
+            LOG_INFO(general, "No shops.yaml found (NPC shops will be disabled)");
+        }
+    }
+
+    // Load dialog configs
+    auto* dialogs = subsystems().get<dialog_registry>();
+    if (dialogs) {
+        auto dialogs_yaml = config_dir / "dialogs.yaml";
+        if (std::filesystem::exists(dialogs_yaml)) {
+            auto result = dialogs->load_from_file(dialogs_yaml);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} dialogs from dialogs.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load dialogs.yaml: {}", result.error());
+            }
+        } else {
+            LOG_INFO(general, "No dialogs.yaml found (NPC dialogs will be disabled)");
         }
     }
 

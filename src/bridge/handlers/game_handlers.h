@@ -24,6 +24,7 @@ namespace hb::network {
 
 namespace hb::player {
     class player_system;
+    struct player;
 }
 
 namespace hb::world {
@@ -60,6 +61,8 @@ namespace hb::item {
 
 namespace hb {
     class loot_registry;
+    class shop_registry;
+    class dialog_registry;
 }
 
 namespace hb::bridge {
@@ -85,7 +88,9 @@ public:
                     inventory::inventory_system* inventory = nullptr,
                     item::item_system* item = nullptr,
                     scheduler* sched = nullptr,
-                    loot_registry* loot = nullptr);
+                    loot_registry* loot = nullptr,
+                    shop_registry* shops = nullptr,
+                    dialog_registry* dialogs = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -106,6 +111,30 @@ private:
     void handle_player_skill(connection_id conn_id, const network::json_message& msg);
     void handle_player_pickup(connection_id conn_id, const network::json_message& msg);
     void handle_player_interact(connection_id conn_id, const network::json_message& msg);
+
+    // NPC interaction - shops
+    void handle_shop_buy(connection_id conn_id, const network::json_message& msg);
+    void handle_shop_sell(connection_id conn_id, const network::json_message& msg);
+    void handle_shop_sell_confirm(connection_id conn_id, const network::json_message& msg);
+    void handle_shop_repair(connection_id conn_id, const network::json_message& msg);
+    void handle_shop_repair_confirm(connection_id conn_id, const network::json_message& msg);
+
+    // NPC interaction - banking
+    void handle_bank_deposit(connection_id conn_id, const network::json_message& msg);
+    void handle_bank_withdraw(connection_id conn_id, const network::json_message& msg);
+
+    // NPC interaction - dialog
+    void handle_dialog_choice(connection_id conn_id, const network::json_message& msg);
+
+    // NPC interaction helper - validates NPC exists, is in range, and is friendly
+    struct npc_interaction_check {
+        player::player* plr{nullptr};
+        npc::npc* target_npc{nullptr};
+        bool valid{false};
+        std::string error;
+    };
+    auto validate_npc_interaction(connection_id conn_id, uint32_t seq, uint32_t npc_entity_id)
+        -> npc_interaction_check;
 
     // Chat
     void handle_chat_message(connection_id conn_id, const network::json_message& msg);
@@ -216,6 +245,8 @@ private:
     item::item_system* item_{nullptr};
     scheduler* scheduler_{nullptr};
     loot_registry* loot_registry_{nullptr};
+    shop_registry* shop_registry_{nullptr};
+    dialog_registry* dialog_registry_{nullptr};
     save_player_callback save_callback_;
 };
 

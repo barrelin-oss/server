@@ -160,8 +160,7 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
         if (players_ && ws_server_) {
             auto* player = players_->get_player(pid);
             if (player) {
-                constexpr int visibility_radius = 20;
-                auto nearby = players_->get_players_in_range(pid, visibility_radius);
+                auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
                 auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
 
@@ -376,7 +375,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     auto& data = data_result.value();
     auto char_id = player_id{data.character_id};
 
-    // Calculate initial visibility radius from screen resolution
+    // Calculate initial visibility radius from client viewport
     int16_t visibility_radius = network::calculate_visibility_radius(data.screen_width, data.screen_height);
 
     LOG_DEBUG(bridge, "Enter game request for character {} by account {}",
@@ -432,9 +431,11 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             // Save state before cleanup
             save_player_state(existing_player_id);
 
-            // Notify nearby players of despawn
-            constexpr int despawn_visibility = 20;
-            auto nearby = players_->get_players_in_range(existing_player_id, despawn_visibility);
+            // Notify nearby players of despawn (re-fetch in case save_player_state invalidated pointer)
+            existing_player = players_->get_player(existing_player_id);
+            auto nearby = existing_player
+                ? players_->get_players_who_can_see(existing_player->current_map, existing_player->pos)
+                : std::vector<player_id>{};
             auto despawn_msg = network::make_entity_despawn(0, existing_player_id.value);
 
             for (auto other_id : nearby) {
@@ -916,8 +917,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     if (players_ && ws_server_) {
         auto* player = players_->get_player(live_player_id);
         if (player) {
-            constexpr int spawn_visibility = 20;
-            auto nearby = players_->get_players_in_range(live_player_id, spawn_visibility);
+            auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
             // Build spawn message for this player
             auto spawn_entity = network::visible_entity_msg{
@@ -959,9 +959,8 @@ auto auth_handlers::build_visible_entities(player_id player_id)
     auto* player = players_->get_player(player_id);
     if (!player) return entities;
 
-    // Get players in range (default visibility radius of 20 tiles)
-    constexpr int visibility_radius = 20;
-    auto nearby_players = players_->get_players_in_range(player_id, visibility_radius);
+    // Get players within this player's visibility radius
+    auto nearby_players = players_->get_players_in_range(player_id, player->visibility_radius);
 
     for (auto other_id : nearby_players) {
         if (other_id == player_id) continue;  // Skip self
@@ -987,7 +986,7 @@ auto auth_handlers::build_visible_entities(player_id player_id)
             if (n.ai_state.state == npc::ai_state::dead) return;
 
             // Check if NPC is within visibility radius
-            if (player->pos.chebyshev_distance(n.pos) > visibility_radius) return;
+            if (player->pos.chebyshev_distance(n.pos) > player->visibility_radius) return;
 
             entities.push_back(network::visible_entity_msg{
                 .entity_id = id.id,
@@ -1221,8 +1220,7 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
     if (players_ && ws_server_) {
         auto* player = players_->get_player(pid);
         if (player) {
-            constexpr int visibility_radius = 20;
-            auto nearby = players_->get_players_in_range(pid, visibility_radius);
+            auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
             auto despawn_msg = network::make_entity_despawn(0, pid.value);
 

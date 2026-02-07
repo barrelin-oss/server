@@ -145,6 +145,11 @@ struct game_config {
     bool enemy_kill_mode = false;
     int enemy_kill_adjust = 0;
 
+    // View mode / fair resolution (default for all maps)
+    uint8_t default_view_mode = 0;    // 0=scaled, 1=extended, 2=special
+    int16_t fair_width = 800;         // Fair zone width in pixels
+    int16_t fair_height = 600;        // Fair zone height in pixels
+
     // Misc
     uint16_t char_point_limit = 1000;
     uint16_t char_stat_limit = 0;

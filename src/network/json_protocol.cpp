@@ -100,6 +100,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"teleporter_update", json_message_type::teleporter_update},
     {"player_teleport", json_message_type::player_teleport},
     {"set_view_range", json_message_type::set_view_range},
+    {"set_render_mode", json_message_type::set_render_mode},
     {"npc_spawn", json_message_type::npc_spawn},
     {"npc_despawn", json_message_type::npc_despawn},
     {"npc_move", json_message_type::npc_move},
@@ -2353,6 +2354,24 @@ auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data
 auto make_stat_update(const stat_update_data& data) -> json_message {
     return json_message{
         .type = json_message_type::stat_update,
+        .seq = 0,
+        .data = data.to_json()
+    };
+}
+
+// === Render Mode ===
+
+auto render_mode_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"mode", std::string(to_string(mode))},
+        {"fair_width", fair_width},
+        {"fair_height", fair_height}
+    };
+}
+
+auto make_set_render_mode(const render_mode_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::set_render_mode,
         .seq = 0,
         .data = data.to_json()
     };

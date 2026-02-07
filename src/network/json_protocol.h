@@ -107,6 +107,7 @@ enum class json_message_type {
 
     // View/Resolution
     set_view_range,         // Client updates visibility radius
+    set_render_mode,        // Server tells client which rendering mode to use
 
     // NPC messages (server -> client)
     npc_spawn,              // NPC appears in view
@@ -215,6 +216,7 @@ enum class json_message_type {
         case json_message_type::teleporter_update: return "teleporter_update";
         case json_message_type::player_teleport: return "player_teleport";
         case json_message_type::set_view_range: return "set_view_range";
+        case json_message_type::set_render_mode: return "set_render_mode";
         case json_message_type::npc_spawn: return "npc_spawn";
         case json_message_type::npc_despawn: return "npc_despawn";
         case json_message_type::npc_move: return "npc_move";
@@ -1185,6 +1187,49 @@ struct dialog_option_msg {
                                                 std::string_view text = "",
                                                 const std::vector<dialog_option_msg>& options = {},
                                                 std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// === View Mode & Visibility ===
+
+// Rendering mode controlled by the server
+// scaled: fixed internal resolution scaled to display (everyone sees same area)
+// extended: native res, but entities only render within fair zone (terrain visible outside)
+// special: unrestricted native res with zoom (commander/admin)
+enum class view_mode : uint8_t
+{
+    scaled = 0,
+    extended = 1,
+    special = 2
+};
+
+[[nodiscard]] constexpr auto to_string(view_mode mode) -> std::string_view
+{
+    switch (mode)
+    {
+        case view_mode::scaled: return "scaled";
+        case view_mode::extended: return "extended";
+        case view_mode::special: return "special";
+        default: return "scaled";
+    }
+}
+
+[[nodiscard]] inline auto parse_view_mode(std::string_view str) -> view_mode
+{
+    if (str == "extended") return view_mode::extended;
+    if (str == "special") return view_mode::special;
+    return view_mode::scaled;
+}
+
+// Render mode message data (server -> client)
+struct render_mode_data
+{
+    view_mode mode{view_mode::scaled};
+    int16_t fair_width{800};     // Fair zone width in pixels
+    int16_t fair_height{600};    // Fair zone height in pixels
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+[[nodiscard]] auto make_set_render_mode(const render_mode_data& data) -> json_message;
 
 // Visibility range constants
 inline constexpr int16_t min_visibility_radius = 15;

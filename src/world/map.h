@@ -43,6 +43,11 @@ struct map_config {
 
     uint8_t map_type{0};                // 0 = normal, 1 = no penalty/reward
 
+    // View mode override (nullopt = use server default)
+    std::optional<uint8_t> view_mode_override;   // 0=scaled, 1=extended, 2=special
+    std::optional<int16_t> fair_width_override;   // Per-map fair zone width
+    std::optional<int16_t> fair_height_override;  // Per-map fair zone height
+
     // Random mob spawning outside of defined spawners
     random_mob_generator_config random_mob_generator;
 };

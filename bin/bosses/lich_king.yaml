@@ -1,0 +1,47 @@
+# lich_king.yaml
+# Complex 4-phase boss with timer-based transitions and add waves
+name: lich_king
+on_spawn_script: boss_intro
+on_death_script: boss_death
+enrage_enabled: true
+enrage_timer_ms: 600000  # 10 minutes
+
+phases:
+  - name: "Phase 1 - Shadow Bolt"
+    enter_trigger:
+      type: hp_below
+      threshold: 1.0
+    behavior_tree: boss_ranged_with_adds
+    damage_multiplier: 1.0
+    attack_range: 5
+
+  - name: "Phase 2 - Undead Army"
+    enter_trigger:
+      type: hp_below
+      threshold: 0.75
+    on_enter_script: summon_minions
+    behavior_tree: boss_ranged_with_adds
+    damage_multiplier: 1.2
+    defense_multiplier: 1.5
+    aggro_range: 14
+
+  - name: "Phase 3 - Soul Drain"
+    enter_trigger:
+      type: hp_below
+      threshold: 0.4
+    on_enter_script: boss_enrage
+    behavior_tree: boss_melee_aggressive
+    damage_multiplier: 1.8
+    speed_multiplier: 1.3
+    attack_range: 2
+
+  - name: "Phase 4 - Death Incarnate"
+    enter_trigger:
+      type: hp_below
+      threshold: 0.1
+    on_enter_script: boss_enrage
+    behavior_tree: boss_berserk
+    damage_multiplier: 3.0
+    speed_multiplier: 2.0
+    aggro_range: 25
+    attack_range: 3

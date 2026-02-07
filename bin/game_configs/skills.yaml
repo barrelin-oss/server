@@ -1,0 +1,25 @@
+skills:
+  - { id: 0, name: Mining, type: 1, value1: 1, value2: 6 }
+  - { id: 1, name: Fishing, type: 1, value1: 2, value2: 6 }
+  - { id: 2, name: Farming, type: 1, value1: 3, value2: 6 }
+  - { id: 3, name: Magic-Resistance, type: 0 }
+  - { id: 4, name: Magic, type: 0 }
+  - { id: 5, name: Hand-Attack, type: 0 }
+  - { id: 6, name: Archery, type: 0 }
+  - { id: 7, name: Short-Sword, type: 0 }
+  - { id: 8, name: Long-Sword, type: 0 }
+  - { id: 9, name: Fencing, type: 0 }
+  - { id: 10, name: Axe-Attack, type: 0 }
+  - { id: 11, name: Shield, type: 0 }
+  - { id: 12, name: Alchemy, type: 1 }
+  - { id: 13, name: Manufacturing, type: 1, value1: 2 }
+  - { id: 14, name: Hammer, type: 0 }
+  - { id: 15, name: Crafting, type: 1 }
+  - { id: 16, name: ????, type: 1, value1: 1 }
+  - { id: 17, name: ????, type: 1 }
+  - { id: 18, name: ????, type: 1, value1: 1 }
+  - { id: 19, name: Pretend-Corpse, type: 2, value1: 1 }
+  - { id: 20, name: ????, type: 1, value1: 1 }
+  - { id: 21, name: Staff-Attack, type: 0 }
+  - { id: 22, name: ????, type: 1, value1: 2 }
+  - { id: 23, name: Poison-Resistance, type: 1 }

@@ -1,0 +1,39 @@
+# ice_queen.yaml
+# Ranged caster boss that summons adds at 50%, goes berserk at 15%
+name: ice_queen
+on_spawn_script: boss_intro
+on_death_script: boss_death
+enrage_enabled: true
+enrage_timer_ms: 420000  # 7 minutes
+
+phases:
+  - name: "Phase 1 - Frost Barrage"
+    enter_trigger:
+      type: hp_below
+      threshold: 1.0
+    behavior_tree: boss_ranged_with_adds
+    damage_multiplier: 1.0
+    speed_multiplier: 0.8
+    aggro_range: 12
+    attack_range: 6
+
+  - name: "Phase 2 - Ice Storm"
+    enter_trigger:
+      type: hp_below
+      threshold: 0.5
+    on_enter_script: summon_minions
+    behavior_tree: boss_ranged_with_adds
+    damage_multiplier: 1.5
+    speed_multiplier: 1.0
+    defense_multiplier: 1.3
+    aggro_range: 16
+
+  - name: "Phase 3 - Shatter"
+    enter_trigger:
+      type: hp_below
+      threshold: 0.15
+    on_enter_script: boss_enrage
+    behavior_tree: boss_berserk
+    damage_multiplier: 2.5
+    speed_multiplier: 1.8
+    attack_range: 2

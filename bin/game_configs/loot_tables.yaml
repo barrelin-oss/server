@@ -1,0 +1,988 @@
+# loot_tables.yaml
+# NPC loot configuration - all drop pools and per-NPC loot configs
+#
+# Pools: Named collections of weighted items. Higher weight = more likely.
+# Loot: Per-sprite_id config with on_kill and on_despawn phases.
+#   - chance: per 10000 (e.g., 2100 = 21%)
+#   - gold_chance: per 10000, gold amount comes from NPC template
+#   - multi_drop: boss corpse despawn drops N iterations of the pool rolls
+#
+# Legacy effective rates (from nested dice):
+#   Gold: 35% * 60% = 21% -> gold_chance: 2100
+#   Standard item: 35% * 40% * 90% = 12.6% -> chance: 1260
+#   Melee weapon: 35% * 40% * 10% * 60% * 80% = 0.672% -> chance: 67
+#   Wand: 35% * 40% * 10% * 60% * 20% = 0.168% -> chance: 17
+#   Armor: 35% * 40% * 10% * 40% = 0.56% -> chance: 56
+
+pools:
+  # === Standard drops (potions, consumables, ultra-rares) ===
+  potions:
+    - { item: 95, weight: 3000 }    # GreenPotion
+    - { item: 91, weight: 1000 }    # RedPotion
+    - { item: 93, weight: 1500 }    # BluePotion
+    - { item: 96, weight: 1500 }    # BigGreenPotion
+    - { item: 92, weight: 1500 }    # BigRedPotion
+    - { item: 94, weight: 700 }     # BigBluePotion
+    - { item: 390, weight: 100 }    # PowerGreenPotion
+    - { item: 780, weight: 100 }    # RedCandy
+    - { item: 781, weight: 100 }    # BlueCandy
+    - { item: 782, weight: 100 }    # GreenCandy
+    - { item: 970, weight: 100 }    # CritCandy
+    - { item: 391, weight: 20 }     # SuperGreenPotion
+    - { item: 650, weight: 20 }     # Zemstone of Sacrifice
+    - { item: 656, weight: 20 }     # Xelima Stone
+    - { item: 657, weight: 20 }     # Merien Stone
+    - { item: 868, weight: 20 }     # AncientTablet(LU)
+    - { item: 869, weight: 20 }     # AncientTablet(LD)
+    - { item: 870, weight: 20 }     # AncientTablet(RU)
+    - { item: 871, weight: 20 }     # AncientTablet(RD)
+    - { item: 651, weight: 4 }      # GreenBall
+    - { item: 652, weight: 4 }      # RedBall
+    - { item: 653, weight: 4 }      # YellowBall
+    - { item: 654, weight: 4 }      # BlueBall
+    - { item: 655, weight: 4 }      # PearlBall
+
+  # === Melee weapon tiers ===
+  melee_tier1:  # Slime, Giant-Ant, Amphis, Rabbit, Cat
+    - { item: 1, weight: 1 }        # Dagger
+    - { item: 8, weight: 1 }        # ShortSword
+    - { item: 59, weight: 1 }       # LightAxe
+
+  melee_tier2:  # Skeleton, Orc, Scorpion, Zombie
+    - { item: 12, weight: 1 }       # MainGauche
+    - { item: 15, weight: 1 }       # Gradius
+    - { item: 65, weight: 1 }       # SexonAxe
+    - { item: 62, weight: 1 }       # Tomahawk
+    - { item: 23, weight: 1 }       # Sabre
+    - { item: 31, weight: 1 }       # Esterk
+
+  melee_tier3:  # Stone-Golem, Clay-Golem
+    - { item: 50, weight: 1 }       # GreatSword
+    - { item: 68, weight: 1 }       # DoubleAxe
+    - { item: 23, weight: 1 }       # Sabre
+    - { item: 31, weight: 1 }       # Esterk
+
+  melee_tier4:  # Hellbound, Rudolph
+    - { item: 25, weight: 1 }       # Scimitar
+    - { item: 28, weight: 1 }       # Falchion
+    - { item: 31, weight: 1 }       # Esterk
+    - { item: 34, weight: 1 }       # Rapier
+    - { item: 71, weight: 1 }       # WarAxe
+
+  melee_tier5:  # Cyclops, Troll, Beholder, etc.
+    - { item: 31, weight: 1 }       # Esterk
+    - { item: 34, weight: 1 }       # Rapier
+    - { item: 72, weight: 1 }       # WarAxe+1
+    - { item: 844, weight: 1 }      # BlackShadowSword
+
+  melee_tier6:  # Ogre, WereWolf, Stalker, Dark-Elf, Ice-Golem, Minotaurus
+    - { item: 47, weight: 1 }       # Claymore+1
+    - { item: 51, weight: 1 }       # GreatSword+1
+    - { item: 55, weight: 1 }       # Flameberge+1
+    - { item: 34, weight: 1 }       # GiantSword
+    - { item: 74, weight: 1 }       # GoldenAxe
+    - { item: 848, weight: 1 }      # HolyBlade
+    - { item: 924, weight: 1 }      # MageSword
+
+  melee_tier7:  # Liche, Frost, Barlog, Centaurus, Nizie
+    - { item: 47, weight: 1 }       # Claymore+1
+    - { item: 50, weight: 1 }       # GreatSword
+    - { item: 54, weight: 1 }       # Flameberge+1
+    - { item: 74, weight: 1 }       # GoldenAxe
+    - { item: 850, weight: 1 }      # KlonessAxe
+    - { item: 923, weight: 1 }      # BMageSword
+
+  melee_tier8:  # Demon, Unicorn, Hellclaw, Tigerworm, Gagoyle
+    - { item: 50, weight: 1 }       # GreatSword
+    - { item: 560, weight: 1 }      # BattleAxe
+    - { item: 615, weight: 1 }      # GiantSword
+    - { item: 56, weight: 1 }       # Flameberge+2
+    - { item: 846, weight: 1 }      # The_Devastator
+
+  melee_tier9:  # Mountain-Giant
+    - { item: 55, weight: 1 }       # Flameberge+1
+    - { item: 615, weight: 1 }      # GiantSword
+    - { item: 761, weight: 1 }      # BattleHammer
+    - { item: 762, weight: 1 }      # GiantBattleHammer
+    - { item: 857, weight: 1 }      # I.M.C Manual
+
+  melee_tier10:  # Ettin, MasterMage-Orc, Giant-Lizard
+    - { item: 50, weight: 1 }       # GreatSword
+    - { item: 51, weight: 1 }       # GreatSword+1
+    - { item: 55, weight: 1 }       # Flameberge+1
+    - { item: 56, weight: 1 }       # Flameberge+2
+    - { item: 615, weight: 1 }      # GiantSword
+    - { item: 761, weight: 1 }      # BattleHammer
+    - { item: 762, weight: 1 }      # GiantBattleHammer
+    - { item: 843, weight: 1 }      # BarbarianHammer
+    - { item: 853, weight: 1 }      # E.S.W Manual
+
+  # === Wand tiers ===
+  wand_tier2:
+    - { item: 258, weight: 1 }      # MagicWand(MS20)
+
+  wand_tier4:
+    - { item: 257, weight: 1 }      # MagicWand(MS20)
+
+  wand_tier7:
+    - { item: 256, weight: 1 }      # MagicWand(MS20)
+
+  # === Armor tiers ===
+  armor_tier1:  # Slime, Giant-Ant, Amphis, Rabbit, Cat + Skeleton, Orc, Scorpion, Zombie
+    - { item: 79, weight: 1 }       # WoodShield
+    - { item: 81, weight: 1 }       # TargeShield
+
+  armor_tier3:  # Stone-Golem, Clay-Golem
+    - { item: 85, weight: 1 }       # LagiShield
+    - { item: 454, weight: 1 }      # Hauberk(M)
+    - { item: 472, weight: 1 }      # Hauberk(W)
+    - { item: 461, weight: 1 }      # ChainHose(M)
+    - { item: 482, weight: 1 }      # ChainHose(W)
+
+  armor_tier4:  # Hellbound, Rudolph
+    - { item: 454, weight: 1 }      # Hauberk(M)
+    - { item: 472, weight: 1 }      # Hauberk(W)
+    - { item: 461, weight: 1 }      # ChainHose(M)
+    - { item: 482, weight: 1 }      # ChainHose(W)
+    - { item: 86, weight: 1 }       # KnightShield
+
+  armor_tier5:  # Cyclops, Troll, Beholder, etc.
+    - { item: 455, weight: 1 }      # LeatherArmor(M)
+    - { item: 475, weight: 1 }      # LeatherArmor(W)
+    - { item: 87, weight: 1 }       # TowerShield
+    - { item: 454, weight: 1 }      # Hauberk(M)
+    - { item: 472, weight: 1 }      # Hauberk(W)
+    - { item: 461, weight: 1 }      # ChainHose(M)
+    - { item: 482, weight: 1 }      # ChainHose(W)
+
+  armor_tier6:  # Ogre, WereWolf, Stalker, Dark-Elf, Ice-Golem, Minotaurus
+    - { item: 456, weight: 1 }      # ChainMail(M)
+    - { item: 476, weight: 1 }      # ChainMail(W)
+    - { item: 458, weight: 1 }      # PlateMail(M)
+    - { item: 478, weight: 1 }      # PlateMail(W)
+    - { item: 87, weight: 1 }       # TowerShield
+    - { item: 750, weight: 1 }      # Horned-Helm(M)
+    - { item: 751, weight: 1 }      # Wings-Helm(M)
+    - { item: 754, weight: 1 }      # Horned-Helm(W)
+    - { item: 755, weight: 1 }      # Wings-Helm(W)
+    - { item: 752, weight: 1 }      # Wizard-Cap(M)
+    - { item: 753, weight: 1 }      # Wizard-Hat(M)
+    - { item: 756, weight: 1 }      # Wizard-Cap(W)
+    - { item: 757, weight: 1 }      # Wizard-Hat(W)
+    - { item: 454, weight: 1 }      # Hauberk(M)
+    - { item: 472, weight: 1 }      # Hauberk(W)
+    - { item: 461, weight: 1 }      # ChainHose(M)
+    - { item: 482, weight: 1 }      # ChainHose(W)
+
+  armor_tier7:  # Liche, Frost, Barlog, Centaurus, Nizie
+    - { item: 457, weight: 1 }      # ScaleMail(M)
+    - { item: 477, weight: 1 }      # ScaleMail(W)
+    - { item: 454, weight: 1 }      # Hauberk(M)
+    - { item: 472, weight: 1 }      # Hauberk(W)
+    - { item: 461, weight: 1 }      # ChainHose(M)
+    - { item: 482, weight: 1 }      # ChainHose(W)
+    - { item: 458, weight: 1 }      # PlateMail(M)
+    - { item: 478, weight: 1 }      # PlateMail(W)
+    - { item: 86, weight: 1 }       # KnightShield
+    - { item: 87, weight: 1 }       # TowerShield
+    - { item: 600, weight: 1 }      # Helm(M)
+    - { item: 602, weight: 1 }      # Helm(W)
+    - { item: 601, weight: 1 }      # Full-Helm(M)
+    - { item: 603, weight: 1 }      # Full-Helm(W)
+
+  armor_tier8:  # Demon, Unicorn, Hellclaw, Tigerworm, Gagoyle
+    - { item: 402, weight: 1 }      # Cape
+    - { item: 451, weight: 1 }      # Boots
+    - { item: 926, weight: 1 }      # ShieldOfFaith
+    - { item: 927, weight: 1 }      # ShieldOfBrave
+
+  armor_tier9:  # Mountain-Giant
+    - { item: 402, weight: 1 }      # Cape
+    - { item: 451, weight: 1 }      # Boots
+
+  armor_tier10:  # Ettin, MasterMage-Orc, Giant-Lizard
+    - { item: 457, weight: 1 }      # ScaleMail(M)
+    - { item: 477, weight: 1 }      # ScaleMail(W)
+    - { item: 600, weight: 1 }      # Helm(M)
+    - { item: 602, weight: 1 }      # Helm(W)
+
+  # === Body part / despawn pools ===
+  # These are from bGetItemNameWhenDeleteNpc - items dropped when NPC corpse despawns
+
+  skeleton_rares:  # sprite 11 - ring pool
+    - { item: 334, weight: 30 }     # SapphireRing
+    - { item: 336, weight: 30 }     # AmethystRing
+    - { item: 335, weight: 20 }     # EmeraldRing
+    - { item: 337, weight: 20 }     # RubyRing
+    - { item: 333, weight: 10 }     # DiamondRing
+    - { item: 634, weight: 5 }      # RingofWizard
+    - { item: 635, weight: 2 }      # RingofMage
+
+  golem_rares:  # sprite 12 (Stone-Golem), 13 (Cyclops), 27 (Hellhound), 29 (Ogre) - necklace pool
+    - { item: 311, weight: 30 }     # MagicNecklace DF+10
+    - { item: 308, weight: 30 }     # MagicNecklace MS10
+    - { item: 305, weight: 15 }     # MagicNecklace DM+1
+    - { item: 300, weight: 15 }     # MagicNecklace RM10
+    - { item: 632, weight: 5 }      # KnecklaceOfStoneGolem
+    - { item: 637, weight: 3 }      # KnecklaceOfLightPro
+    - { item: 638, weight: 2 }      # KnecklaceOfFirePro
+
+  orc_rares:  # sprite 14 (Orc), 17 (Scorpion), 57 (Giant-Frog) - ring pool (same as skeleton)
+    - { item: 334, weight: 30 }     # SapphireRing
+    - { item: 336, weight: 30 }     # AmethystRing
+    - { item: 335, weight: 20 }     # EmeraldRing
+    - { item: 337, weight: 20 }     # RubyRing
+    - { item: 333, weight: 10 }     # DiamondRing
+    - { item: 634, weight: 5 }      # RingofWizard
+    - { item: 635, weight: 2 }      # RingofMage
+
+  zombie_rares:  # sprite 18 (Zombie), 22 (Amphis) - sword pool
+    - { item: 613, weight: 30 }     # SwordOfMedusa
+    - { item: 639, weight: 20 }     # StormBringer
+    - { item: 641, weight: 10 }     # SpecialSword
+    - { item: 640, weight: 5 }      # KnecklaceOfSufferent
+
+  clay_golem_rares:  # sprite 23 - wand/mail pool
+    - { item: 738, weight: 30 }     # BerserkWand MS.20
+    - { item: 621, weight: 20 }     # XelimaArmor(M)
+    - { item: 622, weight: 20 }     # XelimaArmor(W)
+    - { item: 647, weight: 10 }     # NecklaceOfStoneGolem
+
+  troll_rares:  # sprite 28 - ring pool (same structure)
+    - { item: 334, weight: 30 }     # SapphireRing
+    - { item: 336, weight: 30 }     # AmethystRing
+    - { item: 335, weight: 20 }     # EmeraldRing
+    - { item: 337, weight: 20 }     # RubyRing
+    - { item: 333, weight: 10 }     # DiamondRing
+    - { item: 634, weight: 5 }      # RingofWizard
+    - { item: 635, weight: 2 }      # RingofMage
+
+  liche_rares:  # sprite 30 - magic drops
+    - { item: 852, weight: 30 }     # SSS Manual
+    - { item: 380, weight: 20 }     # IceStormManual
+    - { item: 853, weight: 15 }     # E.S.W Manual
+    - { item: 643, weight: 10 }     # KnecklaceOfIceEle
+    - { item: 648, weight: 5 }      # KnecklaceOfSufferent
+    - { item: 734, weight: 3 }      # RingOfArcmage
+
+  demon_rares:  # sprite 31 - magic drops
+    - { item: 382, weight: 25 }     # BloodyShockW.Manual
+    - { item: 491, weight: 20 }     # BloodAxe
+    - { item: 490, weight: 20 }     # BloodSword
+    - { item: 492, weight: 20 }     # BloodRapier
+    - { item: 381, weight: 15 }     # MassFireStrikeManual
+    - { item: 633, weight: 10 }     # RingofDemonpower
+    - { item: 645, weight: 5 }      # KnecklaceOfEfreet
+    - { item: 616, weight: 3 }      # GiantSwordOfVengeance
+
+  unicorn_rares:  # sprite 32 - shield/mail pool
+    - { item: 620, weight: 30 }     # MerienShield
+    - { item: 621, weight: 25 }     # XelimaArmor(M)
+    - { item: 622, weight: 25 }     # XelimaArmor(W)
+    - { item: 644, weight: 10 }     # KnecklaceOfAirEle
+
+  werewolf_rares:  # sprite 33, 48 (Stalker) - manual pool
+    - { item: 852, weight: 30 }     # SSS Manual
+    - { item: 857, weight: 25 }     # I.M.C Manual
+    - { item: 853, weight: 25 }     # E.S.W Manual
+    - { item: 620, weight: 10 }     # MerienShield
+
+  hellclaw_rares:  # sprite 49 - 100% drop from own pool
+    - { item: 308, weight: 5000 }   # MagicNecklace MS10
+    - { item: 259, weight: 5000 }   # MagicWand M.Shield
+    - { item: 337, weight: 3000 }   # RubyRing
+    - { item: 335, weight: 2000 }   # EmeraldRing
+    - { item: 300, weight: 2500 }   # MagicNecklace RM10
+    - { item: 311, weight: 1250 }   # MagicNecklace DF+10
+    - { item: 305, weight: 250 }    # MagicNecklace DM+1
+    - { item: 634, weight: 700 }    # RingofWizard
+    - { item: 635, weight: 144 }    # RingofMage
+    - { item: 614, weight: 78 }     # SwordofIceElemental
+    - { item: 640, weight: 39 }     # KnecklaceOfSufferent
+    - { item: 637, weight: 20 }     # KnecklaceOfLightPro
+    - { item: 620, weight: 10 }     # MerienShield
+    - { item: 644, weight: 5 }      # KnecklaceOfAirEle
+    - { item: 643, weight: 3 }      # KnecklaceOfIceEle
+    - { item: 636, weight: 1 }      # RingofGrandMage
+
+  tigerworm_rares:  # sprite 50 - 100% drop from own pool
+    - { item: 311, weight: 2500 }   # MagicNecklace DF+10
+    - { item: 305, weight: 2500 }   # MagicNecklace DM+1
+    - { item: 614, weight: 2500 }   # SwordofIceElemental
+    - { item: 290, weight: 1250 }   # Flameberge+3 LLF
+    - { item: 633, weight: 625 }    # RingofDemonpower
+    - { item: 492, weight: 313 }    # BloodRapier
+    - { item: 490, weight: 156 }    # BloodSword
+    - { item: 491, weight: 78 }     # BloodAxe
+    - { item: 947, weight: 39 }     # DragonWand MS40
+    - { item: 643, weight: 20 }     # KnecklaceOfIceEle
+    - { item: 612, weight: 10 }     # XelimaRapier
+    - { item: 610, weight: 6 }      # XelimaBlade
+    - { item: 611, weight: 2 }      # XelimaAxe
+    - { item: 631, weight: 1 }      # RingoftheAbaddon
+
+  gargoyle_rares:  # sprite 52 - magic drops
+    - { item: 382, weight: 25 }     # BloodyShockW.Manual
+    - { item: 610, weight: 10 }     # XelimaBlade
+    - { item: 611, weight: 10 }     # XelimaAxe
+    - { item: 612, weight: 10 }     # XelimaRapier
+    - { item: 381, weight: 15 }     # MassFireStrikeManual
+    - { item: 633, weight: 10 }     # RingofDemonpower
+    - { item: 645, weight: 5 }      # KnecklaceOfEfreet
+    - { item: 630, weight: 3 }      # RingoftheXelima
+    - { item: 631, weight: 2 }      # RingoftheAbaddon
+    - { item: 735, weight: 5 }      # RingOfDragonpower
+    - { item: 20, weight: 2 }       # Excaliber
+
+  beholder_rares:  # sprite 53 - IceStormManual only
+    - { item: 380, weight: 1 }      # IceStormManual
+
+  darkelf_rares:  # sprite 54 - equipment
+    - { item: 618, weight: 30 }     # XelimaBoots
+    - { item: 958, weight: 25 }     # XelimaHelm
+    - { item: 956, weight: 25 }     # XelimaCap
+    - { item: 957, weight: 20 }     # XelimaHat
+
+  ettin_rares:  # sprite 59 - ring/magic
+    - { item: 735, weight: 40 }     # RingOfDragonpower
+    - { item: 853, weight: 35 }     # E.S.W Manual
+    - { item: 382, weight: 25 }     # BloodyShockW.Manual
+
+  frost_rares:  # sprite 63, 79 (Nizie) - ice weapons
+    - { item: 943, weight: 40 }     # IceAxe
+    - { item: 942, weight: 35 }     # IceHammer
+    - { item: 732, weight: 25 }     # IceStaff
+
+  barlog_rares:  # sprite 70 - magic
+    - { item: 382, weight: 40 }     # BloodyShockW.Manual
+    - { item: 381, weight: 35 }     # MassFireStrikeManual
+    - { item: 732, weight: 25 }     # IceStaff
+
+  centaurus_rares:  # sprite 71 - magic
+    - { item: 735, weight: 55 }     # RingOfDragonpower
+    - { item: 732, weight: 45 }     # IceStaff
+
+  clawturt_rares:  # sprite 72 - magic
+    - { item: 735, weight: 40 }     # RingOfDragonpower
+    - { item: 732, weight: 30 }     # IceStaff
+    - { item: 853, weight: 30 }     # E.S.W Manual
+
+  crayfish_rares:  # sprite 74 - magic
+    - { item: 735, weight: 40 }     # RingOfDragonpower
+    - { item: 732, weight: 30 }     # IceStaff
+    - { item: 382, weight: 30 }     # BloodyShockW.Manual
+
+  lizard_rares:  # sprite 75 - magic
+    - { item: 735, weight: 40 }     # RingOfDragonpower
+    - { item: 853, weight: 35 }     # E.S.W Manual
+    - { item: 382, weight: 25 }     # BloodyShockW.Manual
+
+  mastermage_rares:  # sprite 77 - magic
+    - { item: 735, weight: 40 }     # RingOfDragonpower
+    - { item: 853, weight: 35 }     # E.S.W Manual
+    - { item: 382, weight: 25 }     # BloodyShockW.Manual
+
+  minotaurus_rares:  # sprite 78 - magic
+    - { item: 735, weight: 40 }     # RingOfDragonpower
+    - { item: 732, weight: 30 }     # IceStaff
+    - { item: 382, weight: 30 }     # BloodyShockW.Manual
+
+  # === Boss multi-drop pools (on_despawn with multi_drop) ===
+
+  wyvern_multi:  # sprite 66 (Wyvern) - ice themed
+    # Rare tier
+    - { item: 634, weight: 3 }      # RingofWizard
+    - { item: 636, weight: 2 }      # RingofGrandMage
+    - { item: 614, weight: 3 }      # SwordofIceElemental
+    - { item: 380, weight: 3 }      # IceStormManual
+    # Secondary tier
+    - { item: 642, weight: 8 }      # KnecklaceOfIcePro
+    - { item: 643, weight: 5 }      # KnecklaceOfIceEle
+    - { item: 943, weight: 10 }     # IceAxe
+    - { item: 734, weight: 7 }      # RingOfArcmage
+    - { item: 942, weight: 8 }      # IceHammer
+    - { item: 738, weight: 8 }      # BerserkWand MS.20
+    # Common tier
+    - { item: 95, weight: 80 }      # GreenPotion
+    - { item: 92, weight: 40 }      # BigRedPotion
+    - { item: 94, weight: 30 }      # BigBluePotion
+    - { item: 650, weight: 15 }     # Zemstone of Sacrifice
+    - { item: 334, weight: 20 }     # SapphireRing
+    - { item: 335, weight: 15 }     # EmeraldRing
+    - { item: 337, weight: 15 }     # RubyRing
+
+  fire_wyvern_multi:  # sprite 73 (Fire-Wyvern) - fire themed
+    # Rare tier
+    - { item: 860, weight: 2 }      # NecklaceOfXelima
+    - { item: 630, weight: 3 }      # RingoftheXelima
+    - { item: 738, weight: 3 }      # BerserkWand MS.20
+    - { item: 735, weight: 3 }      # RingOfDragonpower
+    - { item: 20, weight: 3 }       # Excaliber
+    - { item: 382, weight: 3 }      # BloodyShockW.Manual
+    - { item: 381, weight: 3 }      # MassFireStrikeManual
+    # Secondary tier
+    - { item: 645, weight: 10 }     # KnecklaceOfEfreet
+    - { item: 638, weight: 8 }      # KnecklaceOfFirePro
+    - { item: 636, weight: 5 }      # RingofGrandMage
+    - { item: 734, weight: 7 }      # RingOfArcmage
+    - { item: 634, weight: 7 }      # RingofWizard
+    - { item: 290, weight: 5 }      # Flameberge+3 LLF
+    - { item: 490, weight: 5 }      # BloodSword
+    - { item: 491, weight: 5 }      # BloodAxe
+    - { item: 492, weight: 5 }      # BloodRapier
+    # Common tier
+    - { item: 95, weight: 80 }      # GreenPotion
+    - { item: 92, weight: 40 }      # BigRedPotion
+    - { item: 94, weight: 30 }      # BigBluePotion
+    - { item: 650, weight: 15 }     # Zemstone of Sacrifice
+    - { item: 334, weight: 15 }     # SapphireRing
+    - { item: 335, weight: 10 }     # EmeraldRing
+    - { item: 337, weight: 10 }     # RubyRing
+
+  abaddon_multi:  # sprite 81 (Abaddon) - final boss
+    # Rare tier
+    - { item: 20, weight: 5 }       # Excaliber
+    - { item: 647, weight: 5 }      # NecklaceOfStoneGolem
+    - { item: 860, weight: 5 }      # NecklaceOfXelima
+    - { item: 936, weight: 5 }      # MerienHat
+    - { item: 631, weight: 3 }      # RingoftheAbaddon
+    - { item: 937, weight: 3 }      # MerienHelm
+    # Secondary tier
+    - { item: 650, weight: 20 }     # Zemstone of Sacrifice
+    - { item: 490, weight: 10 }     # BloodSword
+    - { item: 491, weight: 10 }     # BloodAxe
+    - { item: 492, weight: 10 }     # BloodRapier
+    - { item: 611, weight: 8 }      # XelimaAxe
+    - { item: 610, weight: 8 }      # XelimaBlade
+    - { item: 612, weight: 8 }      # XelimaRapier
+    - { item: 645, weight: 8 }      # KnecklaceOfEfreet
+    - { item: 638, weight: 8 }      # KnecklaceOfFirePro
+    - { item: 382, weight: 8 }      # BloodyShockW.Manual
+    - { item: 381, weight: 8 }      # MassFireStrikeManual
+    - { item: 259, weight: 8 }      # MagicWand M.Shield
+    - { item: 947, weight: 5 }      # DragonWand MS40
+    # Common tier
+    - { item: 95, weight: 80 }      # GreenPotion
+    - { item: 92, weight: 40 }      # BigRedPotion
+    - { item: 94, weight: 30 }      # BigBluePotion
+    - { item: 334, weight: 20 }     # SapphireRing
+    - { item: 335, weight: 15 }     # EmeraldRing
+    - { item: 337, weight: 15 }     # RubyRing
+
+# === NPC loot configs keyed by sprite_id ===
+loot:
+  # --- Tier 1: Slime, Giant-Ant, Amphis, Rabbit, Cat ---
+  10:  # Slime
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier1, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier1, chance: 56 }
+
+  16:  # Giant-Ant
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier1, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier1, chance: 56 }
+
+  22:  # Amphis
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier1, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier1, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: zombie_rares, chance: 200 }
+
+  55:  # Rabbit
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier1, chance: 67 }
+        - { pool: armor_tier1, chance: 56 }
+
+  56:  # Cat
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier1, chance: 67 }
+        - { pool: armor_tier1, chance: 56 }
+
+  # --- Tier 2: Skeleton, Orc, Scorpion, Zombie ---
+  11:  # Skeleton
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier2, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier1, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: skeleton_rares, chance: 215 }
+
+  14:  # Orc
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier2, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier1, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: orc_rares, chance: 168 }
+
+  17:  # Scorpion
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier2, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier1, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: orc_rares, chance: 196 }
+
+  18:  # Zombie
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier2, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier1, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: zombie_rares, chance: 139 }
+
+  # --- Tier 3: Stone-Golem, Clay-Golem ---
+  12:  # Stone-Golem
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier3, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier3, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: golem_rares, chance: 294 }
+
+  23:  # Clay-Golem
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier3, chance: 67 }
+        - { pool: wand_tier2, chance: 17 }
+        - { pool: armor_tier3, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: clay_golem_rares, chance: 294 }
+
+  # --- Tier 4: Hellbound, Rudolph ---
+  27:  # Hellbound
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier4, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier4, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: golem_rares, chance: 1176 }
+
+  61:  # Rudolph
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier4, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier4, chance: 56 }
+
+  # --- Tier 5: Cyclops, Troll, Beholder, etc. ---
+  13:  # Cyclops
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier5, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier5, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: golem_rares, chance: 1176 }
+
+  28:  # Troll
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier5, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier5, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: troll_rares, chance: 1176 }
+
+  53:  # Beholder
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier5, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier5, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: beholder_rares, chance: 235 }
+
+  60:  # Cannibal-Plant
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier5, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier5, chance: 56 }
+
+  62:  # DireBoar
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier5, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier5, chance: 56 }
+
+  72:  # Claw-Turtle
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier5, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier5, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: clawturt_rares, chance: 588 }
+
+  74:  # Giant-Crayfish
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier5, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier5, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: crayfish_rares, chance: 588 }
+
+  76:  # Giant-Plant
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier5, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier5, chance: 56 }
+
+  # --- Tier 6: Ogre, WereWolf, Stalker, Dark-Elf, Ice-Golem, Minotaurus ---
+  29:  # Ogre
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier6, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier6, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: golem_rares, chance: 800 }
+
+  33:  # WereWolf
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier6, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier6, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: werewolf_rares, chance: 392 }
+
+  48:  # Stalker
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier6, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier6, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: werewolf_rares, chance: 1250 }
+
+  54:  # Dark-Elf
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier6, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier6, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: darkelf_rares, chance: 500 }
+
+  65:  # Ice-Golem
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier6, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier6, chance: 56 }
+
+  78:  # Minotaurus
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier6, chance: 67 }
+        - { pool: wand_tier4, chance: 17 }
+        - { pool: armor_tier6, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: minotaurus_rares, chance: 588 }
+
+  # --- Tier 7: Barlog, Centaurus, Liche, Frost, Nizie ---
+  30:  # Liche
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier7, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier7, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: liche_rares, chance: 1000 }
+
+  63:  # Frost
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier7, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier7, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: frost_rares, chance: 333 }
+
+  70:  # Barlog
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier7, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier7, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: barlog_rares, chance: 588 }
+
+  71:  # Centaurus
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier7, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier7, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: centaurus_rares, chance: 588 }
+
+  79:  # Nizie
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier7, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier7, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: frost_rares, chance: 588 }
+
+  # --- Tier 8: Demon, Unicorn, Hellclaw, Tigerworm, Gagoyle ---
+  31:  # Demon
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier8, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier8, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: demon_rares, chance: 833 }
+
+  32:  # Unicorn
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier8, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier8, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: unicorn_rares, chance: 588 }
+
+  49:  # Hellclaw
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier8, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier8, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: hellclaw_rares, chance: 10000 }
+
+  50:  # Tigerworm
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier8, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier8, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: tigerworm_rares, chance: 10000 }
+
+  52:  # Gagoyle
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier8, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier8, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: gargoyle_rares, chance: 392 }
+
+  # --- Tier 9: Mountain-Giant ---
+  58:  # Mountain-Giant
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier9, chance: 67 }
+        - { pool: armor_tier9, chance: 56 }
+
+  # --- Tier 10: Ettin, MasterMage-Orc, Giant-Lizard ---
+  59:  # Ettin
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier10, chance: 67 }
+        - { pool: armor_tier10, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: ettin_rares, chance: 833 }
+
+  75:  # Giant-Lizard
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier10, chance: 67 }
+        - { pool: armor_tier10, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: lizard_rares, chance: 588 }
+
+  77:  # MasterMage-Orc
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier10, chance: 67 }
+        - { pool: armor_tier10, chance: 56 }
+    on_despawn:
+      drops:
+        - { pool: mastermage_rares, chance: 588 }
+
+  # --- Misc: Giant-Frog ---
+  57:  # Giant-Frog
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+    on_despawn:
+      drops:
+        - { pool: orc_rares, chance: 250 }
+
+  # --- Bosses with multi-drop on despawn ---
+  66:  # Wyvern
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier8, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier8, chance: 56 }
+    on_despawn:
+      multi_drop: { min: 5, max: 15 }
+      drops:
+        - { pool: wyvern_multi, chance: 5000 }
+
+  73:  # Fire-Wyvern
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier8, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier8, chance: 56 }
+    on_despawn:
+      multi_drop: { min: 5, max: 15 }
+      drops:
+        - { pool: fire_wyvern_multi, chance: 5000 }
+
+  81:  # Abaddon
+    on_kill:
+      gold_chance: 2100
+      drops:
+        - { pool: potions, chance: 1260 }
+        - { pool: melee_tier8, chance: 67 }
+        - { pool: wand_tier7, chance: 17 }
+        - { pool: armor_tier8, chance: 56 }
+    on_despawn:
+      multi_drop: { min: 12, max: 20 }
+      drops:
+        - { pool: abaddon_multi, chance: 5000 }

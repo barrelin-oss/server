@@ -1,0 +1,52 @@
+# shops.yaml
+# NPC shop configurations
+# buy_categories: item_category values the shop will purchase from players
+# repair_categories: item_category values the shop can repair
+# items: items for sale (item_id references items.yaml)
+#
+# Item categories:
+#   0=general, 1=weapon_sword, 2=weapon_axe, 3=weapon_bow, 4=weapon_staff,
+#   5=weapon_wand, 6=weapon_hammer, 10=armor_head, 11=armor_body, 12=armor_arms,
+#   13=armor_pants, 14=armor_boots, 15=armor_shield, 20=accessory_ring,
+#   21=accessory_necklace, 22=accessory_cape, 30=consumable_potion,
+#   31=consumable_food, 32=consumable_scroll, 40=material_ore, 41=material_gem,
+#   42=material_herb, 50=quest, 99=misc
+
+shops:
+  # General shopkeepers - buy/sell potions, food, scrolls, misc
+  ShopKeeper-W:
+    type: general
+    buy_categories: [10, 11, 12, 13, 14, 30, 31, 32, 99]
+    repair_categories: [11, 12, 13, 14]
+    items:
+      - { item_id: 308, count: 1 }   # HealthPotion
+      - { item_id: 309, count: 1 }   # ManaPotion
+      - { item_id: 310, count: 1 }   # StaminaPotion
+
+  ShopKeeper-E:
+    type: general
+    buy_categories: [10, 11, 12, 13, 14, 30, 31, 32, 99]
+    repair_categories: [11, 12, 13, 14]
+    items:
+      - { item_id: 308, count: 1 }   # HealthPotion
+      - { item_id: 309, count: 1 }   # ManaPotion
+      - { item_id: 310, count: 1 }   # StaminaPotion
+
+  # Blacksmiths - buy/sell/repair weapons and armor
+  Gandlf:
+    type: blacksmith
+    buy_categories: [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15]
+    repair_categories: [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15]
+    items:
+      - { item_id: 1 }    # Dagger
+      - { item_id: 2 }    # ShortSword
+      - { item_id: 3 }    # MainGauche
+
+  William:
+    type: blacksmith
+    buy_categories: [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15]
+    repair_categories: [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15]
+    items:
+      - { item_id: 1 }    # Dagger
+      - { item_id: 2 }    # ShortSword
+      - { item_id: 3 }    # MainGauche

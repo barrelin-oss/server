@@ -1,0 +1,95 @@
+# dialogs.yaml
+# NPC dialog tree configurations
+#
+# Actions:
+#   close - end dialog
+#   open_shop - open the NPC's shop interface
+#   open_bank - open bank deposit/withdraw interface
+#   open_quests - open quest interface (stub)
+#   offer_citizenship - faction enrollment (stub)
+#   select_crusade_job - crusade role selection (stub)
+#   claim_rewards - claim quest/kill rewards (stub)
+#
+# Options with 'next' navigate to another node (goto_node action).
+# Options with 'action' trigger the specified action.
+
+dialogs:
+  # Aresden city hall officer
+  Kennedy:
+    greeting: "Welcome to the city hall."
+    nodes:
+      start:
+        text: "I am the city hall officer. How may I help you?"
+        options:
+          - { label: "I want to become a citizen", action: offer_citizenship }
+          - { label: "Crusade duties", next: crusade }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Enemy kill rewards", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+      crusade:
+        text: "Which crusade role interests you?"
+        options:
+          - { label: "Select my crusade job", action: select_crusade_job }
+          - { label: "Back", next: start }
+
+  # Elvine city hall officer
+  William:
+    greeting: "Welcome to the Elvine city hall."
+    nodes:
+      start:
+        text: "I am the city hall officer of Elvine. What do you need?"
+        options:
+          - { label: "I want to become a citizen", action: offer_citizenship }
+          - { label: "Crusade duties", next: crusade }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Enemy kill rewards", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+      crusade:
+        text: "The crusade requires brave soldiers. What is your role?"
+        options:
+          - { label: "Select my crusade job", action: select_crusade_job }
+          - { label: "Back", next: start }
+
+  # Generic town NPCs
+  Howard:
+    greeting: "Welcome, traveler."
+    nodes:
+      start:
+        text: "Welcome, traveler. What brings you here?"
+        options:
+          - { label: "Tell me about this town", next: about_town }
+          - { label: "Goodbye", action: close }
+      about_town:
+        text: "This is a land of conflict between Aresden and Elvine. Choose your side wisely."
+        options:
+          - { label: "Back", next: start }
+          - { label: "Goodbye", action: close }
+
+  # Banker NPC (dialog opens bank)
+  Banker:
+    greeting: "Welcome to the bank."
+    nodes:
+      start:
+        text: "I can store your valuables safely. What would you like to do?"
+        options:
+          - { label: "Access my storage", action: open_bank }
+          - { label: "Goodbye", action: close }
+
+  # Shop NPC (dialog opens shop)
+  ShopKeeper-W:
+    greeting: "Welcome to my shop!"
+    nodes:
+      start:
+        text: "I have potions and supplies. Care to browse?"
+        options:
+          - { label: "Show me your wares", action: open_shop }
+          - { label: "Goodbye", action: close }
+
+  ShopKeeper-E:
+    greeting: "Welcome! What can I get for you?"
+    nodes:
+      start:
+        text: "I have potions and supplies for sale."
+        options:
+          - { label: "Show me your wares", action: open_shop }
+          - { label: "Goodbye", action: close }

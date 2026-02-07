@@ -1,0 +1,45 @@
+# cowardly_ranged.yaml
+# Ranged attacker that flees when hurt - typical for archers/casters
+name: cowardly_ranged
+root:
+  type: selector
+  children:
+    # Priority 1: Flee if HP is low
+    - type: sequence
+      children:
+        - type: hp_below
+          threshold: 0.25
+        - type: has_target
+        - type: call_help
+        - type: flee_from_target
+
+    # Priority 2: Attack from range
+    - type: sequence
+      children:
+        - type: has_target
+        - type: selector
+          children:
+            - type: sequence
+              children:
+                - type: target_in_range
+                  range: 5
+                - type: attack_target
+            - type: chase_target
+
+    # Priority 3: Find targets
+    - type: sequence
+      children:
+        - type: find_target
+        - type: chase_target
+
+    # Priority 4: Wander if near spawn, otherwise go home
+    - type: selector
+      children:
+        - type: sequence
+          children:
+            - type: is_near_spawn
+              range: 5
+            - type: random_chance
+              percent: 10
+            - type: wander
+        - type: return_home

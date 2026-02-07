@@ -1,0 +1,24 @@
+# boss_berserk.yaml
+# Boss Phase 3 / Enrage - all-out attack, ignores everything else
+name: boss_berserk
+root:
+  type: selector
+  children:
+    # Priority 1: Relentlessly attack
+    - type: sequence
+      children:
+        - type: has_target
+        - type: selector
+          children:
+            - type: sequence
+              children:
+                - type: target_in_range
+                  range: 1
+                - type: attack_target
+            - type: chase_target
+
+    # Priority 2: Find anyone to attack
+    - type: find_target
+
+    # Priority 3: Idle briefly
+    - type: idle

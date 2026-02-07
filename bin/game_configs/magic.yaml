@@ -1,0 +1,946 @@
+magic:
+  - id: 0
+    name: Magic-Missile
+    type: 1
+    delay: 0
+    duration: 0
+    mana_cost: 8
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 8, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 18
+    cost: 100
+    category: 1
+    attribute: 2
+  - id: 1
+    name: Heal
+    type: 2
+    delay: 0
+    duration: 0
+    mana_cost: 15
+    range1: 1
+    range2: 1
+    effect1: { dice: 2, sides: 6, bonus: 10 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 20
+    cost: 100
+    category: 0
+    attribute: 4
+  - id: 2
+    name: Create-Food
+    type: 10
+    delay: 0
+    duration: 0
+    mana_cost: 18
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 18
+    cost: 100
+    category: 0
+    attribute: 0
+  - id: 10
+    name: Energy-Bolt
+    type: 3
+    delay: 0
+    duration: 0
+    mana_cost: 15
+    range1: 2
+    range2: 2
+    effect1: { dice: 2, sides: 4, bonus: 1 }
+    effect2: { dice: 2, sides: 4, bonus: 1 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 24
+    cost: 200
+    category: 1
+    attribute: 2
+  - id: 11
+    name: Staminar-Drain
+    type: 5
+    delay: 0
+    duration: 0
+    mana_cost: 14
+    range1: 3
+    range2: 3
+    effect1: { dice: 4, sides: 6, bonus: 10 }
+    effect2: { dice: 2, sides: 6, bonus: 5 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 22
+    cost: 200
+    category: 1
+    attribute: 0
+  - id: 12
+    name: Recall
+    type: 8
+    delay: 0
+    duration: 0
+    mana_cost: 15
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 20
+    cost: 120
+    category: 0
+    attribute: 0
+  - id: 13
+    name: Defense-Shield
+    type: 11
+    delay: 0
+    duration: 60
+    mana_cost: 19
+    range1: 1
+    range2: 1
+    effect1: { dice: 3, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 26
+    cost: 200
+    category: 2
+    attribute: 0
+  - id: 14
+    name: Celebrating-Light
+    type: 2
+    delay: 0
+    duration: 0
+    mana_cost: 20
+    range1: 1
+    range2: 1
+    effect1: { dice: 0, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 25
+    cost: 400
+    category: 0
+    attribute: 2
+  - id: 20
+    name: Fire-Ball
+    type: 3
+    delay: 0
+    duration: 0
+    mana_cost: 27
+    range1: 2
+    range2: 2
+    effect1: { dice: 2, sides: 6, bonus: 2 }
+    effect2: { dice: 2, sides: 6, bonus: 2 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 26
+    cost: 500
+    category: 1
+    attribute: 3
+  - id: 21
+    name: Great-Heal
+    type: 2
+    delay: 0
+    duration: 0
+    mana_cost: 28
+    range1: 1
+    range2: 1
+    effect1: { dice: 4, sides: 10, bonus: 20 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 28
+    cost: 500
+    category: 0
+    attribute: 0
+  - id: 23
+    name: Staminar-Recovery
+    type: 7
+    delay: 0
+    duration: 0
+    mana_cost: 20
+    range1: 3
+    range2: 3
+    effect1: { dice: 4, sides: 8, bonus: 8 }
+    effect2: { dice: 2, sides: 6, bonus: 5 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 20
+    cost: 300
+    category: 0
+    attribute: 0
+  - id: 24
+    name: Protection-From-Arrow
+    type: 11
+    delay: 0
+    duration: 60
+    mana_cost: 22
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 20
+    cost: 300
+    category: 2
+    attribute: 0
+  - id: 25
+    name: Hold-Person
+    type: 12
+    delay: 0
+    duration: 30
+    mana_cost: 24
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 26
+    cost: 500
+    category: 1
+    attribute: 0
+  - id: 26
+    name: Possession
+    type: 15
+    delay: 0
+    duration: 0
+    mana_cost: 25
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 26
+    cost: 500
+    category: 1
+    attribute: 0
+  - id: 27
+    name: Poison
+    type: 17
+    delay: 0
+    duration: 0
+    mana_cost: 28
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 15, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 29
+    cost: 700
+    category: 1
+    attribute: 1
+  - id: 28
+    name: Great-Staminar-Recov.
+    type: 7
+    delay: 0
+    duration: 0
+    mana_cost: 45
+    range1: 3
+    range2: 3
+    effect1: { dice: 4, sides: 16, bonus: 16 }
+    effect2: { dice: 2, sides: 12, bonus: 10 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 30
+    cost: 800
+    category: 0
+    attribute: 0
+  - id: 30
+    name: Fire-Strike
+    type: 3
+    delay: 0
+    duration: 0
+    mana_cost: 36
+    range1: 2
+    range2: 2
+    effect1: { dice: 2, sides: 8, bonus: 3 }
+    effect2: { dice: 2, sides: 8, bonus: 3 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 34
+    cost: 1000
+    category: 1
+    attribute: 3
+  - id: 31
+    name: Summon-Creature
+    type: 9
+    delay: 0
+    duration: 0
+    mana_cost: 35
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 1, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 38
+    cost: 1000
+    category: 1
+    attribute: 1
+  - id: 32
+    name: Invisibility
+    type: 13
+    delay: 0
+    duration: 60
+    mana_cost: 31
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 30
+    cost: 800
+    category: 1
+    attribute: 0
+  - id: 33
+    name: Protection-From-Magic
+    type: 11
+    delay: 0
+    duration: 60
+    mana_cost: 35
+    range1: 1
+    range2: 1
+    effect1: { dice: 2, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 32
+    cost: 850
+    category: 2
+    attribute: 0
+  - id: 34
+    name: Detect-Invisibility
+    type: 13
+    delay: 0
+    duration: 0
+    mana_cost: 33
+    range1: 1
+    range2: 1
+    effect1: { dice: 2, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 30
+    cost: 700
+    category: 0
+    attribute: 0
+  - id: 35
+    name: Paralyze
+    type: 12
+    delay: 0
+    duration: 15
+    mana_cost: 35
+    range1: 1
+    range2: 1
+    effect1: { dice: 2, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 36
+    cost: 1000
+    category: 1
+    attribute: 0
+  - id: 36
+    name: Cure
+    type: 17
+    delay: 0
+    duration: 0
+    mana_cost: 32
+    range1: 1
+    range2: 1
+    effect1: { dice: 0, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 35
+    cost: 700
+    category: 0
+    attribute: 1
+  - id: 37
+    name: Lightning-Arrow
+    type: 1
+    delay: 0
+    duration: 0
+    mana_cost: 32
+    range1: 1
+    range2: 1
+    effect1: { dice: 4, sides: 5, bonus: 10 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 38
+    cost: 1100
+    category: 1
+    attribute: 2
+  - id: 38
+    name: Tremor
+    type: 22
+    delay: 0
+    duration: 0
+    mana_cost: 34
+    range1: 2
+    range2: 2
+    effect1: { dice: 3, sides: 4, bonus: 3 }
+    effect2: { dice: 3, sides: 4, bonus: 3 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 33
+    cost: 1000
+    category: 1
+    attribute: 1
+  - id: 40
+    name: Fire-Wall
+    type: 14
+    delay: 0
+    duration: 30
+    mana_cost: 42
+    range1: 1
+    range2: 1
+    effect1: { dice: 2, sides: 8, bonus: 0 }
+    effect2: { dice: 2, sides: 8, bonus: 0 }
+    effect3: { dice: 1, sides: 1, bonus: 2 }
+    int_req: 45
+    cost: 1200
+    category: 1
+    attribute: 3
+  - id: 41
+    name: Fire-Field
+    type: 14
+    delay: 0
+    duration: 30
+    mana_cost: 48
+    range1: 1
+    range2: 1
+    effect1: { dice: 2, sides: 8, bonus: 0 }
+    effect2: { dice: 2, sides: 8, bonus: 0 }
+    effect3: { dice: 1, sides: 2, bonus: 1 }
+    int_req: 48
+    cost: 1400
+    category: 1
+    attribute: 3
+  - id: 42
+    name: Confuse-Language
+    type: 16
+    delay: 0
+    duration: 120
+    mana_cost: 40
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 42
+    cost: 1300
+    category: 1
+    attribute: 0
+  - id: 43
+    name: Lightning
+    type: 1
+    delay: 0
+    duration: 0
+    mana_cost: 44
+    range1: 1
+    range2: 1
+    effect1: { dice: 4, sides: 7, bonus: 12 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 47
+    cost: 1700
+    category: 1
+    attribute: 2
+  - id: 44
+    name: Great-Defense-Shield
+    type: 11
+    delay: 0
+    duration: 40
+    mana_cost: 45
+    range1: 1
+    range2: 1
+    effect1: { dice: 4, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 46
+    cost: 1500
+    category: 2
+    attribute: 0
+  - id: 45
+    name: Chill-Wind
+    type: 23
+    delay: 0
+    duration: 0
+    mana_cost: 48
+    range1: 2
+    range2: 2
+    effect1: { dice: 2, sides: 8, bonus: 3 }
+    effect2: { dice: 2, sides: 8, bonus: 3 }
+    effect3: { dice: 5, sides: 0, bonus: 0 }
+    int_req: 50
+    cost: 2000
+    category: 1
+    attribute: 4
+  - id: 46
+    name: Poison-Cloud
+    type: 14
+    delay: 0
+    duration: 30
+    mana_cost: 48
+    range1: 1
+    range2: 1
+    effect1: { dice: 0, sides: 15, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 10, sides: 2, bonus: 1 }
+    int_req: 49
+    cost: 1800
+    category: 1
+    attribute: 1
+  - id: 47
+    name: Triple-Energy-Bolt
+    type: 3
+    delay: 0
+    duration: 0
+    mana_cost: 40
+    range1: 2
+    range2: 2
+    effect1: { dice: 2, sides: 4, bonus: 2 }
+    effect2: { dice: 3, sides: 8, bonus: 3 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 45
+    cost: 1700
+    category: 1
+    attribute: 2
+  - id: 50
+    name: Berserk
+    type: 18
+    delay: 0
+    duration: 40
+    mana_cost: 57
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 59
+    cost: 2200
+    category: 1
+    attribute: 0
+  - id: 51
+    name: Lightning-Bolt
+    type: 3
+    delay: 0
+    duration: 0
+    mana_cost: 58
+    range1: 2
+    range2: 2
+    effect1: { dice: 4, sides: 5, bonus: 18 }
+    effect2: { dice: 4, sides: 2, bonus: 6 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 58
+    cost: 2500
+    category: 1
+    attribute: 2
+  - id: 53
+    name: Mass-Poison
+    type: 17
+    delay: 0
+    duration: 0
+    mana_cost: 54
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 40, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 52
+    cost: 100
+    category: 1
+    attribute: 1
+  - id: 54
+    name: Spike-Field
+    type: 14
+    delay: 0
+    duration: 30
+    mana_cost: 56
+    range1: 1
+    range2: 1
+    effect1: { dice: 2, sides: 8, bonus: 0 }
+    effect2: { dice: 2, sides: 8, bonus: 0 }
+    effect3: { dice: 9, sides: 2, bonus: 2 }
+    int_req: 56
+    cost: 2300
+    category: 1
+    attribute: 1
+  - id: 55
+    name: Ice-Storm
+    type: 14
+    delay: 0
+    duration: 30
+    mana_cost: 58
+    range1: 1
+    range2: 1
+    effect1: { dice: 4, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 8, sides: 1, bonus: 0 }
+    int_req: 59
+    cost: -1
+    category: 1
+    attribute: 4
+  - id: 56
+    name: Mass-Lightning-Arrow
+    type: 1
+    delay: 0
+    duration: 0
+    mana_cost: 55
+    range1: 1
+    range2: 1
+    effect1: { dice: 5, sides: 6, bonus: 20 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 53
+    cost: 3000
+    category: 1
+    attribute: 2
+  - id: 57
+    name: Ice-Strike
+    type: 23
+    delay: 0
+    duration: 0
+    mana_cost: 59
+    range1: 2
+    range2: 2
+    effect1: { dice: 5, sides: 6, bonus: 12 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 4, sides: 0, bonus: 0 }
+    int_req: 60
+    cost: 4200
+    category: 1
+    attribute: 4
+  - id: 60
+    name: Energy-Strike
+    type: 21
+    delay: 0
+    duration: 0
+    mana_cost: 65
+    range1: 2
+    range2: 2
+    effect1: { dice: 0, sides: 0, bonus: 0 }
+    effect2: { dice: 7, sides: 6, bonus: 17 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 67
+    cost: 5000
+    category: 1
+    attribute: 2
+  - id: 61
+    name: Mass-Fire-Strike
+    type: 3
+    delay: 0
+    duration: 0
+    mana_cost: 80
+    range1: 2
+    range2: 2
+    effect1: { dice: 5, sides: 2, bonus: 5 }
+    effect2: { dice: 7, sides: 6, bonus: 18 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 85
+    cost: -1
+    category: 1
+    attribute: 3
+  - id: 62
+    name: Confusion
+    type: 16
+    delay: 0
+    duration: 20
+    mana_cost: 78
+    range1: 2
+    range2: 2
+    effect1: { dice: 2, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 75
+    cost: 7500
+    category: 1
+    attribute: 0
+  - id: 63
+    name: Mass-Chill-Wind
+    type: 23
+    delay: 0
+    duration: 0
+    mana_cost: 90
+    range1: 2
+    range2: 2
+    effect1: { dice: 3, sides: 8, bonus: 6 }
+    effect2: { dice: 3, sides: 8, bonus: 6 }
+    effect3: { dice: 10, sides: 0, bonus: 0 }
+    int_req: 93
+    cost: 9800
+    category: 1
+    attribute: 4
+  - id: 64
+    name: Earthworm-Strike
+    type: 25
+    delay: 0
+    duration: 0
+    mana_cost: 80
+    range1: 2
+    range2: 2
+    effect1: { dice: 7, sides: 6, bonus: 17 }
+    effect2: { dice: 7, sides: 6, bonus: 17 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 97
+    cost: 12000
+    category: 1
+    attribute: 1
+  - id: 65
+    name: Absolute-Magic-Protect.
+    type: 11
+    delay: 0
+    duration: 60
+    mana_cost: 90
+    range1: 1
+    range2: 1
+    effect1: { dice: 5, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 112
+    cost: 13500
+    category: 2
+    attribute: 0
+  - id: 66
+    name: Armor-Break
+    type: 26
+    delay: 0
+    duration: 0
+    mana_cost: 90
+    range1: 1
+    range2: 1
+    effect1: { dice: 7, sides: 6, bonus: 17 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 15, sides: 0, bonus: 0 }
+    int_req: 97
+    cost: 20000
+    category: 1
+    attribute: 1
+  - id: 70
+    name: Bloody-Shock-Wave
+    type: 19
+    delay: 0
+    duration: 0
+    mana_cost: 180
+    range1: 2
+    range2: 2
+    effect1: { dice: 5, sides: 8, bonus: 20 }
+    effect2: { dice: 5, sides: 4, bonus: 9 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 105
+    cost: -1
+    category: 1
+    attribute: 2
+  - id: 71
+    name: Mass-Confusion
+    type: 16
+    delay: 0
+    duration: 60
+    mana_cost: 125
+    range1: 2
+    range2: 2
+    effect1: { dice: 2, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 130
+    cost: 15000
+    category: 1
+    attribute: 0
+  - id: 72
+    name: Mass-Ice-Strike
+    type: 23
+    delay: 0
+    duration: 0
+    mana_cost: 120
+    range1: 2
+    range2: 2
+    effect1: { dice: 7, sides: 6, bonus: 17 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 7, sides: 0, bonus: 0 }
+    int_req: 133
+    cost: 21000
+    category: 1
+    attribute: 4
+  - id: 73
+    name: Cloud-Kill
+    type: 14
+    delay: 0
+    duration: 30
+    mana_cost: 130
+    range1: 1
+    range2: 1
+    effect1: { dice: 0, sides: 40, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 10, sides: 2, bonus: 2 }
+    int_req: 120
+    cost: 20000
+    category: 1
+    attribute: 1
+  - id: 74
+    name: Lightning-Strike
+    type: 21
+    delay: 0
+    duration: 0
+    mana_cost: 90
+    range1: 2
+    range2: 2
+    effect1: { dice: 0, sides: 0, bonus: 0 }
+    effect2: { dice: 7, sides: 7, bonus: 20 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 123
+    cost: 35000
+    category: 1
+    attribute: 2
+  - id: 76
+    name: Cancellation
+    type: 28
+    delay: 0
+    duration: 30
+    mana_cost: 120
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 135
+    cost: -200
+    category: 1
+    attribute: 0
+  - id: 77
+    name: Illusion-Movement
+    type: 16
+    delay: 0
+    duration: 30
+    mana_cost: 150
+    range1: 2
+    range2: 2
+    effect1: { dice: 4, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 160
+    cost: 28000
+    category: 1
+    attribute: 0
+  - id: 80
+    name: Illusion
+    type: 16
+    delay: 0
+    duration: 20
+    mana_cost: 143
+    range1: 2
+    range2: 2
+    effect1: { dice: 3, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 150
+    cost: 27000
+    category: 1
+    attribute: 0
+  - id: 81
+    name: Meteor-Strike
+    type: 3
+    delay: 0
+    duration: 0
+    mana_cost: 120
+    range1: 2
+    range2: 2
+    effect1: { dice: 5, sides: 2, bonus: 11 }
+    effect2: { dice: 7, sides: 8, bonus: 18 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 169
+    cost: 40000
+    category: 1
+    attribute: 3
+  - id: 82
+    name: Mass-Magic-Missile
+    type: 31
+    delay: 0
+    duration: 0
+    mana_cost: 160
+    range1: 2
+    range2: 2
+    effect1: { dice: 5, sides: 2, bonus: 20 }
+    effect2: { dice: 7, sides: 7, bonus: 20 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 185
+    cost: 42000
+    category: 1
+    attribute: 2
+  - id: 83
+    name: Inhibition-Casting
+    type: 29
+    delay: 0
+    duration: 40
+    mana_cost: 160
+    range1: 1
+    range2: 1
+    effect1: { dice: 1, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 172
+    cost: -200
+    category: 1
+    attribute: 0
+  - id: 90
+    name: Mass-Illusion
+    type: 16
+    delay: 0
+    duration: 60
+    mana_cost: 200
+    range1: 3
+    range2: 3
+    effect1: { dice: 3, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 180
+    cost: 35000
+    category: 1
+    attribute: 0
+  - id: 91
+    name: Blizzard
+    type: 27
+    delay: 0
+    duration: 0
+    mana_cost: 170
+    range1: 2
+    range2: 2
+    effect1: { dice: 5, sides: 2, bonus: 16 }
+    effect2: { dice: 7, sides: 8, bonus: 16 }
+    effect3: { dice: 7, sides: 0, bonus: 0 }
+    int_req: 195
+    cost: 43000
+    category: 1
+    attribute: 4
+  - id: 94
+    name: Resurrection
+    type: 32
+    delay: 600
+    duration: 0
+    mana_cost: 200
+    range1: 1
+    range2: 1
+    effect1: { dice: 4, sides: 10, bonus: 20 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 0
+    cost: -1
+    category: 0
+    attribute: 4
+  - id: 95
+    name: Mass-Illusion-Movement
+    type: 16
+    delay: 0
+    duration: 60
+    mana_cost: 200
+    range1: 3
+    range2: 3
+    effect1: { dice: 4, sides: 0, bonus: 0 }
+    effect2: { dice: 0, sides: 0, bonus: 0 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 200
+    cost: 38000
+    category: 1
+    attribute: 0
+  - id: 96
+    name: Earth-Shock-Wave
+    type: 30
+    delay: 0
+    duration: 0
+    mana_cost: 180
+    range1: 2
+    range2: 2
+    effect1: { dice: 5, sides: 1, bonus: 20 }
+    effect2: { dice: 7, sides: 8, bonus: 16 }
+    effect3: { dice: 0, sides: 0, bonus: 0 }
+    int_req: 200
+    cost: -200
+    category: 1
+    attribute: 1

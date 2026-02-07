@@ -35,7 +35,11 @@
 lib/
 include/
 *.ilk
-/bin
+/bin/*
+!/bin/behaviors/
+!/bin/bosses/
+!/bin/game_configs/
+/bin/game_configs/old configs/
 xtreme-server
 *.lua
 

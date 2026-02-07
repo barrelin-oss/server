@@ -1,0 +1,261 @@
+# Helbreath Spawn Tables
+# Data-driven composable NPC spawn rules
+
+# =============================================================================
+# Random Spawnable NPCs Whitelist
+# =============================================================================
+# Only NPCs listed here can be randomly spawned by the mob generator.
+# NPCs not in this list will be filtered out from spawn tables.
+#
+# Fields:
+#   name: NPC name (must match npc_templates.yaml)
+#   template_id: NPC template ID (0 = not spawnable, used for future NPCs)
+#   special_attack_prob: Chance of using special attack (0-100)
+#   special_attack_kind: Type of special attack:
+#     - melee (1): Physical melee special
+#     - ranged (2): Ranged attack
+#     - poison (3): Poison effect
+#     - stun (4): Stunning attack
+#     - magic (5): Magic-based special
+#     - area (6): Area of effect
+#     - buff (7): Self-buff ability
+#     - summon (8): Summons minions
+#   enabled: Set to false to temporarily disable (default: true)
+#
+# Based on legacy CGame::MobGenerator() switch statement
+# =============================================================================
+
+random_spawnable_npcs:
+  # Basic monsters
+  - { name: "Slime",           template_id: 10, special_attack_prob: 5,  special_attack_kind: melee }
+  - { name: "Giant-Ant",       template_id: 16, special_attack_prob: 10, special_attack_kind: ranged }
+  - { name: "Orc",             template_id: 14, special_attack_prob: 15, special_attack_kind: melee }
+  - { name: "Zombie",          template_id: 18, special_attack_prob: 15, special_attack_kind: poison }
+  - { name: "Skeleton",        template_id: 11, special_attack_prob: 35, special_attack_kind: summon }
+  - { name: "Orc-Mage",        template_id: 14, special_attack_prob: 30, special_attack_kind: buff }
+  - { name: "Scorpion",        template_id: 17, special_attack_prob: 15, special_attack_kind: poison }
+  - { name: "Stone-Golem",     template_id: 12, special_attack_prob: 25, special_attack_kind: magic }
+  - { name: "Cyclops",         template_id: 13, special_attack_prob: 35, special_attack_kind: summon }
+  - { name: "Amphis",          template_id: 22, special_attack_prob: 20, special_attack_kind: poison }
+  - { name: "Clay-Golem",      template_id: 23, special_attack_prob: 20, special_attack_kind: magic }
+  - { name: "Troll",           template_id: 28, special_attack_prob: 25, special_attack_kind: poison }
+  - { name: "Orge",            template_id: 29, special_attack_prob: 25, special_attack_kind: melee }
+  - { name: "Hellbound",       template_id: 27, special_attack_prob: 25, special_attack_kind: summon }
+  - { name: "Liche",           template_id: 30, special_attack_prob: 30, special_attack_kind: summon }
+  - { name: "Demon",           template_id: 31, special_attack_prob: 20, special_attack_kind: summon }
+  - { name: "Unicorn",         template_id: 32, special_attack_prob: 35, special_attack_kind: buff }
+  - { name: "WereWolf",        template_id: 33, special_attack_prob: 25, special_attack_kind: melee }
+
+  # Advanced monsters
+  - { name: "Gagoyle",         template_id: 52, special_attack_prob: 20, special_attack_kind: summon }
+  - { name: "Beholder",        template_id: 53, special_attack_prob: 20, special_attack_kind: magic }
+  - { name: "Dark-Elf",        template_id: 54, special_attack_prob: 20, special_attack_kind: poison }
+  - { name: "Giant-Frog",      template_id: 57, special_attack_prob: 10, special_attack_kind: ranged }
+  - { name: "Mountain-Giant",  template_id: 58, special_attack_prob: 25, special_attack_kind: melee }
+  - { name: "Ettin",           template_id: 59, special_attack_prob: 20, special_attack_kind: summon }
+  - { name: "Cannibal-Plant",  template_id: 60, special_attack_prob: 20, special_attack_kind: magic }
+  - { name: "Ice-Golem",       template_id: 65, special_attack_prob: 35, special_attack_kind: summon }
+  - { name: "DireBoar",        template_id: 62, special_attack_prob: 20, special_attack_kind: magic }
+  - { name: "Frost",           template_id: 63, special_attack_prob: 30, special_attack_kind: summon }
+  - { name: "Stalker",         template_id: 48, special_attack_prob: 20, special_attack_kind: melee }
+  - { name: "Hellclaw",        template_id: 49, special_attack_prob: 20, special_attack_kind: melee }
+  - { name: "Wyvern",          template_id: 66, special_attack_prob: 20, special_attack_kind: melee }
+  - { name: "Tigerworm",       template_id: 50, special_attack_prob: 20, special_attack_kind: melee }
+
+  # Critters (non-aggressive)
+  - { name: "Rabbit",          template_id: 24, special_attack_prob: 5,  special_attack_kind: melee }
+  - { name: "Cat",             template_id: 25, special_attack_prob: 10, special_attack_kind: ranged }
+  - { name: "Rudolph",         template_id: 30, special_attack_prob: 20, special_attack_kind: magic }
+
+  # -----------------------------------------------------------------
+  # NPCs below are defined in legacy but NOT currently spawnable
+  # (template_id: 0 means they're excluded from random spawning)
+  # Enable these by setting a valid template_id when implemented
+  # -----------------------------------------------------------------
+  - { name: "YB-Aresden",      template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "YB-Elvine",       template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "Fire-Wyvern",     template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Barlog",          template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Tentocle",        template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Centaurus",       template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Giant-Lizard",    template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Minotaurs",       template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Claw-Turtle",     template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Giant-Crayfish",  template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Giant-Plant",     template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "MasterMage-Orc",  template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Nizie",           template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "Abaddon",         template_id: 0, special_attack_prob: 20, special_attack_kind: melee, enabled: false }
+  - { name: "YW-Aresden",      template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "YW-Elvine",       template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "YY-Aresden",      template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "YY-Elvine",       template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "XB-Aresden",      template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "XB-Elvine",       template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "XW-Aresden",      template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "XW-Elvine",       template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "XY-Aresden",      template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+  - { name: "XY-Elvine",       template_id: 0, special_attack_prob: 15, special_attack_kind: melee, enabled: false }
+
+# =============================================================================
+# Spawn Tables
+# =============================================================================
+
+spawn_tables:
+  # Level 1: arefarm, elvfarm, aresden, elvine (starter areas)
+  # Probabilities: Rabbit 45%, Slime 19%, Giant-Ant 20%, Cat 10%, Orc 6%
+  - name: "level_1_classic"
+    type: level
+    level: 1
+    npcs:
+      - { name: "Rabbit", weight: 45 }
+      - { name: "Slime", weight: 19 }
+      - { name: "Giant-Ant", weight: 20 }
+      - { name: "Cat", weight: 10 }
+      - { name: "Orc", weight: 6 }
+
+  # Level 2: Basic dungeons
+  # Probabilities: Slime 40%, Giant-Ant 40%, Amphis 20%
+  - name: "level_2_classic"
+    type: level
+    level: 2
+    npcs:
+      - { name: "Slime", weight: 40 }
+      - { name: "Giant-Ant", weight: 40 }
+      - { name: "Amphis", weight: 20 }
+
+  # Level 3: Mid-level areas
+  - name: "level_3_classic"
+    type: level
+    level: 3
+    npcs:
+      - { name: "Orc", weight: 10 }
+      - { name: "Zombie", weight: 10 }
+      - { name: "Rudolph", weight: 5 }
+      - { name: "Skeleton", weight: 8 }
+      - { name: "Orc-Mage", weight: 8 }
+      - { name: "Scorpion", weight: 9 }
+      - { name: "Stone-Golem", weight: 7 }
+      - { name: "Clay-Golem", weight: 4 }
+      - { name: "Troll", weight: 4 }
+      - { name: "WereWolf", weight: 4 }
+      - { name: "Giant-Frog", weight: 4 }
+      - { name: "Ettin", weight: 4 }
+      - { name: "Cyclops", weight: 10 }
+      - { name: "Orge", weight: 5 }
+      - { name: "Hellbound", weight: 5 }
+      - { name: "Mountain-Giant", weight: 5 }
+
+  # Level 4: Dungeons
+  - name: "level_4_classic"
+    type: level
+    level: 4
+    npcs:
+      - { name: "Giant-Ant", weight: 25 }
+      - { name: "Amphis", weight: 25 }
+      - { name: "Stone-Golem", weight: 15 }
+      - { name: "Clay-Golem", weight: 15 }
+      - { name: "Hellbound", weight: 10 }
+      - { name: "Beholder", weight: 10 }
+
+  # Level 5: Advanced dungeons
+  - name: "level_5_classic"
+    type: level
+    level: 5
+    npcs:
+      - { name: "Zombie", weight: 10 }
+      - { name: "Orc", weight: 10 }
+      - { name: "Giant-Ant", weight: 15 }
+      - { name: "Skeleton", weight: 20 }
+      - { name: "Stone-Golem", weight: 20 }
+      - { name: "Hellbound", weight: 10 }
+      - { name: "Beholder", weight: 5 }
+      - { name: "Dark-Elf", weight: 10 }
+
+  # Level 6: High-level areas
+  - name: "level_6_classic"
+    type: level
+    level: 6
+    npcs:
+      - { name: "Orc", weight: 10 }
+      - { name: "Zombie", weight: 10 }
+      - { name: "Skeleton", weight: 15 }
+      - { name: "Clay-Golem", weight: 15 }
+      - { name: "Beholder", weight: 10 }
+      - { name: "Dark-Elf", weight: 10 }
+      - { name: "Hellbound", weight: 15 }
+      - { name: "Demon", weight: 10 }
+      - { name: "Liche", weight: 5 }
+
+  # Level 7: Expert areas
+  - name: "level_7_classic"
+    type: level
+    level: 7
+    npcs:
+      - { name: "Skeleton", weight: 15 }
+      - { name: "Clay-Golem", weight: 10 }
+      - { name: "Beholder", weight: 10 }
+      - { name: "Dark-Elf", weight: 15 }
+      - { name: "Demon", weight: 20 }
+      - { name: "Liche", weight: 15 }
+      - { name: "Unicorn", weight: 10 }
+      - { name: "WyvernM", weight: 5 }
+
+# Example: Additional context-based rules
+# Uncomment these to layer additional spawn logic on top of level tables
+
+#  # Water creatures (spawn in water tiles)
+#  - name: "water_creatures"
+#    type: biome
+#    biome: water
+#    npcs:
+#      - { name: "Amphis", weight: 50 }
+#      - { name: "Giant-Crayfish", weight: 30 }
+#      - { name: "Giant-Frog", weight: 20 }
+#
+#  # Nocturnal creatures (spawn at night)
+#  - name: "nocturnal_creatures"
+#    type: time
+#    period: night
+#    npcs:
+#      - { name: "Zombie", weight: 40 }
+#      - { name: "Skeleton", weight: 30 }
+#      - { name: "WereWolf", weight: 20 }
+#      - { name: "Liche", weight: 10 }
+#
+#  # Night dungeons (composite rule: night AND dungeon)
+#  - name: "night_dungeons"
+#    type: composite
+#    operator: and
+#    children:
+#      - type: time
+#        period: night
+#      - type: biome
+#        biome: fight_zone
+#    npcs:
+#      - { name: "Demon", weight: 30 }
+#      - { name: "Liche", weight: 30 }
+#      - { name: "Beholder", weight: 20 }
+#      - { name: "Dark-Elf", weight: 20 }
+
+# Map-specific spawn tables
+# Maps specified here use only the listed tables
+# Maps not specified use all global rules
+map_spawn_tables:
+  arefarm:
+    tables: ["level_1_classic"]
+  elvfarm:
+    tables: ["level_1_classic"]
+  huntzone1:
+    tables: ["level_2_classic"]
+  huntzone2:
+    tables: ["level_3_classic"]
+  huntzone3:
+    tables: ["level_4_classic"]
+  dungeon1:
+    tables: ["level_3_classic"]
+  dungeon2:
+    tables: ["level_5_classic"]
+  dungeon3:
+    tables: ["level_6_classic"]
+  # Add more maps as needed

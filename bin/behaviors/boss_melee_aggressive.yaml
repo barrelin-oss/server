@@ -1,0 +1,24 @@
+# boss_melee_aggressive.yaml
+# Boss Phase 1 - aggressive melee with no fleeing, wider aggro
+name: boss_melee_aggressive
+root:
+  type: selector
+  children:
+    # Priority 1: Always fight if we have a target
+    - type: sequence
+      children:
+        - type: has_target
+        - type: selector
+          children:
+            - type: sequence
+              children:
+                - type: target_in_range
+                  range: 1
+                - type: attack_target
+            - type: chase_target
+
+    # Priority 2: Actively hunt for targets
+    - type: find_target
+
+    # Priority 3: Idle (bosses don't wander)
+    - type: idle

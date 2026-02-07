@@ -1,0 +1,41 @@
+# boss_ranged_with_adds.yaml
+# Boss Phase 2 - ranged attacks, lets minions tank, heals occasionally
+name: boss_ranged_with_adds
+root:
+  type: selector
+  children:
+    # Priority 1: Heal if below 40%
+    - type: sequence
+      children:
+        - type: hp_below
+          threshold: 0.4
+        - type: cooldown
+          cooldown_ms: 10000
+          child:
+            type: heal_self
+            amount: 200
+
+    # Priority 2: Attack from range
+    - type: sequence
+      children:
+        - type: has_target
+        - type: selector
+          children:
+            - type: sequence
+              children:
+                - type: target_in_range
+                  range: 6
+                - type: attack_target
+            # Keep distance - don't close to melee
+            - type: sequence
+              children:
+                - type: target_in_range
+                  range: 2
+                - type: flee_from_target
+            - type: chase_target
+
+    # Priority 3: Find targets
+    - type: find_target
+
+    # Priority 4: Idle
+    - type: idle

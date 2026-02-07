@@ -727,9 +727,9 @@ void application::wire_effect_system() {
 }
 
 void application::load_game_configs() {
-    std::filesystem::path config_dir = "GameConfigs";
+    std::filesystem::path config_dir = "game_configs";
     if (!std::filesystem::exists(config_dir)) {
-        LOG_WARN(general, "GameConfigs directory not found: {}", config_dir.string());
+        LOG_WARN(general, "game_configs directory not found: {}", config_dir.string());
         return;
     }
 

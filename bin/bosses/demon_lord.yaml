@@ -1,0 +1,37 @@
+# demon_lord.yaml
+# Classic 3-phase boss encounter with enrage timer
+name: demon_lord
+on_spawn_script: boss_intro
+on_death_script: boss_death
+enrage_enabled: true
+enrage_timer_ms: 300000  # 5 minutes
+
+phases:
+  - name: "Phase 1 - Melee"
+    enter_trigger:
+      type: hp_below
+      threshold: 1.0
+    behavior_tree: boss_melee_aggressive
+    damage_multiplier: 1.0
+    speed_multiplier: 1.0
+
+  - name: "Phase 2 - Minions"
+    enter_trigger:
+      type: hp_below
+      threshold: 0.6
+    on_enter_script: summon_minions
+    behavior_tree: boss_ranged_with_adds
+    damage_multiplier: 1.3
+    speed_multiplier: 1.2
+    aggro_range: 15
+
+  - name: "Phase 3 - Enrage"
+    enter_trigger:
+      type: hp_below
+      threshold: 0.2
+    on_enter_script: boss_enrage
+    behavior_tree: boss_berserk
+    damage_multiplier: 2.0
+    speed_multiplier: 1.5
+    aggro_range: 20
+    attack_range: 2

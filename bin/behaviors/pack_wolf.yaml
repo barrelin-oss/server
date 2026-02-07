@@ -1,0 +1,41 @@
+# pack_wolf.yaml
+# Pack hunter - calls for help, fights together, flees if alone and hurt
+name: pack_wolf
+root:
+  type: selector
+  children:
+    # Priority 1: Flee if low HP and no pack nearby
+    - type: sequence
+      children:
+        - type: hp_below
+          threshold: 0.2
+        - type: flee_from_target
+
+    # Priority 2: Fight current target
+    - type: sequence
+      children:
+        - type: has_target
+        - type: selector
+          children:
+            # In range - attack and call help
+            - type: sequence
+              children:
+                - type: target_in_range
+                  range: 1
+                - type: cooldown
+                  cooldown_ms: 5000
+                  child:
+                    type: call_help
+                - type: attack_target
+            # Out of range - chase
+            - type: chase_target
+
+    # Priority 3: Find targets aggressively
+    - type: find_target
+
+    # Priority 4: Wander near spawn
+    - type: sequence
+      children:
+        - type: random_chance
+          percent: 20
+        - type: wander

@@ -68,7 +68,7 @@ bin/
 ├── hgserver_tests.exe    # Tests
 ├── *.dll                 # Runtime DLLs
 ├── *.cfg                 # Configuration
-├── GameConfigs/          # Game data
+├── game_configs/         # Game data
 ├── GameData/             # Game data
 └── mapdata/              # Map files
 ```

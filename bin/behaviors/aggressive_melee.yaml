@@ -1,0 +1,33 @@
+# aggressive_melee.yaml
+# Standard aggressive melee monster - attacks on sight, chases, returns home
+name: aggressive_melee
+root:
+  type: selector
+  children:
+    # Priority 1: If we have a target, fight it
+    - type: sequence
+      children:
+        - type: has_target
+        - type: selector
+          children:
+            # If in melee range, attack
+            - type: sequence
+              children:
+                - type: target_in_range
+                  range: 1
+                - type: attack_target
+            # Otherwise chase
+            - type: chase_target
+
+    # Priority 2: Look for a new target
+    - type: sequence
+      children:
+        - type: find_target
+        - type: chase_target
+
+    # Priority 3: Wander around spawn
+    - type: sequence
+      children:
+        - type: random_chance
+          percent: 15
+        - type: wander

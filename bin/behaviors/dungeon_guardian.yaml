@@ -1,0 +1,44 @@
+# dungeon_guardian.yaml
+# Stationary guard that attacks intruders, returns to post, never wanders
+name: dungeon_guardian
+root:
+  type: selector
+  children:
+    # Priority 1: Fight target if we have one
+    - type: sequence
+      children:
+        - type: has_target
+        - type: selector
+          children:
+            - type: sequence
+              children:
+                - type: target_in_range
+                  range: 2
+                - type: attack_target
+            # Only chase a short distance
+            - type: sequence
+              children:
+                - type: is_near_spawn
+                  range: 8
+                - type: chase_target
+            # Too far from post - return home
+            - type: sequence
+              children:
+                - type: always_succeed
+                  child:
+                    type: return_home
+
+    # Priority 2: Look for intruders
+    - type: find_target
+
+    # Priority 3: Return to guard post if we drifted
+    - type: sequence
+      children:
+        - type: inverter
+          child:
+            type: is_near_spawn
+            range: 1
+        - type: return_home
+
+    # Priority 4: Stand guard
+    - type: idle

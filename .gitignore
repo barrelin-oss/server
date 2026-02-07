@@ -56,3 +56,5 @@ JSON/Schemas/
 hbio-server/x64/
 /build/
 .claude/
+tools/migrate/node_modules/
+tools/migrate/dist/

@@ -1,3 +1,32 @@
-* text=auto
-*.cpp text eol=crlf
-*.h text eol=crlf
+* text=auto eol=lf
+
+# Source code
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.c text eol=lf
+*.rc text eol=lf
+
+# Build/config
+*.cmake text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.cfg text eol=lf
+
+# Scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.ps1 text eol=lf
+
+# Binary files (no conversion)
+*.exe binary
+*.dll binary
+*.lib binary
+*.bmp binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.pak binary

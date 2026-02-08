@@ -1,11 +1,10 @@
 // magic_registry.cpp
-// Magic registry implementation
+// Magic registry implementation - YAML parsing for spell configs
 
 #include "registry/magic_registry.h"
 #include "core/logger.h"
 
-#include <fstream>
-#include <sstream>
+#include <yaml-cpp/yaml.h>
 #include <algorithm>
 #include <cctype>
 
@@ -13,47 +12,10 @@ namespace hb {
 
 namespace {
 
-auto trim(std::string_view str) -> std::string {
-    auto start = str.find_first_not_of(" \t\n\r");
-    if (start == std::string_view::npos) return "";
-    auto end = str.find_last_not_of(" \t\n\r");
-    return std::string(str.substr(start, end - start + 1));
-}
-
 auto to_lower(std::string str) -> std::string {
     std::transform(str.begin(), str.end(), str.begin(),
         [](unsigned char c) { return std::tolower(c); });
     return str;
-}
-
-auto parse_int(std::string_view str, int default_val = 0) -> int {
-    auto trimmed = trim(str);
-    if (trimmed.empty()) return default_val;
-    try {
-        return std::stoi(std::string(trimmed));
-    } catch (...) {
-        return default_val;
-    }
-}
-
-auto split(std::string_view str, char delim) -> std::vector<std::string> {
-    std::vector<std::string> result;
-    std::string current;
-
-    for (char c : str) {
-        if (c == delim) {
-            result.push_back(trim(current));
-            current.clear();
-        } else {
-            current += c;
-        }
-    }
-
-    if (!current.empty()) {
-        result.push_back(trim(current));
-    }
-
-    return result;
 }
 
 }  // namespace
@@ -77,41 +39,86 @@ void magic_registry::shutdown() {
 auto magic_registry::load_from_file(const std::filesystem::path& path)
     -> result<size_t, std::string>
 {
-    std::ifstream file(path);
-    if (!file.is_open()) {
+    LOG_INFO(magic, "Loading spells from: {}", path.string());
+
+    YAML::Node root;
+    try {
+        root = YAML::LoadFile(path.string());
+    } catch (const YAML::Exception& e) {
         return result<size_t, std::string>::err(
-            "Failed to open magic config: " + path.string()
+            "Failed to parse magic YAML: " + std::string(e.what())
         );
     }
 
-    LOG_INFO(magic, "Loading spells from: {}", path.string());
+    auto spells_node = root["magic"];
+    if (!spells_node || !spells_node.IsSequence()) {
+        return result<size_t, std::string>::err("Missing or invalid 'magic' array in YAML");
+    }
 
-    std::string line;
-    int line_num = 0;
     size_t loaded = 0;
     size_t errors = 0;
 
-    while (std::getline(file, line)) {
-        ++line_num;
-        line = trim(line);
+    for (size_t i = 0; i < spells_node.size(); ++i) {
+        const auto& node = spells_node[i];
 
-        if (line.empty() || line[0] == ';' || line[0] == '#' || line[0] == '/') {
-            continue;
-        }
-
-        auto result = parse_spell_line(line, line_num);
-        if (result.is_err()) {
-            LOG_WARN(magic, "Line {}: {}", line_num, result.error());
+        if (!node["id"] || !node["name"]) {
+            LOG_WARN(magic, "Entry {}: missing id or name", i);
             ++errors;
             continue;
         }
 
-        auto spell = std::move(result.value());
+        spell_template spell;
+
+        spell.id = spell_id{static_cast<uint16_t>(node["id"].as<int>())};
+        if (!spell.id.is_valid()) {
+            LOG_WARN(magic, "Entry {}: invalid spell ID", i);
+            ++errors;
+            continue;
+        }
 
         if (id_index_.contains(spell.id.value)) {
-            LOG_WARN(magic, "Line {}: Duplicate spell ID {}", line_num, spell.id.value);
+            LOG_WARN(magic, "Entry {}: duplicate spell ID {}", i, spell.id.value);
             ++errors;
             continue;
+        }
+
+        spell.name = node["name"].as<std::string>();
+        spell.type = static_cast<magic_type>(node["type"].as<int>(1));
+        spell.mana_cost = static_cast<int16_t>(node["mana_cost"].as<int>(0));
+        spell.cast_time_ms = static_cast<int16_t>(node["delay"].as<int>(0));
+        spell.int_req = static_cast<int16_t>(node["int_req"].as<int>(0));
+        spell.range = static_cast<int16_t>(node["range1"].as<int>(0));
+
+        if (node["duration"]) {
+            spell.effect_duration = duration_ms(node["duration"].as<int>(0) * 1000);
+        }
+
+        // Parse effect dice for base_damage approximation (dice * (sides+1)/2 + bonus)
+        if (node["effect1"]) {
+            auto e = node["effect1"];
+            int dice = e["dice"].as<int>(0);
+            int sides = e["sides"].as<int>(0);
+            int bonus = e["bonus"].as<int>(0);
+            spell.base_damage = static_cast<int16_t>(dice * (sides + 1) / 2 + bonus);
+        }
+
+        // Determine offensive/targeting from type
+        switch (spell.type) {
+            case magic_type::damage_spot:
+            case magic_type::damage_area:
+            case magic_type::poison:
+            case magic_type::ice:
+                spell.is_offensive = true;
+                break;
+            case magic_type::hp_up_spot:
+            case magic_type::sp_up_spot:
+            case magic_type::resurrection:
+                spell.is_offensive = false;
+                spell.can_hit_ally = true;
+                spell.can_hit_enemy = false;
+                break;
+            default:
+                break;
         }
 
         auto index = spells_.size();
@@ -122,72 +129,7 @@ auto magic_registry::load_from_file(const std::filesystem::path& path)
     }
 
     LOG_INFO(magic, "Loaded {} spells ({} errors)", loaded, errors);
-
     return result<size_t, std::string>::ok(loaded);
-}
-
-auto magic_registry::parse_spell_line(std::string_view line, int line_num)
-    -> result<spell_template, std::string>
-{
-    // Expected format:
-    // ID  Name  Type  ManaCost  CastTime  Range  Damage  IntScaling  MagReq  ...
-
-    auto parts = split(line, '\t');
-    if (parts.size() < 1) {
-        parts = split(line, ' ');
-    }
-
-    if (parts.size() < 5) {
-        return result<spell_template, std::string>::err(
-            "Too few fields (need at least 5)"
-        );
-    }
-
-    spell_template spell;
-
-    spell.id = spell_id{static_cast<uint16_t>(parse_int(parts[0]))};
-    if (!spell.id.is_valid()) {
-        return result<spell_template, std::string>::err("Invalid spell ID");
-    }
-
-    spell.name = parts[1];
-    if (spell.name.empty()) {
-        return result<spell_template, std::string>::err("Empty spell name");
-    }
-
-    spell.type = static_cast<magic_type>(parse_int(parts[2]));
-    spell.mana_cost = static_cast<int16_t>(parse_int(parts[3]));
-    spell.cast_time_ms = static_cast<int16_t>(parse_int(parts[4]));
-
-    // Optional fields
-    if (parts.size() > 5) spell.range = static_cast<int16_t>(parse_int(parts[5]));
-    if (parts.size() > 6) spell.base_damage = static_cast<int16_t>(parse_int(parts[6]));
-    if (parts.size() > 7) spell.int_scaling = static_cast<int16_t>(parse_int(parts[7]));
-    if (parts.size() > 8) spell.mag_level_req = static_cast<int16_t>(parse_int(parts[8]));
-    if (parts.size() > 9) spell.int_req = static_cast<int16_t>(parse_int(parts[9]));
-    if (parts.size() > 10) spell.area_radius = static_cast<int16_t>(parse_int(parts[10]));
-    if (parts.size() > 11) spell.cooldown_ms = static_cast<int16_t>(parse_int(parts[11]));
-
-    // Determine if offensive based on type
-    switch (spell.type) {
-        case magic_type::damage_spot:
-        case magic_type::damage_area:
-        case magic_type::poison:
-        case magic_type::ice:
-            spell.is_offensive = true;
-            break;
-        case magic_type::hp_up_spot:
-        case magic_type::sp_up_spot:
-        case magic_type::resurrection:
-            spell.is_offensive = false;
-            spell.can_hit_ally = true;
-            spell.can_hit_enemy = false;
-            break;
-        default:
-            break;
-    }
-
-    return result<spell_template, std::string>::ok(std::move(spell));
 }
 
 auto magic_registry::get(spell_id id) const -> const spell_template* {

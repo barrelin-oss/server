@@ -985,7 +985,85 @@ void application::load_game_configs() {
         mining->start_generation();
     }
 
-    // TODO: Load magic definitions from magic.yaml or Magic.cfg
+    // Load magic definitions
+    auto* magic_reg = subsystems().get<magic_registry>();
+    if (magic_reg) {
+        auto magic_yaml = config_dir / "magic.yaml";
+        if (std::filesystem::exists(magic_yaml)) {
+            auto result = magic_reg->load_from_file(magic_yaml);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} spells from magic.yaml", result.value());
+                auto* magic_sys = subsystems().get<magic::magic_system>();
+                if (magic_sys) {
+                    for (const auto& reg_spell : magic_reg->all()) {
+                        magic::spell_template ms;
+                        ms.id = reg_spell.id;
+                        ms.name = reg_spell.name;
+                        ms.mana_cost = reg_spell.mana_cost;
+                        ms.cast_time_ms = reg_spell.cast_time_ms;
+                        ms.cooldown_ms = reg_spell.cooldown_ms;
+                        ms.range = reg_spell.range;
+                        ms.aoe_radius = reg_spell.area_radius;
+                        ms.base_damage = reg_spell.base_damage;
+                        ms.int_scaling = reg_spell.int_scaling;
+                        ms.mag_scaling = reg_spell.mag_scaling;
+                        ms.int_requirement = reg_spell.int_req;
+                        ms.level_requirement = reg_spell.mag_level_req;
+                        ms.spell_type = reg_spell.type;
+                        ms.duration_ms = static_cast<int32_t>(reg_spell.effect_duration.count());
+                        ms.effects = reg_spell.effects;
+
+                        // Map magic_type to category
+                        switch (reg_spell.type) {
+                            case magic_type::damage_spot:
+                            case magic_type::damage_area:
+                            case magic_type::poison:
+                            case magic_type::ice:
+                                ms.category = magic::spell_category::attack;
+                                break;
+                            case magic_type::hp_up_spot:
+                                ms.category = magic::spell_category::healing;
+                                break;
+                            case magic_type::protection:
+                            case magic_type::berserk:
+                                ms.category = magic::spell_category::buff;
+                                break;
+                            case magic_type::hold_paralyze:
+                            case magic_type::confusion:
+                            case magic_type::sp_down_spot:
+                            case magic_type::inhibition:
+                                ms.category = magic::spell_category::debuff;
+                                break;
+                            case magic_type::invisibility:
+                            case magic_type::polymorph:
+                                ms.category = magic::spell_category::buff;
+                                break;
+                            case magic_type::teleport:
+                            case magic_type::summon:
+                            case magic_type::cancellation:
+                                ms.category = magic::spell_category::utility;
+                                break;
+                            case magic_type::sp_up_spot:
+                                ms.category = magic::spell_category::healing;
+                                break;
+                            case magic_type::resurrection:
+                                ms.category = magic::spell_category::healing;
+                                break;
+                            default:
+                                ms.category = magic::spell_category::special;
+                                break;
+                        }
+
+                        magic_sys->register_spell(ms);
+                    }
+                }
+            } else {
+                LOG_ERROR(general, "Failed to load magic.yaml: {}", result.error());
+            }
+        } else {
+            LOG_WARN(general, "No magic.yaml found (spell registry will be empty)");
+        }
+    }
     // TODO: Load skill definitions from skills.yaml or Skill.cfg
 }
 

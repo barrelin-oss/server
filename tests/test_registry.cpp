@@ -208,9 +208,24 @@ TEST_F(registry_test, magic_registry_lifecycle) {
 }
 
 TEST_F(registry_test, magic_registry_load) {
-    auto path = create_test_file("magic.cfg",
-        "1\tFireball\t1\t10\t500\t8\t50\t5\t1\t10\t3\t2000\n"
-        "2\tHeal\t2\t15\t300\t5\t30\t3\t1\t8\t0\t1000\n"
+    auto path = create_test_file("magic.yaml",
+        "magic:\n"
+        "  - id: 1\n"
+        "    name: Fireball\n"
+        "    type: 1\n"
+        "    mana_cost: 10\n"
+        "    delay: 500\n"
+        "    range1: 8\n"
+        "    effect1: { dice: 2, sides: 8, bonus: 5 }\n"
+        "    int_req: 10\n"
+        "  - id: 2\n"
+        "    name: Heal\n"
+        "    type: 2\n"
+        "    mana_cost: 15\n"
+        "    delay: 300\n"
+        "    range1: 5\n"
+        "    effect1: { dice: 2, sides: 6, bonus: 3 }\n"
+        "    int_req: 8\n"
     );
 
     magic_registry registry;
@@ -222,8 +237,16 @@ TEST_F(registry_test, magic_registry_load) {
 }
 
 TEST_F(registry_test, magic_registry_get_by_id) {
-    auto path = create_test_file("magic.cfg",
-        "5\tIceStorm\t3\t30\t800\t10\t80\t8\t5\t20\t5\t3000\n"
+    auto path = create_test_file("magic.yaml",
+        "magic:\n"
+        "  - id: 5\n"
+        "    name: IceStorm\n"
+        "    type: 3\n"
+        "    mana_cost: 30\n"
+        "    delay: 800\n"
+        "    range1: 10\n"
+        "    effect1: { dice: 10, sides: 15, bonus: 0 }\n"
+        "    int_req: 20\n"
     );
 
     magic_registry registry;
@@ -234,14 +257,27 @@ TEST_F(registry_test, magic_registry_get_by_id) {
     ASSERT_NE(spell, nullptr);
     EXPECT_EQ(spell->name, "IceStorm");
     EXPECT_EQ(spell->mana_cost, 30);
-    EXPECT_EQ(spell->base_damage, 80);
+    EXPECT_EQ(spell->base_damage, 80);  // 10 * (15+1)/2 + 0 = 80
 }
 
 TEST_F(registry_test, magic_registry_by_type) {
-    auto path = create_test_file("magic.cfg",
-        "1\tFlame\t1\t10\t500\t8\t30\t3\t1\t5\n"
-        "2\tBlaze\t1\t20\t600\t10\t50\t5\t3\t10\n"
-        "3\tCure\t2\t15\t300\t5\t25\t2\t1\t5\n"
+    auto path = create_test_file("magic.yaml",
+        "magic:\n"
+        "  - id: 1\n"
+        "    name: Flame\n"
+        "    type: 1\n"
+        "    mana_cost: 10\n"
+        "    int_req: 5\n"
+        "  - id: 2\n"
+        "    name: Blaze\n"
+        "    type: 1\n"
+        "    mana_cost: 20\n"
+        "    int_req: 10\n"
+        "  - id: 3\n"
+        "    name: Cure\n"
+        "    type: 2\n"
+        "    mana_cost: 15\n"
+        "    int_req: 5\n"
     );
 
     magic_registry registry;
@@ -256,8 +292,16 @@ TEST_F(registry_test, magic_registry_by_type) {
 }
 
 TEST_F(registry_test, magic_registry_damage_calculation) {
-    auto path = create_test_file("magic.cfg",
-        "1\tTestSpell\t1\t10\t500\t8\t100\t20\t5\t15\n"  // base=100, int_scale=20
+    auto path = create_test_file("magic.yaml",
+        "magic:\n"
+        "  - id: 1\n"
+        "    name: TestSpell\n"
+        "    type: 1\n"
+        "    mana_cost: 10\n"
+        "    delay: 500\n"
+        "    range1: 8\n"
+        "    effect1: { dice: 10, sides: 19, bonus: 0 }\n"
+        "    int_req: 15\n"
     );
 
     magic_registry registry;
@@ -267,9 +311,6 @@ TEST_F(registry_test, magic_registry_damage_calculation) {
     auto* spell = registry.get(spell_id{1});
     ASSERT_NE(spell, nullptr);
 
-    // With 50 INT, 30 MAG: damage = 100 + (20 * 50 / 10) + (5 * 30 / 10) = 100 + 100 + 15 = 215
-    // Note: mag_scaling is parsed from field 8 which is mag_level_req in our parser
-    // Let's just verify base damage
+    // base_damage = dice * (sides+1)/2 + bonus = 10 * (19+1)/2 + 0 = 100
     EXPECT_EQ(spell->base_damage, 100);
-    EXPECT_EQ(spell->int_scaling, 20);
 }

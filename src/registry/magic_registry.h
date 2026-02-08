@@ -60,8 +60,6 @@ public:
     [[nodiscard]] auto all() const -> const std::vector<spell_template>&;
 
 private:
-    auto parse_spell_line(std::string_view line, int line_num) -> result<spell_template, std::string>;
-
     std::vector<spell_template> spells_;
     std::unordered_map<uint16_t, size_t> id_index_;
     std::unordered_map<std::string, size_t> name_index_;

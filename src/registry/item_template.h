@@ -82,6 +82,9 @@ struct item_template {
     // Special effects
     std::array<item_effect, 4> effects{};
 
+    // Visual / classification
+    int16_t sprite_id{0};  // Legacy m_sItemEffectType: weapon sprite/animation type (2 = bow)
+
     // Flags
     bool is_stackable{false};
     bool is_tradeable{true};
@@ -108,6 +111,14 @@ struct item_template {
         if (attack_sides <= 0) return static_cast<float>(attack_bonus);
         return static_cast<float>(attack_dice) * (static_cast<float>(attack_sides + 1) / 2.0f) +
                static_cast<float>(attack_bonus);
+    }
+
+    [[nodiscard]] auto is_bow() const -> bool {
+        return equip_pos == item_equip_pos::two_hand && sprite_id == 2;
+    }
+
+    [[nodiscard]] auto is_arrow() const -> bool {
+        return type == item_type::arrow;
     }
 };
 

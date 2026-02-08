@@ -16,17 +16,19 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS accounts (
     id              SERIAL PRIMARY KEY,
     username        VARCHAR(32) UNIQUE NOT NULL,
-    password_hash   VARCHAR(255) NOT NULL,
+    password_hash   VARCHAR(255) NOT NULL DEFAULT '',
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     last_login      TIMESTAMP WITH TIME ZONE,
     is_banned       BOOLEAN DEFAULT FALSE,
     ban_reason      TEXT,
     ban_expires     TIMESTAMP WITH TIME ZONE,
     admin_level     SMALLINT DEFAULT 0,
+    forum_member_id BIGINT,
 
     CONSTRAINT username_lowercase CHECK (username = LOWER(username)),
     CONSTRAINT username_format CHECK (username ~ '^[a-z0-9_]{3,32}$')
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_forum_member_id ON accounts (forum_member_id) WHERE forum_member_id IS NOT NULL;
 
 -- Characters table
 CREATE TABLE IF NOT EXISTS characters (

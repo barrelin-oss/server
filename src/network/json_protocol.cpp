@@ -164,7 +164,8 @@ auto json_message::from_json(const nlohmann::json& j) -> result<json_message, st
             return result<json_message, std::string>::err("Missing or invalid 'type' field");
         }
 
-        msg.type = parse_message_type(j["type"].get<std::string>());
+        msg.raw_type = j["type"].get<std::string>();
+        msg.type = parse_message_type(msg.raw_type);
 
         if (j.contains("seq")) {
             if (j["seq"].is_number_unsigned()) {
@@ -205,10 +206,18 @@ auto login_request_data::from_json(const nlohmann::json& j) -> result<login_requ
         }
         data.username = j["username"].get<std::string>();
 
-        if (!j.contains("password") || !j["password"].is_string()) {
-            return result<login_request_data, std::string>::err("Missing or invalid 'password' field");
+        // Accept either password or forum_token (at least one required)
+        if (j.contains("password") && j["password"].is_string()) {
+            data.password = j["password"].get<std::string>();
         }
-        data.password = j["password"].get<std::string>();
+        if (j.contains("forum_token") && j["forum_token"].is_string()) {
+            data.forum_token = j["forum_token"].get<std::string>();
+        }
+
+        if (data.password.empty() && data.forum_token.empty()) {
+            return result<login_request_data, std::string>::err(
+                "Must provide either 'password' or 'forum_token'");
+        }
 
         return result<login_request_data, std::string>::ok(std::move(data));
 
@@ -448,7 +457,7 @@ namespace {
             auto str = j.get<std::string>();
             if (str == "regular") return attack_type::regular;
             if (str == "dash") return attack_type::dash;
-            if (str == "super") return attack_type::super;
+            if (str == "ranged" || str == "super") return attack_type::ranged;
         }
         return attack_type::regular;
     }
@@ -867,7 +876,7 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
 }
 
 auto attack_result_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
+    auto j = nlohmann::json{
         {"hit", hit},
         {"critical", critical},
         {"damage", damage},
@@ -877,6 +886,16 @@ auto attack_result_msg::to_json() const -> nlohmann::json {
         {"attacker_x", attacker_x},
         {"attacker_y", attacker_y}
     };
+    if (is_ranged) {
+        j["is_ranged"] = true;
+        if (ammo_count >= 0) {
+            j["ammo_count"] = ammo_count;
+        }
+        if (ammo_template_id > 0) {
+            j["ammo_template_id"] = ammo_template_id;
+        }
+    }
+    return j;
 }
 
 auto magic_result_msg::to_json() const -> nlohmann::json {
@@ -1059,13 +1078,18 @@ auto make_error_response(uint32_t seq, std::string_view error_code,
 
 auto make_login_response(uint32_t seq, bool success,
                           std::optional<std::string_view> token,
-                          std::optional<std::string_view> error) -> json_message
+                          std::optional<std::string_view> error,
+                          std::optional<std::string_view> forum_token) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
     if (success && token.has_value()) {
         data["session_token"] = std::string(*token);
+    }
+
+    if (success && forum_token.has_value() && !forum_token->empty()) {
+        data["forum_token"] = std::string(*forum_token);
     }
 
     if (!success && error.has_value()) {
@@ -1566,22 +1590,37 @@ auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json
 auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
                                    int16_t attacker_x, int16_t attacker_y,
                                    int16_t target_x, int16_t target_y,
-                                   bool hit, bool critical, int32_t damage) -> json_message
+                                   bool hit, bool critical, int32_t damage,
+                                   projectile_type projectile) -> json_message
 {
+    auto data = nlohmann::json{
+        {"attacker_id", attacker_id},
+        {"target_id", target_id},
+        {"attacker_x", attacker_x},
+        {"attacker_y", attacker_y},
+        {"target_x", target_x},
+        {"target_y", target_y},
+        {"hit", hit},
+        {"critical", critical},
+        {"damage", damage}
+    };
+    if (projectile != projectile_type::none) {
+        data["attack_mode"] = "ranged";
+        switch (projectile) {
+            case projectile_type::arrow:
+                data["projectile_type"] = "arrow";
+                break;
+            case projectile_type::poison_arrow:
+                data["projectile_type"] = "poison_arrow";
+                break;
+            default:
+                break;
+        }
+    }
     return json_message{
         .type = json_message_type::combat_attack_broadcast,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = nlohmann::json{
-            {"attacker_id", attacker_id},
-            {"target_id", target_id},
-            {"attacker_x", attacker_x},
-            {"attacker_y", attacker_y},
-            {"target_x", target_x},
-            {"target_y", target_y},
-            {"hit", hit},
-            {"critical", critical},
-            {"damage", damage}
-        }
+        .seq = 0,
+        .data = std::move(data)
     };
 }
 
@@ -1670,12 +1709,21 @@ auto npc_move_data::to_json() const -> nlohmann::json {
 }
 
 auto npc_attack_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
+    auto j = nlohmann::json{
         {"attacker_id", attacker_id},
         {"target_id", target_id},
         {"damage", damage},
-        {"is_critical", is_critical}
+        {"is_critical", is_critical},
+        {"attacker_x", attacker_x},
+        {"attacker_y", attacker_y},
+        {"target_x", target_x},
+        {"target_y", target_y}
     };
+    if (is_ranged) {
+        j["is_ranged"] = true;
+        j["projectile_type"] = "arrow";
+    }
+    return j;
 }
 
 auto npc_death_data::to_json() const -> nlohmann::json {

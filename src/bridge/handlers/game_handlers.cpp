@@ -582,13 +582,62 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         return;
     }
 
+    // Determine if this is a ranged attack (bow equipped)
+    bool is_ranged = false;
+    network::projectile_type projectile = network::projectile_type::none;
+    const item_template* weapon_tmpl = nullptr;
+
+    auto* item_reg = subsystems().get<item_registry>();
+    if (item_reg && attacker->equipment.has_equipped(player::equip_slot::weapon)) {
+        weapon_tmpl = item_reg->get(attacker->equipment.weapon().id);
+        if (weapon_tmpl && weapon_tmpl->is_bow()) {
+            is_ranged = true;
+        }
+    }
+
+    // For ranged attacks: check arrows and determine projectile type
+    uint32_t arrow_template_id = 0;
+    int32_t ammo_remaining = -1;
+
+    if (is_ranged) {
+        if (!inventory_) {
+            send_error(conn_id, msg.seq, "internal_error", "Inventory system unavailable");
+            return;
+        }
+
+        // Find arrows in inventory - prefer poison arrows (78), then normal (77)
+        auto attacker_entity = entity_id{pid.value};
+        constexpr uint32_t poison_arrow_id = 78;
+        constexpr uint32_t normal_arrow_id = 77;
+
+        if (inventory_->has_item(attacker_entity, item_id{poison_arrow_id})) {
+            arrow_template_id = poison_arrow_id;
+            projectile = network::projectile_type::poison_arrow;
+        } else if (inventory_->has_item(attacker_entity, item_id{normal_arrow_id})) {
+            arrow_template_id = normal_arrow_id;
+            projectile = network::projectile_type::arrow;
+        } else {
+            network::attack_result_msg result{
+                .hit = false,
+                .target_id = data.target_id,
+                .attacker_x = attacker->pos.x,
+                .attacker_y = attacker->pos.y,
+                .is_ranged = true
+            };
+            conn->send(network::make_player_attack_response(msg.seq, false, &result, "no_ammo"));
+            return;
+        }
+    }
+
     // Calculate distance
     int distance = attacker->pos.chebyshev_distance(target->pos);
 
-    // Validate range based on attack type
-    int max_range = 1;  // Melee
-    if (data.type == network::attack_type::dash) {
-        max_range = 2;  // Dash attack range
+    // Validate range based on attack type and weapon
+    int max_range = 1;  // Melee default
+    if (is_ranged) {
+        max_range = 10;  // Bow range (standard Helbreath bow range)
+    } else if (data.type == network::attack_type::dash) {
+        max_range = 2;   // Dash attack range
     }
 
     if (distance > max_range) {
@@ -596,10 +645,30 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
             .hit = false,
             .target_id = data.target_id,
             .attacker_x = attacker->pos.x,
-            .attacker_y = attacker->pos.y
+            .attacker_y = attacker->pos.y,
+            .is_ranged = is_ranged
         };
         conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_in_range"));
         return;
+    }
+
+    // Ranged attacks require minimum distance (can't fire at melee range)
+    if (is_ranged && distance < 2) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y,
+            .is_ranged = true
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_too_close"));
+        return;
+    }
+
+    // Consume arrow before processing attack
+    if (is_ranged && arrow_template_id > 0) {
+        inventory_->remove_item(entity_id{pid.value}, item_id{arrow_template_id}, 1);
+        ammo_remaining = inventory_->count_item(entity_id{pid.value}, item_id{arrow_template_id});
     }
 
     // Build attack event
@@ -609,6 +678,8 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     attack.type = combat::damage_type::physical;
     attack.base_damage = 0;  // Let combat_system calculate from stats
     attack.is_skill = false;
+    attack.is_ranged = is_ranged;
+    attack.distance = distance;
 
     // Process the attack through combat system
     auto combat_result = combat_->process_attack(attack);
@@ -622,7 +693,10 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         .target_hp = static_cast<int16_t>(target->hp),
         .target_hp_max = static_cast<int16_t>(target->computed.max_hp),
         .attacker_x = attacker->pos.x,
-        .attacker_y = attacker->pos.y
+        .attacker_y = attacker->pos.y,
+        .is_ranged = is_ranged,
+        .ammo_count = ammo_remaining,
+        .ammo_template_id = arrow_template_id
     };
 
     // Send response to attacker
@@ -631,7 +705,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     // Broadcast attack to players who can see the attacker
     auto nearby = players_->get_players_who_can_see(attacker->current_map, attacker->pos);
 
-    // Create broadcast message
+    // Create broadcast message (includes projectile info for ranged)
     auto broadcast_msg = network::make_combat_attack_broadcast(
         attacker->ecs_entity.id,
         target->ecs_entity.id,
@@ -639,7 +713,8 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         target->pos.x, target->pos.y,
         combat_result.hit.is_hit(),
         combat_result.hit.is_critical(),
-        combat_result.hit.final_damage
+        combat_result.hit.final_damage,
+        projectile
     );
 
     for (auto other_id : nearby) {
@@ -654,10 +729,10 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         }
     }
 
-    LOG_DEBUG(bridge, "Player {} attacked player {} (hit={}, crit={}, dmg={}, target_hp={})",
-        pid.value, target_pid_opt->value,
+    LOG_DEBUG(bridge, "Player {} {} player {} (hit={}, crit={}, dmg={}, target_hp={}, ranged={})",
+        pid.value, is_ranged ? "shot" : "attacked", target_pid_opt->value,
         combat_result.hit.is_hit(), combat_result.hit.is_critical(),
-        combat_result.hit.final_damage, target->hp);
+        combat_result.hit.final_damage, target->hp, is_ranged);
 }
 
 void game_handlers::handle_player_magic(connection_id conn_id, const network::json_message& msg) {
@@ -3120,11 +3195,25 @@ void game_handlers::broadcast_npc_move(const npc::npc& n) {
 void game_handlers::broadcast_npc_attack(const npc::npc& n, entity::entity target, int32_t damage) {
     if (!players_ || !ws_server_) return;
 
+    // Resolve target position for projectile visuals
+    int16_t tgt_x = 0, tgt_y = 0;
+    if (auto target_pid = players_->get_player_id_by_entity(target)) {
+        if (auto* tgt = players_->get_player(*target_pid)) {
+            tgt_x = tgt->pos.x;
+            tgt_y = tgt->pos.y;
+        }
+    }
+
     network::npc_attack_data data{
         .attacker_id = n.entity_id.id,
         .target_id = target.id,
         .damage = damage,
-        .is_critical = false  // NPCs don't crit for now
+        .is_critical = false,  // NPCs don't crit for now
+        .is_ranged = n.ai.attack_range > 1,
+        .attacker_x = n.pos.x,
+        .attacker_y = n.pos.y,
+        .target_x = tgt_x,
+        .target_y = tgt_y
     };
 
     auto msg = network::make_npc_attack_message(data);

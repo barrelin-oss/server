@@ -32,6 +32,7 @@ struct account {
     std::optional<std::chrono::system_clock::time_point> ban_expires;
     std::chrono::system_clock::time_point created_at;
     std::optional<std::chrono::system_clock::time_point> last_login;
+    std::optional<uint64_t> forum_member_id;
 };
 
 // Character summary (for character selection screen)
@@ -142,6 +143,7 @@ enum class auth_error {
     session_expired,
     session_not_found,
     account_already_in_game,
+    forum_auth_failed,
     internal_error
 };
 
@@ -163,6 +165,7 @@ enum class auth_error {
         case auth_error::session_expired: return "session_expired";
         case auth_error::session_not_found: return "session_not_found";
         case auth_error::account_already_in_game: return "account_already_in_game";
+        case auth_error::forum_auth_failed: return "forum_auth_failed";
         case auth_error::internal_error: return "internal_error";
         default: return "unknown";
     }

@@ -9,6 +9,8 @@
 #include "auth/account.h"
 #include "auth/session_token.h"
 
+#include "config/server_config.h"
+
 #include <string>
 #include <string_view>
 #include <vector>
@@ -55,6 +57,10 @@ public:
     // Configuration
     void set_config(const auth_config& config);
     void set_database(database::database_system* db);
+    void set_forum_config(const forum_auth_config& config);
+
+    // Forum auth state
+    [[nodiscard]] auto forum_auth_enabled() const -> bool { return forum_config_.enabled; }
 
     // Account management
     [[nodiscard]] auto create_account(std::string_view username, std::string_view password)
@@ -68,6 +74,22 @@ public:
                                         std::string_view old_password,
                                         std::string_view new_password)
         -> result<void, auth_error>;
+
+    // Forum-based authentication (delegates to external PHP endpoints)
+    // Returns session_token + forum_token (for client storage)
+    struct forum_auth_result {
+        session_token session;
+        std::string forum_token;  // token from PHP, empty on token-based login
+    };
+
+    [[nodiscard]] auto authenticate_forum(std::string_view username,
+                                           std::string_view password,
+                                           std::optional<std::string_view> ip_address = std::nullopt)
+        -> result<forum_auth_result, auth_error>;
+
+    [[nodiscard]] auto authenticate_forum_token(std::string_view token,
+                                                 std::optional<std::string_view> ip_address = std::nullopt)
+        -> result<forum_auth_result, auth_error>;
 
     // Account queries
     [[nodiscard]] auto get_account(account_id id) -> result<account, auth_error>;
@@ -124,7 +146,13 @@ private:
     void db_record_login(account_id id, std::string_view ip_address, bool success,
                           std::string_view failure_reason = "");
 
+    // Forum auth helpers
+    [[nodiscard]] auto db_get_or_create_account_by_forum_id(uint64_t forum_member_id,
+                                                             std::string_view username)
+        -> result<account, auth_error>;
+
     auth_config config_;
+    forum_auth_config forum_config_;
     database::database_system* database_{nullptr};
 
     // In-memory session cache for performance

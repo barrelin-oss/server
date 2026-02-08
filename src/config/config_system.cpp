@@ -159,6 +159,14 @@ auto config_system::load_yaml_config(const std::filesystem::path& path)
                 yaml_get<int>(auth, "session_timeout", 3600)};
         }
 
+        // Forum auth section
+        if (auto forum = config["forum_auth"]) {
+            server_config_.forum_auth.enabled = yaml_get<bool>(forum, "enabled", false);
+            server_config_.forum_auth.login_url = yaml_get<std::string>(forum, "login_url", "");
+            server_config_.forum_auth.validate_url = yaml_get<std::string>(forum, "validate_url", "");
+            server_config_.forum_auth.api_key = yaml_get<std::string>(forum, "api_key", "");
+        }
+
         // Auto-save section
         if (auto auto_save = config["auto_save"]) {
             server_config_.auto_save.enabled = yaml_get<bool>(auto_save, "enabled", true);

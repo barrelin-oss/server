@@ -107,7 +107,60 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
     LOG_DEBUG(bridge, "Login request from {} for user '{}'",
         conn->remote_address(), data.username);
 
-    // Attempt authentication
+    // Forum auth path
+    if (auth_->forum_auth_enabled()) {
+        if (!data.forum_token.empty()) {
+            // Token-based auto-login
+            auto forum_result = auth_->authenticate_forum_token(
+                data.forum_token, conn->remote_address());
+
+            if (forum_result.is_err()) {
+                std::string error_str(auth::to_string(forum_result.error()));
+                LOG_INFO(bridge, "Forum token login failed for '{}': {}", data.username, error_str);
+                auto response = network::make_login_response(msg.seq, false, std::nullopt, error_str);
+                conn->send(response);
+                return;
+            }
+
+            auto& result = forum_result.value();
+            conn->set_state(network::ws_connection_state::authenticated);
+            conn->set_account(result.session.account);
+            conn->set_session_token(result.session.token);
+
+            LOG_INFO(bridge, "User '{}' logged in via forum token from {}",
+                data.username, conn->remote_address());
+
+            auto response = network::make_login_response(msg.seq, true, result.session.token);
+            conn->send(response);
+            return;
+        }
+
+        // Password-based forum login
+        auto forum_result = auth_->authenticate_forum(
+            data.username, data.password, conn->remote_address());
+
+        if (forum_result.is_err()) {
+            std::string error_str(auth::to_string(forum_result.error()));
+            LOG_INFO(bridge, "Forum login failed for '{}': {}", data.username, error_str);
+            auto response = network::make_login_response(msg.seq, false, std::nullopt, error_str);
+            conn->send(response);
+            return;
+        }
+
+        auto& result = forum_result.value();
+        conn->set_state(network::ws_connection_state::authenticated);
+        conn->set_account(result.session.account);
+        conn->set_session_token(result.session.token);
+
+        LOG_INFO(bridge, "User '{}' logged in via forum from {}", data.username, conn->remote_address());
+
+        auto response = network::make_login_response(
+            msg.seq, true, result.session.token, std::nullopt, result.forum_token);
+        conn->send(response);
+        return;
+    }
+
+    // Local auth path (default)
     auto auth_result = auth_->authenticate(data.username, data.password, conn->remote_address());
 
     if (auth_result.is_err()) {

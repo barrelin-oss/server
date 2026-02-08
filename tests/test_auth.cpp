@@ -157,6 +157,7 @@ TEST(JsonProtocol, ParseMissingType) {
 TEST(JsonProtocol, SerializeMessage) {
     json_message msg{
         .type = json_message_type::pong,
+        .raw_type = "pong",
         .seq = 42,
         .data = nlohmann::json{{"timestamp", 12345}}
     };

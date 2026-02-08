@@ -44,6 +44,14 @@ struct auth_config {
     std::chrono::seconds lockout_duration{300};       // 5 minutes
 };
 
+// Forum authentication configuration (external PHP auth)
+struct forum_auth_config {
+    bool enabled = false;
+    std::string login_url;      // URL to auth_login.php
+    std::string validate_url;   // URL to auth_validate.php
+    std::string api_key;
+};
+
 // Auto-save configuration
 struct auto_save_config {
     bool enabled = true;
@@ -91,6 +99,9 @@ struct server_config {
 
     // Authentication configuration
     auth_config auth;
+
+    // Forum authentication configuration
+    forum_auth_config forum_auth;
 
     // Auto-save configuration
     auto_save_config auto_save;

@@ -88,6 +88,8 @@ struct attack_event {
     int32_t base_damage{0};
     bool is_skill{false};
     uint16_t skill_id{0};
+    bool is_ranged{false};
+    int32_t distance{0};  // Attacker-defender distance at time of attack
 };
 
 // Damage event - published when damage is applied

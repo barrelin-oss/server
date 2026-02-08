@@ -21,7 +21,14 @@ namespace hb::network {
 enum class attack_type : uint8_t {
     regular = 0,  // Normal melee attack
     dash = 1,     // Dash attack (requires 100% skill, 1 tile gap)
-    super = 2     // Super attack (requires 100% skill + charges, ranged)
+    ranged = 2    // Ranged attack (bow/crossbow)
+};
+
+// Projectile type for ranged attack broadcasts
+enum class projectile_type : uint8_t {
+    none = 0,
+    arrow = 1,
+    poison_arrow = 2,
 };
 
 // Target type enum
@@ -264,6 +271,7 @@ enum class json_message_type {
 // Base JSON message structure
 struct json_message {
     json_message_type type{json_message_type::unknown};
+    std::string raw_type;  // Original type string from JSON (useful for debugging unknown types)
     uint32_t seq{0};  // Sequence number for request/response matching
     nlohmann::json data;
 
@@ -276,7 +284,8 @@ struct json_message {
 
 struct login_request_data {
     std::string username;
-    std::string password;
+    std::string password;       // normal login (empty when using forum_token)
+    std::string forum_token;    // forum token-based auto-login (empty when using password)
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<login_request_data, std::string>;
 };
@@ -561,6 +570,11 @@ struct attack_result_msg {
     int16_t attacker_x{0};       // Confirmed attacker position
     int16_t attacker_y{0};
 
+    // Ranged combat fields (optional)
+    bool is_ranged{false};
+    int32_t ammo_count{-1};          // Remaining arrows (-1 = not applicable)
+    uint32_t ammo_template_id{0};    // Arrow template that was consumed
+
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -656,7 +670,8 @@ struct player_teleport_msg {
 
 [[nodiscard]] auto make_login_response(uint32_t seq, bool success,
                                         std::optional<std::string_view> token = std::nullopt,
-                                        std::optional<std::string_view> error = std::nullopt) -> json_message;
+                                        std::optional<std::string_view> error = std::nullopt,
+                                        std::optional<std::string_view> forum_token = std::nullopt) -> json_message;
 
 [[nodiscard]] auto make_create_account_response(uint32_t seq, bool success,
                                                   std::optional<uint32_t> account_id = std::nullopt,
@@ -762,7 +777,8 @@ struct game_state_msg {
 [[nodiscard]] auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
                                                  int16_t attacker_x, int16_t attacker_y,
                                                  int16_t target_x, int16_t target_y,
-                                                 bool hit, bool critical, int32_t damage) -> json_message;
+                                                 bool hit, bool critical, int32_t damage,
+                                                 projectile_type projectile = projectile_type::none) -> json_message;
 
 [[nodiscard]] auto make_entity_hp_update(uint32_t entity_id, int32_t hp, int32_t hp_max) -> json_message;
 
@@ -863,6 +879,11 @@ struct npc_attack_data {
     uint32_t target_id{0};
     int32_t damage{0};
     bool is_critical{false};
+    bool is_ranged{false};  // NPC ranged attack (sends projectile visual)
+    int16_t attacker_x{0};
+    int16_t attacker_y{0};
+    int16_t target_x{0};
+    int16_t target_y{0};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };

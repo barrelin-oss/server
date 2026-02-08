@@ -40,7 +40,7 @@ TEST(json_message_type_test, parse_message_type) {
 TEST(attack_type_test, enum_values) {
     EXPECT_EQ(static_cast<uint8_t>(attack_type::regular), 0);
     EXPECT_EQ(static_cast<uint8_t>(attack_type::dash), 1);
-    EXPECT_EQ(static_cast<uint8_t>(attack_type::super), 2);
+    EXPECT_EQ(static_cast<uint8_t>(attack_type::ranged), 2);
 }
 
 // ========== Target Type Tests ==========

@@ -235,6 +235,15 @@ async function cmdStatus(client: pg.Client): Promise<void> {
     }
 }
 
+async function cmdFresh(client: pg.Client): Promise<void> {
+    console.log("Dropping all tables and re-running all migrations...\n");
+
+    await client.query("DROP SCHEMA public CASCADE");
+    await client.query("CREATE SCHEMA public");
+    await ensureTable(client);
+    await cmdMigrate(client);
+}
+
 function cmdCreate(name: string): void {
     if (!name) {
         console.error("Usage: migrate.ts create <name>");
@@ -288,13 +297,16 @@ async function main(): Promise<void> {
             case "status":
                 await cmdStatus(client);
                 break;
+            case "fresh":
+                await cmdFresh(client);
+                break;
             case undefined:
             case "migrate":
                 await cmdMigrate(client);
                 break;
             default:
                 console.error(`Unknown command: ${command}`);
-                console.error("Usage: migrate.ts [migrate|rollback|status|create <name>]");
+                console.error("Usage: migrate.ts [migrate|rollback|fresh|status|create <name>]");
                 process.exit(1);
         }
     } finally {

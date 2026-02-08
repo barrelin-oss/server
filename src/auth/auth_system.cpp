@@ -7,6 +7,9 @@
 #include "player/stats.h"
 #include "core/logger.h"
 
+#include <ixwebsocket/IXHttpClient.h>
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cctype>
 
@@ -49,6 +52,14 @@ void auth_system::set_config(const auth_config& config) {
 
 void auth_system::set_database(database::database_system* db) {
     database_ = db;
+}
+
+void auth_system::set_forum_config(const forum_auth_config& config) {
+    forum_config_ = config;
+    if (forum_config_.enabled) {
+        LOG_INFO(auth, "Forum auth enabled: login={}, validate={}",
+            forum_config_.login_url, forum_config_.validate_url);
+    }
 }
 
 auto auth_system::create_account(std::string_view username, std::string_view password)
@@ -168,6 +179,207 @@ auto auth_system::authenticate(std::string_view username, std::string_view passw
     LOG_INFO(auth, "User authenticated: {} from {}", username, ip_str);
 
     return result<session_token, auth_error>::ok(std::move(session));
+}
+
+auto auth_system::authenticate_forum(std::string_view username,
+                                      std::string_view password,
+                                      std::optional<std::string_view> ip_address)
+    -> result<forum_auth_result, auth_error>
+{
+    std::string ip_str = ip_address ? std::string(*ip_address) : "unknown";
+
+    // Rate limiting still applies
+    if (ip_address && !check_login_attempts(*ip_address)) {
+        LOG_WARN(auth, "Forum login attempt from locked out IP: {}", ip_str);
+        return result<forum_auth_result, auth_error>::err(auth_error::invalid_credentials);
+    }
+
+    // Call PHP login endpoint
+    ix::HttpClient http_client;
+    nlohmann::json request_body;
+    request_body["email"] = std::string(username);
+    request_body["pass"] = std::string(password);
+    request_body["key"] = forum_config_.api_key;
+
+    auto args = http_client.createRequest(forum_config_.login_url, ix::HttpClient::kPost);
+    args->connectTimeout = 10;
+    args->transferTimeout = 15;
+    auto response = http_client.post(forum_config_.login_url, request_body.dump(), args);
+
+    if (response->statusCode != 200) {
+        std::string body = response->body;
+        record_login_attempt(ip_str, false);
+
+        if (body == "badaccount") {
+            LOG_DEBUG(auth, "Forum auth: account not found '{}'", username);
+        } else if (body == "badpass") {
+            LOG_DEBUG(auth, "Forum auth: wrong password for '{}'", username);
+        } else {
+            LOG_WARN(auth, "Forum auth failed for '{}': HTTP {} - {}",
+                username, response->statusCode, body);
+        }
+        return result<forum_auth_result, auth_error>::err(auth_error::forum_auth_failed);
+    }
+
+    // Parse response
+    nlohmann::json resp;
+    try {
+        resp = nlohmann::json::parse(response->body);
+    } catch (const nlohmann::json::exception& e) {
+        LOG_ERROR(auth, "Forum auth: failed to parse response: {}", e.what());
+        return result<forum_auth_result, auth_error>::err(auth_error::internal_error);
+    }
+
+    auto forum_member_id = resp["forum_member_id"].get<uint64_t>();
+    auto forum_token = resp["token"].get<std::string>();
+
+    LOG_INFO(auth, "Forum auth successful for '{}' (forum_id: {})", username, forum_member_id);
+
+    // Look up or create local account
+    auto account_result = db_get_or_create_account_by_forum_id(forum_member_id, username);
+    if (account_result.is_err()) {
+        return result<forum_auth_result, auth_error>::err(account_result.error());
+    }
+
+    auto& acc = account_result.value();
+
+    // Check if banned locally
+    if (acc.is_banned) {
+        if (acc.ban_expires.has_value() &&
+            std::chrono::system_clock::now() >= *acc.ban_expires) {
+            unban_account(acc.id);
+        } else {
+            LOG_INFO(auth, "Forum login for banned account: {} (forum_id: {})", username, forum_member_id);
+            db_record_login(acc.id, ip_str, false, "account_banned");
+            return result<forum_auth_result, auth_error>::err(auth_error::account_banned);
+        }
+    }
+
+    // Create game session
+    auto session_result = create_session_token(
+        acc.id, config_.session_duration, ip_address, std::nullopt);
+
+    if (session_result.is_err()) {
+        LOG_ERROR(auth, "Failed to create session token: {}", session_result.error());
+        return result<forum_auth_result, auth_error>::err(auth_error::internal_error);
+    }
+
+    auto session = std::move(session_result).value();
+
+    auto store_result = db_store_session(session);
+    if (store_result.is_err()) {
+        return result<forum_auth_result, auth_error>::err(auth_error::database_error);
+    }
+
+    {
+        std::lock_guard lock{session_mutex_};
+        session_cache_[session.token] = session;
+    }
+
+    record_login_attempt(ip_str, true);
+    db_record_login(acc.id, ip_str, true, "");
+
+    LOG_INFO(auth, "Forum user '{}' authenticated from {} (account {})",
+        username, ip_str, acc.id.value);
+
+    return result<forum_auth_result, auth_error>::ok(
+        forum_auth_result{.session = std::move(session), .forum_token = std::move(forum_token)});
+}
+
+auto auth_system::authenticate_forum_token(std::string_view token,
+                                            std::optional<std::string_view> ip_address)
+    -> result<forum_auth_result, auth_error>
+{
+    std::string ip_str = ip_address ? std::string(*ip_address) : "unknown";
+
+    if (ip_address && !check_login_attempts(*ip_address)) {
+        LOG_WARN(auth, "Forum token login from locked out IP: {}", ip_str);
+        return result<forum_auth_result, auth_error>::err(auth_error::invalid_credentials);
+    }
+
+    // Call PHP validate endpoint
+    ix::HttpClient http_client;
+    nlohmann::json request_body;
+    request_body["token"] = std::string(token);
+    request_body["key"] = forum_config_.api_key;
+
+    auto args = http_client.createRequest(forum_config_.validate_url, ix::HttpClient::kPost);
+    args->connectTimeout = 10;
+    args->transferTimeout = 15;
+    auto response = http_client.post(forum_config_.validate_url, request_body.dump(), args);
+
+    if (response->statusCode != 200) {
+        std::string body = response->body;
+        record_login_attempt(ip_str, false);
+
+        if (body == "invalid_token") {
+            LOG_DEBUG(auth, "Forum token auth: invalid token");
+        } else if (body == "expired_token") {
+            LOG_DEBUG(auth, "Forum token auth: expired token");
+        } else if (body == "password_changed") {
+            LOG_DEBUG(auth, "Forum token auth: password was changed, token revoked");
+        } else {
+            LOG_WARN(auth, "Forum token auth failed: HTTP {} - {}",
+                response->statusCode, body);
+        }
+        return result<forum_auth_result, auth_error>::err(auth_error::forum_auth_failed);
+    }
+
+    nlohmann::json resp;
+    try {
+        resp = nlohmann::json::parse(response->body);
+    } catch (const nlohmann::json::exception& e) {
+        LOG_ERROR(auth, "Forum token auth: failed to parse response: {}", e.what());
+        return result<forum_auth_result, auth_error>::err(auth_error::internal_error);
+    }
+
+    auto forum_member_id = resp["forum_member_id"].get<uint64_t>();
+
+    // Look up local account (must already exist for token auth)
+    auto account_result = db_get_or_create_account_by_forum_id(forum_member_id, "");
+    if (account_result.is_err()) {
+        return result<forum_auth_result, auth_error>::err(account_result.error());
+    }
+
+    auto& acc = account_result.value();
+
+    if (acc.is_banned) {
+        if (acc.ban_expires.has_value() &&
+            std::chrono::system_clock::now() >= *acc.ban_expires) {
+            unban_account(acc.id);
+        } else {
+            db_record_login(acc.id, ip_str, false, "account_banned");
+            return result<forum_auth_result, auth_error>::err(auth_error::account_banned);
+        }
+    }
+
+    auto session_result = create_session_token(
+        acc.id, config_.session_duration, ip_address, std::nullopt);
+
+    if (session_result.is_err()) {
+        return result<forum_auth_result, auth_error>::err(auth_error::internal_error);
+    }
+
+    auto session = std::move(session_result).value();
+
+    auto store_result = db_store_session(session);
+    if (store_result.is_err()) {
+        return result<forum_auth_result, auth_error>::err(auth_error::database_error);
+    }
+
+    {
+        std::lock_guard lock{session_mutex_};
+        session_cache_[session.token] = session;
+    }
+
+    record_login_attempt(ip_str, true);
+    db_record_login(acc.id, ip_str, true, "");
+
+    LOG_INFO(auth, "Forum token auth successful (forum_id: {}, account {})",
+        forum_member_id, acc.id.value);
+
+    return result<forum_auth_result, auth_error>::ok(
+        forum_auth_result{.session = std::move(session), .forum_token = ""});
 }
 
 auto auth_system::change_password(account_id id,
@@ -1080,6 +1292,79 @@ void auth_system::db_record_login(account_id id, std::string_view ip_address, bo
         success,
         std::string(failure_reason)
     );
+}
+
+auto auth_system::db_get_or_create_account_by_forum_id(uint64_t forum_member_id,
+                                                        std::string_view username)
+    -> result<account, auth_error>
+{
+    if (!database_) {
+        return result<account, auth_error>::err(auth_error::database_error);
+    }
+
+    // Try to find existing account by forum_member_id
+    auto db_result = database_->execute_params(
+        R"(SELECT id, username, password_hash, admin_level, is_banned, ban_reason, forum_member_id
+           FROM accounts WHERE forum_member_id = $1 LIMIT 1)",
+        static_cast<int64_t>(forum_member_id)
+    );
+
+    if (db_result.is_ok() && !db_result.value().empty()) {
+        const auto& row = db_result.value()[0];
+        account acc{
+            .id = account_id{static_cast<uint32_t>(row["id"].as<int>())},
+            .username = row["username"].as<std::string>(),
+            .password_hash = row["password_hash"].is_null() ? "" : row["password_hash"].as<std::string>(),
+            .admin = static_cast<admin_level>(row["admin_level"].as<int>()),
+            .is_banned = row["is_banned"].as<bool>(),
+            .forum_member_id = forum_member_id
+        };
+
+        if (!row["ban_reason"].is_null()) {
+            acc.ban_reason = row["ban_reason"].as<std::string>();
+        }
+
+        return result<account, auth_error>::ok(std::move(acc));
+    }
+
+    // Account doesn't exist — create it
+    std::string lower_username;
+    lower_username.reserve(username.size());
+    for (char c : username) {
+        lower_username += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+
+    auto create_result = database_->execute_params(
+        R"(INSERT INTO accounts (username, password_hash, forum_member_id)
+           VALUES ($1, '', $2)
+           RETURNING id, username, admin_level, is_banned)",
+        lower_username,
+        static_cast<int64_t>(forum_member_id)
+    );
+
+    if (create_result.is_err()) {
+        LOG_ERROR(auth, "Failed to create forum account: {}", create_result.error());
+        return result<account, auth_error>::err(auth_error::database_error);
+    }
+
+    if (create_result.value().empty()) {
+        return result<account, auth_error>::err(auth_error::database_error);
+    }
+
+    const auto& row = create_result.value()[0];
+    account acc{
+        .id = account_id{static_cast<uint32_t>(row["id"].as<int>())},
+        .username = row["username"].as<std::string>(),
+        .password_hash = "",
+        .admin = static_cast<admin_level>(row["admin_level"].as<int>()),
+        .is_banned = row["is_banned"].as<bool>(),
+        .forum_member_id = forum_member_id
+    };
+
+    LOG_INFO(auth, "Created account for forum member {} (username: '{}', id: {})",
+        forum_member_id, lower_username, acc.id.value);
+
+    return result<account, auth_error>::ok(std::move(acc));
 }
 
 }  // namespace hb::auth

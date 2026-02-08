@@ -259,6 +259,7 @@ void application::initialize() {
         };
         auth_sys.set_config(auth_cfg);
         auth_sys.set_database(&db_sys);
+        auth_sys.set_forum_config(server_cfg.forum_auth);
     }
 
     // NOW initialize subsystems (database will use the configured settings)
@@ -438,7 +439,7 @@ void application::initialize() {
                     break;
 
                 default:
-                    LOG_WARN(network, "Unknown message type: {}", network::to_string(msg.type));
+                    LOG_DEBUG(network, "Unknown message type: '{}'", msg.raw_type);
                     break;
             }
         });

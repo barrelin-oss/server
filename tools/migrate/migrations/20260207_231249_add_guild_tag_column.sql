@@ -1,0 +1,5 @@
+-- up
+ALTER TABLE guilds ADD COLUMN tag VARCHAR(8) NOT NULL DEFAULT '';
+
+-- down
+ALTER TABLE guilds DROP COLUMN tag;

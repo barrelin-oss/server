@@ -830,8 +830,11 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
         };
 
         auto* sched = ctx.sched;
+        auto* players = ctx.players;
+        auto* world = ctx.world;
+        auto send = ctx.send_to_player;
 
-        admin.register_command(info, [sched](const command_context& cmd_ctx) -> command_result {
+        admin.register_command(info, [sched, players, world, send](const command_context& cmd_ctx) -> command_result {
             if (!sched) {
                 return command_result::error("Scheduler not available");
             }
@@ -855,6 +858,32 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
 
             sched->game_time().set_time(hour, minute);
 
+            // Immediately broadcast updated time to all connected players
+            if (players && world && send) {
+                auto& clock = sched->game_time();
+                auto h = static_cast<uint8_t>(clock.hour());
+                auto m = static_cast<uint8_t>(clock.minute());
+                bool is_day = clock.is_day();
+
+                players->for_each_player([&](player_id pid, player::player& plr) {
+                    if (plr.connection.value == 0) return;
+                    auto* map = world->get_map(plr.current_map);
+                    if (!map) return;
+
+                    network::environment_update_data env{
+                        .hour = h,
+                        .minute = m,
+                        .is_day = is_day,
+                        .weather = static_cast<uint8_t>(map->weather())
+                    };
+                    if (map->config().is_fixed_day_mode) {
+                        env.is_day = true;
+                        env.weather = 0;
+                    }
+                    send(pid, network::make_environment_update(env));
+                });
+            }
+
             return command_result::ok("Game time set to " + std::to_string(hour) + ":" +
                 (minute < 10 ? "0" : "") + std::to_string(minute));
         });
@@ -874,8 +903,10 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
 
         auto* players = ctx.players;
         auto* world = ctx.world;
+        auto* sched = ctx.sched;
+        auto send = ctx.send_to_player;
 
-        admin.register_command(info, [players, world](const command_context& cmd_ctx) -> command_result {
+        admin.register_command(info, [players, world, sched, send](const command_context& cmd_ctx) -> command_result {
             if (!players || !world) {
                 return command_result::error("System not available");
             }
@@ -905,16 +936,19 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
             // Find target map
             world::map* target_map = nullptr;
             std::string map_name;
+            map_id target_map_id{0};
 
             if (cmd_ctx.args.size() > 1) {
                 map_name = cmd_ctx.args[1].string_value;
                 target_map = world->get_map_by_name(map_name);
+                if (target_map) target_map_id = target_map->id();
             } else {
                 auto* executor = players->get_player(cmd_ctx.executor);
                 if (!executor) {
                     return command_result::error("Executor not found");
                 }
-                target_map = world->get_map(executor->current_map);
+                target_map_id = executor->current_map;
+                target_map = world->get_map(target_map_id);
                 if (target_map) {
                     map_name = std::string(target_map->name());
                 }
@@ -929,6 +963,31 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
             } else {
                 auto end_time = std::chrono::steady_clock::now() + std::chrono::minutes(10);
                 target_map->start_weather(weather, end_time);
+            }
+
+            // Immediately broadcast updated weather to players on this map
+            if (sched && send) {
+                auto& clock = sched->game_time();
+                auto h = static_cast<uint8_t>(clock.hour());
+                auto m = static_cast<uint8_t>(clock.minute());
+                bool is_day = clock.is_day();
+
+                players->for_each_player([&](player_id pid, player::player& plr) {
+                    if (plr.connection.value == 0) return;
+                    if (plr.current_map != target_map_id) return;
+
+                    network::environment_update_data env{
+                        .hour = h,
+                        .minute = m,
+                        .is_day = is_day,
+                        .weather = static_cast<uint8_t>(target_map->weather())
+                    };
+                    if (target_map->config().is_fixed_day_mode) {
+                        env.is_day = true;
+                        env.weather = 0;
+                    }
+                    send(pid, network::make_environment_update(env));
+                });
             }
 
             return command_result::ok("Weather on " + map_name + " set to " + type_str);

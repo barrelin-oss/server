@@ -421,6 +421,28 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
             }
         }
 
+        // Mineral generator
+        if (root["mineral_generator"]) {
+            const auto& mg = root["mineral_generator"];
+            config_.mineral_generator.enabled = mg["enabled"].as<bool>(false);
+            config_.mineral_generator.level = mg["level"].as<int>(0);
+        }
+        if (root["max_mineral"]) {
+            config_.max_mineral = static_cast<int16_t>(root["max_mineral"].as<int>(0));
+        }
+
+        // Mineral points
+        if (root["mineral_points"]) {
+            for (const auto& node : root["mineral_points"]) {
+                mineral_point mp{
+                    .id = static_cast<int16_t>(node["id"].as<int>()),
+                    .x = static_cast<int16_t>(node["x"].as<int>()),
+                    .y = static_cast<int16_t>(node["y"].as<int>())
+                };
+                mineral_points_.push_back(mp);
+            }
+        }
+
         // Teleports
         if (root["teleports"]) {
             for (const auto& node : root["teleports"]) {
@@ -438,8 +460,8 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
             }
         }
 
-        LOG_INFO(general, "Map {} config loaded (YAML): {} initial points, {} safe zones, {} spawners, {} teleports",
-            config_.name, initial_points_.size(), safe_zones_.size(), mob_spawners_.size(), teleports_.size());
+        LOG_INFO(general, "Map {} config loaded (YAML): {} initial points, {} safe zones, {} spawners, {} teleports, {} mineral points",
+            config_.name, initial_points_.size(), safe_zones_.size(), mob_spawners_.size(), teleports_.size(), mineral_points_.size());
 
         return result<void, std::string>::ok();
 

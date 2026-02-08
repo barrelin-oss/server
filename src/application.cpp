@@ -18,6 +18,8 @@
 #include "registry/craft_recipe_registry.h"
 #include "crafting/manufacturing_system.h"
 #include "crafting/alchemy_system.h"
+#include "crafting/mining_system.h"
+#include "registry/mining_registry.h"
 #include "platform/clock.h"
 #include "platform/platform.h"
 
@@ -216,6 +218,8 @@ void application::initialize() {
     subsystems().create_subsystem<admin::admin_system>();
     subsystems().create_subsystem<crafting::manufacturing_system>();
     subsystems().create_subsystem<crafting::alchemy_system>();
+    subsystems().create_subsystem<mining_registry>();
+    subsystems().create_subsystem<crafting::mining_system>();
 
     // Load configuration BEFORE initializing subsystems
     auto config_path = std::filesystem::path(config_.config_file);
@@ -370,7 +374,8 @@ void application::initialize() {
             subsystems().get<crafting::manufacturing_system>(),
             subsystems().get<crafting::alchemy_system>(),
             subsystems().get<skill::skill_system>(),
-            subsystems().get<quest::quest_system>()
+            subsystems().get<quest::quest_system>(),
+            subsystems().get<crafting::mining_system>()
         );
 
         // Set save callback for death penalty persistence
@@ -452,6 +457,8 @@ void application::initialize() {
                 case network::json_message_type::manufacture_request:
                 case network::json_message_type::alchemy_list_request:
                 case network::json_message_type::alchemy_request:
+                // Mining
+                case network::json_message_type::mine_request:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -943,6 +950,37 @@ void application::load_game_configs() {
             subsystems().get<item::item_system>(),
             craft_recipes
         );
+    }
+
+    // Load mining config
+    auto* mining_reg = subsystems().get<mining_registry>();
+    if (mining_reg && items) {
+        auto mining_yaml = config_dir / "mining.yaml";
+        if (std::filesystem::exists(mining_yaml)) {
+            auto result = mining_reg->load_from_file(mining_yaml, *items);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} mineral types from mining.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load mining.yaml: {}", result.error());
+            }
+        } else {
+            LOG_INFO(general, "No mining.yaml found (mining will be disabled)");
+        }
+    }
+
+    // Wire mining system dependencies
+    auto* mining = subsystems().get<crafting::mining_system>();
+    if (mining) {
+        mining->set_dependencies(
+            subsystems().get<player::player_system>(),
+            subsystems().get<skill::skill_system>(),
+            subsystems().get<inventory::inventory_system>(),
+            subsystems().get<item::item_system>(),
+            mining_reg,
+            subsystems().get<scheduler>(),
+            subsystems().get<world::world_subsystem>()
+        );
+        mining->start_generation();
     }
 
     // TODO: Load magic definitions from magic.yaml or Magic.cfg

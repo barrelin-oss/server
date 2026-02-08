@@ -77,6 +77,7 @@ namespace hb {
 namespace hb::crafting {
     class manufacturing_system;
     class alchemy_system;
+    class mining_system;
 }
 
 namespace hb::skill {
@@ -117,7 +118,8 @@ public:
                     crafting::manufacturing_system* manufacturing = nullptr,
                     crafting::alchemy_system* alchemy = nullptr,
                     skill::skill_system* skills = nullptr,
-                    quest::quest_system* quests = nullptr);
+                    quest::quest_system* quests = nullptr,
+                    crafting::mining_system* mining = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -160,6 +162,9 @@ private:
     // Crafting - alchemy
     void handle_alchemy_list_request(connection_id conn_id, const network::json_message& msg);
     void handle_alchemy_request(connection_id conn_id, const network::json_message& msg);
+
+    // Mining
+    void handle_mine_request(connection_id conn_id, const network::json_message& msg);
 
     // NPC interaction helper - validates NPC exists, is in range, and is friendly
     struct npc_interaction_check {
@@ -307,6 +312,7 @@ private:
     crafting::alchemy_system* alchemy_{nullptr};
     skill::skill_system* skills_{nullptr};
     quest::quest_system* quests_{nullptr};
+    crafting::mining_system* mining_{nullptr};
     save_player_callback save_callback_;
 };
 

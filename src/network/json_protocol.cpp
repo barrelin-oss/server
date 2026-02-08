@@ -143,7 +143,11 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"alchemy_list_request", json_message_type::alchemy_list_request},
     {"alchemy_list_response", json_message_type::alchemy_list_response},
     {"alchemy_request", json_message_type::alchemy_request},
-    {"alchemy_response", json_message_type::alchemy_response}
+    {"alchemy_response", json_message_type::alchemy_response},
+    {"mine_request", json_message_type::mine_request},
+    {"mine_response", json_message_type::mine_response},
+    {"mineral_spawn", json_message_type::mineral_spawn},
+    {"mineral_despawn", json_message_type::mineral_despawn}
 };
 
 }  // namespace
@@ -2542,6 +2546,81 @@ auto make_alchemy_response(uint32_t seq, bool success,
         .type = json_message_type::alchemy_response,
         .seq = seq,
         .data = data
+    };
+}
+
+// === Mining ===
+
+auto mine_request_data::from_json(const nlohmann::json& j)
+    -> result<mine_request_data, std::string>
+{
+    mine_request_data data;
+    if (j.contains("target_x") && j["target_x"].is_number())
+    {
+        data.target_x = j["target_x"].get<int16_t>();
+    }
+    else
+    {
+        return result<mine_request_data, std::string>::err("Missing target_x");
+    }
+    if (j.contains("target_y") && j["target_y"].is_number())
+    {
+        data.target_y = j["target_y"].get<int16_t>();
+    }
+    else
+    {
+        return result<mine_request_data, std::string>::err("Missing target_y");
+    }
+    return result<mine_request_data, std::string>::ok(data);
+}
+
+auto make_mine_response(uint32_t seq, bool success,
+    std::string_view item_name,
+    int32_t template_id,
+    int32_t exp_gained,
+    bool node_depleted,
+    std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+    if (!item_name.empty()) data["item_name"] = std::string(item_name);
+    if (template_id > 0) data["template_id"] = template_id;
+    if (exp_gained > 0) data["exp_gained"] = exp_gained;
+    if (node_depleted) data["node_depleted"] = true;
+    if (error) data["error"] = std::string(*error);
+    return json_message{
+        .type = json_message_type::mine_response,
+        .seq = seq,
+        .data = data
+    };
+}
+
+auto make_mineral_spawn(uint32_t node_id, uint8_t mineral_type,
+    int16_t x, int16_t y) -> json_message
+{
+    return json_message{
+        .type = json_message_type::mineral_spawn,
+        .seq = 0,
+        .data = {
+            {"node_id", node_id},
+            {"mineral_type", mineral_type},
+            {"x", x},
+            {"y", y}
+        }
+    };
+}
+
+auto make_mineral_despawn(uint32_t node_id,
+    int16_t x, int16_t y) -> json_message
+{
+    return json_message{
+        .type = json_message_type::mineral_despawn,
+        .seq = 0,
+        .data = {
+            {"node_id", node_id},
+            {"x", x},
+            {"y", y}
+        }
     };
 }
 

@@ -78,6 +78,7 @@ set(REGISTRY_SOURCES
     src/registry/dialog_registry.cpp
     src/registry/build_recipe_registry.cpp
     src/registry/craft_recipe_registry.cpp
+    src/registry/mining_registry.cpp
 )
 
 set(NETWORK_SOURCES
@@ -170,6 +171,7 @@ set(PERSISTENCE_SOURCES
 set(CRAFTING_SOURCES
     src/crafting/manufacturing_system.cpp
     src/crafting/alchemy_system.cpp
+    src/crafting/mining_system.cpp
 )
 
 set(ADMIN_SOURCES
@@ -334,6 +336,8 @@ add_executable(hgserver_tests
     tests/test_craft_recipe_registry.cpp
     tests/test_manufacturing.cpp
     tests/test_alchemy.cpp
+    tests/test_mining_registry.cpp
+    tests/test_mining.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

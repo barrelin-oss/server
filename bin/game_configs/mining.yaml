@@ -1,0 +1,68 @@
+# mining.yaml
+# Mineral type definitions for the mining system
+# Based on legacy Helbreath mineral types 1-6
+
+mineral_types:
+  - type_id: 1
+    name: "Iron Vein"
+    difficulty: 10
+    max_hits: 20
+    visual_type: 1
+    drops:
+      - { item: Coal, weight: 60 }
+      - { item: IronOre, weight: 100 }
+      - { item: BlondeStone, min_skill: 10, weight: 30 }
+
+  - type_id: 2
+    name: "Silver Vein"
+    difficulty: 15
+    max_hits: 15
+    visual_type: 1
+    drops:
+      - { item: Coal, weight: 40 }
+      - { item: IronOre, weight: 80 }
+      - { item: SilverNugget, min_skill: 15, weight: 30 }
+      - { item: BlondeStone, min_skill: 10, weight: 20 }
+
+  - type_id: 3
+    name: "Rich Iron Vein"
+    difficulty: 20
+    max_hits: 10
+    visual_type: 1
+    drops:
+      - { item: Coal, weight: 20 }
+      - { item: IronOre, weight: 100 }
+      - { item: SilverNugget, min_skill: 20, weight: 15 }
+
+  - type_id: 4
+    name: "Gold Vein"
+    difficulty: 50
+    max_hits: 8
+    visual_type: 1
+    drops:
+      - { item: Coal, weight: 20 }
+      - { item: IronOre, weight: 60 }
+      - { item: SilverNugget, min_skill: 30, weight: 30 }
+      - { item: GoldNugget, min_skill: 40, weight: 15 }
+      - { item: Mithral, min_skill: 50, weight: 5 }
+
+  - type_id: 5
+    name: "Crystal Deposit"
+    difficulty: 70
+    max_hits: 6
+    visual_type: 2
+    drops:
+      - { item: Crystal, weight: 100 }
+      - { item: Sapphire, min_skill: 50, weight: 8 }
+
+  - type_id: 6
+    name: "Gem Deposit"
+    difficulty: 90
+    max_hits: 4
+    visual_type: 2
+    drops:
+      - { item: Crystal, weight: 100 }
+      - { item: Emerald, min_skill: 60, weight: 15 }
+      - { item: Sapphire, min_skill: 60, weight: 15 }
+      - { item: Ruby, min_skill: 60, weight: 15 }
+      - { item: Diamond, min_skill: 70, weight: 8 }

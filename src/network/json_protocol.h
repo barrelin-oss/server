@@ -179,6 +179,12 @@ enum class json_message_type {
     alchemy_request,
     alchemy_response,
 
+    // Mining
+    mine_request,
+    mine_response,
+    mineral_spawn,
+    mineral_despawn,
+
     // Unknown/invalid
     unknown
 };
@@ -281,6 +287,10 @@ enum class json_message_type {
         case json_message_type::alchemy_list_response: return "alchemy_list_response";
         case json_message_type::alchemy_request: return "alchemy_request";
         case json_message_type::alchemy_response: return "alchemy_response";
+        case json_message_type::mine_request: return "mine_request";
+        case json_message_type::mine_response: return "mine_response";
+        case json_message_type::mineral_spawn: return "mineral_spawn";
+        case json_message_type::mineral_despawn: return "mineral_despawn";
         default: return "unknown";
     }
 }
@@ -1351,5 +1361,30 @@ struct alchemy_request_data {
     std::string_view item_name = "",
     int32_t exp_gained = 0,
     std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// === Mining request/response data ===
+
+// Mine request from client
+struct mine_request_data {
+    int16_t target_x{};
+    int16_t target_y{};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<mine_request_data, std::string>;
+};
+
+// Mining response builders
+[[nodiscard]] auto make_mine_response(uint32_t seq, bool success,
+    std::string_view item_name = "",
+    int32_t template_id = 0,
+    int32_t exp_gained = 0,
+    bool node_depleted = false,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+[[nodiscard]] auto make_mineral_spawn(uint32_t node_id, uint8_t mineral_type,
+    int16_t x, int16_t y) -> json_message;
+
+[[nodiscard]] auto make_mineral_despawn(uint32_t node_id,
+    int16_t x, int16_t y) -> json_message;
 
 }  // namespace hb::network

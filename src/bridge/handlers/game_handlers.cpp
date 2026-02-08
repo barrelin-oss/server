@@ -29,6 +29,8 @@
 #include "magic/spell.h"
 #include "crafting/manufacturing_system.h"
 #include "crafting/alchemy_system.h"
+#include "crafting/mining_system.h"
+#include "registry/mining_registry.h"
 #include "skill/skill_system.h"
 #include "quest/quest_system.h"
 #include "registry/build_recipe_registry.h"
@@ -70,7 +72,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 crafting::manufacturing_system* manufacturing,
                                 crafting::alchemy_system* alchemy,
                                 skill::skill_system* skills,
-                                quest::quest_system* quests) {
+                                quest::quest_system* quests,
+                                crafting::mining_system* mining) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -89,6 +92,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     alchemy_ = alchemy;
     skills_ = skills;
     quests_ = quests;
+    mining_ = mining;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -143,6 +147,51 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         magic_->on_spell_cast([this](entity::entity caster, const magic::spell_template& spell,
                                       const magic::spell_effect_result& result) {
             on_spell_cast(caster, spell, result);
+        });
+    }
+
+    // Register mining node spawn/despawn callbacks
+    if (mining_) {
+        mining_->set_spawn_callback([this](const crafting::mineral_node& node) {
+            if (!players_ || !ws_server_ || !world_) return;
+
+            auto* map = world_->get_map_by_name(node.map_name);
+            if (!map) return;
+
+            auto* mining_reg = subsystems().get<mining_registry>();
+            auto* type_config = mining_reg ? mining_reg->get_type(node.type_id) : nullptr;
+            uint8_t visual = type_config ? type_config->visual_type : 1;
+
+            auto msg = network::make_mineral_spawn(node.node_id, visual, node.x, node.y);
+            auto pos = world::position{node.x, node.y};
+            auto players = players_->get_players_who_can_see(map->id(), pos);
+            for (auto pid : players) {
+                auto* p = players_->get_player(pid);
+                if (!p || p->connection.value == 0) continue;
+                auto* conn = ws_server_->get_connection(p->connection);
+                if (conn && conn->is_open()) {
+                    conn->send(msg);
+                }
+            }
+        });
+
+        mining_->set_despawn_callback([this](const crafting::mineral_node& node) {
+            if (!players_ || !ws_server_ || !world_) return;
+
+            auto* map = world_->get_map_by_name(node.map_name);
+            if (!map) return;
+
+            auto msg = network::make_mineral_despawn(node.node_id, node.x, node.y);
+            auto pos = world::position{node.x, node.y};
+            auto players = players_->get_players_who_can_see(map->id(), pos);
+            for (auto pid : players) {
+                auto* p = players_->get_player(pid);
+                if (!p || p->connection.value == 0) continue;
+                auto* conn = ws_server_->get_connection(p->connection);
+                if (conn && conn->is_open()) {
+                    conn->send(msg);
+                }
+            }
         });
     }
 
@@ -299,6 +348,11 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             break;
         case network::json_message_type::alchemy_request:
             handle_alchemy_request(conn_id, msg);
+            break;
+
+        // Mining
+        case network::json_message_type::mine_request:
+            handle_mine_request(conn_id, msg);
             break;
 
         default:
@@ -4232,6 +4286,62 @@ void game_handlers::handle_alchemy_request(connection_id conn_id,
             .count = 1
         });
     }
+}
+
+// === Mining ===
+
+void game_handlers::handle_mine_request(connection_id conn_id,
+                                         const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!mining_) {
+        send_error(conn_id, msg.seq, "not_available", "Mining is not available");
+        return;
+    }
+
+    auto parse = network::mine_request_data::from_json(msg.data);
+    if (parse.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_data", parse.error());
+        return;
+    }
+
+    auto& data = parse.value();
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto* map = world_->get_map(plr->current_map);
+    if (!map) {
+        send_error(conn_id, msg.seq, "internal_error", "Map not found");
+        return;
+    }
+    auto map_name = std::string(map->name());
+    auto result = mining_->attempt_mine(entity_id(pid.value), data.target_x, data.target_y, map_name);
+
+    if (result.reason == skill::skill_use_result::invalid_target) {
+        conn->send(network::make_mine_response(msg.seq, false, "", 0, 0, false, "invalid_target"));
+        return;
+    }
+    if (result.reason == skill::skill_use_result::insufficient_materials) {
+        conn->send(network::make_mine_response(msg.seq, false, "", 0, 0, false, "no_pickaxe"));
+        return;
+    }
+    if (result.reason == skill::skill_use_result::insufficient_skill) {
+        conn->send(network::make_mine_response(msg.seq, false, "", 0, 0, false, "insufficient_skill"));
+        return;
+    }
+
+    if (!result.success) {
+        conn->send(network::make_mine_response(msg.seq, false, "", 0, 0, result.node_depleted, "miss"));
+        return;
+    }
+
+    conn->send(network::make_mine_response(msg.seq, true,
+        result.item_name, result.template_id, result.exp_gained, result.node_depleted));
 }
 
 }  // namespace hb::bridge

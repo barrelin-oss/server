@@ -22,6 +22,19 @@ struct random_mob_generator_config {
     int level{0};  // 1-7+ determines which NPC groups can spawn
 };
 
+// Mineral generator configuration (controls which mineral types can spawn)
+struct mineral_generator_config {
+    bool enabled{false};
+    int level{0};  // 1-6, max mineral type that can spawn
+};
+
+// Mineral spawn point (predefined position where minerals can appear)
+struct mineral_point {
+    int16_t id{0};
+    int16_t x{0};
+    int16_t y{0};
+};
+
 // Map configuration
 struct map_config {
     std::string name;
@@ -50,6 +63,10 @@ struct map_config {
 
     // Random mob spawning outside of defined spawners
     random_mob_generator_config random_mob_generator;
+
+    // Mineral generation
+    mineral_generator_config mineral_generator;
+    int16_t max_mineral{0};
 };
 
 // Teleport destination info
@@ -198,6 +215,12 @@ public:
         return config_.random_mob_generator.level;
     }
 
+    // Mineral points
+    [[nodiscard]] auto get_mineral_points() const -> const std::vector<mineral_point>& { return mineral_points_; }
+    [[nodiscard]] auto mineral_point_count() const -> size_t { return mineral_points_.size(); }
+    [[nodiscard]] auto get_mineral_generator() const -> const mineral_generator_config& { return config_.mineral_generator; }
+    [[nodiscard]] auto max_mineral() const -> int16_t { return config_.max_mineral; }
+
     // Occupancy management
     void set_occupant(const position& pos, entity_id id, owner_type type);
     void clear_occupant(const position& pos);
@@ -256,6 +279,9 @@ private:
 
     // Mob spawners
     std::vector<spot_mob_generator> mob_spawners_;
+
+    // Mineral spawn points
+    std::vector<mineral_point> mineral_points_;
 
     // Waypoints for NPC pathing
     std::unordered_map<int16_t, waypoint> waypoints_;

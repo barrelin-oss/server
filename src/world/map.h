@@ -13,6 +13,7 @@
 #include <vector>
 #include <filesystem>
 #include <optional>
+#include <chrono>
 
 namespace hb::world {
 
@@ -244,6 +245,23 @@ public:
     [[nodiscard]] auto weather() const -> weather_type { return weather_; }
     void set_weather(weather_type weather) { weather_ = weather; }
 
+    // Weather timing
+    [[nodiscard]] auto weather_active() const -> bool { return weather_active_; }
+    [[nodiscard]] auto weather_end_time() const -> std::chrono::steady_clock::time_point { return weather_end_time_; }
+
+    void start_weather(weather_type w, std::chrono::steady_clock::time_point end_time)
+    {
+        weather_ = w;
+        weather_active_ = true;
+        weather_end_time_ = end_time;
+    }
+
+    void clear_weather()
+    {
+        weather_ = weather_type::clear;
+        weather_active_ = false;
+    }
+
     // Statistics
     [[nodiscard]] auto total_tiles() const -> size_t {
         return static_cast<size_t>(config_.width) * config_.height;
@@ -288,6 +306,8 @@ private:
 
     // Current weather
     weather_type weather_{weather_type::clear};
+    bool weather_active_{false};
+    std::chrono::steady_clock::time_point weather_end_time_{};
 };
 
 }  // namespace hb::world

@@ -9,6 +9,7 @@
 #include "inventory/inventory_system.h"
 #include "magic/magic_system.h"
 #include "registry/magic_registry.h"
+#include "scheduler/scheduler.h"
 #include "network/json_protocol.h"
 #include "core/logger.h"
 
@@ -816,8 +817,126 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
         });
     }
 
+    // /settime <hour> [minute] - Set game clock time
+    {
+        command_info info;
+        info.name = "settime";
+        info.description = "Set the game clock time";
+        info.usage = "/settime <hour> [minute]";
+        info.required_level = admin_level::admin;
+        info.arguments = {
+            make_arg("hour", arg_type::integer, true, "", "Hour (0-23)"),
+            make_arg("minute", arg_type::integer, false, "0", "Minute (0-59)")
+        };
+
+        auto* sched = ctx.sched;
+
+        admin.register_command(info, [sched](const command_context& cmd_ctx) -> command_result {
+            if (!sched) {
+                return command_result::error("Scheduler not available");
+            }
+
+            if (cmd_ctx.args.empty()) {
+                return command_result::error("Usage: /settime <hour> [minute]");
+            }
+
+            int hour = cmd_ctx.args[0].int_value;
+            int minute = 0;
+            if (cmd_ctx.args.size() > 1) {
+                minute = cmd_ctx.args[1].int_value;
+            }
+
+            if (hour < 0 || hour > 23) {
+                return command_result::error("Hour must be 0-23");
+            }
+            if (minute < 0 || minute > 59) {
+                return command_result::error("Minute must be 0-59");
+            }
+
+            sched->game_time().set_time(hour, minute);
+
+            return command_result::ok("Game time set to " + std::to_string(hour) + ":" +
+                (minute < 10 ? "0" : "") + std::to_string(minute));
+        });
+    }
+
+    // /setweather <type> [map_name] - Set weather for a map
+    {
+        command_info info;
+        info.name = "setweather";
+        info.description = "Set weather for a map";
+        info.usage = "/setweather <clear|rain|snow|storm|light_rain|heavy_rain|light_snow|heavy_snow|windy> [map_name]";
+        info.required_level = admin_level::admin;
+        info.arguments = {
+            make_arg("type", arg_type::string, true, "", "Weather type"),
+            make_arg("map", arg_type::string, false, "", "Map name (default: current map)")
+        };
+
+        auto* players = ctx.players;
+        auto* world = ctx.world;
+
+        admin.register_command(info, [players, world](const command_context& cmd_ctx) -> command_result {
+            if (!players || !world) {
+                return command_result::error("System not available");
+            }
+
+            if (cmd_ctx.args.empty()) {
+                return command_result::error("Usage: /setweather <type> [map_name]");
+            }
+
+            const std::string& type_str = cmd_ctx.args[0].string_value;
+
+            // Parse weather type
+            world::weather_type weather;
+            if (type_str == "clear") weather = world::weather_type::clear;
+            else if (type_str == "light_rain") weather = world::weather_type::light_rain;
+            else if (type_str == "rain") weather = world::weather_type::rain;
+            else if (type_str == "heavy_rain") weather = world::weather_type::heavy_rain;
+            else if (type_str == "light_snow") weather = world::weather_type::light_snow;
+            else if (type_str == "snow") weather = world::weather_type::snow;
+            else if (type_str == "heavy_snow") weather = world::weather_type::heavy_snow;
+            else if (type_str == "windy") weather = world::weather_type::windy;
+            else if (type_str == "storm" || type_str == "stormy") weather = world::weather_type::stormy;
+            else {
+                return command_result::error("Unknown weather type: " + type_str +
+                    ". Valid: clear, light_rain, rain, heavy_rain, light_snow, snow, heavy_snow, windy, storm");
+            }
+
+            // Find target map
+            world::map* target_map = nullptr;
+            std::string map_name;
+
+            if (cmd_ctx.args.size() > 1) {
+                map_name = cmd_ctx.args[1].string_value;
+                target_map = world->get_map_by_name(map_name);
+            } else {
+                auto* executor = players->get_player(cmd_ctx.executor);
+                if (!executor) {
+                    return command_result::error("Executor not found");
+                }
+                target_map = world->get_map(executor->current_map);
+                if (target_map) {
+                    map_name = std::string(target_map->name());
+                }
+            }
+
+            if (!target_map) {
+                return command_result::error("Map not found: " + map_name);
+            }
+
+            if (weather == world::weather_type::clear) {
+                target_map->clear_weather();
+            } else {
+                auto end_time = std::chrono::steady_clock::now() + std::chrono::minutes(10);
+                target_map->start_weather(weather, end_time);
+            }
+
+            return command_result::ok("Weather on " + map_name + " set to " + type_str);
+        });
+    }
+
     LOG_INFO(admin, "Registered {} GM commands",
-        13);  // Update this count when adding more commands
+        15);  // Update this count when adding more commands
 }
 
 }  // namespace hb::admin

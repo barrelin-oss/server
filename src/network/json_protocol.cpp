@@ -111,6 +111,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"ground_item_removed", json_message_type::ground_item_removed},
     {"player_death_info", json_message_type::player_death_info},
     {"hunger_update", json_message_type::hunger_update},
+    {"environment_update", json_message_type::environment_update},
     {"entity_info_request", json_message_type::entity_info_request},
     {"entity_info_response", json_message_type::entity_info_response},
     {"player_equip_request", json_message_type::player_equip_request},
@@ -1069,7 +1070,15 @@ auto game_state_msg::to_json() const -> nlohmann::json {
         {"skills", std::move(skills_json)},
         {"spells", std::move(spells_json)},
         {"quests", {{"active", std::move(quests_json)}, {"completed", std::move(completed_json)}}},
-        {"world", {{"entities", std::move(entities_json)}}}
+        {"world", {
+            {"entities", std::move(entities_json)},
+            {"environment", {
+                {"hour", time_hour},
+                {"minute", time_minute},
+                {"is_day", is_day},
+                {"weather", weather}
+            }}
+        }}
     };
 }
 
@@ -2621,6 +2630,25 @@ auto make_mineral_despawn(uint32_t node_id,
             {"x", x},
             {"y", y}
         }
+    };
+}
+
+// Environment update
+
+auto environment_update_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"hour", hour},
+        {"minute", minute},
+        {"is_day", is_day},
+        {"weather", weather}
+    };
+}
+
+auto make_environment_update(const environment_update_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::environment_update,
+        .seq = 0,
+        .data = data.to_json()
     };
 }
 

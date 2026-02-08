@@ -656,7 +656,13 @@ Returns complete game state on success. This is the primary payload for game ini
           "template_id": 100,
           "level": 50
         }
-      ]
+      ],
+      "environment": {
+        "hour": 14,
+        "minute": 30,
+        "is_day": true,
+        "weather": 0
+      }
     }
   }
 }
@@ -2360,6 +2366,47 @@ Sent when the player's hunger level changes (due to decay or consuming food).
 - **Hunger >= 30:** Normal HP/MP/SP regeneration
 - **Hunger 1-29:** Regeneration delayed by `(30 - hunger) * 1000` ms
 - **Hunger <= 0 (Starving):** All regeneration blocked
+
+---
+
+### `environment_update`
+
+Sent every ~10 seconds with current day/night cycle and weather state. Also sent immediately after teleportation and as part of the initial `enter_game_response`.
+
+**Server Message:**
+```json
+{
+  "type": "environment_update",
+  "seq": 0,
+  "data": {
+    "hour": 14,
+    "minute": 30,
+    "is_day": true,
+    "weather": 0
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hour` | uint8 | Game clock hour (0-23) |
+| `minute` | uint8 | Game clock minute (0-59) |
+| `is_day` | bool | Whether the game clock is in daytime (6:00-17:59) |
+| `weather` | uint8 | Weather type (see below) |
+
+**Weather Types:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | `clear` | No weather effects |
+| 1 | `light_rain` | Light rain |
+| 2 | `rain` | Moderate rain |
+| 3 | `heavy_rain` | Heavy rain |
+| 4 | `light_snow` | Light snow |
+| 5 | `snow` | Moderate snow |
+| 6 | `heavy_snow` | Heavy snow |
+| 7 | `windy` | Windy conditions |
+| 8 | `stormy` | Stormy conditions |
 
 ---
 

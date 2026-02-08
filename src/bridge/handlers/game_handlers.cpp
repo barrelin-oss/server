@@ -238,6 +238,17 @@ void game_handlers::initialize(network::websocket_server* ws_server,
             });
     }
 
+    // Schedule environment tick (weather cycling + broadcast to all players)
+    if (scheduler_ && world_ && players_) {
+        scheduler_->schedule_repeating_tagged(
+            duration_ms{10000},
+            "environment_tick",
+            [this]() {
+                tick_weather();
+                broadcast_environment_update();
+            });
+    }
+
     LOG_INFO(bridge, "Game handlers initialized (chat: {}, admin: {}, combat: {}, npc: {}, inventory: {}, item: {})",
         social_ != nullptr ? "yes" : "no",
         admin_ != nullptr ? "yes" : "no",
@@ -2630,6 +2641,25 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         send_visible_ground_items(conn_id, teleport_result.new_map, dest_pos,
                                    player->visibility_radius_x,
                                    player->visibility_radius_y);
+
+        // Send environment update for destination map
+        if (scheduler_) {
+            auto* dest_map_ptr = world_->get_map(teleport_result.new_map);
+            if (dest_map_ptr) {
+                auto& clock = scheduler_->game_time();
+                network::environment_update_data env{
+                    .hour = static_cast<uint8_t>(clock.hour()),
+                    .minute = static_cast<uint8_t>(clock.minute()),
+                    .is_day = clock.is_day(),
+                    .weather = static_cast<uint8_t>(dest_map_ptr->weather())
+                };
+                if (dest_map_ptr->config().is_fixed_day_mode) {
+                    env.is_day = true;
+                    env.weather = 0;
+                }
+                conn->send(network::make_environment_update(env));
+            }
+        }
     }
 
     // Spawn to players who can see NEW position
@@ -3714,6 +3744,79 @@ void game_handlers::send_hunger_update(player_id pid, int8_t level) {
 
     LOG_DEBUG(bridge, "Sent hunger update to player {}: level={}, starving={}",
         pid.value, level, level <= 0);
+}
+
+// ========== Environment (Day/Night + Weather) ==========
+
+void game_handlers::tick_weather() {
+    if (!world_) return;
+
+    thread_local std::mt19937 rng{std::random_device{}()};
+    auto now = std::chrono::steady_clock::now();
+
+    world_->for_each_map([&](map_id, world::map& m) {
+        if (m.config().is_fixed_day_mode) return;
+
+        // Expire active weather
+        if (m.weather_active() && now >= m.weather_end_time()) {
+            m.clear_weather();
+        }
+
+        // Chance to start new weather (1-in-30 per 10s tick ≈ legacy 1-in-300 per 1s tick)
+        if (!m.weather_active()) {
+            std::uniform_int_distribution<int> chance_dist(1, 30);
+            if (chance_dist(rng) != 1) return;
+
+            // Pick weather type based on map type
+            world::weather_type weather;
+            if (m.config().is_snow_enabled) {
+                std::uniform_int_distribution<int> type_dist(4, 6);
+                weather = static_cast<world::weather_type>(type_dist(rng));
+            } else {
+                std::uniform_int_distribution<int> type_dist(1, 3);
+                weather = static_cast<world::weather_type>(type_dist(rng));
+            }
+
+            // Duration: 3-10 minutes
+            std::uniform_int_distribution<int> dur_dist(180, 600);
+            auto duration = std::chrono::seconds(dur_dist(rng));
+            m.start_weather(weather, now + duration);
+        }
+    });
+}
+
+void game_handlers::broadcast_environment_update() {
+    if (!players_ || !ws_server_ || !world_ || !scheduler_) return;
+
+    auto& clock = scheduler_->game_time();
+    auto hour = static_cast<uint8_t>(clock.hour());
+    auto minute = static_cast<uint8_t>(clock.minute());
+    bool is_day = clock.is_day();
+
+    players_->for_each_player([&](player_id, player::player& plr) {
+        if (plr.connection.value == 0) return;
+
+        auto* map = world_->get_map(plr.current_map);
+        if (!map) return;
+
+        network::environment_update_data env{
+            .hour = hour,
+            .minute = minute,
+            .is_day = is_day,
+            .weather = static_cast<uint8_t>(map->weather())
+        };
+
+        // Fixed-day maps always show daytime and clear weather
+        if (map->config().is_fixed_day_mode) {
+            env.is_day = true;
+            env.weather = 0;
+        }
+
+        auto* conn = ws_server_->get_connection(plr.connection);
+        if (conn && conn->is_open()) {
+            conn->send(network::make_environment_update(env));
+        }
+    });
 }
 
 // ========== Equipment Handling ==========

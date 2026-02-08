@@ -131,6 +131,7 @@ enum class json_message_type {
     // Player state updates (server -> client)
     player_death_info,      // Death details sent to dead player
     hunger_update,          // Player hunger level changed
+    environment_update,     // Day/night cycle and weather state
 
     // Entity info (client -> server -> client)
     entity_info_request,    // Request info about an entity
@@ -254,6 +255,7 @@ enum class json_message_type {
         case json_message_type::ground_item_removed: return "ground_item_removed";
         case json_message_type::player_death_info: return "player_death_info";
         case json_message_type::hunger_update: return "hunger_update";
+        case json_message_type::environment_update: return "environment_update";
         case json_message_type::entity_info_request: return "entity_info_request";
         case json_message_type::entity_info_response: return "entity_info_response";
         case json_message_type::player_equip_request: return "player_equip_request";
@@ -759,6 +761,12 @@ struct game_state_msg {
     std::vector<visible_entity_msg> entities;
     int32_t gold{0};
 
+    // Environment state
+    uint8_t time_hour{12};
+    uint8_t time_minute{0};
+    bool is_day{true};
+    uint8_t weather{0};
+
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -994,6 +1002,19 @@ struct hunger_update_data {
 
 // Hunger update message builder
 [[nodiscard]] auto make_hunger_update(int8_t level) -> json_message;
+
+// Environment update data (day/night + weather)
+struct environment_update_data {
+    uint8_t hour{0};       // 0-23
+    uint8_t minute{0};     // 0-59
+    bool is_day{true};
+    uint8_t weather{0};    // weather_type value (0-8)
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Environment update message builder
+[[nodiscard]] auto make_environment_update(const environment_update_data& data) -> json_message;
 
 // Entity info request data
 struct entity_info_request_data {

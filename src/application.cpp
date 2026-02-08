@@ -351,7 +351,8 @@ void application::initialize() {
             subsystems().get<admin::admin_system>(),
             subsystems().get<npc::npc_system>(),
             subsystems().get<item::item_system>(),
-            subsystems().get<social::social_system>()
+            subsystems().get<social::social_system>(),
+            subsystems().get<scheduler>()
         );
 
         // Create and initialize game handlers
@@ -395,6 +396,7 @@ void application::initialize() {
                 .inventory = subsystems().get<inventory::inventory_system>(),
                 .magic = subsystems().get<magic::magic_system>(),
                 .spells = subsystems().get<magic_registry>(),
+                .sched = subsystems().get<scheduler>(),
                 .send_to_player = [player_sys, ws](player_id pid, const network::json_message& msg) {
                     if (!player_sys || !ws) return;
                     auto* plr = player_sys->get_player(pid);

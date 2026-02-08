@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-07
+**Last Updated:** 2026-02-08
 
 ---
 
@@ -73,7 +73,8 @@ This document tracks implementation progress for the modernized Helbreath server
 | Map loading (.amd) | ✅ | Binary tile data from legacy format |
 | Map config loading (.txt) | ✅ | Teleports, spawn points, safe zones, spawners |
 | Teleport system | ✅ | Gate definitions loaded from config |
-| Weather system | ✅ | Weather state per map |
+| Weather system | ✅ | Weather state per map, cycling, client sync |
+| Day/night cycle | ✅ | Game clock broadcast, `environment_update` every 10s |
 
 ---
 
@@ -425,7 +426,17 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
-### 2026-02-08
+### 2026-02-08 (b)
+- **Weather/Day-Night Client Sync** - Full environment state synchronization to clients
+  - `environment_update` protocol message: periodic broadcast every ~10s with game clock hour/minute, is_day flag, and weather type
+  - Weather cycling logic on per-map basis: rain or snow selected based on map config, intensity ramps up/down naturally
+  - Initial environment state included in `enter_game_response` as `world.environment` object
+  - Environment update sent immediately on teleport so client reflects destination map's weather
+  - `/settime` and `/setweather` admin commands for GM environment control
+  - Weather types: clear, light_rain, rain, heavy_rain, light_snow, snow, heavy_snow, windy, stormy
+  - 13 new tests
+
+### 2026-02-08 (a)
 - **Crafting System** - Full manufacturing and alchemy system with YAML-driven recipes
   - `recipe_config.h` shared data structures: `build_recipe`, `craft_recipe`, `recipe_ingredient`, `craft_result`
   - `build_recipe_registry` loads 83 manufacturing recipes from `build_recipes.yaml`, auto-assigns sequential IDs, resolves item names via `item_registry`

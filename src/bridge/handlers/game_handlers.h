@@ -294,6 +294,10 @@ private:
     // Hunger update helper
     void send_hunger_update(player_id pid, int8_t level);
 
+    // Environment (day/night + weather) helpers
+    void tick_weather();
+    void broadcast_environment_update();
+
     network::websocket_server* ws_server_{nullptr};
     player::player_system* players_{nullptr};
     world::world_subsystem* world_{nullptr};

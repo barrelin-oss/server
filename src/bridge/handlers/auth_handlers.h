@@ -43,6 +43,10 @@ namespace hb::social {
     class social_system;
 }
 
+namespace hb {
+    class scheduler;
+}
+
 namespace hb::bridge {
 
 // Authentication message handler
@@ -61,7 +65,8 @@ public:
                     admin::admin_system* admin = nullptr,
                     npc::npc_system* npc = nullptr,
                     item::item_system* item = nullptr,
-                    social::social_system* social = nullptr);
+                    social::social_system* social = nullptr,
+                    scheduler* sched = nullptr);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -115,6 +120,7 @@ private:
     npc::npc_system* npc_{nullptr};
     item::item_system* item_{nullptr};
     social::social_system* social_{nullptr};
+    scheduler* scheduler_{nullptr};
 };
 
 }  // namespace hb::bridge

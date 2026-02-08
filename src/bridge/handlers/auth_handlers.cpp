@@ -20,6 +20,7 @@
 #include "social/social_system.h"
 #include "magic/magic_system.h"
 #include "quest/quest_system.h"
+#include "scheduler/scheduler.h"
 #include "core/logger.h"
 #include "core/subsystem.h"
 
@@ -36,7 +37,8 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
                                 admin::admin_system* admin,
                                 npc::npc_system* npc,
                                 item::item_system* item,
-                                social::social_system* social) {
+                                social::social_system* social,
+                                scheduler* sched) {
     ws_server_ = ws_server;
     auth_ = auth;
     players_ = players;
@@ -46,6 +48,7 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
     npc_ = npc;
     item_ = item;
     social_ = social;
+    scheduler_ = sched;
     LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {}, item: {}, social: {})",
         players_ != nullptr ? "yes" : "no",
         world_ != nullptr ? "yes" : "no",
@@ -855,6 +858,34 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         }
     }
 
+    // Determine environment state for initial sync
+    uint8_t env_hour = 12;
+    uint8_t env_minute = 0;
+    bool env_is_day = true;
+    uint8_t env_weather = 0;
+
+    if (scheduler_) {
+        auto& clock = scheduler_->game_time();
+        env_hour = static_cast<uint8_t>(clock.hour());
+        env_minute = static_cast<uint8_t>(clock.minute());
+        env_is_day = clock.is_day();
+    }
+
+    if (world_ && players_) {
+        auto* plr = players_->get_player(live_player_id);
+        if (plr) {
+            auto* current_map = world_->get_map(plr->current_map);
+            if (current_map) {
+                if (current_map->config().is_fixed_day_mode) {
+                    env_is_day = true;
+                    env_weather = 0;
+                } else {
+                    env_weather = static_cast<uint8_t>(current_map->weather());
+                }
+            }
+        }
+    }
+
     // Build full game state message
     network::game_state_msg game_state{
         .character = network::character_data_msg{
@@ -894,7 +925,11 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         .quests = quests_list,
         .completed_quests = completed_quest_ids,
         .entities = build_visible_entities(live_player_id),
-        .gold = player_gold
+        .gold = player_gold,
+        .time_hour = env_hour,
+        .time_minute = env_minute,
+        .is_day = env_is_day,
+        .weather = env_weather
     };
 
     // Send combined enter game response with full game state

@@ -20,6 +20,8 @@ enum class dialog_action : uint8_t {
     offer_citizenship = 5,
     select_crusade_job = 6,
     claim_rewards = 7,
+    open_manufacturing = 8,
+    open_alchemy = 9,
 };
 
 // A single selectable option in a dialog node

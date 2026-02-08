@@ -70,6 +70,21 @@ namespace hb {
     class loot_registry;
     class shop_registry;
     class dialog_registry;
+    class build_recipe_registry;
+    class craft_recipe_registry;
+}
+
+namespace hb::crafting {
+    class manufacturing_system;
+    class alchemy_system;
+}
+
+namespace hb::skill {
+    class skill_system;
+}
+
+namespace hb::quest {
+    class quest_system;
 }
 
 namespace hb::bridge {
@@ -98,7 +113,11 @@ public:
                     loot_registry* loot = nullptr,
                     shop_registry* shops = nullptr,
                     dialog_registry* dialogs = nullptr,
-                    magic::magic_system* magic = nullptr);
+                    magic::magic_system* magic = nullptr,
+                    crafting::manufacturing_system* manufacturing = nullptr,
+                    crafting::alchemy_system* alchemy = nullptr,
+                    skill::skill_system* skills = nullptr,
+                    quest::quest_system* quests = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -133,6 +152,14 @@ private:
 
     // NPC interaction - dialog
     void handle_dialog_choice(connection_id conn_id, const network::json_message& msg);
+
+    // Crafting - manufacturing
+    void handle_manufacture_list_request(connection_id conn_id, const network::json_message& msg);
+    void handle_manufacture_request(connection_id conn_id, const network::json_message& msg);
+
+    // Crafting - alchemy
+    void handle_alchemy_list_request(connection_id conn_id, const network::json_message& msg);
+    void handle_alchemy_request(connection_id conn_id, const network::json_message& msg);
 
     // NPC interaction helper - validates NPC exists, is in range, and is friendly
     struct npc_interaction_check {
@@ -276,6 +303,10 @@ private:
     shop_registry* shop_registry_{nullptr};
     dialog_registry* dialog_registry_{nullptr};
     magic::magic_system* magic_{nullptr};
+    crafting::manufacturing_system* manufacturing_{nullptr};
+    crafting::alchemy_system* alchemy_{nullptr};
+    skill::skill_system* skills_{nullptr};
+    quest::quest_system* quests_{nullptr};
     save_player_callback save_callback_;
 };
 

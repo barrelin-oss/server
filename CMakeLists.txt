@@ -76,6 +76,8 @@ set(REGISTRY_SOURCES
     src/registry/loot_registry.cpp
     src/registry/shop_registry.cpp
     src/registry/dialog_registry.cpp
+    src/registry/build_recipe_registry.cpp
+    src/registry/craft_recipe_registry.cpp
 )
 
 set(NETWORK_SOURCES
@@ -165,6 +167,11 @@ set(PERSISTENCE_SOURCES
     src/persistence/persistence_system.cpp
 )
 
+set(CRAFTING_SOURCES
+    src/crafting/manufacturing_system.cpp
+    src/crafting/alchemy_system.cpp
+)
+
 set(ADMIN_SOURCES
     src/admin/admin_system.cpp
     src/admin/gm_commands.cpp
@@ -223,6 +230,7 @@ add_library(hgserver_core STATIC
     ${SOCIAL_SOURCES}
     ${WAR_SOURCES}
     ${PERSISTENCE_SOURCES}
+    ${CRAFTING_SOURCES}
     ${ADMIN_SOURCES}
     ${DATABASE_SOURCES}
     ${AUTH_SOURCES}
@@ -322,6 +330,10 @@ add_executable(hgserver_tests
     tests/test_shop_registry.cpp
     tests/test_dialog_registry.cpp
     tests/test_party_exp_share.cpp
+    tests/test_build_recipe_registry.cpp
+    tests/test_craft_recipe_registry.cpp
+    tests/test_manufacturing.cpp
+    tests/test_alchemy.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

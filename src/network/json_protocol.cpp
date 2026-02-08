@@ -135,7 +135,15 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"bank_withdraw_request", json_message_type::bank_withdraw_request},
     {"bank_withdraw_response", json_message_type::bank_withdraw_response},
     {"dialog_choice_request", json_message_type::dialog_choice_request},
-    {"dialog_choice_response", json_message_type::dialog_choice_response}
+    {"dialog_choice_response", json_message_type::dialog_choice_response},
+    {"manufacture_list_request", json_message_type::manufacture_list_request},
+    {"manufacture_list_response", json_message_type::manufacture_list_response},
+    {"manufacture_request", json_message_type::manufacture_request},
+    {"manufacture_response", json_message_type::manufacture_response},
+    {"alchemy_list_request", json_message_type::alchemy_list_request},
+    {"alchemy_list_response", json_message_type::alchemy_list_response},
+    {"alchemy_request", json_message_type::alchemy_request},
+    {"alchemy_response", json_message_type::alchemy_response}
 };
 
 }  // namespace
@@ -2448,6 +2456,92 @@ auto make_view_range_update(int16_t radius_x, int16_t radius_y, bool sees_all) -
             {"radius_y", radius_y},
             {"sees_all", sees_all}
         }
+    };
+}
+
+// === Crafting: Manufacturing/Alchemy ===
+
+auto manufacture_request_data::from_json(const nlohmann::json& j)
+    -> result<manufacture_request_data, std::string>
+{
+    manufacture_request_data data;
+    if (j.contains("recipe_index") && j["recipe_index"].is_number())
+    {
+        data.recipe_index = j["recipe_index"].get<int32_t>();
+    }
+    else
+    {
+        return result<manufacture_request_data, std::string>::err("Missing recipe_index");
+    }
+    return result<manufacture_request_data, std::string>::ok(data);
+}
+
+auto alchemy_request_data::from_json(const nlohmann::json& j)
+    -> result<alchemy_request_data, std::string>
+{
+    alchemy_request_data data;
+    if (j.contains("recipe_id") && j["recipe_id"].is_number())
+    {
+        data.recipe_id = j["recipe_id"].get<int32_t>();
+    }
+    else
+    {
+        return result<alchemy_request_data, std::string>::err("Missing recipe_id");
+    }
+    return result<alchemy_request_data, std::string>::ok(data);
+}
+
+auto make_manufacture_list_response(uint32_t seq,
+    const nlohmann::json& recipes) -> json_message
+{
+    return json_message{
+        .type = json_message_type::manufacture_list_response,
+        .seq = seq,
+        .data = {{"recipes", recipes}}
+    };
+}
+
+auto make_manufacture_response(uint32_t seq, bool success,
+    std::string_view item_name,
+    int32_t exp_gained,
+    std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+    if (!item_name.empty()) data["item_name"] = std::string(item_name);
+    if (exp_gained > 0) data["exp_gained"] = exp_gained;
+    if (error) data["error"] = std::string(*error);
+    return json_message{
+        .type = json_message_type::manufacture_response,
+        .seq = seq,
+        .data = data
+    };
+}
+
+auto make_alchemy_list_response(uint32_t seq,
+    const nlohmann::json& recipes) -> json_message
+{
+    return json_message{
+        .type = json_message_type::alchemy_list_response,
+        .seq = seq,
+        .data = {{"recipes", recipes}}
+    };
+}
+
+auto make_alchemy_response(uint32_t seq, bool success,
+    std::string_view item_name,
+    int32_t exp_gained,
+    std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+    if (!item_name.empty()) data["item_name"] = std::string(item_name);
+    if (exp_gained > 0) data["exp_gained"] = exp_gained;
+    if (error) data["error"] = std::string(*error);
+    return json_message{
+        .type = json_message_type::alchemy_response,
+        .seq = seq,
+        .data = data
     };
 }
 

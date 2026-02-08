@@ -167,6 +167,18 @@ enum class json_message_type {
     dialog_choice_request,
     dialog_choice_response,
 
+    // Crafting - manufacturing
+    manufacture_list_request,
+    manufacture_list_response,
+    manufacture_request,
+    manufacture_response,
+
+    // Crafting - alchemy
+    alchemy_list_request,
+    alchemy_list_response,
+    alchemy_request,
+    alchemy_response,
+
     // Unknown/invalid
     unknown
 };
@@ -261,6 +273,14 @@ enum class json_message_type {
         case json_message_type::bank_withdraw_response: return "bank_withdraw_response";
         case json_message_type::dialog_choice_request: return "dialog_choice_request";
         case json_message_type::dialog_choice_response: return "dialog_choice_response";
+        case json_message_type::manufacture_list_request: return "manufacture_list_request";
+        case json_message_type::manufacture_list_response: return "manufacture_list_response";
+        case json_message_type::manufacture_request: return "manufacture_request";
+        case json_message_type::manufacture_response: return "manufacture_response";
+        case json_message_type::alchemy_list_request: return "alchemy_list_request";
+        case json_message_type::alchemy_list_response: return "alchemy_list_response";
+        case json_message_type::alchemy_request: return "alchemy_request";
+        case json_message_type::alchemy_response: return "alchemy_response";
         default: return "unknown";
     }
 }
@@ -1296,5 +1316,40 @@ struct visibility_radii
         std::clamp(ry, min_visibility_radius, max_visibility_radius)
     };
 }
+
+// === Crafting: Manufacturing request/response data ===
+
+// Manufacture request from client
+struct manufacture_request_data {
+    int32_t recipe_index{-1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<manufacture_request_data, std::string>;
+};
+
+// Alchemy request from client
+struct alchemy_request_data {
+    int32_t recipe_id{-1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<alchemy_request_data, std::string>;
+};
+
+// Crafting response builders
+[[nodiscard]] auto make_manufacture_list_response(uint32_t seq,
+    const nlohmann::json& recipes) -> json_message;
+
+[[nodiscard]] auto make_manufacture_response(uint32_t seq, bool success,
+    std::string_view item_name = "",
+    int32_t exp_gained = 0,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+[[nodiscard]] auto make_alchemy_list_response(uint32_t seq,
+    const nlohmann::json& recipes) -> json_message;
+
+[[nodiscard]] auto make_alchemy_response(uint32_t seq, bool success,
+    std::string_view item_name = "",
+    int32_t exp_gained = 0,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 }  // namespace hb::network

@@ -151,8 +151,8 @@ This document tracks implementation progress for the modernized Helbreath server
 | Weapon skill bonuses | ✅ | Damage and hit rate bonuses |
 | Skill training | ✅ | Training mechanics |
 | Skill reset | ✅ | Reset functionality |
-| Manufacturing | ❌ | Item creation |
-| Alchemy | ❌ | Potion creation |
+| Manufacturing | ✅ | YAML-driven build recipes, crafting with skill checks |
+| Alchemy | ✅ | YAML-driven craft/alchemy recipes, potion/gem crafting |
 | Mining | ❌ | Resource gathering |
 | Fishing | ❌ | Fish catching |
 
@@ -358,14 +358,20 @@ This document tracks implementation progress for the modernized Helbreath server
 
 ---
 
-## Phase 21: Crafting System ❌
+## Phase 21: Crafting System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Recipe definitions | ❌ | Recipe data structure |
-| Crafting interface | ❌ | Crafting UI flow |
-| Material consumption | ❌ | Use materials, produce items |
-| Skill integration | ❌ | Manufacturing/alchemy skill checks |
+| Recipe definitions | ✅ | `recipe_config.h` shared structs (build_recipe, craft_recipe) |
+| Build recipe registry | ✅ | YAML loader for 83 manufacturing recipes |
+| Craft recipe registry | ✅ | YAML loader for 80 alchemy + 38 crafting recipes |
+| Manufacturing system | ✅ | Skill-gated crafting, STR*2 cap, success formula |
+| Alchemy system | ✅ | Difficulty-based crafting, INT*2 cap, success formula |
+| Material consumption | ✅ | Ingredients consumed on both success and failure |
+| Skill integration | ✅ | Manufacturing/alchemy skill checks, XP gain |
+| Protocol messages | ✅ | 8 messages (4 manufacturing, 4 alchemy) |
+| Dialog actions | ✅ | `open_manufacturing` / `open_alchemy` dialog triggers |
+| Crafting interface | ✅ | List + craft request/response flow |
 
 ---
 
@@ -395,8 +401,8 @@ Priority order for remaining work toward a playable game:
 4. ~~**NPC Interaction**~~ - ✅ Dialog trees, shop buy/sell/repair, bank deposit/withdraw
 5. ~~**Death/Respawn**~~ - ✅ XP penalty, PK tracking, bounty, delayed respawn
 6. ~~**Spell Effects System**~~ - ✅ Duration tracking, group slots, DoT/HoT, stat pipeline
-7. **Ranged Combat** - Bow/crossbow projectiles
-8. **Crafting System** - Manufacturing, alchemy
+7. ~~**Ranged Combat**~~ - ✅ Bow/crossbow with arrow consumption and min/max range
+8. ~~**Crafting System**~~ - ✅ Manufacturing (83 recipes) + alchemy (80+38 recipes) with YAML configs
 9. **War Mechanics** - Crusade, Heldenian, Apocalypse battle logic
 10. ~~**Guild Persistence**~~ - ✅ Guilds and members persist to PostgreSQL, guild info on login
 
@@ -418,6 +424,18 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-08
+- **Crafting System** - Full manufacturing and alchemy system with YAML-driven recipes
+  - `recipe_config.h` shared data structures: `build_recipe`, `craft_recipe`, `recipe_ingredient`, `craft_result`
+  - `build_recipe_registry` loads 83 manufacturing recipes from `build_recipes.yaml`, auto-assigns sequential IDs, resolves item names via `item_registry`
+  - `craft_recipe_registry` loads 80 alchemy recipes from `recipes.yaml` + 38 crafting recipes from `craft_recipes.yaml`, uses YAML `id` field
+  - `manufacturing_system`: skill-gated crafting, STR*2 skill cap, success formula (base + skill bonus capped at +40 + DEX/2, clamped 10-95%), ingredient aggregation and consumption on both success/failure, XP gain via `skill_system`
+  - `alchemy_system`: difficulty-based crafting, INT*2 skill cap, success formula (100-difficulty + skill/2 + INT/3, clamped 5-98%), always grants XP based on difficulty/3
+  - 8 new protocol messages: `manufacture_list_request/response`, `manufacture_request/response`, `alchemy_list_request/response`, `alchemy_request/response`
+  - Game handlers for all 4 request types with quest integration (`on_item_crafted`)
+  - `open_manufacturing` / `open_alchemy` dialog actions trigger recipe list responses
+  - 46 new tests: build_recipe_registry (11), craft_recipe_registry (9), manufacturing success formula (12), alchemy success formula (14)
 
 ### 2026-02-07 (g)
 - **Party XP Share** - NPC kill XP distribution with party sharing

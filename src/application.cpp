@@ -14,6 +14,10 @@
 #include "registry/loot_registry.h"
 #include "registry/shop_registry.h"
 #include "registry/dialog_registry.h"
+#include "registry/build_recipe_registry.h"
+#include "registry/craft_recipe_registry.h"
+#include "crafting/manufacturing_system.h"
+#include "crafting/alchemy_system.h"
 #include "platform/clock.h"
 #include "platform/platform.h"
 
@@ -180,6 +184,8 @@ void application::initialize() {
     subsystems().create_subsystem<loot_registry>();
     subsystems().create_subsystem<shop_registry>();
     subsystems().create_subsystem<dialog_registry>();
+    subsystems().create_subsystem<build_recipe_registry>();
+    subsystems().create_subsystem<craft_recipe_registry>();
 
     // Register database subsystem (for self-contained auth)
     auto& db_sys = subsystems().create_subsystem<database::database_system>();
@@ -208,6 +214,8 @@ void application::initialize() {
     subsystems().create_subsystem<war::war_system>();
     subsystems().create_subsystem<persistence::persistence_system>();
     subsystems().create_subsystem<admin::admin_system>();
+    subsystems().create_subsystem<crafting::manufacturing_system>();
+    subsystems().create_subsystem<crafting::alchemy_system>();
 
     // Load configuration BEFORE initializing subsystems
     auto config_path = std::filesystem::path(config_.config_file);
@@ -358,7 +366,11 @@ void application::initialize() {
             subsystems().get<loot_registry>(),
             subsystems().get<shop_registry>(),
             subsystems().get<dialog_registry>(),
-            subsystems().get<magic::magic_system>()
+            subsystems().get<magic::magic_system>(),
+            subsystems().get<crafting::manufacturing_system>(),
+            subsystems().get<crafting::alchemy_system>(),
+            subsystems().get<skill::skill_system>(),
+            subsystems().get<quest::quest_system>()
         );
 
         // Set save callback for death penalty persistence
@@ -435,6 +447,11 @@ void application::initialize() {
                 case network::json_message_type::bank_deposit_request:
                 case network::json_message_type::bank_withdraw_request:
                 case network::json_message_type::dialog_choice_request:
+                // Crafting
+                case network::json_message_type::manufacture_list_request:
+                case network::json_message_type::manufacture_request:
+                case network::json_message_type::alchemy_list_request:
+                case network::json_message_type::alchemy_request:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -863,6 +880,69 @@ void application::load_game_configs() {
         } else {
             LOG_INFO(general, "No dialogs.yaml found (NPC dialogs will be disabled)");
         }
+    }
+
+    // Load build recipes (manufacturing)
+    auto* build_recipes = subsystems().get<build_recipe_registry>();
+    if (build_recipes && items) {
+        auto build_yaml = config_dir / "build_recipes.yaml";
+        if (std::filesystem::exists(build_yaml)) {
+            auto result = build_recipes->load_from_file(build_yaml, *items);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} build recipes from build_recipes.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load build_recipes.yaml: {}", result.error());
+            }
+        } else {
+            LOG_INFO(general, "No build_recipes.yaml found (manufacturing will be disabled)");
+        }
+    }
+
+    // Load craft recipes (alchemy + gem crafting)
+    auto* craft_recipes = subsystems().get<craft_recipe_registry>();
+    if (craft_recipes && items) {
+        auto recipes_yaml = config_dir / "recipes.yaml";
+        if (std::filesystem::exists(recipes_yaml)) {
+            auto result = craft_recipes->load_alchemy(recipes_yaml, *items);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} alchemy recipes from recipes.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load recipes.yaml: {}", result.error());
+            }
+        }
+
+        auto craft_yaml = config_dir / "craft_recipes.yaml";
+        if (std::filesystem::exists(craft_yaml)) {
+            auto result = craft_recipes->load_crafting(craft_yaml, *items);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} crafting recipes from craft_recipes.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load craft_recipes.yaml: {}", result.error());
+            }
+        }
+    }
+
+    // Wire crafting system dependencies
+    auto* manufacturing = subsystems().get<crafting::manufacturing_system>();
+    if (manufacturing) {
+        manufacturing->set_dependencies(
+            subsystems().get<player::player_system>(),
+            subsystems().get<skill::skill_system>(),
+            subsystems().get<inventory::inventory_system>(),
+            subsystems().get<item::item_system>(),
+            build_recipes
+        );
+    }
+
+    auto* alchemy = subsystems().get<crafting::alchemy_system>();
+    if (alchemy) {
+        alchemy->set_dependencies(
+            subsystems().get<player::player_system>(),
+            subsystems().get<skill::skill_system>(),
+            subsystems().get<inventory::inventory_system>(),
+            subsystems().get<item::item_system>(),
+            craft_recipes
+        );
     }
 
     // TODO: Load magic definitions from magic.yaml or Magic.cfg

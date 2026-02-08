@@ -3362,6 +3362,197 @@ Server responds with the result of the dialog choice.
 
 ---
 
+## Crafting Messages
+
+### `manufacture_list_request`
+
+Request available manufacturing recipes for the player.
+
+```json
+{
+  "type": "manufacture_list_request",
+  "seq": 1,
+  "data": {}
+}
+```
+
+### `manufacture_list_response`
+
+```json
+{
+  "type": "manufacture_list_response",
+  "seq": 1,
+  "data": {
+    "recipes": [
+      {
+        "id": 0,
+        "name": "Sword",
+        "skill_req": 10,
+        "success_rate": 60,
+        "ingredients": [
+          { "item_id": 500, "count": 3 },
+          { "item_id": 501, "count": 1 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `recipes` | array | Array of available recipe objects |
+| `recipes[].id` | int | Recipe index (0-based) |
+| `recipes[].name` | string | Result item name |
+| `recipes[].skill_req` | int | Minimum manufacturing skill required |
+| `recipes[].success_rate` | int | Base success percentage (0-100) |
+| `recipes[].ingredients` | array | Array of { item_id, count } |
+
+### `manufacture_request`
+
+Attempt to craft a manufacturing recipe.
+
+```json
+{
+  "type": "manufacture_request",
+  "seq": 2,
+  "data": {
+    "recipe_index": 0
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `recipe_index` | int | Index of the recipe to craft |
+
+### `manufacture_response`
+
+```json
+{
+  "type": "manufacture_response",
+  "seq": 2,
+  "data": {
+    "success": true,
+    "item_name": "Sword",
+    "exp_gained": 3
+  }
+}
+```
+
+```json
+{
+  "type": "manufacture_response",
+  "seq": 2,
+  "data": {
+    "success": false,
+    "reason": "insufficient_materials"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether crafting succeeded |
+| `item_name` | string | Name of crafted item (on success) |
+| `exp_gained` | int | Manufacturing XP gained |
+| `reason` | string | Failure reason: `"insufficient_skill"`, `"insufficient_materials"`, `"inventory_full"` |
+
+### `alchemy_list_request`
+
+Request available alchemy recipes for the player.
+
+```json
+{
+  "type": "alchemy_list_request",
+  "seq": 3,
+  "data": {}
+}
+```
+
+### `alchemy_list_response`
+
+```json
+{
+  "type": "alchemy_list_response",
+  "seq": 3,
+  "data": {
+    "recipes": [
+      {
+        "id": 1,
+        "name": "HealthPotion",
+        "skill_limit": 0,
+        "difficulty": 20,
+        "ingredients": [
+          { "item_id": 500, "count": 1 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `recipes` | array | Array of available recipe objects |
+| `recipes[].id` | int | Recipe ID (from YAML) |
+| `recipes[].name` | string | Result item name |
+| `recipes[].skill_limit` | int | Minimum alchemy skill required |
+| `recipes[].difficulty` | int | Recipe difficulty (affects success chance) |
+| `recipes[].ingredients` | array | Array of { item_id, count } |
+
+### `alchemy_request`
+
+Attempt to craft an alchemy recipe.
+
+```json
+{
+  "type": "alchemy_request",
+  "seq": 4,
+  "data": {
+    "recipe_id": 1
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `recipe_id` | int | ID of the recipe to craft |
+
+### `alchemy_response`
+
+```json
+{
+  "type": "alchemy_response",
+  "seq": 4,
+  "data": {
+    "success": true,
+    "item_name": "HealthPotion",
+    "exp_gained": 2
+  }
+}
+```
+
+```json
+{
+  "type": "alchemy_response",
+  "seq": 4,
+  "data": {
+    "success": false,
+    "reason": "insufficient_skill"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether crafting succeeded |
+| `item_name` | string | Name of crafted item (on success) |
+| `exp_gained` | int | Alchemy XP gained |
+| `reason` | string | Failure reason: `"insufficient_skill"`, `"insufficient_materials"`, `"inventory_full"` |
+
+---
+
 ## Connection State Flow
 
 ```

@@ -27,6 +27,12 @@
 #include "player/equip_mapping.h"
 #include "magic/magic_system.h"
 #include "magic/spell.h"
+#include "crafting/manufacturing_system.h"
+#include "crafting/alchemy_system.h"
+#include "skill/skill_system.h"
+#include "quest/quest_system.h"
+#include "registry/build_recipe_registry.h"
+#include "registry/craft_recipe_registry.h"
 #include "social/party.h"
 #include "scheduler/scheduler.h"
 #include "config/config_system.h"
@@ -60,7 +66,11 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 loot_registry* loot,
                                 shop_registry* shops,
                                 dialog_registry* dialogs,
-                                magic::magic_system* magic) {
+                                magic::magic_system* magic,
+                                crafting::manufacturing_system* manufacturing,
+                                crafting::alchemy_system* alchemy,
+                                skill::skill_system* skills,
+                                quest::quest_system* quests) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -75,6 +85,10 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     shop_registry_ = shops;
     dialog_registry_ = dialogs;
     magic_ = magic;
+    manufacturing_ = manufacturing;
+    alchemy_ = alchemy;
+    skills_ = skills;
+    quests_ = quests;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -269,6 +283,22 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
         // Entity info
         case network::json_message_type::entity_info_request:
             handle_entity_info_request(conn_id, msg);
+            break;
+
+        // Crafting - manufacturing
+        case network::json_message_type::manufacture_list_request:
+            handle_manufacture_list_request(conn_id, msg);
+            break;
+        case network::json_message_type::manufacture_request:
+            handle_manufacture_request(conn_id, msg);
+            break;
+
+        // Crafting - alchemy
+        case network::json_message_type::alchemy_list_request:
+            handle_alchemy_list_request(conn_id, msg);
+            break;
+        case network::json_message_type::alchemy_request:
+            handle_alchemy_request(conn_id, msg);
             break;
 
         default:
@@ -1722,6 +1752,8 @@ void game_handlers::handle_dialog_choice(connection_id conn_id, const network::j
                     case npc::dialog_action::offer_citizenship: action_str = "offer_citizenship"; break;
                     case npc::dialog_action::select_crusade_job: action_str = "select_crusade_job"; break;
                     case npc::dialog_action::claim_rewards: action_str = "claim_rewards"; break;
+                    case npc::dialog_action::open_manufacturing: action_str = "open_manufacturing"; break;
+                    case npc::dialog_action::open_alchemy: action_str = "open_alchemy"; break;
                 }
                 opts.push_back({opt.label, action_str, opt.next_node});
             }
@@ -1742,6 +1774,53 @@ void game_handlers::handle_dialog_choice(connection_id conn_id, const network::j
         case npc::dialog_action::open_bank:
             conn->send(network::make_dialog_choice_response(msg.seq, true, "open_bank"));
             break;
+
+        case npc::dialog_action::open_manufacturing: {
+            // Send manufacturing recipe list directly
+            conn->send(network::make_dialog_choice_response(msg.seq, true, "open_manufacturing"));
+            if (manufacturing_) {
+                auto recipes = manufacturing_->get_available_recipes(entity_id{check.plr->id.value});
+                nlohmann::json recipe_list = nlohmann::json::array();
+                for (const auto* recipe : recipes) {
+                    nlohmann::json r;
+                    r["id"] = recipe->id;
+                    r["name"] = recipe->result;
+                    r["skill_req"] = recipe->skill_req;
+                    r["success_rate"] = recipe->success_rate;
+                    nlohmann::json ings = nlohmann::json::array();
+                    for (const auto& ing : recipe->ingredients) {
+                        ings.push_back({{"item_id", ing.item_id}, {"count", ing.count}});
+                    }
+                    r["ingredients"] = ings;
+                    recipe_list.push_back(r);
+                }
+                conn->send(network::make_manufacture_list_response(0, recipe_list));
+            }
+            break;
+        }
+
+        case npc::dialog_action::open_alchemy: {
+            conn->send(network::make_dialog_choice_response(msg.seq, true, "open_alchemy"));
+            if (alchemy_) {
+                auto recipes = alchemy_->get_available_recipes(entity_id{check.plr->id.value});
+                nlohmann::json recipe_list = nlohmann::json::array();
+                for (const auto* recipe : recipes) {
+                    nlohmann::json r;
+                    r["id"] = recipe->id;
+                    r["name"] = recipe->result;
+                    r["skill_limit"] = recipe->skill_limit;
+                    r["difficulty"] = recipe->difficulty;
+                    nlohmann::json ings = nlohmann::json::array();
+                    for (const auto& ing : recipe->ingredients) {
+                        ings.push_back({{"item_id", ing.item_id}, {"count", ing.count}});
+                    }
+                    r["ingredients"] = ings;
+                    recipe_list.push_back(r);
+                }
+                conn->send(network::make_alchemy_list_response(0, recipe_list));
+            }
+            break;
+        }
 
         case npc::dialog_action::open_quests:
         case npc::dialog_action::offer_citizenship:
@@ -3974,6 +4053,184 @@ void game_handlers::distribute_npc_kill_exp(entity::entity killer, int32_t base_
         }
         LOG_DEBUG(bridge, "Party level-weighted: {} base XP for {} members (total levels {})",
                   base_exp, eligible_count, total_levels);
+    }
+}
+
+// === Crafting: Manufacturing handlers ===
+
+void game_handlers::handle_manufacture_list_request(connection_id conn_id,
+                                                     const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!manufacturing_) {
+        send_error(conn_id, msg.seq, "not_available", "Manufacturing is not available");
+        return;
+    }
+
+    auto pid = conn->player();
+    auto recipes = manufacturing_->get_available_recipes(entity_id{pid.value});
+
+    nlohmann::json recipe_list = nlohmann::json::array();
+    for (const auto* recipe : recipes) {
+        nlohmann::json r;
+        r["id"] = recipe->id;
+        r["name"] = recipe->result;
+        r["skill_req"] = recipe->skill_req;
+        r["success_rate"] = recipe->success_rate;
+
+        nlohmann::json ings = nlohmann::json::array();
+        for (const auto& ing : recipe->ingredients) {
+            ings.push_back({{"item_id", ing.item_id}, {"count", ing.count}});
+        }
+        r["ingredients"] = ings;
+
+        recipe_list.push_back(r);
+    }
+
+    conn->send(network::make_manufacture_list_response(msg.seq, recipe_list));
+}
+
+void game_handlers::handle_manufacture_request(connection_id conn_id,
+                                                const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!manufacturing_) {
+        send_error(conn_id, msg.seq, "not_available", "Manufacturing is not available");
+        return;
+    }
+
+    auto parse = network::manufacture_request_data::from_json(msg.data);
+    if (parse.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_data", parse.error());
+        return;
+    }
+
+    auto& data = parse.value();
+    auto pid = conn->player();
+    auto result = manufacturing_->attempt_craft(entity_id{pid.value}, data.recipe_index);
+
+    if (result.reason == skill::skill_use_result::insufficient_skill) {
+        conn->send(network::make_manufacture_response(msg.seq, false, "", 0, "insufficient_skill"));
+        return;
+    }
+    if (result.reason == skill::skill_use_result::insufficient_materials) {
+        conn->send(network::make_manufacture_response(msg.seq, false, "", 0, "insufficient_materials"));
+        return;
+    }
+    if (!result.success && result.reason == skill::skill_use_result::failure) {
+        conn->send(network::make_manufacture_response(msg.seq, false, "", 0, "inventory_full"));
+        return;
+    }
+
+    // Look up recipe name for response
+    std::string item_name;
+    auto* registry = subsystems().get<build_recipe_registry>();
+    if (registry) {
+        auto* recipe = registry->get(data.recipe_index);
+        if (recipe) item_name = recipe->result;
+    }
+
+    conn->send(network::make_manufacture_response(
+        msg.seq, result.success, item_name, result.exp_gained));
+
+    // Fire quest event on success
+    if (result.success && quests_ && result.created_item.is_valid()) {
+        quests_->on_item_crafted({
+            .player = pid,
+            .item = result.created_item,
+            .count = 1
+        });
+    }
+}
+
+// === Crafting: Alchemy handlers ===
+
+void game_handlers::handle_alchemy_list_request(connection_id conn_id,
+                                                  const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!alchemy_) {
+        send_error(conn_id, msg.seq, "not_available", "Alchemy is not available");
+        return;
+    }
+
+    auto pid = conn->player();
+    auto recipes = alchemy_->get_available_recipes(entity_id{pid.value});
+
+    nlohmann::json recipe_list = nlohmann::json::array();
+    for (const auto* recipe : recipes) {
+        nlohmann::json r;
+        r["id"] = recipe->id;
+        r["name"] = recipe->result;
+        r["skill_limit"] = recipe->skill_limit;
+        r["difficulty"] = recipe->difficulty;
+
+        nlohmann::json ings = nlohmann::json::array();
+        for (const auto& ing : recipe->ingredients) {
+            ings.push_back({{"item_id", ing.item_id}, {"count", ing.count}});
+        }
+        r["ingredients"] = ings;
+
+        recipe_list.push_back(r);
+    }
+
+    conn->send(network::make_alchemy_list_response(msg.seq, recipe_list));
+}
+
+void game_handlers::handle_alchemy_request(connection_id conn_id,
+                                            const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!alchemy_) {
+        send_error(conn_id, msg.seq, "not_available", "Alchemy is not available");
+        return;
+    }
+
+    auto parse = network::alchemy_request_data::from_json(msg.data);
+    if (parse.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_data", parse.error());
+        return;
+    }
+
+    auto& data = parse.value();
+    auto pid = conn->player();
+    auto result = alchemy_->attempt_craft(entity_id{pid.value}, data.recipe_id);
+
+    if (result.reason == skill::skill_use_result::insufficient_skill) {
+        conn->send(network::make_alchemy_response(msg.seq, false, "", 0, "insufficient_skill"));
+        return;
+    }
+    if (result.reason == skill::skill_use_result::insufficient_materials) {
+        conn->send(network::make_alchemy_response(msg.seq, false, "", 0, "insufficient_materials"));
+        return;
+    }
+    if (!result.success && result.reason == skill::skill_use_result::failure) {
+        conn->send(network::make_alchemy_response(msg.seq, false, "", 0, "inventory_full"));
+        return;
+    }
+
+    // Look up recipe name for response
+    std::string item_name;
+    auto* registry = subsystems().get<craft_recipe_registry>();
+    if (registry) {
+        auto* recipe = registry->get(data.recipe_id);
+        if (recipe) item_name = recipe->result;
+    }
+
+    conn->send(network::make_alchemy_response(
+        msg.seq, result.success, item_name, result.exp_gained));
+
+    // Fire quest event on success
+    if (result.success && quests_ && result.created_item.is_valid()) {
+        quests_->on_item_crafted({
+            .player = pid,
+            .item = result.created_item,
+            .count = 1
+        });
     }
 }
 

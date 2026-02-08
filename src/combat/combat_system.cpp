@@ -7,6 +7,7 @@
 #include "player/player_system.h"
 #include "npc/npc_system.h"
 #include "effect/effect_system.h"
+#include "world/world_subsystem.h"
 
 #include <chrono>
 
@@ -291,8 +292,10 @@ auto combat_system::can_attack(hb::entity::entity attacker, hb::entity::entity d
         return false;
     }
 
-    // PvP check
-    // In real implementation, would check entity types and faction
+    // Safe zone blocks PvP only (not PvE)
+    if (is_pvp_safe_zone_blocked(attacker, defender)) {
+        return false;
+    }
 
     return true;
 }
@@ -380,6 +383,40 @@ void combat_system::notify_death(const death_event& event) {
     for (const auto& callback : death_callbacks_) {
         callback(event);
     }
+}
+
+auto combat_system::is_pvp_safe_zone_blocked(hb::entity::entity attacker, hb::entity::entity defender) const -> bool {
+    // Safe zones only block PvP — PvE is always allowed
+    if (!is_player_entity(attacker) || !is_player_entity(defender)) {
+        return false;
+    }
+
+    auto* player_sys = subsystems().get<player::player_system>();
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (!player_sys || !world) {
+        return false;
+    }
+
+    auto* attacker_p = player_sys->get_player(player_id{attacker.id});
+    auto* defender_p = player_sys->get_player(player_id{defender.id});
+    if (!attacker_p || !defender_p) {
+        return false;
+    }
+
+    // Check if either player is in a safe zone
+    if (auto* m = world->get_map(attacker_p->current_map)) {
+        if (m->is_safe_zone(attacker_p->pos)) {
+            return true;
+        }
+    }
+
+    if (auto* m = world->get_map(defender_p->current_map)) {
+        if (m->is_safe_zone(defender_p->pos)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 }  // namespace hb::combat

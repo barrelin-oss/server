@@ -339,6 +339,7 @@ add_executable(hgserver_tests
     tests/test_mining_registry.cpp
     tests/test_mining.cpp
     tests/test_environment.cpp
+    tests/test_safe_zone.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

@@ -175,6 +175,33 @@ auto magic_system::can_cast(hb::entity::entity caster, spell_id spell_id, const 
         // For now, assume in range
     }
 
+    // Safe zone blocks offensive PvP spells only
+    if (spell->is_offensive() && target.has_entity()) {
+        bool caster_is_player = player_sys && player_sys->get_player(player_id{caster.id}) != nullptr;
+        bool target_is_player = player_sys && player_sys->get_player(player_id{target.target.id}) != nullptr;
+
+        if (caster_is_player && target_is_player) {
+            auto* world = subsystems().get<world::world_subsystem>();
+            if (world) {
+                auto* caster_p = player_sys->get_player(player_id{caster.id});
+                auto* target_p = player_sys->get_player(player_id{target.target.id});
+
+                if (caster_p && target_p) {
+                    if (auto* m = world->get_map(caster_p->current_map)) {
+                        if (m->is_safe_zone(caster_p->pos)) {
+                            return cast_result::safe_zone_blocked;
+                        }
+                    }
+                    if (auto* m = world->get_map(target_p->current_map)) {
+                        if (m->is_safe_zone(target_p->pos)) {
+                            return cast_result::safe_zone_blocked;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return cast_result::success;
 }
 
@@ -577,6 +604,10 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster, const spell_templ
     // Find entities in range based on target type
     int16_t radius = spell.aoe_radius > 0 ? spell.aoe_radius : 3;
 
+    // Check if caster is a player (for safe zone PvP filtering)
+    bool caster_is_player = player_sys && player_sys->get_player(player_id{caster.id}) != nullptr;
+    auto* world = subsystems().get<world::world_subsystem>();
+
     // Get players in range
     if (spell.target_type == spell_target::aoe_enemy ||
         spell.target_type == spell_target::aoe_all) {
@@ -589,6 +620,14 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster, const spell_templ
                         auto* caster_player = player_sys->get_player(player_id{caster.id});
                         if (caster_player && p.faction == caster_player->faction) {
                             return;  // Skip allies
+                        }
+                    }
+                    // Safe zone: skip PvP targets (player caster hitting player target in safe zone)
+                    if (caster_is_player && world) {
+                        if (auto* m = world->get_map(p.current_map)) {
+                            if (m->is_safe_zone(p.pos)) {
+                                return;  // Skip player in safe zone
+                            }
                         }
                     }
                     targets.push_back(hb::entity::entity{id.value, 0});

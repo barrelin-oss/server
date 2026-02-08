@@ -1204,8 +1204,7 @@ void auth_handlers::save_player_state(player_id pid) {
     {
         auto* magic_sys = subsystems().get<magic::magic_system>();
         if (magic_sys) {
-            auto entity = hb::entity::entity{pid.value, 0};
-            const auto* spells = magic_sys->get_player_spells(entity);
+            const auto* spells = magic_sys->get_player_spells(player->ecs_entity);
             if (spells) {
                 magic_json = auth::serialize_magic(*spells);
                 LOG_DEBUG(bridge, "Saving magic data for player {} ({} spells)",

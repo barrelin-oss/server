@@ -115,6 +115,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Combat broadcasts | ✅ | Unified `combat_effect` broadcast for melee damage, spell effects, buffs/debuffs |
 | Ranged combat | ✅ | Bow/crossbow with arrow consumption, 2-10 tile range, projectile broadcasts |
 | PK system | ✅ | PK point gain on innocent kill, bounty rewards, criminal/murderer status |
+| Safe zone enforcement | ✅ | Blocks PvP attacks and offensive spells in town safe zones |
 
 ---
 
@@ -182,7 +183,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | NPC dialog | ✅ | YAML-driven dialog trees with action routing |
 | Shop NPCs | ✅ | Buy/sell/repair with charisma pricing |
 | Quest NPCs | ❌ | Quest givers |
-| Guard NPCs | ❌ | Town protection |
+| Guard NPCs | ✅ | Guards target criminal/murderer players (PK >= 30), 15d20 damage, 10-tile detection |
 
 **Documentation:** `docs/RANDOM_MOB_GENERATOR.md`
 
@@ -425,6 +426,14 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-08 (d)
+- **Safe Zone PvP Enforcement and Guard NPCs** - Town safety system
+  - Safe zones block player-vs-player attacks and offensive spells; attackers receive a rejection message
+  - Guard NPCs target only criminal/murderer players (PK points >= 30)
+  - Guard templates updated with combat stats (15d20 damage) and 10-tile detection range
+  - 14 guards spawned per town (2 per safe zone)
+  - 16 new tests
 
 ### 2026-02-08 (c)
 - **Character Persistence Audit & Fixes** - Comprehensive audit of all character data save/load paths

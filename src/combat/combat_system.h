@@ -91,6 +91,7 @@ private:
     [[nodiscard]] auto is_player_entity(hb::entity::entity e) const -> bool;
     [[nodiscard]] auto check_entity_dead(hb::entity::entity e) const -> bool;
     [[nodiscard]] auto calculate_kill_rewards(hb::entity::entity target) const -> std::pair<int32_t, int32_t>;
+    [[nodiscard]] auto is_pvp_safe_zone_blocked(hb::entity::entity attacker, hb::entity::entity defender) const -> bool;
 
     combat_system_config config_;
 

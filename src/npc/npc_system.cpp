@@ -191,6 +191,15 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
             new_npc->ai.flags = new_npc->ai.flags | ai_flags::aggressive;
         }
 
+        // Guard-specific AI overrides
+        if (new_npc->category == npc_category::guard) {
+            new_npc->ai.flags = new_npc->ai.flags | ai_flags::guard | ai_flags::aggressive | ai_flags::detect_invisible;
+            new_npc->ai.aggro_range = std::max(new_npc->ai.aggro_range, static_cast<int16_t>(10));
+            if (tmpl->behavior_tree.empty()) {
+                new_npc->ai.behavior_tree = "dungeon_guardian";
+            }
+        }
+
         // Apply behavior tree from template
         if (!tmpl->behavior_tree.empty()) {
             new_npc->ai.behavior_tree = tmpl->behavior_tree;
@@ -998,6 +1007,13 @@ auto npc_system::find_aggro_target(const npc& npc_ref) -> entity::entity {
         if (p->has_status(player::player_status::invisible) &&
             !npc_ref.ai.has_flag(ai_flags::detect_invisible)) {
             continue;
+        }
+
+        // Guards only target criminals and murderers
+        if (npc_ref.ai.has_flag(ai_flags::guard)) {
+            if (!p->pk.is_criminal() && !p->pk.is_murderer()) {
+                continue;
+            }
         }
 
         // Check distance (spatial query already filtered by range, but find closest)

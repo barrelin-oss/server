@@ -68,6 +68,7 @@ enum class cast_result : uint8_t {
     spell_not_learned = 8,
     target_immune = 9,
     failed = 10,
+    safe_zone_blocked = 11,
 };
 
 // Spell template/definition

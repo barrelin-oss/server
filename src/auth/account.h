@@ -115,7 +115,13 @@ struct character_full_data {
 
     // Status
     int32_t pk_count{0};
+    int32_t pk_points{0};
     int32_t hunger_level{100};
+    int32_t enemy_kill_count{0};
+    int32_t contribution{0};
+    int16_t stat_points_available{0};
+    int16_t luck{0};
+    int32_t reward_gold{0};
 
     // Serialized data (JSON strings stored in JSONB columns)
     std::string skills_data;      // JSON: [{type, level, exp}, ...]

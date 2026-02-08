@@ -559,11 +559,19 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             // Apply loaded stats
             player->experience.level = static_cast<uint8_t>(char_data.level);
             player->experience.experience = char_data.experience;
+            player->experience.enemy_kill_count = char_data.enemy_kill_count;
+            player->experience.contribution = char_data.contribution;
             player->hp = char_data.hp;
             player->mp = char_data.mp;
             player->sp = char_data.sp;
             player->hunger.level = static_cast<int8_t>(char_data.hunger_level);
             player->pk.count = char_data.pk_count;
+            player->pk.points = char_data.pk_points;
+            player->stats_pts.available = char_data.stat_points_available;
+            player->hair_style = char_data.hair_style;
+            player->hair_color = char_data.hair_color;
+            player->skin_color = char_data.skin_color;
+            player->underwear_color = char_data.underwear_color;
 
             // Deserialize and apply skills
             if (!char_data.skills_data.empty()) {
@@ -1247,12 +1255,18 @@ void auth_handlers::save_player_state(player_id pid) {
         .intelligence = player->base.intelligence,
         .magic = player->base.magic,
         .charisma = player->base.charisma,
-        .hair_style = 0,  // Not tracked in player struct currently
-        .hair_color = 0,
-        .skin_color = 0,
-        .underwear_color = 0,
+        .hair_style = player->hair_style,
+        .hair_color = player->hair_color,
+        .skin_color = player->skin_color,
+        .underwear_color = player->underwear_color,
         .pk_count = player->pk.count,
+        .pk_points = player->pk.points,
         .hunger_level = player->hunger.level,
+        .enemy_kill_count = player->experience.enemy_kill_count,
+        .contribution = player->experience.contribution,
+        .stat_points_available = player->stats_pts.available,
+        .luck = 0,  // TODO: add luck to player struct when luck system is implemented
+        .reward_gold = 0,  // TODO: add reward_gold to player struct when bounty system is implemented
         .skills_data = skills_json,
         .inventory_data = inventory_json,
         .equipment_data = equipment_json,

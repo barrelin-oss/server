@@ -83,9 +83,9 @@ Used for movement and facing direction. Maps to 8-directional movement.
 |-------|------|-------------|
 | 0 | `regular` | Normal melee attack |
 | 1 | `dash` | Dash attack - requires 100% skill, must have exactly 1 tile gap to target |
-| 2 | `super` | Super attack - requires 100% skill + charges, enables ranged attack |
+| 2 | `ranged` | Ranged attack - bow/crossbow, 2-10 tile range, consumes arrows |
 
-Can be sent as integer (0, 1, 2) or string ("regular", "dash", "super").
+Can be sent as integer (0, 1, 2) or string ("regular", "dash", "ranged").
 
 ### Target Type
 
@@ -378,7 +378,7 @@ Request to attack a target.
 | `x` | int16 | Yes | Client's current X position |
 | `y` | int16 | Yes | Client's current Y position |
 | `direction` | int16 | No | Direction facing (defaults to current) |
-| `attack_type` | int/string | No | Attack type: 0/`regular`, 1/`dash`, 2/`super` |
+| `attack_type` | int/string | No | Attack type: 0/`regular`, 1/`dash`, 2/`ranged` |
 | `target_type` | int/string | No | Target type: 1/`player`, 2/`npc` |
 | `target_id` | uint32 | No | Entity ID of the target |
 | `timestamp` | uint64 | No | Client timestamp in milliseconds |
@@ -417,7 +417,7 @@ Request to attack a target.
 }
 ```
 
-**Example (Super Attack):**
+**Example (Ranged Attack):**
 ```json
 {
   "type": "player_attack_request",
@@ -426,7 +426,7 @@ Request to attack a target.
     "x": 150,
     "y": 200,
     "direction": 3,
-    "attack_type": "super",
+    "attack_type": "ranged",
     "target_type": "npc",
     "target_id": 5002,
     "timestamp": 1706620002000
@@ -440,7 +440,7 @@ Request to attack a target.
 |------|--------------|
 | `regular` | None - standard melee attack |
 | `dash` | 100% weapon skill, exactly 1 tile gap between attacker and target |
-| `super` | 100% weapon skill, available super attack charges |
+| `ranged` | Bow or crossbow equipped, arrows in inventory, target 2-10 tiles away |
 
 ---
 
@@ -550,8 +550,9 @@ Server response to attack request.
 | `cannot_attack` | Player has status preventing attacks |
 | `dead` | Player is dead |
 | `cooldown` | Attack is on cooldown |
-| `no_charges` | Super attack requires charges |
-| `skill_too_low` | Dash/super requires 100% skill |
+| `no_ammo` | Ranged attack requires arrows in inventory |
+| `target_too_close` | Ranged attack requires minimum 2 tile distance |
+| `skill_too_low` | Dash requires 100% skill |
 | `invalid_distance` | Dash requires exactly 1 tile gap |
 | `not_implemented` | Feature not yet implemented |
 

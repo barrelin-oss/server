@@ -75,8 +75,14 @@ CREATE TABLE IF NOT EXISTS characters (
 
     -- PK/Criminal status
     pk_count        INTEGER DEFAULT 0,
+    pk_points       INTEGER DEFAULT 0,
     reward_gold     INTEGER DEFAULT 0,
     hunger_level    SMALLINT DEFAULT 100,
+
+    -- Progression
+    enemy_kill_count INTEGER DEFAULT 0,
+    contribution    INTEGER DEFAULT 0,
+    stat_points_available SMALLINT DEFAULT 0,
 
     -- JSON data for complex serialized data (JSONB for queryability)
     -- skills_data: [{"type":5,"level":45,"exp":1200}, ...]

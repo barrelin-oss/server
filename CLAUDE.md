@@ -276,10 +276,10 @@ The monolithic `CGame` class is being decomposed into:
 - [ ] Admin GM commands
 
 ### Planned
-- [ ] Crafting/gathering
-- [ ] Ranged combat
-- [ ] Death/respawn flow
-- [ ] Guild persistence
+- [x] Crafting/gathering
+- [x] Ranged combat
+- [x] Death/respawn flow
+- [x] Guild persistence
 - [ ] Guild warehouse
 - [ ] Friend list
 

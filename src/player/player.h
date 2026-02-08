@@ -120,6 +120,12 @@ struct player {
     gender sex{gender::male};
     player_class profession{player_class::warrior};
 
+    // Appearance
+    int16_t hair_style{0};
+    int16_t hair_color{0};
+    int16_t skin_color{0};
+    int16_t underwear_color{0};
+
     // Faction
     hb::faction faction{hb::faction::neutral};
     std::string guild_name;

@@ -796,6 +796,22 @@ The `quests` field contains two sub-fields:
 | `current` | int32 | Current progress count |
 | `required` | int32 | Required count for completion |
 
+#### Environment Object
+
+The `world.environment` sub-object in `enter_game_response` provides the initial day/night and weather state for the player's current map. After login, the server sends periodic [`environment_update`](#environment_update) broadcasts every ~10 seconds and immediately on teleport.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hour` | uint8 | Game clock hour (0-23) |
+| `minute` | uint8 | Game clock minute (0-59) |
+| `is_day` | bool | Whether the game clock is in daytime (6:00-17:59) |
+| `weather` | uint8 | Weather type for current map (see [Weather Types](#environment_update)) |
+
+**Notes:**
+- Maps with `is_fixed_day_mode` always report `is_day: true` and `weather: 0`
+- Weather types 1-3 (rain) appear on normal maps; types 4-6 (snow) appear on snow-enabled maps
+- Weather cycling is per-map: each map independently starts/stops weather events (1-in-30 chance per 10s tick, 3-10 minute duration)
+
 #### Visible Entity Object
 
 | Field | Type | Description |
@@ -1059,6 +1075,33 @@ Sent to a player after equipment changes to reflect updated computed stats.
   }
 }
 ```
+
+---
+
+### `spell_list_update`
+
+Sent to a player when their known spell list changes (e.g., after learning a new spell or equipment changes that affect available spells). Contains the full list of known spells.
+
+**Server Message:**
+```json
+{
+  "type": "spell_list_update",
+  "seq": 0,
+  "data": {
+    "spells": [
+      { "spell_id": 10, "level": 3, "total_casts": 142 },
+      { "spell_id": 24, "level": 1, "total_casts": 5 }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `spells` | array | Complete list of known spells |
+| `spells[].spell_id` | uint16 | Spell identifier (from magic.yaml) |
+| `spells[].level` | int16 | Current spell level |
+| `spells[].total_casts` | int32 | Total times this spell has been cast |
 
 ---
 
@@ -1338,7 +1381,7 @@ Request to attack a target.
 |-------|------|-------------|
 | 0 / `"regular"` | Regular | Normal melee attack |
 | 1 / `"dash"` | Dash | Dash attack (requires 100% skill, 1 tile gap) |
-| 2 / `"super"` | Super | Super attack (requires 100% skill + charges, ranged) |
+| 2 / `"ranged"` | Ranged | Ranged attack (bow/crossbow, 2-10 tile range) |
 
 ---
 
@@ -1381,24 +1424,50 @@ Server confirms or rejects attack.
 
 #### Attack Result Object
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `hit` | bool | Whether attack connected |
-| `critical` | bool | Whether it was a critical hit |
-| `damage` | int32 | Damage dealt |
-| `target_id` | uint32 | Target entity ID |
-| `target_hp` | int16 | Target's remaining HP |
-| `target_hp_max` | int16 | Target's maximum HP |
-| `attacker_x` | int16 | Confirmed attacker X position |
-| `attacker_y` | int16 | Confirmed attacker Y position |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `hit` | bool | Yes | Whether attack connected |
+| `critical` | bool | Yes | Whether it was a critical hit |
+| `damage` | int32 | Yes | Damage dealt |
+| `target_id` | uint32 | Yes | Target entity ID |
+| `target_hp` | int16 | Yes | Target's remaining HP |
+| `target_hp_max` | int16 | Yes | Target's maximum HP |
+| `attacker_x` | int16 | Yes | Confirmed attacker X position |
+| `attacker_y` | int16 | Yes | Confirmed attacker Y position |
+| `is_ranged` | bool | No | Present and `true` for bow/crossbow attacks |
+| `ammo_count` | int32 | No | Remaining arrows after this attack (only when `is_ranged`) |
+| `ammo_template_id` | uint32 | No | Template ID of consumed arrow (only when `is_ranged`) |
+
+**Ranged attack example:**
+```json
+{
+  "type": "player_attack_response",
+  "seq": 150,
+  "data": {
+    "success": true,
+    "result": {
+      "hit": true,
+      "critical": false,
+      "damage": 38,
+      "target_id": 5001,
+      "target_hp": 162,
+      "target_hp_max": 200,
+      "attacker_x": 100,
+      "attacker_y": 150,
+      "is_ranged": true,
+      "ammo_count": 47,
+      "ammo_template_id": 77
+    }
+  }
+}
 
 ---
 
 ### `combat_attack_broadcast`
 
-Broadcast to nearby players when an attack occurs.
+Broadcast to nearby players when an attack occurs. For ranged attacks (bow/crossbow), additional fields indicate projectile type so the client can render the projectile arc.
 
-**Server Broadcast:**
+**Server Broadcast (melee):**
 ```json
 {
   "type": "combat_attack_broadcast",
@@ -1417,17 +1486,40 @@ Broadcast to nearby players when an attack occurs.
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `attacker_id` | uint32 | Attacker entity ID |
-| `target_id` | uint32 | Target entity ID |
-| `attacker_x` | int16 | Attacker X position |
-| `attacker_y` | int16 | Attacker Y position |
-| `target_x` | int16 | Target X position |
-| `target_y` | int16 | Target Y position |
-| `hit` | bool | Whether attack connected |
-| `critical` | bool | Whether it was a critical hit |
-| `damage` | int32 | Damage dealt |
+**Server Broadcast (ranged):**
+```json
+{
+  "type": "combat_attack_broadcast",
+  "seq": 0,
+  "data": {
+    "attacker_id": 1001,
+    "target_id": 5001,
+    "attacker_x": 100,
+    "attacker_y": 150,
+    "target_x": 106,
+    "target_y": 150,
+    "hit": true,
+    "critical": false,
+    "damage": 38,
+    "attack_mode": "ranged",
+    "projectile_type": "arrow"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `attacker_id` | uint32 | Yes | Attacker entity ID |
+| `target_id` | uint32 | Yes | Target entity ID |
+| `attacker_x` | int16 | Yes | Attacker X position |
+| `attacker_y` | int16 | Yes | Attacker Y position |
+| `target_x` | int16 | Yes | Target X position |
+| `target_y` | int16 | Yes | Target Y position |
+| `hit` | bool | Yes | Whether attack connected |
+| `critical` | bool | Yes | Whether it was a critical hit |
+| `damage` | int32 | Yes | Damage dealt |
+| `attack_mode` | string | No | `"ranged"` for bow/crossbow attacks (absent for melee) |
+| `projectile_type` | string | No | `"arrow"` or `"poison_arrow"` (only when `attack_mode` is `"ranged"`) |
 
 ---
 
@@ -2612,9 +2704,9 @@ An NPC moved.
 
 ### `npc_attack`
 
-An NPC attacked something.
+An NPC attacked something. Includes positions for client-side rendering of the attack animation. For ranged NPCs, additional fields indicate projectile type.
 
-**Server Broadcast:**
+**Server Broadcast (melee):**
 ```json
 {
   "type": "npc_attack",
@@ -2623,17 +2715,47 @@ An NPC attacked something.
     "attacker_id": 5001,
     "target_id": 1001,
     "damage": 25,
-    "is_critical": false
+    "is_critical": false,
+    "attacker_x": 106,
+    "attacker_y": 151,
+    "target_x": 105,
+    "target_y": 151
   }
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `attacker_id` | uint32 | NPC entity ID |
-| `target_id` | uint32 | Target entity ID |
-| `damage` | int32 | Damage dealt |
-| `is_critical` | bool | Whether it was a critical hit |
+**Server Broadcast (ranged NPC):**
+```json
+{
+  "type": "npc_attack",
+  "seq": 0,
+  "data": {
+    "attacker_id": 5001,
+    "target_id": 1001,
+    "damage": 18,
+    "is_critical": false,
+    "attacker_x": 106,
+    "attacker_y": 151,
+    "target_x": 100,
+    "target_y": 151,
+    "is_ranged": true,
+    "projectile_type": "arrow"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `attacker_id` | uint32 | Yes | NPC entity ID |
+| `target_id` | uint32 | Yes | Target entity ID |
+| `damage` | int32 | Yes | Damage dealt |
+| `is_critical` | bool | Yes | Whether it was a critical hit |
+| `attacker_x` | int16 | Yes | NPC X position |
+| `attacker_y` | int16 | Yes | NPC Y position |
+| `target_x` | int16 | Yes | Target X position |
+| `target_y` | int16 | Yes | Target Y position |
+| `is_ranged` | bool | No | Present and `true` for ranged NPCs (attack_range > 1) |
+| `projectile_type` | string | No | `"arrow"` (only when `is_ranged`) |
 
 ---
 
@@ -3597,6 +3719,125 @@ Attempt to craft an alchemy recipe.
 | `item_name` | string | Name of crafted item (on success) |
 | `exp_gained` | int | Alchemy XP gained |
 | `reason` | string | Failure reason: `"insufficient_skill"`, `"insufficient_materials"`, `"inventory_full"` |
+
+---
+
+## Mining Messages
+
+### `mine_request`
+
+Client requests to mine a mineral node at the specified position.
+
+**Client Request:**
+```json
+{
+  "type": "mine_request",
+  "seq": 200,
+  "data": {
+    "target_x": 50,
+    "target_y": 75
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `target_x` | int16 | X position of mineral node to mine |
+| `target_y` | int16 | Y position of mineral node to mine |
+
+---
+
+### `mine_response`
+
+Server response to a mining attempt. On success, includes the mined item and XP gained. On failure, includes the reason.
+
+**Success Response:**
+```json
+{
+  "type": "mine_response",
+  "seq": 200,
+  "data": {
+    "success": true,
+    "item_name": "Iron Ore",
+    "template_id": 350,
+    "exp_gained": 15,
+    "node_depleted": false
+  }
+}
+```
+
+**Failure Response:**
+```json
+{
+  "type": "mine_response",
+  "seq": 200,
+  "data": {
+    "success": false,
+    "error": "no_node_at_position"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `success` | bool | Yes | Whether mining succeeded |
+| `item_name` | string | No | Name of mined item (on success) |
+| `template_id` | int32 | No | Item template ID of mined item (on success) |
+| `exp_gained` | int32 | No | Mining XP gained (on success) |
+| `node_depleted` | bool | No | Whether the mineral node was exhausted by this action |
+| `error` | string | No | Failure reason (on failure) |
+
+---
+
+### `mineral_spawn`
+
+Broadcast when a mineral node appears on the map (initial spawn or respawn).
+
+**Server Broadcast:**
+```json
+{
+  "type": "mineral_spawn",
+  "seq": 0,
+  "data": {
+    "node_id": 1001,
+    "mineral_type": 1,
+    "x": 50,
+    "y": 75
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `node_id` | uint32 | Unique node identifier |
+| `mineral_type` | uint8 | Type of mineral (determines appearance and loot) |
+| `x` | int16 | X position on map |
+| `y` | int16 | Y position on map |
+
+---
+
+### `mineral_despawn`
+
+Broadcast when a mineral node is removed (depleted or despawned).
+
+**Server Broadcast:**
+```json
+{
+  "type": "mineral_despawn",
+  "seq": 0,
+  "data": {
+    "node_id": 1001,
+    "x": 50,
+    "y": 75
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `node_id` | uint32 | Node identifier being removed |
+| `x` | int16 | X position |
+| `y` | int16 | Y position |
 
 ---
 

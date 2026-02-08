@@ -113,7 +113,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Kill rewards | ✅ | Experience and gold on kill |
 | Death detection | ✅ | Death events, kill/death counters |
 | Combat broadcasts | ✅ | Unified `combat_effect` broadcast for melee damage, spell effects, buffs/debuffs |
-| Ranged combat | 📋 | Bow/crossbow, projectiles |
+| Ranged combat | ✅ | Bow/crossbow with arrow consumption, 2-10 tile range, projectile broadcasts |
 | PK system | ✅ | PK point gain on innocent kill, bounty rewards, criminal/murderer status |
 
 ---
@@ -138,7 +138,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Effect groups | ✅ | magic_type-based slots, one-per-group rule |
 | DoT/HoT ticking | ✅ | Poison, burn, heal, mana drain/restore with 2s tick |
 | Effect-stat pipeline | ✅ | Equipment + effect modifiers combined, auto-revert on expiry |
-| Visual broadcasts | 📋 | Client broadcast for effect applied/removed TODO |
+| Visual broadcasts | ✅ | `combat_effect` broadcast for damage, heal, miss, dodge, block, buff, debuff |
 
 ---
 
@@ -154,7 +154,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Skill reset | ✅ | Reset functionality |
 | Manufacturing | ✅ | YAML-driven build recipes, crafting with skill checks |
 | Alchemy | ✅ | YAML-driven craft/alchemy recipes, potion/gem crafting |
-| Mining | ❌ | Resource gathering |
+| Mining | ✅ | Mineral node lifecycle, generation, mining skill, XP gain |
 | Fishing | ❌ | Fish catching |
 
 ---
@@ -327,7 +327,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Periodic save | ✅ | Configurable auto-save interval, on-demand save methods |
-| Character save | ✅ | Full save on disconnect (stats, position, skills, equipment, inventory) |
+| Character save | ✅ | Full save on disconnect (stats, position, skills, equipment, inventory, spells, quests, appearance, PK points, EK, contribution, stat points) |
 | Inventory save | ✅ | JSON serialization to JSONB column |
 | Equipment save | ✅ | JSON serialization to JSONB column |
 | Skills save | ✅ | JSON serialization to JSONB column |
@@ -425,6 +425,22 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-08 (c)
+- **Character Persistence Audit & Fixes** - Comprehensive audit of all character data save/load paths
+  - **Data-loss bug fixed:** Appearance fields (`hair_style`, `hair_color`, `skin_color`, `underwear_color`) were hardcoded to 0 on every save, permanently destroying character appearance after first auto-save. Added appearance fields to `player` struct and save them correctly.
+  - **PK points now persisted:** Criminal/murderer status (`pk.points`) was lost on disconnect, resetting murderers to innocent. New `pk_points` DB column.
+  - **Enemy kill count now persisted:** EK count reset to 0 each session. New `enemy_kill_count` DB column.
+  - **Contribution now persisted:** Contribution points lost on disconnect. New `contribution` DB column.
+  - **Stat points now persisted:** Unspent stat points vanished on logout. New `stat_points_available` DB column.
+  - **Wired up unused DB columns:** `luck` and `reward_gold` existed in schema but were never read or written by the active code path. Now loaded and saved.
+  - Database migration: `20260208_132227_add_character_persistence_fields.sql`
+- **Protocol Documentation Update** - Documented all previously undocumented messages and fields
+  - Documented 5 missing message types: `spell_list_update`, `mine_request`, `mine_response`, `mineral_spawn`, `mineral_despawn`
+  - Documented ranged combat fields on `combat_attack_broadcast` (`attack_mode`, `projectile_type`)
+  - Documented ranged fields on `player_attack_response` (`is_ranged`, `ammo_count`, `ammo_template_id`)
+  - Documented position + ranged fields on `npc_attack` (`attacker_x/y`, `target_x/y`, `is_ranged`, `projectile_type`)
+  - Fixed attack type enum: `super` renamed to `ranged` in docs to match code
 
 ### 2026-02-08 (b)
 - **Weather/Day-Night Client Sync** - Full environment state synchronization to clients

@@ -81,6 +81,10 @@ public:
     // Returns the number of players successfully saved
     auto save_all_players() -> size_t;
 
+    // Callback for when a player enters the game (name, level, map_name)
+    using enter_game_callback = std::function<void(const std::string&, int16_t, const std::string&)>;
+    void set_enter_game_callback(enter_game_callback cb);
+
 private:
     // Individual message handlers
     void handle_login(connection_id conn_id, const network::json_message& msg);
@@ -91,6 +95,7 @@ private:
     void handle_delete_character(connection_id conn_id, const network::json_message& msg);
     void handle_enter_game(connection_id conn_id, const network::json_message& msg);
     void handle_ping(connection_id conn_id, const network::json_message& msg);
+    void handle_enter_admin_mode(connection_id conn_id, const network::json_message& msg);
 
     // Helper to send error response
     void send_error(connection_id conn_id, uint32_t seq,
@@ -121,6 +126,7 @@ private:
     item::item_system* item_{nullptr};
     social::social_system* social_{nullptr};
     scheduler* scheduler_{nullptr};
+    enter_game_callback enter_game_callback_;
 };
 
 }  // namespace hb::bridge

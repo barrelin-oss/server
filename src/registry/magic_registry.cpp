@@ -70,11 +70,6 @@ auto magic_registry::load_from_file(const std::filesystem::path& path)
         spell_template spell;
 
         spell.id = spell_id{static_cast<uint16_t>(node["id"].as<int>())};
-        if (!spell.id.is_valid()) {
-            LOG_WARN(magic, "Entry {}: invalid spell ID", i);
-            ++errors;
-            continue;
-        }
 
         if (id_index_.contains(spell.id.value)) {
             LOG_WARN(magic, "Entry {}: duplicate spell ID {}", i, spell.id.value);
@@ -88,6 +83,7 @@ auto magic_registry::load_from_file(const std::filesystem::path& path)
         spell.cast_time_ms = static_cast<int16_t>(node["delay"].as<int>(0));
         spell.int_req = static_cast<int16_t>(node["int_req"].as<int>(0));
         spell.range = static_cast<int16_t>(node["range1"].as<int>(0));
+        spell.area_radius = static_cast<int16_t>(node["range2"].as<int>(0));
 
         if (node["duration"]) {
             spell.effect_duration = duration_ms(node["duration"].as<int>(0) * 1000);

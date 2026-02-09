@@ -46,8 +46,17 @@ enum class ws_connection_state {
     connected,
     authenticated,
     in_game,
+    admin_dashboard,
     disconnecting,
     disconnected
+};
+
+// Admin subscription mode for spectator functionality
+struct admin_subscription {
+    enum class mode : uint8_t { none, map, player };
+    mode sub_mode{mode::none};
+    map_id target_map{};
+    player_id target_player{};
 };
 
 // Connection info for events
@@ -100,6 +109,13 @@ public:
     [[nodiscard]] auto dest_x() const -> int16_t { return dest_x_; }
     [[nodiscard]] auto dest_y() const -> int16_t { return dest_y_; }
 
+    // Admin dashboard
+    void set_admin_level(uint8_t level) { admin_level_ = level; }
+    [[nodiscard]] auto admin_level() const -> uint8_t { return admin_level_; }
+    void set_subscription(const admin_subscription& sub) { subscription_ = sub; }
+    [[nodiscard]] auto subscription() const -> const admin_subscription& { return subscription_; }
+    [[nodiscard]] auto subscription() -> admin_subscription& { return subscription_; }
+
     // Send message
     void send(const json_message& msg);
     void send_raw(std::string_view data);
@@ -130,6 +146,10 @@ private:
     int16_t dest_x_{0};
     int16_t dest_y_{0};
     bool has_destination_{false};
+
+    // Admin dashboard
+    uint8_t admin_level_{0};
+    admin_subscription subscription_;
 };
 
 // WebSocket server
@@ -176,6 +196,10 @@ public:
     void send(connection_id id, const json_message& msg);
     void broadcast(const json_message& msg);
     void broadcast_to_authenticated(const json_message& msg);
+
+    // Admin subscriber queries
+    [[nodiscard]] auto get_admin_subscribers(map_id map) -> std::vector<connection_id>;
+    [[nodiscard]] auto get_all_admin_connections() -> std::vector<connection_id>;
 
     // Statistics
     [[nodiscard]] auto connection_count() const -> size_t;

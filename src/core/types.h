@@ -111,8 +111,6 @@ struct spell_id {
     constexpr auto operator<=>(const spell_id&) const = default;
     constexpr explicit operator uint16_t() const { return value; }
     constexpr explicit operator int() const { return value; }
-
-    [[nodiscard]] constexpr auto is_valid() const -> bool { return value != 0; }
 };
 
 struct recipe_id {

@@ -9,6 +9,7 @@
 #include "world/position.h"
 #include "registry/spell_template.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -141,14 +142,14 @@ struct cast_target {
 
 // Spell cast state (for tracking channeled/cast time spells)
 struct spell_cast_state {
-    spell_id spell{};
+    std::optional<spell_id> spell;
     cast_target target{};
     int64_t start_time_ms{0};
     int64_t end_time_ms{0};
     bool cancelled{false};
 
     [[nodiscard]] auto is_active() const -> bool {
-        return spell.is_valid() && !cancelled;
+        return spell.has_value() && !cancelled;
     }
 
     [[nodiscard]] auto progress(int64_t current_time_ms) const -> float {

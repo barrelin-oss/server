@@ -85,6 +85,9 @@ void auth_handlers::handle_message(connection_id conn_id, const network::json_me
         case network::json_message_type::ping:
             handle_ping(conn_id, msg);
             break;
+        case network::json_message_type::enter_admin_mode_request:
+            handle_enter_admin_mode(conn_id, msg);
+            break;
         default:
             LOG_WARN(bridge, "Unhandled auth message type: {}",
                 network::to_string(msg.type));
@@ -522,6 +525,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
     // Create player instance if player_system is available
     player_id live_player_id = char_id;
+    bool was_dead_on_login = false;
     if (players_) {
         // Build player creation info from loaded character
         player::player_create_info create_info{
@@ -624,8 +628,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 if (!spells.empty()) {
                     auto* magic_sys = subsystems().get<magic::magic_system>();
                     if (magic_sys) {
-                        auto entity = hb::entity::entity{live_player_id.value, 0};
-                        magic_sys->set_player_spells(entity, std::move(spells));
+                        magic_sys->set_player_spells(player->ecs_entity, std::move(spells));
                         LOG_DEBUG(bridge, "Loaded magic data for player {}", live_player_id.value);
                     }
                 }
@@ -648,6 +651,42 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             // Recalculate computed stats
             player->base.level_bonus = char_data.level;
             player->recalculate_stats();
+
+            // If player logged in dead (hp <= 0), respawn at faction town
+            if (player->is_dead()) {
+                LOG_INFO(bridge, "Player {} ('{}') logged in dead (hp={}), respawning at faction town",
+                    live_player_id.value, char_data.name, player->hp);
+                was_dead_on_login = true;
+
+                // Determine respawn map from faction
+                std::string respawn_map;
+                switch (player->faction) {
+                    case faction::aresden: respawn_map = "aresden"; break;
+                    case faction::elvine: respawn_map = "elvine"; break;
+                    default: respawn_map = "default"; break;
+                }
+
+                // Find spawn position on the respawn map
+                world::position respawn_pos{18, 18};
+                if (world_) {
+                    auto* spawn_map = world_->get_map_by_name(respawn_map);
+                    if (spawn_map) {
+                        auto pos = spawn_map->get_random_initial_point();
+                        if (pos.has_value()) respawn_pos = *pos;
+                    }
+                }
+
+                // Override char_data so game state message has correct values
+                char_data.map_name = respawn_map;
+                char_data.pos_x = respawn_pos.x;
+                char_data.pos_y = respawn_pos.y;
+
+                // Restore HP/MP to 50%
+                player->hp = player->computed.max_hp / 2;
+                player->mp = player->computed.max_mp / 2;
+                char_data.hp = player->hp;
+                char_data.mp = player->mp;
+            }
 
             // Connect guild membership
             if (social_) {
@@ -762,6 +801,11 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     LOG_INFO(bridge, "Player {} (character '{}') entering game from account {}",
         live_player_id.value, char_data.name, conn->account().value);
 
+    // Notify admin web tool of player connection
+    if (enter_game_callback_) {
+        enter_game_callback_(char_data.name, static_cast<int16_t>(char_data.level), char_data.map_name);
+    }
+
     // Build inventory data for network message
     std::vector<network::inventory_item_msg> inventory_list;
     int32_t player_gold = char_data.gold;
@@ -822,16 +866,18 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     std::vector<network::known_spell_msg> spells_list;
     {
         auto* magic_sys = subsystems().get<magic::magic_system>();
-        if (magic_sys) {
-            auto entity = hb::entity::entity{live_player_id.value, 0};
-            const auto* known = magic_sys->get_player_spells(entity);
-            if (known) {
-                for (const auto& sk : *known) {
-                    spells_list.push_back({
-                        .spell_id = sk.spell.value,
-                        .level = sk.level,
-                        .total_casts = sk.total_casts
-                    });
+        if (magic_sys && players_) {
+            auto* player = players_->get_player(live_player_id);
+            if (player) {
+                const auto* known = magic_sys->get_player_spells(player->ecs_entity);
+                if (known) {
+                    for (const auto& sk : *known) {
+                        spells_list.push_back({
+                            .spell_id = sk.spell.value,
+                            .level = sk.level,
+                            .total_casts = sk.total_casts
+                        });
+                    }
                 }
             }
         }
@@ -946,6 +992,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
     LOG_DEBUG(bridge, "Sent game state to player {}: {} visible entities",
         live_player_id.value, game_state.entities.size());
+
+    // Player was dead on login: already auto-respawned at faction town with 50% HP/MP
+    // (see above). No death notification sent — client receives alive game state.
+    if (was_dead_on_login) {
+        LOG_DEBUG(bridge, "Player {} was dead on login, auto-respawned at {}",
+            live_player_id.value, game_state.character.map_name);
+    }
 
     // Send map teleporters
     if (world_ && players_) {
@@ -1110,6 +1163,39 @@ void auth_handlers::handle_ping(connection_id conn_id, const network::json_messa
     if (!conn) return;
 
     auto response = network::make_pong_response(msg.seq);
+    conn->send(response);
+}
+
+void auth_handlers::handle_enter_admin_mode(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_authenticated(conn_id, msg.seq);
+    if (!conn) return;
+
+    // Look up account admin level
+    auto account_result = auth_->get_account(conn->account());
+    if (account_result.is_err()) {
+        auto response = network::make_enter_admin_mode_response(msg.seq, false, 0, "account_not_found");
+        conn->send(response);
+        return;
+    }
+
+    auto& acct = account_result.value();
+    auto level = static_cast<uint8_t>(acct.admin);
+
+    // Minimum gamemaster (10) required
+    if (level < static_cast<uint8_t>(auth::admin_level::gamemaster)) {
+        LOG_WARN(bridge, "Admin mode denied for account '{}' (level {})", acct.username, level);
+        auto response = network::make_enter_admin_mode_response(msg.seq, false, 0, "insufficient_permissions");
+        conn->send(response);
+        return;
+    }
+
+    // Transition to admin_dashboard state
+    conn->set_state(network::ws_connection_state::admin_dashboard);
+    conn->set_admin_level(level);
+
+    LOG_INFO(bridge, "Account '{}' entered admin dashboard mode (level {})", acct.username, level);
+
+    auto response = network::make_enter_admin_mode_response(msg.seq, true, level);
     conn->send(response);
 }
 
@@ -1361,6 +1447,10 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
 
 void auth_handlers::save_player(player_id pid) {
     save_player_state(pid);
+}
+
+void auth_handlers::set_enter_game_callback(enter_game_callback cb) {
+    enter_game_callback_ = std::move(cb);
 }
 
 auto auth_handlers::save_all_players() -> size_t {

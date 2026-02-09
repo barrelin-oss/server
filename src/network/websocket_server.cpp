@@ -414,6 +414,35 @@ void websocket_server::broadcast_to_authenticated(const json_message& msg) {
     }
 }
 
+auto websocket_server::get_admin_subscribers(map_id map) -> std::vector<connection_id> {
+    std::vector<connection_id> result;
+    std::lock_guard lock{mutex_};
+    for (const auto& [id, conn] : connections_) {
+        if (conn->state() != ws_connection_state::admin_dashboard) continue;
+        const auto& sub = conn->subscription();
+        if (sub.sub_mode == admin_subscription::mode::map && sub.target_map == map) {
+            result.push_back(id);
+        } else if (sub.sub_mode == admin_subscription::mode::player) {
+            // Player-follow mode: the target_map is updated when the followed player moves maps
+            if (sub.target_map == map) {
+                result.push_back(id);
+            }
+        }
+    }
+    return result;
+}
+
+auto websocket_server::get_all_admin_connections() -> std::vector<connection_id> {
+    std::vector<connection_id> result;
+    std::lock_guard lock{mutex_};
+    for (const auto& [id, conn] : connections_) {
+        if (conn->state() == ws_connection_state::admin_dashboard && conn->is_open()) {
+            result.push_back(id);
+        }
+    }
+    return result;
+}
+
 auto websocket_server::connection_count() const -> size_t {
     std::lock_guard lock{mutex_};
     return connections_.size();

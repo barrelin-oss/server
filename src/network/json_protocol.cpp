@@ -148,7 +148,57 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"mine_request", json_message_type::mine_request},
     {"mine_response", json_message_type::mine_response},
     {"mineral_spawn", json_message_type::mineral_spawn},
-    {"mineral_despawn", json_message_type::mineral_despawn}
+    {"mineral_despawn", json_message_type::mineral_despawn},
+    {"respawn_request", json_message_type::respawn_request},
+    {"respawn_response", json_message_type::respawn_response},
+    {"enter_admin_mode_request", json_message_type::enter_admin_mode_request},
+    {"enter_admin_mode_response", json_message_type::enter_admin_mode_response},
+    {"admin_server_stats_request", json_message_type::admin_server_stats_request},
+    {"admin_server_stats_response", json_message_type::admin_server_stats_response},
+    {"admin_list_players_request", json_message_type::admin_list_players_request},
+    {"admin_list_players_response", json_message_type::admin_list_players_response},
+    {"admin_get_player_request", json_message_type::admin_get_player_request},
+    {"admin_get_player_response", json_message_type::admin_get_player_response},
+    {"admin_kick_player_request", json_message_type::admin_kick_player_request},
+    {"admin_kick_player_response", json_message_type::admin_kick_player_response},
+    {"admin_ban_player_request", json_message_type::admin_ban_player_request},
+    {"admin_ban_player_response", json_message_type::admin_ban_player_response},
+    {"admin_teleport_player_request", json_message_type::admin_teleport_player_request},
+    {"admin_teleport_player_response", json_message_type::admin_teleport_player_response},
+    {"admin_modify_player_request", json_message_type::admin_modify_player_request},
+    {"admin_modify_player_response", json_message_type::admin_modify_player_response},
+    {"admin_list_maps_request", json_message_type::admin_list_maps_request},
+    {"admin_list_maps_response", json_message_type::admin_list_maps_response},
+    {"admin_get_map_request", json_message_type::admin_get_map_request},
+    {"admin_get_map_response", json_message_type::admin_get_map_response},
+    {"admin_spawn_npc_request", json_message_type::admin_spawn_npc_request},
+    {"admin_spawn_npc_response", json_message_type::admin_spawn_npc_response},
+    {"admin_kill_npc_request", json_message_type::admin_kill_npc_request},
+    {"admin_kill_npc_response", json_message_type::admin_kill_npc_response},
+    {"admin_get_inventory_request", json_message_type::admin_get_inventory_request},
+    {"admin_get_inventory_response", json_message_type::admin_get_inventory_response},
+    {"admin_give_item_request", json_message_type::admin_give_item_request},
+    {"admin_give_item_response", json_message_type::admin_give_item_response},
+    {"admin_remove_item_request", json_message_type::admin_remove_item_request},
+    {"admin_remove_item_response", json_message_type::admin_remove_item_response},
+    {"admin_list_guilds_request", json_message_type::admin_list_guilds_request},
+    {"admin_list_guilds_response", json_message_type::admin_list_guilds_response},
+    {"admin_get_guild_request", json_message_type::admin_get_guild_request},
+    {"admin_get_guild_response", json_message_type::admin_get_guild_response},
+    {"admin_get_account_request", json_message_type::admin_get_account_request},
+    {"admin_get_account_response", json_message_type::admin_get_account_response},
+    {"admin_unban_player_request", json_message_type::admin_unban_player_request},
+    {"admin_unban_player_response", json_message_type::admin_unban_player_response},
+    {"admin_subscribe_map_request", json_message_type::admin_subscribe_map_request},
+    {"admin_subscribe_map_response", json_message_type::admin_subscribe_map_response},
+    {"admin_subscribe_player_request", json_message_type::admin_subscribe_player_request},
+    {"admin_subscribe_player_response", json_message_type::admin_subscribe_player_response},
+    {"admin_unsubscribe_request", json_message_type::admin_unsubscribe_request},
+    {"admin_unsubscribe_response", json_message_type::admin_unsubscribe_response},
+    {"admin_spectator_init", json_message_type::admin_spectator_init},
+    {"admin_player_connected", json_message_type::admin_player_connected},
+    {"admin_player_disconnected", json_message_type::admin_player_disconnected},
+    {"admin_chat_log", json_message_type::admin_chat_log}
 };
 
 }  // namespace
@@ -1689,8 +1739,8 @@ auto combat_effect_data::to_json() const -> nlohmann::json {
     if (!damage_type.empty()) {
         j["damage_type"] = damage_type;
     }
-    if (spell_id != 0) {
-        j["spell_id"] = spell_id;
+    if (spell_id.has_value()) {
+        j["spell_id"] = *spell_id;
     }
 
     return j;
@@ -2649,6 +2699,332 @@ auto make_environment_update(const environment_update_data& data) -> json_messag
         .type = json_message_type::environment_update,
         .seq = 0,
         .data = data.to_json()
+    };
+}
+
+// === Death/Respawn ===
+
+auto respawn_response_data::to_json() const -> nlohmann::json {
+    nlohmann::json j = {
+        {"success", success},
+        {"map", map_name},
+        {"x", x},
+        {"y", y}
+    };
+    if (!error.empty()) {
+        j["error"] = error;
+    }
+    return j;
+}
+
+auto make_respawn_response(uint32_t seq, bool success,
+    std::string_view map_name,
+    int16_t x, int16_t y,
+    std::optional<std::string_view> error) -> json_message
+{
+    respawn_response_data data;
+    data.success = success;
+    data.map_name = std::string(map_name);
+    data.x = x;
+    data.y = y;
+    if (error) data.error = std::string(*error);
+
+    return json_message{
+        .type = json_message_type::respawn_response,
+        .seq = seq,
+        .data = data.to_json()
+    };
+}
+
+// === Admin Web Tool ===
+
+auto make_enter_admin_mode_response(uint32_t seq, bool success,
+    uint8_t admin_level,
+    std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data = {{"success", success}};
+    if (success) {
+        data["admin_level"] = admin_level;
+    }
+    if (error) {
+        data["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = json_message_type::enter_admin_mode_response,
+        .seq = seq,
+        .data = data
+    };
+}
+
+auto admin_get_player_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_get_player_request_data, std::string>
+{
+    admin_get_player_request_data data;
+    if (j.contains("player_name") && j["player_name"].is_string()) {
+        data.player_name = j["player_name"].get<std::string>();
+    }
+    if (j.contains("player_id") && j["player_id"].is_number()) {
+        data.player_id = j["player_id"].get<uint32_t>();
+    }
+    if (data.player_name.empty() && data.player_id == 0) {
+        return result<admin_get_player_request_data, std::string>::err("player_name or player_id required");
+    }
+    return result<admin_get_player_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_kick_player_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_kick_player_request_data, std::string>
+{
+    admin_kick_player_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_kick_player_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    if (j.contains("reason") && j["reason"].is_string()) {
+        data.reason = j["reason"].get<std::string>();
+    }
+    return result<admin_kick_player_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_ban_player_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_ban_player_request_data, std::string>
+{
+    admin_ban_player_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_ban_player_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    if (j.contains("reason") && j["reason"].is_string()) {
+        data.reason = j["reason"].get<std::string>();
+    }
+    if (j.contains("duration_hours") && j["duration_hours"].is_number()) {
+        data.duration_hours = j["duration_hours"].get<int32_t>();
+    }
+    return result<admin_ban_player_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_unban_player_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_unban_player_request_data, std::string>
+{
+    admin_unban_player_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_unban_player_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    return result<admin_unban_player_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_teleport_player_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_teleport_player_request_data, std::string>
+{
+    admin_teleport_player_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_teleport_player_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    if (!j.contains("dest_map") || !j["dest_map"].is_string()) {
+        return result<admin_teleport_player_request_data, std::string>::err("dest_map required");
+    }
+    data.dest_map = j["dest_map"].get<std::string>();
+    data.dest_x = safe_int16(j, "dest_x");
+    data.dest_y = safe_int16(j, "dest_y");
+    return result<admin_teleport_player_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_modify_player_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_modify_player_request_data, std::string>
+{
+    admin_modify_player_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_modify_player_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    if (!j.contains("modifications") || !j["modifications"].is_object()) {
+        return result<admin_modify_player_request_data, std::string>::err("modifications required");
+    }
+    data.modifications = j["modifications"];
+    return result<admin_modify_player_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_get_map_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_get_map_request_data, std::string>
+{
+    admin_get_map_request_data data;
+    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+        return result<admin_get_map_request_data, std::string>::err("map_name required");
+    }
+    data.map_name = j["map_name"].get<std::string>();
+    return result<admin_get_map_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_spawn_npc_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_spawn_npc_request_data, std::string>
+{
+    admin_spawn_npc_request_data data;
+    if (!j.contains("npc_name") || !j["npc_name"].is_string()) {
+        return result<admin_spawn_npc_request_data, std::string>::err("npc_name required");
+    }
+    data.npc_name = j["npc_name"].get<std::string>();
+    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+        return result<admin_spawn_npc_request_data, std::string>::err("map_name required");
+    }
+    data.map_name = j["map_name"].get<std::string>();
+    data.x = safe_int16(j, "x");
+    data.y = safe_int16(j, "y");
+    if (j.contains("count") && j["count"].is_number()) {
+        data.count = safe_int16(j, "count", 1);
+    }
+    return result<admin_spawn_npc_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_kill_npc_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_kill_npc_request_data, std::string>
+{
+    admin_kill_npc_request_data data;
+    if (!j.contains("entity_id") || !j["entity_id"].is_number()) {
+        return result<admin_kill_npc_request_data, std::string>::err("entity_id required");
+    }
+    data.entity_id = j["entity_id"].get<uint32_t>();
+    return result<admin_kill_npc_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_get_inventory_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_get_inventory_request_data, std::string>
+{
+    admin_get_inventory_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_get_inventory_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    return result<admin_get_inventory_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_give_item_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_give_item_request_data, std::string>
+{
+    admin_give_item_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_give_item_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    if (!j.contains("item_template_id") || !j["item_template_id"].is_number()) {
+        return result<admin_give_item_request_data, std::string>::err("item_template_id required");
+    }
+    data.item_template_id = j["item_template_id"].get<uint32_t>();
+    data.count = safe_int16(j, "count", 1);
+    return result<admin_give_item_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_remove_item_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_remove_item_request_data, std::string>
+{
+    admin_remove_item_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_remove_item_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+        return result<admin_remove_item_request_data, std::string>::err("inventory_slot required");
+    }
+    data.inventory_slot = safe_int16(j, "inventory_slot");
+    data.count = safe_int16(j, "count");
+    return result<admin_remove_item_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_get_guild_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_get_guild_request_data, std::string>
+{
+    admin_get_guild_request_data data;
+    if (!j.contains("guild_name") || !j["guild_name"].is_string()) {
+        return result<admin_get_guild_request_data, std::string>::err("guild_name required");
+    }
+    data.guild_name = j["guild_name"].get<std::string>();
+    return result<admin_get_guild_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_get_account_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_get_account_request_data, std::string>
+{
+    admin_get_account_request_data data;
+    if (!j.contains("username") || !j["username"].is_string()) {
+        return result<admin_get_account_request_data, std::string>::err("username required");
+    }
+    data.username = j["username"].get<std::string>();
+    return result<admin_get_account_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_subscribe_map_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_subscribe_map_request_data, std::string>
+{
+    admin_subscribe_map_request_data data;
+    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+        return result<admin_subscribe_map_request_data, std::string>::err("map_name required");
+    }
+    data.map_name = j["map_name"].get<std::string>();
+    return result<admin_subscribe_map_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_subscribe_player_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_subscribe_player_request_data, std::string>
+{
+    admin_subscribe_player_request_data data;
+    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+        return result<admin_subscribe_player_request_data, std::string>::err("player_name required");
+    }
+    data.player_name = j["player_name"].get<std::string>();
+    return result<admin_subscribe_player_request_data, std::string>::ok(std::move(data));
+}
+
+auto make_admin_response(json_message_type type, uint32_t seq, bool success,
+    const nlohmann::json& data,
+    std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json j = data;
+    j["success"] = success;
+    if (error) {
+        j["error"] = std::string(*error);
+    }
+    return json_message{
+        .type = type,
+        .seq = seq,
+        .data = j
+    };
+}
+
+auto make_admin_player_connected(const std::string& name,
+    int16_t level, const std::string& map_name) -> json_message
+{
+    return json_message{
+        .type = json_message_type::admin_player_connected,
+        .seq = 0,
+        .data = nlohmann::json{
+            {"name", name},
+            {"level", level},
+            {"map", map_name}
+        }
+    };
+}
+
+auto make_admin_player_disconnected(const std::string& name) -> json_message
+{
+    return json_message{
+        .type = json_message_type::admin_player_disconnected,
+        .seq = 0,
+        .data = nlohmann::json{{"name", name}}
+    };
+}
+
+auto make_admin_chat_log(const std::string& channel,
+    const std::string& sender, const std::string& content) -> json_message
+{
+    return json_message{
+        .type = json_message_type::admin_chat_log,
+        .seq = 0,
+        .data = nlohmann::json{
+            {"channel", channel},
+            {"sender", sender},
+            {"content", content}
+        }
     };
 }
 

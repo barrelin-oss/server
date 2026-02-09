@@ -166,6 +166,9 @@ private:
     // Mining
     void handle_mine_request(connection_id conn_id, const network::json_message& msg);
 
+    // Death/Respawn
+    void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
+
     // NPC interaction helper - validates NPC exists, is in range, and is friendly
     struct npc_interaction_check {
         player::player* plr{nullptr};

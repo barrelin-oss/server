@@ -10,6 +10,7 @@
 #include "registry/spell_template.h"
 
 #include <cstdint>
+#include <optional>
 
 namespace hb::effect {
 
@@ -33,7 +34,7 @@ struct active_effect
 {
     effect_id id{};                                         // Unique monotonic ID
     entity::entity source{};                                // Who applied it
-    spell_id source_spell{};                                // Which spell (invalid if non-spell)
+    std::optional<spell_id> source_spell;                    // Which spell (nullopt if non-spell)
     magic_type group{};                                     // Effect group/slot (from spell's magic_type)
     spell_effect_type type{spell_effect_type::none};        // Specific effect type
     int32_t magnitude{0};                                   // Pre-computed value
@@ -50,7 +51,7 @@ struct apply_effect_params
 {
     entity::entity source{};
     entity::entity target{};
-    spell_id source_spell{};
+    std::optional<spell_id> source_spell;
     magic_type group{};                                     // Effect slot group
     spell_effect_type type{spell_effect_type::none};        // Specific effect type
     int32_t magnitude{0};                                   // Pre-computed

@@ -120,6 +120,9 @@ public:
     // Shutdown all registered subsystems (in reverse order)
     void shutdown_all();
 
+    // Shutdown and remove all subsystems (for test isolation)
+    void clear_all();
+
     // Update all registered subsystems
     void update_all(float delta_time);
 

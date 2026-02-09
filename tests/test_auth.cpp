@@ -157,9 +157,9 @@ TEST(JsonProtocol, ParseMissingType) {
 TEST(JsonProtocol, SerializeMessage) {
     json_message msg{
         .type = json_message_type::pong,
-        .raw_type = "pong",
         .seq = 42,
-        .data = nlohmann::json{{"timestamp", 12345}}
+        .data = nlohmann::json{{"timestamp", 12345}},
+        .raw_type = "pong"
     };
 
     auto json = msg.to_json();
@@ -256,7 +256,11 @@ TEST(JsonProtocol, MakeGetCharactersResponse) {
             .nation = 2,
             .gender = 0,
             .map_name = "default",
-            .experience = 12345
+            .experience = 12345,
+            .hair_style = 0,
+            .hair_color = 0,
+            .skin_color = 0,
+            .last_played = std::nullopt
         },
         {
             .id = player_id{2},
@@ -266,7 +270,11 @@ TEST(JsonProtocol, MakeGetCharactersResponse) {
             .nation = 1,
             .gender = 1,
             .map_name = "elvine",
-            .experience = 5000
+            .experience = 5000,
+            .hair_style = 0,
+            .hair_color = 0,
+            .skin_color = 0,
+            .last_played = std::nullopt
         }
     };
 

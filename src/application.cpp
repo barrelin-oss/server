@@ -57,6 +57,7 @@
 #include "bridge/handlers/wave5_handlers.h"
 #include "bridge/handlers/auth_handlers.h"
 #include "bridge/handlers/game_handlers.h"
+#include "bridge/handlers/admin_web_handlers.h"
 
 // Database and authentication
 #include "database/database_system.h"
@@ -379,6 +380,25 @@ void application::initialize() {
             subsystems().get<crafting::mining_system>()
         );
 
+        // Create and initialize admin web handlers
+        admin_web_handlers_ = std::make_unique<bridge::admin_web_handlers>();
+        admin_web_handlers_->initialize(
+            ws_server_.get(),
+            &auth_sys,
+            subsystems().get<player::player_system>(),
+            subsystems().get<world::world_subsystem>(),
+            subsystems().get<inventory::inventory_system>(),
+            subsystems().get<admin::admin_system>(),
+            subsystems().get<npc::npc_system>(),
+            subsystems().get<item::item_system>(),
+            subsystems().get<social::social_system>(),
+            subsystems().get<combat::combat_system>(),
+            &db_sys,
+            subsystems().get<scheduler>(),
+            subsystems().get<npc_registry>(),
+            subsystems().get<item_registry>()
+        );
+
         // Set save callback for death penalty persistence
         game_handlers_->set_save_callback([this](player_id pid) {
             if (auth_handlers_) {
@@ -409,6 +429,43 @@ void application::initialize() {
             admin::register_gm_commands(*admin_sys, gm_ctx);
         }
 
+        // Wire admin web tool push notifications
+        if (admin_web_handlers_) {
+            // Player enter game notification
+            auth_handlers_->set_enter_game_callback(
+                [this](const std::string& name, int16_t level, const std::string& map_name) {
+                    if (admin_web_handlers_) {
+                        admin_web_handlers_->notify_player_connected(name, level, map_name);
+                    }
+                }
+            );
+            // Chat logging — register a second callback on social_system
+            if (auto* social_sys = subsystems().get<social::social_system>()) {
+                social_sys->on_chat_message([this](const social::chat_message_event& event) {
+                    if (!admin_web_handlers_) return;
+                    const auto& m = event.message;
+                    auto ch_str = [](social::chat_channel ch) -> std::string {
+                        switch (ch) {
+                            case social::chat_channel::local: return "local";
+                            case social::chat_channel::global: return "global";
+                            case social::chat_channel::guild: return "guild";
+                            case social::chat_channel::party: return "party";
+                            case social::chat_channel::whisper: return "whisper";
+                            case social::chat_channel::shout: return "shout";
+                            case social::chat_channel::system: return "system";
+                            case social::chat_channel::gm: return "gm";
+                            default: return "unknown";
+                        }
+                    };
+                    admin_web_handlers_->notify_chat_message(
+                        ch_str(m.channel),
+                        m.sender_name,
+                        m.content
+                    );
+                });
+            }
+        }
+
         // Set up WebSocket message routing - dispatch to appropriate handler
         ws_server_->on_message([this](connection_id conn_id, const network::json_message& msg) {
             // Route based on message type
@@ -422,6 +479,7 @@ void application::initialize() {
                 case network::json_message_type::delete_character_request:
                 case network::json_message_type::enter_game_request:
                 case network::json_message_type::ping:
+                case network::json_message_type::enter_admin_mode_request:
                     auth_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -464,6 +522,31 @@ void application::initialize() {
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 
+                // Admin web tool messages
+                case network::json_message_type::admin_server_stats_request:
+                case network::json_message_type::admin_list_players_request:
+                case network::json_message_type::admin_get_player_request:
+                case network::json_message_type::admin_kick_player_request:
+                case network::json_message_type::admin_ban_player_request:
+                case network::json_message_type::admin_teleport_player_request:
+                case network::json_message_type::admin_modify_player_request:
+                case network::json_message_type::admin_list_maps_request:
+                case network::json_message_type::admin_get_map_request:
+                case network::json_message_type::admin_spawn_npc_request:
+                case network::json_message_type::admin_kill_npc_request:
+                case network::json_message_type::admin_get_inventory_request:
+                case network::json_message_type::admin_give_item_request:
+                case network::json_message_type::admin_remove_item_request:
+                case network::json_message_type::admin_list_guilds_request:
+                case network::json_message_type::admin_get_guild_request:
+                case network::json_message_type::admin_get_account_request:
+                case network::json_message_type::admin_unban_player_request:
+                case network::json_message_type::admin_subscribe_map_request:
+                case network::json_message_type::admin_subscribe_player_request:
+                case network::json_message_type::admin_unsubscribe_request:
+                    admin_web_handlers_->handle_message(conn_id, msg);
+                    break;
+
                 default:
                     LOG_DEBUG(network, "Unknown message type: '{}'", msg.raw_type);
                     break;
@@ -476,6 +559,21 @@ void application::initialize() {
 
         ws_server_->on_disconnect([this](connection_id conn_id, const std::string& reason) {
             LOG_INFO(network, "WebSocket client disconnected: {} ({})", conn_id.value, reason);
+
+            // Notify admin tool before cleanup (need player name while still valid)
+            if (admin_web_handlers_) {
+                auto* conn = ws_server_->get_connection(conn_id);
+                if (conn && conn->player().is_valid()) {
+                    auto* player_sys = subsystems().get<player::player_system>();
+                    if (player_sys) {
+                        auto* plr = player_sys->get_player(conn->player());
+                        if (plr) {
+                            admin_web_handlers_->notify_player_disconnected(plr->name);
+                        }
+                    }
+                }
+            }
+
             // Handle disconnect - save player state and clean up
             auth_handlers_->handle_player_disconnect(conn_id);
         });
@@ -588,6 +686,7 @@ void application::shutdown() {
     }
 
     // Clean up handlers
+    admin_web_handlers_.reset();
     auth_handlers_.reset();
     game_handlers_.reset();
 
@@ -1013,44 +1112,68 @@ void application::load_game_configs() {
                         ms.duration_ms = static_cast<int32_t>(reg_spell.effect_duration.count());
                         ms.effects = reg_spell.effects;
 
-                        // Map magic_type to category
+                        // Map magic_type to category and target_type
                         switch (reg_spell.type) {
                             case magic_type::damage_spot:
+                                ms.category = magic::spell_category::attack;
+                                ms.target_type = magic::spell_target::single_enemy;
+                                break;
                             case magic_type::damage_area:
+                                ms.category = magic::spell_category::attack;
+                                ms.target_type = magic::spell_target::aoe_enemy;
+                                break;
                             case magic_type::poison:
                             case magic_type::ice:
                                 ms.category = magic::spell_category::attack;
+                                ms.target_type = magic::spell_target::single_enemy;
                                 break;
                             case magic_type::hp_up_spot:
                                 ms.category = magic::spell_category::healing;
+                                ms.target_type = magic::spell_target::single_ally;
                                 break;
                             case magic_type::protection:
                             case magic_type::berserk:
                                 ms.category = magic::spell_category::buff;
+                                ms.target_type = magic::spell_target::self;
                                 break;
                             case magic_type::hold_paralyze:
-                            case magic_type::confusion:
                             case magic_type::sp_down_spot:
                             case magic_type::inhibition:
                                 ms.category = magic::spell_category::debuff;
+                                ms.target_type = magic::spell_target::single_enemy;
+                                break;
+                            case magic_type::confusion:
+                                ms.category = magic::spell_category::debuff;
+                                // Confusion/Mass-Illusion are area debuffs
+                                ms.target_type = ms.aoe_radius > 0
+                                    ? magic::spell_target::aoe_enemy
+                                    : magic::spell_target::single_enemy;
                                 break;
                             case magic_type::invisibility:
                             case magic_type::polymorph:
                                 ms.category = magic::spell_category::buff;
+                                ms.target_type = magic::spell_target::self;
                                 break;
                             case magic_type::teleport:
                             case magic_type::summon:
                             case magic_type::cancellation:
                                 ms.category = magic::spell_category::utility;
+                                ms.target_type = magic::spell_target::self;
                                 break;
                             case magic_type::sp_up_spot:
                                 ms.category = magic::spell_category::healing;
+                                ms.target_type = magic::spell_target::single_ally;
                                 break;
                             case magic_type::resurrection:
                                 ms.category = magic::spell_category::healing;
+                                ms.target_type = magic::spell_target::single_ally;
                                 break;
                             default:
                                 ms.category = magic::spell_category::special;
+                                // For unmapped types, infer AOE from area_radius
+                                if (ms.aoe_radius > 0 && reg_spell.is_offensive) {
+                                    ms.target_type = magic::spell_target::aoe_enemy;
+                                }
                                 break;
                         }
 

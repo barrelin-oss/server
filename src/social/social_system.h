@@ -192,6 +192,13 @@ public:
     [[nodiscard]] auto find_guild_by_name(std::string_view name) const -> guild_id;
     [[nodiscard]] auto guild_count() const -> size_t;
 
+    template<typename Func>
+    void for_each_guild(Func&& func) const {
+        for (const auto& [id, g] : guilds_) {
+            func(id, g);
+        }
+    }
+
     // ========== Party Operations ==========
 
     auto create_party(player_id leader) -> result<party_id, party_result>;

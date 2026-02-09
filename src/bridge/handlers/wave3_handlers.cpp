@@ -215,6 +215,9 @@ auto handle_motion_move(const handler_context& ctx, int16_t x, int16_t y,
             return handle_result::handled;
 
         case move_result::invalid_map:
+            LOG_WARN(proto_bridge, "Move failed (invalid map) for player {}", ctx.player.value);
+            return handle_result::error;
+
         case move_result::invalid_player:
         default:
             return handle_result::not_handled;

@@ -83,7 +83,7 @@ void effect_system::update(float /*delta_time*/)
             for (const auto& eff : expired)
             {
                 LOG_DEBUG(magic, "Effect {} expired on entity {} (spell {})",
-                    eff.id.value, entity_key.id, eff.source_spell.value);
+                    eff.id.value, entity_key.id, eff.source_spell ? eff.source_spell->value : 0);
                 for (const auto& cb : removed_callbacks_)
                 {
                     cb(entity_key, eff);

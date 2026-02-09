@@ -366,6 +366,11 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             handle_mine_request(conn_id, msg);
             break;
 
+        // Death/Respawn
+        case network::json_message_type::respawn_request:
+            handle_respawn_request(conn_id, msg);
+            break;
+
         default:
             LOG_WARN(bridge, "Unhandled game message type: {}",
                 network::to_string(msg.type));
@@ -398,6 +403,12 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
     auto* player = players_->get_player(pid);
     if (!player) {
         send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    // Dead players cannot move
+    if (player->is_dead()) {
+        send_error(conn_id, msg.seq, "dead", "Cannot move while dead");
         return;
     }
 
@@ -854,6 +865,12 @@ void game_handlers::handle_player_magic(connection_id conn_id, const network::js
         return;
     }
 
+    // Dead players cannot cast spells
+    if (player->is_dead()) {
+        send_error(conn_id, msg.seq, "dead", "Cannot cast while dead");
+        return;
+    }
+
     if (!magic_) {
         send_error(conn_id, msg.seq, "internal_error", "Magic system unavailable");
         return;
@@ -948,6 +965,12 @@ void game_handlers::handle_player_skill(connection_id conn_id, const network::js
         return;
     }
 
+    // Dead players cannot use skills
+    if (player->is_dead()) {
+        send_error(conn_id, msg.seq, "dead", "Cannot use skills while dead");
+        return;
+    }
+
     // TODO: Implement actual skill use through skill_system
     // Placeholder response
     network::skill_result_msg result{
@@ -983,6 +1006,12 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     auto* player = players_->get_player(pid);
     if (!player) {
         send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    // Dead players cannot pick up items
+    if (player->is_dead()) {
+        send_error(conn_id, msg.seq, "dead", "Cannot pick up items while dead");
         return;
     }
 
@@ -1048,6 +1077,16 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
 void game_handlers::handle_player_interact(connection_id conn_id, const network::json_message& msg) {
     auto* conn = require_in_game(conn_id, msg.seq);
     if (!conn) return;
+
+    // Dead players cannot interact with NPCs
+    if (players_) {
+        auto pid = conn->player();
+        auto* player = players_->get_player(pid);
+        if (player && player->is_dead()) {
+            send_error(conn_id, msg.seq, "dead", "Cannot interact while dead");
+            return;
+        }
+    }
 
     auto data_result = network::player_interact_request_data::from_json(msg.data);
     if (data_result.is_err()) {
@@ -1936,6 +1975,11 @@ void game_handlers::broadcast_position_update(player_id moved_player,
         if (other_conn && other_conn->is_open()) {
             other_conn->send(update_msg);
         }
+    }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map)) {
+        ws_server_->send(admin_conn, update_msg);
     }
 }
 
@@ -2884,7 +2928,7 @@ void game_handlers::on_damage_dealt(const combat::damage_event& event) {
         .effect_type = std::move(effect_type),
         .value = hr.final_damage,
         .damage_type = std::string(damage_type_to_string(hr.type)),
-        .spell_id = 0,
+        .spell_id = std::nullopt,
         .is_critical = hr.is_critical(),
         .target_x = target->pos.x,
         .target_y = target->pos.y
@@ -2965,13 +3009,7 @@ void game_handlers::handle_player_death(player_id pid, const combat::death_event
         save_callback_(pid);
     }
 
-    // 5. Send death info to the dead player
-    uint32_t respawn_delay = 5000;  // Default 5s
-    if (auto* cfg_sys = subsystems().get<config_system>()) {
-        respawn_delay = cfg_sys->game().respawn_delay_ms;
-    }
-
-    // Use ecs_entity.id for client-visible killer ID
+    // 5. Send death info to the dead player (client-initiated respawn, no auto-timer)
     uint32_t killer_eid = 0;
     if (killer) {
         killer_eid = killer->ecs_entity.id;
@@ -2984,7 +3022,7 @@ void game_handlers::handle_player_death(player_id pid, const combat::death_event
         .xp_lost = xp_lost,
         .pk_points_change = pk_points_change,
         .gold_reward = gold_reward,
-        .respawn_delay_ms = respawn_delay,
+        .respawn_delay_ms = 0,
         .respawn_map = spawn_map,
         .respawn_x = spawn_pos.x,
         .respawn_y = spawn_pos.y
@@ -2995,20 +3033,11 @@ void game_handlers::handle_player_death(player_id pid, const combat::death_event
         conn->send(network::make_player_death_info(death_info));
     }
 
-    // 6. Schedule delayed respawn
-    if (scheduler_) {
-        scheduler_->schedule(duration_ms{respawn_delay},
-            [this, pid, spawn_map, spawn_pos]() {
-                execute_respawn(pid, spawn_map, spawn_pos);
-            });
-    } else {
-        // Fallback: immediate respawn if scheduler unavailable
-        execute_respawn(pid, spawn_map, spawn_pos);
-    }
+    // Player stays dead in-place — respawn is client-initiated (respawn_request)
+    // or triggered by another player's resurrection spell.
 
-    LOG_INFO(bridge, "Player {} died (pvp={}, xp_lost={}, pk_change={}, bounty={}), respawning at {} ({}, {}) in {}ms",
-        pid.value, event.is_pvp, xp_lost, pk_points_change, gold_reward,
-        spawn_map, spawn_pos.x, spawn_pos.y, respawn_delay);
+    LOG_INFO(bridge, "Player {} died (pvp={}, xp_lost={}, pk_change={}, bounty={}), awaiting respawn request",
+        pid.value, event.is_pvp, xp_lost, pk_points_change, gold_reward);
 }
 
 void game_handlers::execute_respawn(player_id pid, const std::string& map_name,
@@ -3072,6 +3101,38 @@ auto game_handlers::get_respawn_position(const std::string& map_name) -> world::
     return {18, 18};
 }
 
+void game_handlers::handle_respawn_request(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_ || !ws_server_ || !combat_) {
+        send_error(conn_id, msg.seq, "internal_error", "Required subsystems unavailable");
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* player = players_->get_player(pid);
+    if (!player) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    if (!player->is_dead()) {
+        conn->send(network::make_respawn_response(msg.seq, false, "", 0, 0, "not_dead"));
+        return;
+    }
+
+    std::string spawn_map = get_respawn_map_name(player->faction);
+    world::position spawn_pos = get_respawn_position(spawn_map);
+
+    execute_respawn(pid, spawn_map, spawn_pos);
+
+    conn->send(network::make_respawn_response(msg.seq, true, spawn_map, spawn_pos.x, spawn_pos.y));
+
+    LOG_INFO(bridge, "Player {} respawned at {} ({}, {}) via client request",
+        pid.value, spawn_map, spawn_pos.x, spawn_pos.y);
+}
+
 void game_handlers::broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max) {
     if (!players_ || !ws_server_) return;
 
@@ -3091,6 +3152,11 @@ void game_handlers::broadcast_hp_update(player_id target, int32_t hp, int32_t hp
         if (other_conn && other_conn->is_open()) {
             other_conn->send(hp_msg);
         }
+    }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map)) {
+        ws_server_->send(admin_conn, hp_msg);
     }
 }
 
@@ -3124,6 +3190,11 @@ void game_handlers::broadcast_entity_death(player_id victim, player_id killer) {
             other_conn->send(death_msg);
         }
     }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(victim_player->current_map)) {
+        ws_server_->send(admin_conn, death_msg);
+    }
 }
 
 // ========== Combat Effect Broadcast Methods ==========
@@ -3145,6 +3216,11 @@ void game_handlers::broadcast_combat_effect(map_id map, const world::position& p
             conn->send(msg);
         }
     }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(map)) {
+        ws_server_->send(admin_conn, msg);
+    }
 }
 
 void game_handlers::broadcast_combat_effect_to_faction(map_id map, const world::position& pos,
@@ -3165,6 +3241,11 @@ void game_handlers::broadcast_combat_effect_to_faction(map_id map, const world::
         if (conn && conn->is_open()) {
             conn->send(msg);
         }
+    }
+
+    // Forward to admin spectators (admins see all factions)
+    for (auto admin_conn : ws_server_->get_admin_subscribers(map)) {
+        ws_server_->send(admin_conn, msg);
     }
 }
 
@@ -3327,8 +3408,10 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n) {
         }
     }
 
-    // LOG_DEBUG(bridge, "Broadcast NPC spawn: {} '{}' at ({}, {})",
-    //     n.entity_id.id, n.name, n.pos.x, n.pos.y);
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map)) {
+        ws_server_->send(admin_conn, msg);
+    }
 }
 
 void game_handlers::broadcast_npc_move(const npc::npc& n) {
@@ -3352,6 +3435,11 @@ void game_handlers::broadcast_npc_move(const npc::npc& n) {
         if (conn && conn->is_open()) {
             conn->send(msg);
         }
+    }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map)) {
+        ws_server_->send(admin_conn, msg);
     }
 }
 
@@ -3391,6 +3479,11 @@ void game_handlers::broadcast_npc_attack(const npc::npc& n, entity::entity targe
             conn->send(msg);
         }
     }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map)) {
+        ws_server_->send(admin_conn, msg);
+    }
 }
 
 void game_handlers::broadcast_npc_death(const npc::npc& n, entity::entity killer) {
@@ -3416,8 +3509,10 @@ void game_handlers::broadcast_npc_death(const npc::npc& n, entity::entity killer
         }
     }
 
-    // LOG_DEBUG(bridge, "Broadcast NPC death: {} '{}' killed by {}",
-    //     n.entity_id.id, n.name, killer.id);
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map)) {
+        ws_server_->send(admin_conn, msg);
+    }
 }
 
 void game_handlers::broadcast_npc_hp_update(const npc::npc& n) {
@@ -3435,6 +3530,11 @@ void game_handlers::broadcast_npc_hp_update(const npc::npc& n) {
         if (conn && conn->is_open()) {
             conn->send(msg);
         }
+    }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map)) {
+        ws_server_->send(admin_conn, msg);
     }
 }
 
@@ -3483,6 +3583,11 @@ void game_handlers::broadcast_ground_item_removed(player_id picker, map_id map,
         }
     }
 
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(map)) {
+        ws_server_->send(admin_conn, msg);
+    }
+
     LOG_DEBUG(bridge, "Broadcast ground item {} removed at ({}, {}) by player {}",
         item.value, pos.x, pos.y, picker.value);
 }
@@ -3513,6 +3618,11 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
         if (conn && conn->is_open()) {
             conn->send(msg);
         }
+    }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(map)) {
+        ws_server_->send(admin_conn, msg);
     }
 }
 
@@ -3817,6 +3927,28 @@ void game_handlers::broadcast_environment_update() {
             conn->send(network::make_environment_update(env));
         }
     });
+
+    // Send environment to admin spectators for each map they're subscribed to
+    for (auto admin_conn_id : ws_server_->get_all_admin_connections()) {
+        auto* admin_conn = ws_server_->get_connection(admin_conn_id);
+        if (!admin_conn || !admin_conn->is_open()) continue;
+        auto& sub = admin_conn->subscription();
+        if (sub.sub_mode == network::admin_subscription::mode::none) continue;
+        auto* map = world_->get_map(sub.target_map);
+        if (!map) continue;
+
+        network::environment_update_data env{
+            .hour = static_cast<uint8_t>(scheduler_->game_time().hour()),
+            .minute = static_cast<uint8_t>(scheduler_->game_time().minute()),
+            .is_day = scheduler_->game_time().is_day(),
+            .weather = static_cast<uint8_t>(map->weather())
+        };
+        if (map->config().is_fixed_day_mode) {
+            env.is_day = true;
+            env.weather = 0;
+        }
+        admin_conn->send(network::make_environment_update(env));
+    }
 }
 
 // ========== Equipment Handling ==========
@@ -4120,6 +4252,11 @@ void game_handlers::broadcast_equipment_change(player_id pid, player::equip_slot
         if (conn && conn->is_open()) {
             conn->send(msg);
         }
+    }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(plr->current_map)) {
+        ws_server_->send(admin_conn, msg);
     }
 }
 

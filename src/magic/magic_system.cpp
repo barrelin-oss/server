@@ -170,9 +170,45 @@ auto magic_system::can_cast(hb::entity::entity caster, spell_id spell_id, const 
     }
 
     // Check range for targeted spells
-    if (target.has_entity() && spell->range > 0) {
-        // Would check distance between caster and target
-        // For now, assume in range
+    // Original Helbreath: range is in screen units (1 unit = 12 tiles)
+    if (spell->range > 0 && player_sys) {
+        auto* caster_player = player_sys->get_player(player_id{caster.id});
+        if (caster_player) {
+            int16_t max_tile_range = spell->range * 12;
+            hb::world::position target_pos{};
+            bool has_target_pos = false;
+
+            if (target.has_position()) {
+                target_pos = target.target_pos;
+                has_target_pos = true;
+            } else if (target.has_entity()) {
+                // Look up target position from player or NPC
+                if (auto* tp = player_sys->get_player(player_id{target.target.id})) {
+                    target_pos = tp->pos;
+                    has_target_pos = true;
+                } else {
+                    auto* npc_sys = subsystems().get<npc::npc_system>();
+                    if (npc_sys) {
+                        if (auto* n = npc_sys->get_npc(target.target)) {
+                            target_pos = n->pos;
+                            has_target_pos = true;
+                        }
+                    }
+                }
+            }
+
+            if (has_target_pos) {
+                if (caster_player->pos.manhattan_distance(target_pos) > max_tile_range) {
+                    return cast_result::out_of_range;
+                }
+            }
+        }
+    }
+
+    // Block self-targeting with offensive single-target spells
+    if (spell->is_offensive() && !spell->is_aoe() &&
+        target.has_entity() && target.target.id == caster.id) {
+        return cast_result::invalid_target;
     }
 
     // Safe zone blocks offensive PvP spells only
@@ -422,7 +458,7 @@ void magic_system::process_active_casts(float /*delta_time*/) {
         if (!state.is_active()) continue;
 
         if (state.is_complete(now)) {
-            const auto* spell = get_spell(state.spell);
+            const auto* spell = get_spell(*state.spell);
             if (spell) {
                 auto result = apply_spell_effect(caster, *spell, state.target);
                 notify_spell_cast(caster, *spell, result);
@@ -507,10 +543,26 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster, const spell_tem
         case spell_category::healing: {
             result.heal_applied = calculate_heal(caster, spell.id);
 
+            // Check if this is a resurrection spell
+            bool is_resurrection = spell.spell_type == magic_type::resurrection;
+
             for (auto& t : targets) {
-                // Apply healing
                 if (player_sys) {
-                    player_sys->apply_heal(player_id{t.id}, result.heal_applied);
+                    auto* target_player = player_sys->get_player(player_id{t.id});
+                    if (target_player && is_resurrection && target_player->is_dead()) {
+                        // Resurrect: restore HP directly (apply_heal skips dead players)
+                        int32_t restore_hp = result.heal_applied > 0
+                            ? result.heal_applied
+                            : target_player->computed.max_hp / 2;
+                        target_player->hp = std::min(restore_hp, target_player->computed.max_hp);
+                        target_player->mp = target_player->computed.max_mp / 4;
+
+                        LOG_INFO(general, "Entity {} resurrected player {} with {} HP",
+                            caster.id, t.id, target_player->hp);
+                    } else {
+                        // Normal healing (skips dead players internally)
+                        player_sys->apply_heal(player_id{t.id}, result.heal_applied);
+                    }
                 }
                 result.affected_targets.push_back(t);
             }
@@ -574,23 +626,37 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster, const spell_templ
 {
     std::vector<hb::entity::entity> targets;
 
+    auto* player_sys = subsystems().get<player::player_system>();
+    auto* npc_sys = subsystems().get<npc::npc_system>();
+
     // Determine center point for AOE
     hb::world::position center;
+    bool has_center = false;
     if (target.has_position()) {
         center = target.target_pos;
+        has_center = true;
     } else if (target.has_entity()) {
-        // Get target entity position
-        auto* player_sys = subsystems().get<player::player_system>();
+        // Look up target entity position from players or NPCs
         if (player_sys) {
             if (auto* p = player_sys->get_player(player_id{target.target.id})) {
                 center = p->pos;
+                has_center = true;
+            }
+        }
+        if (!has_center && npc_sys) {
+            if (auto* n = npc_sys->get_npc(target.target)) {
+                center = n->pos;
+                has_center = true;
             }
         }
     }
 
+    if (!has_center) {
+        return targets;
+    }
+
     // Get caster's map
     map_id caster_map{};
-    auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys) {
         if (auto* p = player_sys->get_player(player_id{caster.id})) {
             caster_map = p->current_map;
@@ -613,6 +679,10 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster, const spell_templ
         spell.target_type == spell_target::aoe_all) {
         if (player_sys) {
             player_sys->for_each_player([&](player_id id, const player::player& p) {
+                // Never hit the caster with their own offensive AOE
+                if (id.value == caster.id) {
+                    return;
+                }
                 if (p.current_map == caster_map &&
                     p.pos.manhattan_distance(center) <= radius) {
                     // For enemy AOE, skip allies (same faction)

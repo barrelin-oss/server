@@ -314,3 +314,47 @@ TEST_F(registry_test, magic_registry_damage_calculation) {
     // base_damage = dice * (sides+1)/2 + bonus = 10 * (19+1)/2 + 0 = 100
     EXPECT_EQ(spell->base_damage, 100);
 }
+
+TEST_F(registry_test, magic_registry_parses_range2_as_area_radius) {
+    auto path = create_test_file("magic.yaml",
+        "magic:\n"
+        "  - id: 1\n"
+        "    name: FireBall\n"
+        "    type: 3\n"
+        "    mana_cost: 27\n"
+        "    range1: 2\n"
+        "    range2: 4\n"
+        "    effect1: { dice: 2, sides: 6, bonus: 2 }\n"
+        "    int_req: 26\n"
+    );
+
+    magic_registry registry;
+    registry.initialize();
+    registry.load_from_file(path);
+
+    auto* spell = registry.get(spell_id{1});
+    ASSERT_NE(spell, nullptr);
+    EXPECT_EQ(spell->range, 2);
+    EXPECT_EQ(spell->area_radius, 4);
+}
+
+TEST_F(registry_test, magic_registry_area_radius_defaults_to_zero) {
+    auto path = create_test_file("magic.yaml",
+        "magic:\n"
+        "  - id: 1\n"
+        "    name: MagicMissile\n"
+        "    type: 1\n"
+        "    mana_cost: 8\n"
+        "    range1: 1\n"
+        "    effect1: { dice: 1, sides: 8, bonus: 0 }\n"
+        "    int_req: 18\n"
+    );
+
+    magic_registry registry;
+    registry.initialize();
+    registry.load_from_file(path);
+
+    auto* spell = registry.get(spell_id{1});
+    ASSERT_NE(spell, nullptr);
+    EXPECT_EQ(spell->area_radius, 0);
+}

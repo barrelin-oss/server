@@ -47,7 +47,7 @@ TEST(active_effect_test, default_construction) {
     active_effect eff{};
     EXPECT_FALSE(eff.id.is_valid());
     EXPECT_FALSE(eff.source.is_valid());
-    EXPECT_FALSE(eff.source_spell.is_valid());
+    EXPECT_FALSE(eff.source_spell.has_value());
     EXPECT_EQ(eff.type, spell_effect_type::none);
     EXPECT_EQ(eff.magnitude, 0);
     EXPECT_EQ(eff.expires_at_ms, 0);

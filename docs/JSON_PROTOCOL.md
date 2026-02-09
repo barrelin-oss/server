@@ -3841,6 +3841,410 @@ Broadcast when a mineral node is removed (depleted or despawned).
 
 ---
 
+## Admin Web Tool Messages
+
+The admin web tool API allows authorized admin users to connect via WebSocket, authenticate with an admin-level account (no character needed), and manage the game server. Two modes are available:
+
+1. **Dashboard mode**: Request/response queries for players, maps, NPCs, guilds, inventory, accounts, server stats
+2. **Spectator mode**: Subscribe to a map or follow a player, receiving real-time game broadcasts
+
+### Connection Flow
+
+```
+login_request → login_response (standard auth)
+enter_admin_mode_request → enter_admin_mode_response
+  [connection state: authenticated → admin_dashboard]
+  → dashboard requests OR spectator subscribe
+```
+
+Minimum admin level required: `gamemaster` (10).
+
+---
+
+### `enter_admin_mode_request`
+
+Transitions an authenticated connection to admin dashboard mode. No character selection needed.
+
+**Request:**
+```json
+{
+  "type": "enter_admin_mode_request",
+  "seq": 1,
+  "data": {}
+}
+```
+
+**Response (`enter_admin_mode_response`):**
+```json
+{
+  "type": "enter_admin_mode_response",
+  "seq": 1,
+  "data": {
+    "success": true,
+    "admin_level": 10
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "type": "enter_admin_mode_response",
+  "seq": 1,
+  "data": {
+    "success": false,
+    "error": "insufficient_permissions"
+  }
+}
+```
+
+---
+
+### Admin Response Pattern
+
+All admin request/response pairs follow the same pattern. The response merges `success` and optional `error` into the response data alongside any result fields.
+
+```json
+{
+  "type": "admin_<action>_response",
+  "seq": 1,
+  "data": {
+    "success": true,
+    "field1": "value1",
+    "field2": "value2"
+  }
+}
+```
+
+On failure:
+```json
+{
+  "type": "admin_<action>_response",
+  "seq": 1,
+  "data": {
+    "success": false,
+    "error": "error description"
+  }
+}
+```
+
+---
+
+### Server Stats
+
+#### `admin_server_stats_request` / `admin_server_stats_response`
+
+Returns server statistics.
+
+**Request:** `{ "data": {} }`
+
+**Response data:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `uptime_seconds` | int | Server uptime in seconds |
+| `player_count` | int | Online player count |
+| `npc_count` | int | Total active NPCs |
+| `map_count` | int | Loaded maps |
+| `guild_count` | int | Total guilds |
+| `game_hour` | int | In-game hour (0-23) |
+| `game_minute` | int | In-game minute (0-59) |
+| `is_day` | bool | Whether it is daytime |
+
+---
+
+### Player Management
+
+#### `admin_list_players_request` / `admin_list_players_response`
+
+Lists all online players.
+
+**Request:** `{ "data": {} }`
+
+**Response data:** `{ "players": [ { "name", "level", "map", "x", "y", "hp", "max_hp", "faction" }, ... ] }`
+
+#### `admin_get_player_request` / `admin_get_player_response`
+
+Gets detailed player information.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | One required | Player name |
+| `player_id` | uint32 | One required | Player ID |
+
+**Response data:** Full player detail (stats, equipment, skills, buffs, guild, party, pk state, position, etc.)
+
+#### `admin_kick_player_request` / `admin_kick_player_response`
+
+Kicks a player from the server.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Player to kick |
+| `reason` | string | No | Kick reason |
+
+#### `admin_ban_player_request` / `admin_ban_player_response`
+
+Bans a player's account.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Player to ban |
+| `reason` | string | No | Ban reason |
+| `duration_hours` | int32 | No | Ban duration (0 = permanent) |
+
+#### `admin_unban_player_request` / `admin_unban_player_response`
+
+Unbans a player's account.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Player to unban |
+
+#### `admin_teleport_player_request` / `admin_teleport_player_response`
+
+Teleports a player to a destination.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Player to teleport |
+| `dest_map` | string | Yes | Destination map name |
+| `dest_x` | int16 | No | X coordinate |
+| `dest_y` | int16 | No | Y coordinate |
+
+#### `admin_modify_player_request` / `admin_modify_player_response`
+
+Modifies player attributes.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Target player |
+| `modifications` | object | Yes | Key-value pairs of fields to modify (e.g., `{"hp": 500, "level": 50}`) |
+
+---
+
+### World / NPC Management
+
+#### `admin_list_maps_request` / `admin_list_maps_response`
+
+Lists all loaded maps with summary info.
+
+**Request:** `{ "data": {} }`
+
+**Response data:** `{ "maps": [ { "name", "player_count", "npc_count", "width", "height" }, ... ] }`
+
+#### `admin_get_map_request` / `admin_get_map_response`
+
+Gets detailed map information.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `map_name` | string | Yes | Map name |
+
+**Response data:** Map details including spawners, teleports, safe zones, entity list.
+
+#### `admin_spawn_npc_request` / `admin_spawn_npc_response`
+
+Spawns NPCs on a map.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `npc_name` | string | Yes | NPC template name |
+| `map_name` | string | Yes | Target map |
+| `x` | int16 | No | X coordinate |
+| `y` | int16 | No | Y coordinate |
+| `count` | int16 | No | Number to spawn (default: 1) |
+
+#### `admin_kill_npc_request` / `admin_kill_npc_response`
+
+Kills a specific NPC by entity ID.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `entity_id` | uint32 | Yes | NPC entity ID |
+
+---
+
+### Inventory Management
+
+#### `admin_get_inventory_request` / `admin_get_inventory_response`
+
+Gets a player's full inventory, bank, equipment, and gold.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Player name |
+
+#### `admin_give_item_request` / `admin_give_item_response`
+
+Gives an item to a player.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Player name |
+| `item_template_id` | uint32 | Yes | Item template ID |
+| `count` | int16 | No | Stack count (default: 1) |
+
+#### `admin_remove_item_request` / `admin_remove_item_response`
+
+Removes an item from a player's inventory.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Player name |
+| `inventory_slot` | int16 | Yes | Inventory slot index |
+| `count` | int16 | No | Amount to remove (0 = entire stack) |
+
+---
+
+### Social Management
+
+#### `admin_list_guilds_request` / `admin_list_guilds_response`
+
+Lists all guilds.
+
+**Request:** `{ "data": {} }`
+
+**Response data:** `{ "guilds": [ { "name", "faction", "member_count", "leader" }, ... ] }`
+
+#### `admin_get_guild_request` / `admin_get_guild_response`
+
+Gets detailed guild information.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `guild_name` | string | Yes | Guild name |
+
+**Response data:** Full guild detail (members, ranks, wars, stats).
+
+---
+
+### Account Management
+
+#### `admin_get_account_request` / `admin_get_account_response`
+
+Gets account details and character list.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `username` | string | Yes | Account username |
+
+---
+
+### Spectator System
+
+#### `admin_subscribe_map_request` / `admin_subscribe_map_response`
+
+Subscribes to a map for real-time updates. Receives all entity updates on the entire map (no viewport filtering). Server sends an `admin_spectator_init` with full map state after subscribing.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `map_name` | string | Yes | Map to subscribe to |
+
+#### `admin_subscribe_player_request` / `admin_subscribe_player_response`
+
+Follows a specific player, auto-switching maps on teleport. Full-map visibility.
+
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `player_name` | string | Yes | Player to follow |
+
+#### `admin_unsubscribe_request` / `admin_unsubscribe_response`
+
+Unsubscribes from current map/player subscription.
+
+**Request:** `{ "data": {} }`
+
+#### `admin_spectator_init`
+
+Server-push message sent after subscribing. Contains full map state snapshot (all entities, ground items, environment).
+
+---
+
+### Admin Push Notifications
+
+These are server-initiated broadcasts (seq: 0) sent to all admin dashboard connections.
+
+#### `admin_player_connected`
+
+Sent when a player enters the game.
+
+```json
+{
+  "type": "admin_player_connected",
+  "seq": 0,
+  "data": {
+    "name": "PlayerName",
+    "level": 50,
+    "map": "aresden"
+  }
+}
+```
+
+#### `admin_player_disconnected`
+
+Sent when a player leaves the game.
+
+```json
+{
+  "type": "admin_player_disconnected",
+  "seq": 0,
+  "data": {
+    "name": "PlayerName"
+  }
+}
+```
+
+#### `admin_chat_log`
+
+Sent for all chat messages server-wide (for monitoring).
+
+```json
+{
+  "type": "admin_chat_log",
+  "seq": 0,
+  "data": {
+    "channel": "global",
+    "sender": "PlayerName",
+    "content": "Hello world"
+  }
+}
+```
+
+---
+
 ## Connection State Flow
 
 ```
@@ -3849,19 +4253,24 @@ Connected
     v
 [login_request] --> Authenticated
     |
-    v
-[get_characters_request] --> Character List
-    |
-    v
-[enter_game_request] --> In Game
-    |
-    +-- [player_move_request] --> Movement
-    |
-    +-- [player_attack_request] --> Combat
-    |
-    +-- [chat_message] --> Chat
-    |
-    +-- [command_request] --> Commands
+    +----------------------------+
+    |                            |
+    v                            v
+[get_characters_request]    [enter_admin_mode_request]
+    |                            |
+    v                            v
+[enter_game_request]        Admin Dashboard
+    |                            |
+    v                            +-- [admin_*_request] --> Dashboard queries
+In Game                          |
+    |                            +-- [admin_subscribe_map_request] --> Spectator
+    +-- [player_move_request]    |
+    |                            +-- [admin_subscribe_player_request] --> Follow
+    +-- [player_attack_request]  |
+    |                            +-- [admin_unsubscribe_request]
+    +-- [chat_message]           |
+    |                            +-- [disconnect] --> (connection closed)
+    +-- [command_request]
     |
     +-- [logout_request] --> Authenticated
     |

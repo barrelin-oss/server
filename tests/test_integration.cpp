@@ -67,7 +67,7 @@ protected:
         wave1::unregister_wave1_handlers();
 
         // Shutdown subsystems
-        subsystems().shutdown_all();
+        subsystems().clear_all();
     }
 
     // Helper to create a message and route it

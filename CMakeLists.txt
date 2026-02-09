@@ -201,6 +201,7 @@ set(BRIDGE_SOURCES
     src/bridge/handlers/wave5_handlers.cpp
     src/bridge/handlers/auth_handlers.cpp
     src/bridge/handlers/game_handlers.cpp
+    src/bridge/handlers/admin_web_handlers.cpp
 )
 
 set(APP_SOURCES
@@ -340,6 +341,7 @@ add_executable(hgserver_tests
     tests/test_mining.cpp
     tests/test_environment.cpp
     tests/test_safe_zone.cpp
+    tests/test_admin_web.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

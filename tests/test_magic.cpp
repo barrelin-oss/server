@@ -303,6 +303,54 @@ TEST_F(magic_system_test, spell_callback) {
     EXPECT_EQ(received_spell.name, "Test Spell");
 }
 
+// Self-targeting prevention
+
+TEST_F(magic_system_test, offensive_spell_blocks_self_target) {
+    entity caster{1};
+    system_.learn_spell(caster, spell_id{1});
+
+    cast_target target;
+    target.target = caster;  // Target self
+
+    auto result = system_.can_cast(caster, spell_id{1}, target);
+    EXPECT_EQ(result, cast_result::invalid_target);
+}
+
+TEST_F(magic_system_test, healing_spell_allows_self_target) {
+    spell_template heal;
+    heal.id = spell_id{50};
+    heal.name = "Self Heal";
+    heal.category = spell_category::healing;
+    heal.target_type = spell_target::single_ally;
+    heal.mana_cost = 10;
+    heal.base_heal = 50;
+    system_.register_spell(heal);
+
+    entity caster{1};
+    system_.learn_spell(caster, spell_id{50});
+
+    cast_target target;
+    target.target = caster;  // Target self
+
+    auto result = system_.can_cast(caster, spell_id{50}, target);
+    EXPECT_EQ(result, cast_result::success);
+}
+
+// Range validation
+
+TEST_F(magic_system_test, range_check_skipped_without_player_system) {
+    // Without player_system wired, range check is skipped
+    entity caster{1};
+    system_.learn_spell(caster, spell_id{1});
+
+    cast_target target;
+    target.target = entity{2};
+
+    // Should succeed since we can't look up positions without player_system
+    auto result = system_.can_cast(caster, spell_id{1}, target);
+    EXPECT_EQ(result, cast_result::success);
+}
+
 // Additional magic system tests
 
 TEST_F(magic_system_test, get_nonexistent_spell) {
@@ -380,7 +428,8 @@ TEST_F(magic_system_test, begin_cast_channeled_spell) {
     auto* state = system_.get_cast_state(caster);
     ASSERT_NE(state, nullptr);
     EXPECT_TRUE(state->is_active());
-    EXPECT_EQ(state->spell.value, 10);
+    ASSERT_TRUE(state->spell.has_value());
+    EXPECT_EQ(state->spell->value, 10);
 }
 
 TEST_F(magic_system_test, get_cast_state_not_casting) {
@@ -511,4 +560,273 @@ TEST(spell_knowledge_test, total_casts_tracking) {
 
     ++knowledge.total_casts;
     EXPECT_EQ(knowledge.total_casts, 6);
+}
+
+// ============================================================================
+// Integration tests: AOE targeting and range validation with player_system
+// ============================================================================
+
+#include "player/player_system.h"
+#include "world/world_subsystem.h"
+#include "entity/entity_manager.h"
+#include "combat/combat_system.h"
+#include "core/subsystem.h"
+
+using hb::player_id;
+using hb::map_id;
+
+class magic_aoe_test : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        hb::subsystems().create_subsystem<hb::player::player_system>();
+        hb::subsystems().create_subsystem<hb::world::world_subsystem>();
+        hb::subsystems().create_subsystem<hb::magic::magic_system>();
+        hb::subsystems().create_subsystem<hb::entity::entity_manager>();
+        hb::subsystems().create_subsystem<hb::combat::combat_system>();
+        hb::subsystems().initialize_all();
+
+        player_sys_ = hb::subsystems().get<hb::player::player_system>();
+        world_ = hb::subsystems().get<hb::world::world_subsystem>();
+        magic_ = hb::subsystems().get<hb::magic::magic_system>();
+
+        // Create a map
+        hb::world::map_config cfg;
+        cfg.name = "test_map";
+        cfg.width = 100;
+        cfg.height = 100;
+        auto result = world_->create_map(cfg);
+        ASSERT_TRUE(result.is_ok());
+        map_id_ = result.value();
+
+        // Register AOE attack spell
+        spell_template aoe_attack;
+        aoe_attack.id = hb::spell_id(1);
+        aoe_attack.name = "Fire Ball";
+        aoe_attack.category = spell_category::attack;
+        aoe_attack.target_type = spell_target::aoe_enemy;
+        aoe_attack.mana_cost = 20;
+        aoe_attack.aoe_radius = 3;
+        aoe_attack.base_damage = 50;
+        aoe_attack.range = 2;  // 24 tiles
+        magic_->register_spell(aoe_attack);
+
+        // Register single-target attack spell with short range
+        spell_template single_attack;
+        single_attack.id = hb::spell_id(2);
+        single_attack.name = "Magic Missile";
+        single_attack.category = spell_category::attack;
+        single_attack.target_type = spell_target::single_enemy;
+        single_attack.mana_cost = 8;
+        single_attack.base_damage = 30;
+        single_attack.range = 1;  // 12 tiles
+        magic_->register_spell(single_attack);
+    }
+
+    void TearDown() override
+    {
+        hb::subsystems().clear_all();
+    }
+
+    auto create_player_at(hb::world::position pos, hb::faction faction = hb::faction::neutral) -> player_id
+    {
+        hb::player::player_create_info info;
+        info.name = "player_" + std::to_string(next_name_++);
+        auto result = player_sys_->create_player(info);
+        auto pid = result.value();
+        player_sys_->set_position(pid, map_id_, pos, hb::world::direction::south);
+
+        auto* p = player_sys_->get_player(pid);
+        if (p) {
+            p->mp = 1000;
+            p->experience.level = 100;
+            p->computed.intelligence = 100;
+            p->computed.magic = 100;
+            p->faction = faction;
+        }
+        return pid;
+    }
+
+    hb::player::player_system* player_sys_{};
+    hb::world::world_subsystem* world_{};
+    hb::magic::magic_system* magic_{};
+    map_id map_id_{};
+    int next_name_{1};
+};
+
+TEST_F(magic_aoe_test, aoe_spell_excludes_caster)
+{
+    auto caster_pid = create_player_at({50, 50}, hb::faction::aresden);
+    auto enemy_pid = create_player_at({52, 50}, hb::faction::elvine);
+
+    entity caster_e(caster_pid.value);
+    entity enemy_e(enemy_pid.value);
+
+    magic_->learn_spell(caster_e, hb::spell_id(1));
+
+    // Cast AOE centered on enemy position
+    cast_target target;
+    target.target = enemy_e;
+
+    auto result = magic_->instant_cast(caster_e, hb::spell_id(1), target);
+    ASSERT_TRUE(result.is_ok());
+
+    auto& effect = result.value();
+    EXPECT_TRUE(effect.success);
+
+    // Enemy should be hit
+    bool enemy_hit = false;
+    bool caster_hit = false;
+    for (auto& t : effect.affected_targets) {
+        if (t.id == enemy_pid.value) enemy_hit = true;
+        if (t.id == caster_pid.value) caster_hit = true;
+    }
+    EXPECT_TRUE(enemy_hit);
+    EXPECT_FALSE(caster_hit) << "Caster should not be hit by their own AOE";
+}
+
+TEST_F(magic_aoe_test, aoe_spell_skips_same_faction)
+{
+    auto caster_pid = create_player_at({50, 50}, hb::faction::aresden);
+    auto ally_pid = create_player_at({51, 50}, hb::faction::aresden);
+    auto enemy_pid = create_player_at({52, 50}, hb::faction::elvine);
+
+    entity caster_e(caster_pid.value);
+
+    magic_->learn_spell(caster_e, hb::spell_id(1));
+
+    cast_target target;
+    target.target_pos = hb::world::position{51, 50};  // Center between all three
+
+    auto result = magic_->instant_cast(caster_e, hb::spell_id(1), target);
+    ASSERT_TRUE(result.is_ok());
+
+    auto& effect = result.value();
+    bool ally_hit = false;
+    bool enemy_hit = false;
+    for (auto& t : effect.affected_targets) {
+        if (t.id == ally_pid.value) ally_hit = true;
+        if (t.id == enemy_pid.value) enemy_hit = true;
+    }
+    EXPECT_FALSE(ally_hit) << "Same-faction ally should not be hit by enemy AOE";
+    EXPECT_TRUE(enemy_hit);
+}
+
+TEST_F(magic_aoe_test, aoe_spell_center_from_position)
+{
+    auto caster_pid = create_player_at({10, 10}, hb::faction::aresden);
+    auto far_enemy = create_player_at({50, 50}, hb::faction::elvine);
+    auto near_enemy = create_player_at({22, 10}, hb::faction::elvine);
+
+    entity caster_e(caster_pid.value);
+
+    magic_->learn_spell(caster_e, hb::spell_id(1));
+
+    // Target position near the near_enemy, far from far_enemy
+    cast_target target;
+    target.target_pos = hb::world::position{22, 10};
+
+    auto result = magic_->instant_cast(caster_e, hb::spell_id(1), target);
+    ASSERT_TRUE(result.is_ok());
+
+    auto& effect = result.value();
+    bool near_hit = false;
+    bool far_hit = false;
+    for (auto& t : effect.affected_targets) {
+        if (t.id == near_enemy.value) near_hit = true;
+        if (t.id == far_enemy.value) far_hit = true;
+    }
+    EXPECT_TRUE(near_hit) << "Enemy within AOE radius should be hit";
+    EXPECT_FALSE(far_hit) << "Enemy outside AOE radius should not be hit";
+}
+
+TEST_F(magic_aoe_test, range_check_blocks_distant_target)
+{
+    auto caster_pid = create_player_at({10, 10});
+    auto enemy_pid = create_player_at({80, 80});  // ~140 manhattan distance
+
+    entity caster_e(caster_pid.value);
+    entity enemy_e(enemy_pid.value);
+
+    magic_->learn_spell(caster_e, hb::spell_id(2));  // range=1 (12 tiles)
+
+    cast_target target;
+    target.target = enemy_e;
+
+    auto result = magic_->can_cast(caster_e, hb::spell_id(2), target);
+    EXPECT_EQ(result, cast_result::out_of_range);
+}
+
+TEST_F(magic_aoe_test, range_check_allows_close_target)
+{
+    auto caster_pid = create_player_at({50, 50});
+    auto enemy_pid = create_player_at({55, 50});  // 5 tiles manhattan
+
+    entity caster_e(caster_pid.value);
+    entity enemy_e(enemy_pid.value);
+
+    magic_->learn_spell(caster_e, hb::spell_id(2));  // range=1 (12 tiles)
+
+    cast_target target;
+    target.target = enemy_e;
+
+    auto result = magic_->can_cast(caster_e, hb::spell_id(2), target);
+    EXPECT_EQ(result, cast_result::success);
+}
+
+TEST_F(magic_aoe_test, range_check_with_position_target)
+{
+    auto caster_pid = create_player_at({50, 50});
+
+    entity caster_e(caster_pid.value);
+
+    magic_->learn_spell(caster_e, hb::spell_id(1));  // range=2 (24 tiles)
+
+    // Position within range
+    cast_target close_target;
+    close_target.target_pos = hb::world::position{60, 50};  // 10 tiles
+    EXPECT_EQ(magic_->can_cast(caster_e, hb::spell_id(1), close_target), cast_result::success);
+
+    // Position out of range
+    cast_target far_target;
+    far_target.target_pos = hb::world::position{90, 90};  // 80 tiles
+    EXPECT_EQ(magic_->can_cast(caster_e, hb::spell_id(1), far_target), cast_result::out_of_range);
+}
+
+TEST_F(magic_aoe_test, self_target_blocked_for_offensive_spell)
+{
+    auto caster_pid = create_player_at({50, 50});
+    entity caster_e(caster_pid.value);
+
+    magic_->learn_spell(caster_e, hb::spell_id(2));
+
+    cast_target target;
+    target.target = caster_e;
+
+    auto result = magic_->can_cast(caster_e, hb::spell_id(2), target);
+    EXPECT_EQ(result, cast_result::invalid_target);
+}
+
+TEST_F(magic_aoe_test, mana_deducted_on_instant_cast)
+{
+    auto caster_pid = create_player_at({50, 50}, hb::faction::aresden);
+    auto enemy_pid = create_player_at({52, 50}, hb::faction::elvine);
+
+    entity caster_e(caster_pid.value);
+    entity enemy_e(enemy_pid.value);
+
+    magic_->learn_spell(caster_e, hb::spell_id(1));  // mana_cost = 20
+
+    auto* caster = player_sys_->get_player(caster_pid);
+    ASSERT_NE(caster, nullptr);
+    int32_t mp_before = caster->mp;
+
+    cast_target target;
+    target.target = enemy_e;
+
+    auto result = magic_->instant_cast(caster_e, hb::spell_id(1), target);
+    ASSERT_TRUE(result.is_ok());
+    EXPECT_TRUE(result.value().success);
+
+    EXPECT_EQ(caster->mp, mp_before - 20) << "Mana should be deducted after cast";
 }

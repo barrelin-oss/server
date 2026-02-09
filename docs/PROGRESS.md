@@ -320,6 +320,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | GM commands | 🔄 | Framework done, specific commands partially implemented |
 | Player management | 🔄 | Kick/ban via auth, mute via admin, more TODO |
 | Server management | ❌ | Reload, shutdown commands |
+| Admin web tool API | ✅ | WebSocket API for admin dashboard and spectator modes, ~50 protocol messages |
 
 ---
 
@@ -426,6 +427,15 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-08 (e)
+- **Admin Web Tool API** - Server-side WebSocket API for admin web dashboard and spectator modes
+  - ~50 new protocol messages for server stats, player/NPC/map/guild/account management, and spectator subscriptions
+  - `admin_dashboard` connection state with subscription tracking
+  - `enter_admin_mode` auth flow requiring gamemaster+ permission level
+  - Spectator system: map subscription and player-follow modes with real-time game broadcasts
+  - Push notifications: player connect/disconnect events, server-wide chat logging
+  - 29 new tests
 
 ### 2026-02-08 (d)
 - **Safe Zone PvP Enforcement and Guard NPCs** - Town safety system

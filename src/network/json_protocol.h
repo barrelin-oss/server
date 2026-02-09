@@ -186,6 +186,60 @@ enum class json_message_type {
     mineral_spawn,
     mineral_despawn,
 
+    // Death/Respawn
+    respawn_request,
+    respawn_response,
+
+    // Admin web tool
+    enter_admin_mode_request,
+    enter_admin_mode_response,
+    admin_server_stats_request,
+    admin_server_stats_response,
+    admin_list_players_request,
+    admin_list_players_response,
+    admin_get_player_request,
+    admin_get_player_response,
+    admin_kick_player_request,
+    admin_kick_player_response,
+    admin_ban_player_request,
+    admin_ban_player_response,
+    admin_teleport_player_request,
+    admin_teleport_player_response,
+    admin_modify_player_request,
+    admin_modify_player_response,
+    admin_list_maps_request,
+    admin_list_maps_response,
+    admin_get_map_request,
+    admin_get_map_response,
+    admin_spawn_npc_request,
+    admin_spawn_npc_response,
+    admin_kill_npc_request,
+    admin_kill_npc_response,
+    admin_get_inventory_request,
+    admin_get_inventory_response,
+    admin_give_item_request,
+    admin_give_item_response,
+    admin_remove_item_request,
+    admin_remove_item_response,
+    admin_list_guilds_request,
+    admin_list_guilds_response,
+    admin_get_guild_request,
+    admin_get_guild_response,
+    admin_get_account_request,
+    admin_get_account_response,
+    admin_unban_player_request,
+    admin_unban_player_response,
+    admin_subscribe_map_request,
+    admin_subscribe_map_response,
+    admin_subscribe_player_request,
+    admin_subscribe_player_response,
+    admin_unsubscribe_request,
+    admin_unsubscribe_response,
+    admin_spectator_init,
+    admin_player_connected,
+    admin_player_disconnected,
+    admin_chat_log,
+
     // Unknown/invalid
     unknown
 };
@@ -293,6 +347,56 @@ enum class json_message_type {
         case json_message_type::mine_response: return "mine_response";
         case json_message_type::mineral_spawn: return "mineral_spawn";
         case json_message_type::mineral_despawn: return "mineral_despawn";
+        case json_message_type::respawn_request: return "respawn_request";
+        case json_message_type::respawn_response: return "respawn_response";
+        case json_message_type::enter_admin_mode_request: return "enter_admin_mode_request";
+        case json_message_type::enter_admin_mode_response: return "enter_admin_mode_response";
+        case json_message_type::admin_server_stats_request: return "admin_server_stats_request";
+        case json_message_type::admin_server_stats_response: return "admin_server_stats_response";
+        case json_message_type::admin_list_players_request: return "admin_list_players_request";
+        case json_message_type::admin_list_players_response: return "admin_list_players_response";
+        case json_message_type::admin_get_player_request: return "admin_get_player_request";
+        case json_message_type::admin_get_player_response: return "admin_get_player_response";
+        case json_message_type::admin_kick_player_request: return "admin_kick_player_request";
+        case json_message_type::admin_kick_player_response: return "admin_kick_player_response";
+        case json_message_type::admin_ban_player_request: return "admin_ban_player_request";
+        case json_message_type::admin_ban_player_response: return "admin_ban_player_response";
+        case json_message_type::admin_teleport_player_request: return "admin_teleport_player_request";
+        case json_message_type::admin_teleport_player_response: return "admin_teleport_player_response";
+        case json_message_type::admin_modify_player_request: return "admin_modify_player_request";
+        case json_message_type::admin_modify_player_response: return "admin_modify_player_response";
+        case json_message_type::admin_list_maps_request: return "admin_list_maps_request";
+        case json_message_type::admin_list_maps_response: return "admin_list_maps_response";
+        case json_message_type::admin_get_map_request: return "admin_get_map_request";
+        case json_message_type::admin_get_map_response: return "admin_get_map_response";
+        case json_message_type::admin_spawn_npc_request: return "admin_spawn_npc_request";
+        case json_message_type::admin_spawn_npc_response: return "admin_spawn_npc_response";
+        case json_message_type::admin_kill_npc_request: return "admin_kill_npc_request";
+        case json_message_type::admin_kill_npc_response: return "admin_kill_npc_response";
+        case json_message_type::admin_get_inventory_request: return "admin_get_inventory_request";
+        case json_message_type::admin_get_inventory_response: return "admin_get_inventory_response";
+        case json_message_type::admin_give_item_request: return "admin_give_item_request";
+        case json_message_type::admin_give_item_response: return "admin_give_item_response";
+        case json_message_type::admin_remove_item_request: return "admin_remove_item_request";
+        case json_message_type::admin_remove_item_response: return "admin_remove_item_response";
+        case json_message_type::admin_list_guilds_request: return "admin_list_guilds_request";
+        case json_message_type::admin_list_guilds_response: return "admin_list_guilds_response";
+        case json_message_type::admin_get_guild_request: return "admin_get_guild_request";
+        case json_message_type::admin_get_guild_response: return "admin_get_guild_response";
+        case json_message_type::admin_get_account_request: return "admin_get_account_request";
+        case json_message_type::admin_get_account_response: return "admin_get_account_response";
+        case json_message_type::admin_unban_player_request: return "admin_unban_player_request";
+        case json_message_type::admin_unban_player_response: return "admin_unban_player_response";
+        case json_message_type::admin_subscribe_map_request: return "admin_subscribe_map_request";
+        case json_message_type::admin_subscribe_map_response: return "admin_subscribe_map_response";
+        case json_message_type::admin_subscribe_player_request: return "admin_subscribe_player_request";
+        case json_message_type::admin_subscribe_player_response: return "admin_subscribe_player_response";
+        case json_message_type::admin_unsubscribe_request: return "admin_unsubscribe_request";
+        case json_message_type::admin_unsubscribe_response: return "admin_unsubscribe_response";
+        case json_message_type::admin_spectator_init: return "admin_spectator_init";
+        case json_message_type::admin_player_connected: return "admin_player_connected";
+        case json_message_type::admin_player_disconnected: return "admin_player_disconnected";
+        case json_message_type::admin_chat_log: return "admin_chat_log";
         default: return "unknown";
     }
 }
@@ -303,9 +407,9 @@ enum class json_message_type {
 // Base JSON message structure
 struct json_message {
     json_message_type type{json_message_type::unknown};
-    std::string raw_type;  // Original type string from JSON (useful for debugging unknown types)
     uint32_t seq{0};  // Sequence number for request/response matching
     nlohmann::json data;
+    std::string raw_type;  // Original type string from JSON (useful for debugging unknown types)
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<json_message, std::string>;
@@ -830,7 +934,7 @@ struct combat_effect_data {
     std::string effect_type;     // "damage","heal","miss","dodge","block","resist","buff","debuff"
     int32_t value{0};
     std::string damage_type;     // "physical","magic","fire","ice","lightning","poison","holy","dark","pure"
-    uint32_t spell_id{0};        // 0 for melee
+    std::optional<uint32_t> spell_id;  // absent for melee
     bool is_critical{false};
     int16_t target_x{0};
     int16_t target_y{0};
@@ -1383,6 +1487,24 @@ struct alchemy_request_data {
     int32_t exp_gained = 0,
     std::optional<std::string_view> error = std::nullopt) -> json_message;
 
+// === Death/Respawn response data ===
+
+// Respawn response sent to client after successful respawn
+struct respawn_response_data {
+    bool success{false};
+    std::string map_name;
+    int16_t x{0};
+    int16_t y{0};
+    std::string error;
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+[[nodiscard]] auto make_respawn_response(uint32_t seq, bool success,
+    std::string_view map_name = "",
+    int16_t x = 0, int16_t y = 0,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
 // === Mining request/response data ===
 
 // Mine request from client
@@ -1407,5 +1529,168 @@ struct mine_request_data {
 
 [[nodiscard]] auto make_mineral_despawn(uint32_t node_id,
     int16_t x, int16_t y) -> json_message;
+
+// === Admin Web Tool data structures and builders ===
+
+// Enter admin mode response builder
+[[nodiscard]] auto make_enter_admin_mode_response(uint32_t seq, bool success,
+    uint8_t admin_level = 0,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Admin get player request
+struct admin_get_player_request_data {
+    std::string player_name;  // Look up by name (preferred) or ID
+    uint32_t player_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_player_request_data, std::string>;
+};
+
+// Admin kick player request
+struct admin_kick_player_request_data {
+    std::string player_name;
+    std::string reason;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_kick_player_request_data, std::string>;
+};
+
+// Admin ban player request
+struct admin_ban_player_request_data {
+    std::string player_name;
+    std::string reason;
+    int32_t duration_hours{0};  // 0 = permanent
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_ban_player_request_data, std::string>;
+};
+
+// Admin unban player request
+struct admin_unban_player_request_data {
+    std::string player_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_unban_player_request_data, std::string>;
+};
+
+// Admin teleport player request
+struct admin_teleport_player_request_data {
+    std::string player_name;
+    std::string dest_map;
+    int16_t dest_x{0};
+    int16_t dest_y{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_teleport_player_request_data, std::string>;
+};
+
+// Admin modify player request
+struct admin_modify_player_request_data {
+    std::string player_name;
+    nlohmann::json modifications;  // {"hp": 100, "level": 50, "gold": 1000, ...}
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_modify_player_request_data, std::string>;
+};
+
+// Admin get map request
+struct admin_get_map_request_data {
+    std::string map_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_map_request_data, std::string>;
+};
+
+// Admin spawn NPC request
+struct admin_spawn_npc_request_data {
+    std::string npc_name;
+    std::string map_name;
+    int16_t x{0};
+    int16_t y{0};
+    int16_t count{1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_spawn_npc_request_data, std::string>;
+};
+
+// Admin kill NPC request
+struct admin_kill_npc_request_data {
+    uint32_t entity_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_kill_npc_request_data, std::string>;
+};
+
+// Admin get inventory request
+struct admin_get_inventory_request_data {
+    std::string player_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_inventory_request_data, std::string>;
+};
+
+// Admin give item request
+struct admin_give_item_request_data {
+    std::string player_name;
+    uint32_t item_template_id{0};
+    int16_t count{1};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_give_item_request_data, std::string>;
+};
+
+// Admin remove item request
+struct admin_remove_item_request_data {
+    std::string player_name;
+    int16_t inventory_slot{-1};
+    int16_t count{0};  // 0 = remove entire stack
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_remove_item_request_data, std::string>;
+};
+
+// Admin get guild request
+struct admin_get_guild_request_data {
+    std::string guild_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_guild_request_data, std::string>;
+};
+
+// Admin get account request
+struct admin_get_account_request_data {
+    std::string username;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_account_request_data, std::string>;
+};
+
+// Admin subscribe to map
+struct admin_subscribe_map_request_data {
+    std::string map_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_subscribe_map_request_data, std::string>;
+};
+
+// Admin subscribe to player (follow mode)
+struct admin_subscribe_player_request_data {
+    std::string player_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_subscribe_player_request_data, std::string>;
+};
+
+// Admin response builder helpers (generic success/error pattern)
+[[nodiscard]] auto make_admin_response(json_message_type type, uint32_t seq, bool success,
+    const nlohmann::json& data = nlohmann::json::object(),
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Admin push notification builders
+[[nodiscard]] auto make_admin_player_connected(const std::string& name,
+    int16_t level, const std::string& map_name) -> json_message;
+[[nodiscard]] auto make_admin_player_disconnected(const std::string& name) -> json_message;
+[[nodiscard]] auto make_admin_chat_log(const std::string& channel,
+    const std::string& sender, const std::string& content) -> json_message;
 
 }  // namespace hb::network

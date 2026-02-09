@@ -24,6 +24,7 @@ namespace network {
 namespace bridge {
     class auth_handlers;
     class game_handlers;
+    class admin_web_handlers;
 }
 
 // Application configuration
@@ -100,6 +101,7 @@ private:
     std::unique_ptr<network::websocket_server> ws_server_;
     std::unique_ptr<bridge::auth_handlers> auth_handlers_;
     std::unique_ptr<bridge::game_handlers> game_handlers_;
+    std::unique_ptr<bridge::admin_web_handlers> admin_web_handlers_;
 
     // Periodic auto-save task
     task_id auto_save_task_id_;

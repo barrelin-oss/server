@@ -66,6 +66,12 @@ void subsystem_manager::shutdown_all() {
     LOG_INFO(general, "All subsystems shut down");
 }
 
+void subsystem_manager::clear_all() {
+    shutdown_all();
+    subsystems_.clear();
+    subsystem_map_.clear();
+}
+
 void subsystem_manager::update_all(float delta_time) {
     for (auto& subsystem : subsystems_) {
         if (subsystem->is_initialized()) {

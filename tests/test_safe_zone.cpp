@@ -80,7 +80,7 @@ protected:
 
     void TearDown() override
     {
-        subsystems().shutdown_all();
+        subsystems().clear_all();
     }
 
     auto create_player_at(world::position pos) -> player_id
@@ -203,6 +203,7 @@ protected:
         offensive.target_type = magic::spell_target::single_enemy;
         offensive.mana_cost = 10;
         offensive.base_damage = 50;
+        offensive.range = 10;  // 10 screens = 120 tiles (enough for test map)
         magic_->register_spell(offensive);
 
         // Register a defensive/buff test spell
@@ -212,6 +213,7 @@ protected:
         buff.category = magic::spell_category::buff;
         buff.target_type = magic::spell_target::single_ally;
         buff.mana_cost = 5;
+        buff.range = 10;
         magic_->register_spell(buff);
 
         // Register an AOE offensive spell
@@ -223,12 +225,13 @@ protected:
         aoe.mana_cost = 20;
         aoe.aoe_radius = 5;
         aoe.base_damage = 30;
+        aoe.range = 10;
         magic_->register_spell(aoe);
     }
 
     void TearDown() override
     {
-        subsystems().shutdown_all();
+        subsystems().clear_all();
     }
 
     auto create_player_at(world::position pos) -> player_id
@@ -357,7 +360,7 @@ protected:
 
     void TearDown() override
     {
-        subsystems().shutdown_all();
+        subsystems().clear_all();
     }
 
     auto create_player_at(world::position pos, int32_t pk_points = 0) -> player_id

@@ -732,6 +732,69 @@ auto social_system::set_guild_motd(player_id player, const std::string& motd) ->
     return guild_result::success;
 }
 
+// === Admin-bypass guild mutations ===
+
+auto social_system::admin_disband_guild(guild_id gid) -> guild_result {
+    auto* g = get_guild(gid);
+    if (!g) return guild_result::guild_not_found;
+
+    for (const auto& member : g->members) {
+        if (member.player.is_valid()) player_guilds_.erase(member.player);
+        if (member.character_id.is_valid()) character_guild_index_.erase(member.character_id);
+    }
+
+    std::string guild_name = g->name;
+    auto db_result = delete_guild_from_database(gid);
+    if (db_result.is_err()) {
+        LOG_ERROR(general, "Failed to delete guild '{}' from database: {}", guild_name, db_result.error());
+    }
+
+    guilds_.erase(gid);
+    LOG_INFO(general, "Admin disbanded guild '{}'", guild_name);
+    return guild_result::success;
+}
+
+auto social_system::admin_kick_from_guild(guild_id gid, std::string_view target_name) -> guild_result {
+    auto* g = get_guild(gid);
+    if (!g) return guild_result::guild_not_found;
+
+    // Find member by name
+    auto it = std::find_if(g->members.begin(), g->members.end(),
+        [&](const guild_member& m) { return m.name == target_name; });
+    if (it == g->members.end()) return guild_result::player_not_member;
+
+    if (it->player.is_valid()) player_guilds_.erase(it->player);
+    if (it->character_id.is_valid()) character_guild_index_.erase(it->character_id);
+    g->members.erase(it);
+
+    auto db_result = save_guild_to_database(gid);
+    if (db_result.is_err()) {
+        LOG_ERROR(general, "Failed to save guild after admin kick: {}", db_result.error());
+    }
+
+    LOG_INFO(general, "Admin kicked '{}' from guild '{}'", target_name, g->name);
+    return guild_result::success;
+}
+
+auto social_system::admin_set_member_rank(guild_id gid, std::string_view target_name, guild_rank rank) -> guild_result {
+    auto* g = get_guild(gid);
+    if (!g) return guild_result::guild_not_found;
+
+    auto it = std::find_if(g->members.begin(), g->members.end(),
+        [&](const guild_member& m) { return m.name == target_name; });
+    if (it == g->members.end()) return guild_result::player_not_member;
+
+    it->rank = rank;
+
+    auto db_result = save_guild_to_database(gid);
+    if (db_result.is_err()) {
+        LOG_ERROR(general, "Failed to save guild after admin rank change: {}", db_result.error());
+    }
+
+    LOG_INFO(general, "Admin set '{}' rank to {} in guild '{}'", target_name, static_cast<int>(rank), g->name);
+    return guild_result::success;
+}
+
 auto social_system::get_guild(guild_id id) -> guild* {
     auto it = guilds_.find(id);
     return it != guilds_.end() ? &it->second : nullptr;

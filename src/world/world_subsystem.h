@@ -86,6 +86,26 @@ public:
     auto remove_expired_ground_items(std::chrono::seconds max_age)
         -> std::vector<std::tuple<map_id, position, item_id>>;
 
+    // Enumerate all ground items on a map
+    struct ground_item_info {
+        position pos;
+        item_id item;
+        std::chrono::steady_clock::time_point drop_time;
+    };
+
+    template<typename Func>
+    void for_each_ground_item_on_map(map_id map, Func&& func) const {
+        for (const auto& [key, entries] : ground_items_) {
+            if (key.map != map) continue;
+            for (const auto& entry : entries) {
+                func(key.pos, entry.item, entry.drop_time);
+            }
+        }
+    }
+
+    // Remove a specific ground item by map, position, and item_id
+    auto remove_ground_item(map_id map, const position& pos, item_id item) -> bool;
+
     // Iterate over all maps
     template<typename Func>
     void for_each_map(Func&& func) {

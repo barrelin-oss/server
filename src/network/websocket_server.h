@@ -16,6 +16,7 @@
 #include <mutex>
 #include <memory>
 #include <atomic>
+#include <chrono>
 
 namespace hb::network {
 
@@ -95,8 +96,10 @@ public:
     void set_state(ws_connection_state state);
     void set_account(account_id account);
     void set_player(player_id player);
+    void set_username(std::string_view name) { username_ = name; }
     [[nodiscard]] auto account() const -> account_id { return account_; }
     [[nodiscard]] auto player() const -> player_id { return player_; }
+    [[nodiscard]] auto username() const -> const std::string& { return username_; }
 
     // Session token (for authenticated connections)
     void set_session_token(std::string_view token);
@@ -108,6 +111,9 @@ public:
     [[nodiscard]] auto has_destination() const -> bool { return has_destination_; }
     [[nodiscard]] auto dest_x() const -> int16_t { return dest_x_; }
     [[nodiscard]] auto dest_y() const -> int16_t { return dest_y_; }
+
+    // Connection timing
+    [[nodiscard]] auto connected_at() const -> std::chrono::steady_clock::time_point { return connected_at_; }
 
     // Admin dashboard
     void set_admin_level(uint8_t level) { admin_level_ = level; }
@@ -140,12 +146,16 @@ private:
     ws_connection_state state_{ws_connection_state::connecting};
     account_id account_{};
     player_id player_{};
+    std::string username_;
     std::string session_token_;
 
     // Mouse destination (where client clicked to walk to)
     int16_t dest_x_{0};
     int16_t dest_y_{0};
     bool has_destination_{false};
+
+    // Connection timing
+    std::chrono::steady_clock::time_point connected_at_{std::chrono::steady_clock::now()};
 
     // Admin dashboard
     uint8_t admin_level_{0};

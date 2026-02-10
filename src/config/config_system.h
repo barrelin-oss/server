@@ -33,8 +33,12 @@ public:
 
     // Get configurations (read-only)
     [[nodiscard]] auto server() const -> const server_config&;
+    [[nodiscard]] auto server_mutable() -> server_config& { return server_config_; }
     [[nodiscard]] auto game() const -> const game_config&;
     [[nodiscard]] auto admin() const -> const admin_config&;
+
+    // Get config file path (for admin save/reload)
+    [[nodiscard]] auto server_config_path() const -> const std::filesystem::path& { return server_config_path_; }
 
     // Register callback for config changes
     using config_changed_callback = std::function<void()>;

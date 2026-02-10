@@ -608,6 +608,25 @@ auto admin_system::active_admin_count() const -> size_t {
     return count;
 }
 
+// ========== IP Ban Management ==========
+
+void admin_system::add_ip_ban(std::string_view ip, std::string_view reason) {
+    ip_bans_.emplace(ip);
+    LOG_INFO(admin, "IP banned: {} (reason: {})", ip, reason);
+}
+
+void admin_system::remove_ip_ban(std::string_view ip) {
+    auto it = ip_bans_.find(std::string(ip));
+    if (it != ip_bans_.end()) {
+        ip_bans_.erase(it);
+        LOG_INFO(admin, "IP unbanned: {}", ip);
+    }
+}
+
+auto admin_system::is_ip_banned(std::string_view ip) const -> bool {
+    return ip_bans_.contains(std::string(ip));
+}
+
 // ========== Private Methods ==========
 
 namespace {
@@ -875,6 +894,20 @@ void admin_system::register_builtin_commands() {
             return command_result::ok(ss.str());
         });
     }
+}
+
+void admin_system::log_action(std::string_view executor_name, std::string_view action,
+                              bool success, std::string_view result_message)
+{
+    command_log_entry entry;
+    entry.timestamp = std::time(nullptr);
+    entry.executor_name = std::string(executor_name);
+    entry.executor_level = admin_level::admin;
+    entry.command_name = "admin_panel";
+    entry.full_command = std::string(action);
+    entry.success = success;
+    entry.result_message = std::string(result_message);
+    log_command(entry);
 }
 
 void admin_system::log_command(const command_log_entry& entry) {

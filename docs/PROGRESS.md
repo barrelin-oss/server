@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-08
+**Last Updated:** 2026-02-09
 
 ---
 
@@ -320,7 +320,10 @@ This document tracks implementation progress for the modernized Helbreath server
 | GM commands | 🔄 | Framework done, specific commands partially implemented |
 | Player management | 🔄 | Kick/ban via auth, mute via admin, more TODO |
 | Server management | ❌ | Reload, shutdown commands |
-| Admin web tool API | ✅ | WebSocket API for admin dashboard and spectator modes, ~50 protocol messages |
+| Admin web tool API | ✅ | WebSocket API for admin dashboard and spectator modes, ~100 protocol messages |
+| Admin API expansion | ✅ | Broadcast, mute, template browsing, war status, parties, player search, effects |
+| Admin API phase 3 | ✅ | Audit log, config management, scheduler control, DB queries, NPC/ground item inspection, guild mutations, messaging, environment, shutdown |
+| Admin API phase 4 | ✅ | Skills/spells/quests/effects management, account/character CRUD, spawn/spell template browsing, maintenance mode, IP bans, enriched player/inventory/search |
 
 ---
 
@@ -427,6 +430,57 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-09 (b)
+- **Admin Panel API Phase 3** - 14 new request/response pairs for advanced server management
+  - Audit log viewer: browse GM command history with optional executor filter
+  - Server config management: get (sanitized), set (dot-notation patch with sentinel skip), reload (hot-apply)
+  - Scheduled task management: list all tasks with metadata, cancel by tag
+  - Canned database queries: 9 predefined read-only queries (top players, recent logins, search, bans, rankings, factions)
+  - Live NPC state inspection: full NPC state per map (entity_id, HP, AI state, position)
+  - Ground item management: list items per map with age, remove specific items with broadcast
+  - Guild mutations: admin-bypass disband/kick/set_rank (skips permission checks)
+  - Player messaging: send system chat directly to a specific player
+  - Environment override: set time and/or weather globally or per-map
+  - Server shutdown: immediate, countdown with warning broadcasts (5m/3m/1m/30s/10s), cancel
+  - Infrastructure: scheduler task_metadata + for_each_task(), ground item map enumeration + removal, guild admin-bypass methods, config to_json/sanitized/apply_dot_values
+  - 38 new tests (1274 total), config serialization tests
+
+### 2026-02-09 (c)
+- **Admin Panel API Phase 4 — Complete Coverage** - 15 new request/response pairs + 4 enriched existing endpoints
+  - Skill management: set/reset/add_exp/reset_all player skills via `admin_modify_skills_request`
+  - Spell management: learn/forget/level_up/reset_cooldowns via `admin_modify_spells_request`
+  - Quest inspection: active quests with objectives, completed quest history
+  - Quest manipulation: admin accept/abandon/complete quests
+  - Effect management: remove all/group/single active effects
+  - Account management: create accounts, reset passwords (admin bypass), change admin levels
+  - Character management: admin create/delete characters (blocks online deletion)
+  - Spawn point inspection: list all spawn points with filter by map
+  - Spell template browsing: list all spells, detail view by ID or name
+  - Maintenance mode: toggle login blocking for non-admins with custom message
+  - IP ban management: list/add/remove runtime IP bans (checked at login)
+  - Enhanced get_player: skills, spells, quests, appearance, extended stats
+  - Enhanced get_inventory: bank slots alongside inventory
+  - Enhanced modify_player: experience, faction, hunger, stat_points, appearance fields
+  - Enhanced search_players: level range, map, faction, guild filters
+  - Infrastructure: for_each_spell/for_each_spawn_point, maintenance mode on auth_system, IP bans on admin_system, admin password reset
+  - Wired magic_system, quest_system, skill_system to admin_web_handlers (18th-20th subsystems)
+  - 28 new tests (1302 total)
+
+### 2026-02-09 (a)
+- **Admin Panel API Expansion** - 10 new request/response pairs expanding admin web tool capabilities
+  - Server broadcast: system-wide announcements via `admin_broadcast_request`
+  - Mute management: `admin_mute_player_request` / `admin_unmute_player_request`
+  - Template browsing: item and NPC template list/detail endpoints for give/spawn commands
+  - War status: all active wars with scores, phases, participant counts
+  - Party inspection: all active parties with member details
+  - Player search: case-insensitive substring search across online players
+  - Enhanced `admin_server_stats_response`: economy stats (total_gold), scheduled tasks, admin count
+  - Enhanced `admin_list_players_response`: online_seconds from connection timing
+  - Enhanced `admin_get_player_response`: active buff/debuff effects array
+  - Infrastructure: `connected_at` on ws_connection, `for_each_party()` on social_system
+  - Wired `war_system` and `effect_system` to admin_web_handlers (15th/16th subsystems)
+  - 18 new tests (1235 total)
 
 ### 2026-02-08 (e)
 - **Admin Web Tool API** - Server-side WebSocket API for admin web dashboard and spectator modes

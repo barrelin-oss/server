@@ -133,6 +133,13 @@ public:
     }
 
     template<typename Func>
+    void for_each_spawn_point(Func&& func) const {
+        for (const auto& sp : spawn_points_) {
+            func(sp);
+        }
+    }
+
+    template<typename Func>
     void for_each_npc_on_map(map_id map, Func&& func) {
         for (auto& [id, npc_ptr] : npcs_) {
             if (npc_ptr->current_map == map) {

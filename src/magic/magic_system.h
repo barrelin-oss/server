@@ -75,6 +75,15 @@ public:
     void register_spell(const spell_template& spell);
     [[nodiscard]] auto get_spell(spell_id id) const -> const spell_template*;
 
+    // Iteration
+    template<typename Func>
+    void for_each_spell(Func&& func) const
+    {
+        for (const auto& [id, spell] : spells_) {
+            func(id, spell);
+        }
+    }
+
     // Cooldowns
     [[nodiscard]] auto get_cooldown_remaining(hb::entity::entity caster, spell_id spell) const -> int32_t;
     void reset_cooldown(hb::entity::entity caster, spell_id spell);

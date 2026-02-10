@@ -185,6 +185,11 @@ public:
 
     auto set_guild_motd(player_id player, const std::string& motd) -> guild_result;
 
+    // Admin-bypass guild mutations (no permission checks)
+    auto admin_disband_guild(guild_id gid) -> guild_result;
+    auto admin_kick_from_guild(guild_id gid, std::string_view target_name) -> guild_result;
+    auto admin_set_member_rank(guild_id gid, std::string_view target_name, guild_rank rank) -> guild_result;
+
     // Guild queries
     [[nodiscard]] auto get_guild(guild_id id) -> guild*;
     [[nodiscard]] auto get_guild(guild_id id) const -> const guild*;
@@ -224,6 +229,13 @@ public:
     // Update party member stats (called when stats change)
     void update_party_member_stats(player_id player, int32_t hp, int32_t max_hp, int32_t mp, int32_t max_mp);
     void update_party_member_map(player_id player, map_id map);
+
+    template<typename Func>
+    void for_each_party(Func&& func) const {
+        for (const auto& [id, p] : parties_) {
+            func(id, p);
+        }
+    }
 
     // ========== Chat Operations ==========
 

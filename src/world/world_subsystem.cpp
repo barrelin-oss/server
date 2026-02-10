@@ -333,4 +333,34 @@ auto world_subsystem::remove_expired_ground_items(std::chrono::seconds max_age)
     return expired;
 }
 
+auto world_subsystem::remove_ground_item(map_id map, const position& pos, item_id item) -> bool {
+    map_position_key key{map, pos};
+    auto it = ground_items_.find(key);
+    if (it == ground_items_.end()) return false;
+
+    auto& entries = it->second;
+    auto eit = std::find_if(entries.begin(), entries.end(),
+        [&](const ground_item_entry& e) { return e.item == item; });
+    if (eit == entries.end()) return false;
+
+    entries.erase(eit);
+
+    if (entries.empty()) {
+        auto* m = get_map(map);
+        if (m) {
+            auto* dyn_tile = m->get_dynamic_tile(pos);
+            if (dyn_tile) dyn_tile->item_count = 0;
+        }
+        ground_items_.erase(it);
+    } else {
+        auto* m = get_map(map);
+        if (m) {
+            auto* dyn_tile = m->get_dynamic_tile(pos);
+            if (dyn_tile) dyn_tile->item_count = static_cast<uint8_t>(entries.size());
+        }
+    }
+
+    return true;
+}
+
 }  // namespace hb::world

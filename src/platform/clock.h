@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <thread>
 
 namespace hb::platform {
 

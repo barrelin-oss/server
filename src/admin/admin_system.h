@@ -15,6 +15,7 @@
 #include <memory>
 #include <vector>
 #include <deque>
+#include <set>
 #include <chrono>
 
 namespace hb::admin {
@@ -214,10 +215,21 @@ public:
     void on_player_muted(mute_callback callback);
     void on_level_changed(level_change_callback callback);
 
+    // ========== IP Ban Management ==========
+
+    void add_ip_ban(std::string_view ip, std::string_view reason = "");
+    void remove_ip_ban(std::string_view ip);
+    [[nodiscard]] auto is_ip_banned(std::string_view ip) const -> bool;
+    [[nodiscard]] auto get_ip_bans() const -> const std::set<std::string>& { return ip_bans_; }
+
     // ========== Statistics ==========
 
     [[nodiscard]] auto total_commands_executed() const -> size_t { return total_commands_; }
     [[nodiscard]] auto active_admin_count() const -> size_t;
+
+    // Log an admin action to the audit log (used by admin web handlers)
+    void log_action(std::string_view executor_name, std::string_view action, bool success = true,
+                    std::string_view result_message = "");
 
 private:
     void register_builtin_commands();
@@ -237,6 +249,9 @@ private:
 
     // Muted players (player_id -> unmute_time, 0 = permanent)
     std::unordered_map<player_id, int64_t> muted_players_;
+
+    // IP bans (runtime set)
+    std::set<std::string> ip_bans_;
 
     // Command log
     std::deque<command_log_entry> command_log_;

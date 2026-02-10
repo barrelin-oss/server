@@ -386,9 +386,34 @@ void player_system::set_position(player_id id, map_id map, hb::world::position p
     auto* p = get_player(id);
     if (!p) return;
 
+    auto* world_sys = subsystems().get<world::world_subsystem>();
+
+    // Compute spatial ID from ECS entity
+    entity_id spatial_id = p->ecs_entity.is_valid()
+        ? entity_id{p->ecs_entity.index()}
+        : entity_id{id.value};
+
+    // If changing maps, remove from old map's spatial index and occupant grid
+    if (world_sys && p->current_map != map && p->current_map.value != 0) {
+        auto* old_map = world_sys->get_map(p->current_map);
+        if (old_map) {
+            old_map->clear_occupant(p->pos);
+            old_map->spatial().remove(spatial_id);
+        }
+    }
+
     p->current_map = map;
     p->pos = pos;
     p->facing = facing;
+
+    // Add to new map's spatial index and set occupant
+    if (world_sys) {
+        auto* new_map = world_sys->get_map(map);
+        if (new_map) {
+            new_map->set_occupant(pos, spatial_id, world::owner_type::player);
+            new_map->spatial().add(spatial_id, pos);
+        }
+    }
 
     // Update transform component
     auto* entity_mgr = subsystems().get<entity::entity_manager>();

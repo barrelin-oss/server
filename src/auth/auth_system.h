@@ -124,6 +124,15 @@ public:
     void set_admin_level(account_id id, admin_level level);
     [[nodiscard]] auto get_admin_level(account_id id) -> admin_level;
 
+    // Maintenance mode
+    void set_maintenance_mode(bool enabled, std::string_view message = "");
+    [[nodiscard]] auto is_maintenance_mode() const -> bool { return maintenance_mode_; }
+    [[nodiscard]] auto maintenance_message() const -> const std::string& { return maintenance_message_; }
+
+    // Admin password reset (bypasses old password check)
+    [[nodiscard]] auto admin_change_password(account_id id, std::string_view new_password)
+        -> result<void, auth_error>;
+
     // Utility
     [[nodiscard]] auto username_exists(std::string_view username) -> bool;
     [[nodiscard]] auto character_name_exists(std::string_view name) -> bool;
@@ -154,6 +163,10 @@ private:
     auth_config config_;
     forum_auth_config forum_config_;
     database::database_system* database_{nullptr};
+
+    // Maintenance mode
+    bool maintenance_mode_{false};
+    std::string maintenance_message_;
 
     // In-memory session cache for performance
     std::unordered_map<std::string, session_token> session_cache_;

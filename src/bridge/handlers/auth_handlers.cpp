@@ -113,6 +113,31 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
     LOG_DEBUG(bridge, "Login request from {} for user '{}'",
         conn->remote_address(), data.username);
 
+    // Check IP ban
+    if (admin_ && admin_->is_ip_banned(conn->remote_address())) {
+        LOG_INFO(bridge, "Login blocked for '{}': IP {} is banned",
+            data.username, conn->remote_address());
+        auto response = network::make_login_response(msg.seq, false, std::nullopt, "ip_banned");
+        conn->send(response);
+        return;
+    }
+
+    // Check maintenance mode (allow admins through)
+    if (auth_->is_maintenance_mode()) {
+        // Try to look up account to check admin status
+        auto acct_result = auth_->get_account_by_username(data.username);
+        bool is_admin = acct_result.is_ok() &&
+            acct_result.value().admin >= auth::admin_level::gamemaster;
+        if (!is_admin) {
+            LOG_INFO(bridge, "Login blocked for '{}': server in maintenance mode", data.username);
+            auto response = network::make_login_response(
+                msg.seq, false, std::nullopt,
+                std::string("maintenance:") + auth_->maintenance_message());
+            conn->send(response);
+            return;
+        }
+    }
+
     // Forum auth path
     if (auth_->forum_auth_enabled()) {
         if (!data.forum_token.empty()) {
@@ -132,6 +157,7 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
             conn->set_state(network::ws_connection_state::authenticated);
             conn->set_account(result.session.account);
             conn->set_session_token(result.session.token);
+            conn->set_username(data.username);
 
             LOG_INFO(bridge, "User '{}' logged in via forum token from {}",
                 data.username, conn->remote_address());
@@ -157,6 +183,7 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
         conn->set_state(network::ws_connection_state::authenticated);
         conn->set_account(result.session.account);
         conn->set_session_token(result.session.token);
+        conn->set_username(data.username);
 
         LOG_INFO(bridge, "User '{}' logged in via forum from {}", data.username, conn->remote_address());
 
@@ -186,6 +213,7 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
     conn->set_state(network::ws_connection_state::authenticated);
     conn->set_account(session.account);
     conn->set_session_token(session.token);
+    conn->set_username(data.username);
 
     LOG_INFO(bridge, "User '{}' logged in from {}", data.username, conn->remote_address());
 
@@ -256,6 +284,7 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
     conn->set_account(account_id{});
     conn->set_player(player_id{});
     conn->set_session_token("");
+    conn->set_username("");
 
     LOG_INFO(bridge, "Connection {} logged out", conn_id.value);
 

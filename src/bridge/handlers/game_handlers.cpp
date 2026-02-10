@@ -195,58 +195,62 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
     }
 
-    // Schedule ground item despawn timer (every 30 seconds, expire after 3 minutes)
+    // Register and start ground item despawn timer (every 30 seconds, expire after 3 minutes)
     if (scheduler_ && world_) {
-        scheduler_->schedule_repeating_tagged(
-            duration_ms{30000},
-            "ground_item_cleanup",
-            [this]() {
-                auto expired = world_->remove_expired_ground_items(std::chrono::seconds(180));
-                for (const auto& [map, pos, item] : expired) {
-                    // Broadcast removal with picker_id 0 (despawn, not picked up)
-                    if (players_ && ws_server_) {
-                        network::ground_item_removed_data data{
-                            .picker_id = 0,
-                            .picker_name = "",
-                            .item_id = item.value,
-                            .item_name = "",
-                            .x = pos.x,
-                            .y = pos.y
-                        };
-                        auto msg = network::make_ground_item_removed(data);
+        scheduler_->register_task("ground_item_cleanup",
+            "Remove ground items older than 3 minutes",
+            duration_ms{30000}, true,
+            [this]() -> task_callback {
+                return [this]() {
+                    auto expired = world_->remove_expired_ground_items(std::chrono::seconds(180));
+                    for (const auto& [map, pos, item] : expired) {
+                        if (players_ && ws_server_) {
+                            network::ground_item_removed_data data{
+                                .picker_id = 0,
+                                .picker_name = "",
+                                .item_id = item.value,
+                                .item_name = "",
+                                .x = pos.x,
+                                .y = pos.y
+                            };
+                            auto msg = network::make_ground_item_removed(data);
 
-                        auto players = players_->get_players_who_can_see(map, pos);
-                        for (auto pid : players) {
-                            auto* p = players_->get_player(pid);
-                            if (!p || p->connection.value == 0) continue;
-                            auto* conn = ws_server_->get_connection(p->connection);
-                            if (conn && conn->is_open()) {
-                                conn->send(msg);
+                            auto players = players_->get_players_who_can_see(map, pos);
+                            for (auto pid : players) {
+                                auto* p = players_->get_player(pid);
+                                if (!p || p->connection.value == 0) continue;
+                                auto* conn = ws_server_->get_connection(p->connection);
+                                if (conn && conn->is_open()) {
+                                    conn->send(msg);
+                                }
                             }
+                        }
+
+                        if (item_) {
+                            item_->destroy_item(item);
                         }
                     }
 
-                    // Destroy the expired item
-                    if (item_) {
-                        item_->destroy_item(item);
+                    if (!expired.empty()) {
+                        LOG_DEBUG(bridge, "Despawned {} expired ground items", expired.size());
                     }
-                }
-
-                if (!expired.empty()) {
-                    LOG_DEBUG(bridge, "Despawned {} expired ground items", expired.size());
-                }
+                };
             });
+        scheduler_->start_task("ground_item_cleanup");
     }
 
-    // Schedule environment tick (weather cycling + broadcast to all players)
+    // Register and start environment tick (weather cycling + broadcast to all players)
     if (scheduler_ && world_ && players_) {
-        scheduler_->schedule_repeating_tagged(
-            duration_ms{10000},
-            "environment_tick",
-            [this]() {
-                tick_weather();
-                broadcast_environment_update();
+        scheduler_->register_task("environment_tick",
+            "Weather cycling and day/night sync",
+            duration_ms{10000}, true,
+            [this]() -> task_callback {
+                return [this]() {
+                    tick_weather();
+                    broadcast_environment_update();
+                };
             });
+        scheduler_->start_task("environment_tick");
     }
 
     LOG_INFO(bridge, "Game handlers initialized (chat: {}, admin: {}, combat: {}, npc: {}, inventory: {}, item: {})",

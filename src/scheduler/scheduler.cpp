@@ -62,9 +62,14 @@ void scheduler::update(float delta_time) {
             if (task.interval.count() > 0) {
                 task.execute_at = now + task.interval;
                 to_reschedule.push_back(task);
+                // Update metadata with next fire time
+                if (auto mit = task_metadata_.find(task.id.value); mit != task_metadata_.end()) {
+                    mit->second.execute_at = task.execute_at;
+                }
             } else {
                 // One-shot task - mark as inactive
                 active_tasks_.erase(task.id.value);
+                task_metadata_.erase(task.id.value);
             }
         }
 
@@ -101,6 +106,7 @@ auto scheduler::schedule_tagged(duration_ms delay, std::string_view tag, task_ca
     {
         std::lock_guard lock(mutex_);
         active_tasks_[id.value] = true;
+        task_metadata_[id.value] = {std::string(tag), execute_at, duration_ms{0}};
         task_queue_.push(std::move(task));
     }
 
@@ -128,6 +134,7 @@ auto scheduler::schedule_repeating_tagged(duration_ms interval, std::string_view
     {
         std::lock_guard lock(mutex_);
         active_tasks_[id.value] = true;
+        task_metadata_[id.value] = {std::string(tag), execute_at, interval};
         task_queue_.push(std::move(task));
     }
 
@@ -144,6 +151,7 @@ void scheduler::cancel(task_id id) {
     auto it = active_tasks_.find(id.value);
     if (it != active_tasks_.end()) {
         it->second = false;
+        task_metadata_.erase(id.value);
         ++tasks_cancelled_;
         LOG_DEBUG(general, "Cancelled task {}", id.value);
     }
@@ -165,6 +173,7 @@ void scheduler::cancel_tagged(std::string_view tag) {
 
         if (task.tag == tag) {
             active_tasks_[task.id.value] = false;
+            task_metadata_.erase(task.id.value);
             ++tasks_cancelled_;
         } else {
             remaining.push_back(std::move(task));
@@ -189,6 +198,7 @@ void scheduler::cancel_all() {
     }
     tasks_cancelled_ += count;
     active_tasks_.clear();
+    task_metadata_.clear();
 
     LOG_DEBUG(general, "Cancelled all {} tasks", count);
 }
@@ -208,6 +218,67 @@ auto scheduler::pending_count() const -> size_t {
         if (active) ++count;
     }
     return count;
+}
+
+void scheduler::register_task(std::string_view tag, std::string_view description,
+                              duration_ms default_interval, bool repeating,
+                              std::function<task_callback()> factory)
+{
+    std::lock_guard lock(mutex_);
+    task_definitions_[std::string(tag)] = task_definition{
+        .tag = std::string(tag),
+        .description = std::string(description),
+        .default_interval_ms = default_interval.count(),
+        .repeating = repeating,
+        .factory = std::move(factory)
+    };
+    LOG_DEBUG(general, "Registered task definition '{}': {} (interval: {}ms, repeating: {})",
+        tag, description, default_interval.count(), repeating);
+}
+
+auto scheduler::start_task(std::string_view tag, std::optional<duration_ms> interval) -> task_id
+{
+    std::function<task_callback()> factory;
+    duration_ms effective_interval{0};
+    bool repeating = false;
+
+    {
+        std::lock_guard lock(mutex_);
+        auto it = task_definitions_.find(std::string(tag));
+        if (it == task_definitions_.end()) {
+            LOG_WARN(general, "Cannot start task '{}': no definition registered", tag);
+            return task_id{0};
+        }
+        factory = it->second.factory;
+        effective_interval = interval.value_or(duration_ms{it->second.default_interval_ms});
+        repeating = it->second.repeating;
+    }
+
+    auto callback = factory();
+    if (repeating) {
+        return schedule_repeating_tagged(effective_interval, tag, std::move(callback));
+    } else {
+        return schedule_tagged(effective_interval, tag, std::move(callback));
+    }
+}
+
+auto scheduler::is_task_running(std::string_view tag) const -> bool
+{
+    std::lock_guard lock(mutex_);
+    return is_task_running_locked(tag);
+}
+
+auto scheduler::is_task_running_locked(std::string_view tag) const -> bool
+{
+    for (const auto& [id, meta] : task_metadata_) {
+        if (meta.tag == tag) {
+            auto it = active_tasks_.find(id);
+            if (it != active_tasks_.end() && it->second) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 auto scheduler::next_id() -> task_id {

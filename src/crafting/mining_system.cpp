@@ -59,10 +59,13 @@ void mining_system::start_generation()
         return;
     }
 
-    scheduler_->schedule_repeating_tagged(
-        duration_ms{10000}, "mineral_gen",
-        [this]() { generate_minerals(); }
-    );
+    scheduler_->register_task("mineral_gen",
+        "Spawn mineral nodes for mining",
+        duration_ms{10000}, true,
+        [this]() -> task_callback {
+            return [this]() { generate_minerals(); };
+        });
+    scheduler_->start_task("mineral_gen");
 
     LOG_INFO(general, "Mining system: mineral generation started (10s interval)");
 }

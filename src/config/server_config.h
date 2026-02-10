@@ -5,11 +5,13 @@
 
 #include "core/result.h"
 
+#include <nlohmann/json.hpp>
 #include <string>
 #include <filesystem>
 #include <cstdint>
 #include <optional>
 #include <chrono>
+#include <vector>
 
 namespace hb {
 
@@ -121,6 +123,19 @@ struct server_config {
 
     // Save to JSON config file
     auto save_to_json(const std::filesystem::path& path) const -> result<void, std::string>;
+
+    // Full JSON serialization (for admin API)
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+
+    // Sanitized version (passwords/keys replaced with "***")
+    [[nodiscard]] auto to_json_sanitized() const -> nlohmann::json;
+
+    // Apply dot-notation key-value changes (e.g., "database.host" → "newhost")
+    // Returns list of applied keys. Skips keys whose value equals "***".
+    auto apply_dot_values(const nlohmann::json& values) -> result<std::vector<std::string>, std::string>;
+
+    // Keys that require restart to take effect
+    [[nodiscard]] static auto requires_restart(std::string_view key) -> bool;
 };
 
 // Game balance/settings configuration

@@ -240,6 +240,94 @@ enum class json_message_type {
     admin_player_disconnected,
     admin_chat_log,
 
+    // Admin web tool - expanded
+    admin_broadcast_request,
+    admin_broadcast_response,
+    admin_mute_player_request,
+    admin_mute_player_response,
+    admin_unmute_player_request,
+    admin_unmute_player_response,
+    admin_list_item_templates_request,
+    admin_list_item_templates_response,
+    admin_get_item_template_request,
+    admin_get_item_template_response,
+    admin_list_npc_templates_request,
+    admin_list_npc_templates_response,
+    admin_get_npc_template_request,
+    admin_get_npc_template_response,
+    admin_get_war_status_request,
+    admin_get_war_status_response,
+    admin_list_parties_request,
+    admin_list_parties_response,
+    admin_search_players_request,
+    admin_search_players_response,
+
+    // Admin web tool - phase 3
+    admin_get_audit_log_request,
+    admin_get_audit_log_response,
+    admin_get_config_request,
+    admin_get_config_response,
+    admin_set_config_request,
+    admin_set_config_response,
+    admin_reload_config_request,
+    admin_reload_config_response,
+    admin_list_scheduled_tasks_request,
+    admin_list_scheduled_tasks_response,
+    admin_cancel_scheduled_task_request,
+    admin_cancel_scheduled_task_response,
+    admin_run_query_request,
+    admin_run_query_response,
+    admin_list_map_npcs_request,
+    admin_list_map_npcs_response,
+    admin_list_map_ground_items_request,
+    admin_list_map_ground_items_response,
+    admin_remove_ground_item_request,
+    admin_remove_ground_item_response,
+    admin_guild_action_request,
+    admin_guild_action_response,
+    admin_message_player_request,
+    admin_message_player_response,
+    admin_set_environment_request,
+    admin_set_environment_response,
+    admin_shutdown_server_request,
+    admin_shutdown_server_response,
+
+    // Admin web tool - phase 4
+    admin_modify_skills_request,
+    admin_modify_skills_response,
+    admin_modify_spells_request,
+    admin_modify_spells_response,
+    admin_get_player_quests_request,
+    admin_get_player_quests_response,
+    admin_quest_action_request,
+    admin_quest_action_response,
+    admin_remove_effects_request,
+    admin_remove_effects_response,
+    admin_create_account_request,
+    admin_create_account_response,
+    admin_change_password_request,
+    admin_change_password_response,
+    admin_set_admin_level_request,
+    admin_set_admin_level_response,
+    admin_list_spawn_points_request,
+    admin_list_spawn_points_response,
+    admin_list_spell_templates_request,
+    admin_list_spell_templates_response,
+    admin_get_spell_template_request,
+    admin_get_spell_template_response,
+    admin_set_maintenance_mode_request,
+    admin_set_maintenance_mode_response,
+    admin_create_character_request_admin,
+    admin_create_character_response_admin,
+    admin_delete_character_request_admin,
+    admin_delete_character_response_admin,
+    admin_manage_ip_bans_request,
+    admin_manage_ip_bans_response,
+
+    // Admin web tool - task registry
+    admin_start_task_request,
+    admin_start_task_response,
+
     // Unknown/invalid
     unknown
 };
@@ -397,6 +485,86 @@ enum class json_message_type {
         case json_message_type::admin_player_connected: return "admin_player_connected";
         case json_message_type::admin_player_disconnected: return "admin_player_disconnected";
         case json_message_type::admin_chat_log: return "admin_chat_log";
+        case json_message_type::admin_broadcast_request: return "admin_broadcast_request";
+        case json_message_type::admin_broadcast_response: return "admin_broadcast_response";
+        case json_message_type::admin_mute_player_request: return "admin_mute_player_request";
+        case json_message_type::admin_mute_player_response: return "admin_mute_player_response";
+        case json_message_type::admin_unmute_player_request: return "admin_unmute_player_request";
+        case json_message_type::admin_unmute_player_response: return "admin_unmute_player_response";
+        case json_message_type::admin_list_item_templates_request: return "admin_list_item_templates_request";
+        case json_message_type::admin_list_item_templates_response: return "admin_list_item_templates_response";
+        case json_message_type::admin_get_item_template_request: return "admin_get_item_template_request";
+        case json_message_type::admin_get_item_template_response: return "admin_get_item_template_response";
+        case json_message_type::admin_list_npc_templates_request: return "admin_list_npc_templates_request";
+        case json_message_type::admin_list_npc_templates_response: return "admin_list_npc_templates_response";
+        case json_message_type::admin_get_npc_template_request: return "admin_get_npc_template_request";
+        case json_message_type::admin_get_npc_template_response: return "admin_get_npc_template_response";
+        case json_message_type::admin_get_war_status_request: return "admin_get_war_status_request";
+        case json_message_type::admin_get_war_status_response: return "admin_get_war_status_response";
+        case json_message_type::admin_list_parties_request: return "admin_list_parties_request";
+        case json_message_type::admin_list_parties_response: return "admin_list_parties_response";
+        case json_message_type::admin_search_players_request: return "admin_search_players_request";
+        case json_message_type::admin_search_players_response: return "admin_search_players_response";
+        case json_message_type::admin_get_audit_log_request: return "admin_get_audit_log_request";
+        case json_message_type::admin_get_audit_log_response: return "admin_get_audit_log_response";
+        case json_message_type::admin_get_config_request: return "admin_get_config_request";
+        case json_message_type::admin_get_config_response: return "admin_get_config_response";
+        case json_message_type::admin_set_config_request: return "admin_set_config_request";
+        case json_message_type::admin_set_config_response: return "admin_set_config_response";
+        case json_message_type::admin_reload_config_request: return "admin_reload_config_request";
+        case json_message_type::admin_reload_config_response: return "admin_reload_config_response";
+        case json_message_type::admin_list_scheduled_tasks_request: return "admin_list_scheduled_tasks_request";
+        case json_message_type::admin_list_scheduled_tasks_response: return "admin_list_scheduled_tasks_response";
+        case json_message_type::admin_cancel_scheduled_task_request: return "admin_cancel_scheduled_task_request";
+        case json_message_type::admin_cancel_scheduled_task_response: return "admin_cancel_scheduled_task_response";
+        case json_message_type::admin_run_query_request: return "admin_run_query_request";
+        case json_message_type::admin_run_query_response: return "admin_run_query_response";
+        case json_message_type::admin_list_map_npcs_request: return "admin_list_map_npcs_request";
+        case json_message_type::admin_list_map_npcs_response: return "admin_list_map_npcs_response";
+        case json_message_type::admin_list_map_ground_items_request: return "admin_list_map_ground_items_request";
+        case json_message_type::admin_list_map_ground_items_response: return "admin_list_map_ground_items_response";
+        case json_message_type::admin_remove_ground_item_request: return "admin_remove_ground_item_request";
+        case json_message_type::admin_remove_ground_item_response: return "admin_remove_ground_item_response";
+        case json_message_type::admin_guild_action_request: return "admin_guild_action_request";
+        case json_message_type::admin_guild_action_response: return "admin_guild_action_response";
+        case json_message_type::admin_message_player_request: return "admin_message_player_request";
+        case json_message_type::admin_message_player_response: return "admin_message_player_response";
+        case json_message_type::admin_set_environment_request: return "admin_set_environment_request";
+        case json_message_type::admin_set_environment_response: return "admin_set_environment_response";
+        case json_message_type::admin_shutdown_server_request: return "admin_shutdown_server_request";
+        case json_message_type::admin_shutdown_server_response: return "admin_shutdown_server_response";
+        case json_message_type::admin_modify_skills_request: return "admin_modify_skills_request";
+        case json_message_type::admin_modify_skills_response: return "admin_modify_skills_response";
+        case json_message_type::admin_modify_spells_request: return "admin_modify_spells_request";
+        case json_message_type::admin_modify_spells_response: return "admin_modify_spells_response";
+        case json_message_type::admin_get_player_quests_request: return "admin_get_player_quests_request";
+        case json_message_type::admin_get_player_quests_response: return "admin_get_player_quests_response";
+        case json_message_type::admin_quest_action_request: return "admin_quest_action_request";
+        case json_message_type::admin_quest_action_response: return "admin_quest_action_response";
+        case json_message_type::admin_remove_effects_request: return "admin_remove_effects_request";
+        case json_message_type::admin_remove_effects_response: return "admin_remove_effects_response";
+        case json_message_type::admin_create_account_request: return "admin_create_account_request";
+        case json_message_type::admin_create_account_response: return "admin_create_account_response";
+        case json_message_type::admin_change_password_request: return "admin_change_password_request";
+        case json_message_type::admin_change_password_response: return "admin_change_password_response";
+        case json_message_type::admin_set_admin_level_request: return "admin_set_admin_level_request";
+        case json_message_type::admin_set_admin_level_response: return "admin_set_admin_level_response";
+        case json_message_type::admin_list_spawn_points_request: return "admin_list_spawn_points_request";
+        case json_message_type::admin_list_spawn_points_response: return "admin_list_spawn_points_response";
+        case json_message_type::admin_list_spell_templates_request: return "admin_list_spell_templates_request";
+        case json_message_type::admin_list_spell_templates_response: return "admin_list_spell_templates_response";
+        case json_message_type::admin_get_spell_template_request: return "admin_get_spell_template_request";
+        case json_message_type::admin_get_spell_template_response: return "admin_get_spell_template_response";
+        case json_message_type::admin_set_maintenance_mode_request: return "admin_set_maintenance_mode_request";
+        case json_message_type::admin_set_maintenance_mode_response: return "admin_set_maintenance_mode_response";
+        case json_message_type::admin_create_character_request_admin: return "admin_create_character_request_admin";
+        case json_message_type::admin_create_character_response_admin: return "admin_create_character_response_admin";
+        case json_message_type::admin_delete_character_request_admin: return "admin_delete_character_request_admin";
+        case json_message_type::admin_delete_character_response_admin: return "admin_delete_character_response_admin";
+        case json_message_type::admin_manage_ip_bans_request: return "admin_manage_ip_bans_request";
+        case json_message_type::admin_manage_ip_bans_response: return "admin_manage_ip_bans_response";
+        case json_message_type::admin_start_task_request: return "admin_start_task_request";
+        case json_message_type::admin_start_task_response: return "admin_start_task_response";
         default: return "unknown";
     }
 }
@@ -1692,5 +1860,315 @@ struct admin_subscribe_player_request_data {
 [[nodiscard]] auto make_admin_player_disconnected(const std::string& name) -> json_message;
 [[nodiscard]] auto make_admin_chat_log(const std::string& channel,
     const std::string& sender, const std::string& content) -> json_message;
+
+// === Admin Web Tool - Expanded request data ===
+
+// Admin broadcast request
+struct admin_broadcast_request_data {
+    std::string message;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_broadcast_request_data, std::string>;
+};
+
+// Admin mute player request
+struct admin_mute_player_request_data {
+    std::string player_name;
+    int32_t duration_minutes{0};  // 0 = permanent
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_mute_player_request_data, std::string>;
+};
+
+// Admin unmute player request
+struct admin_unmute_player_request_data {
+    std::string player_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_unmute_player_request_data, std::string>;
+};
+
+// Admin get item template request (by id or name)
+struct admin_get_item_template_request_data {
+    uint32_t item_id{0};
+    std::string item_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_item_template_request_data, std::string>;
+};
+
+// Admin get NPC template request (by id or name)
+struct admin_get_npc_template_request_data {
+    uint32_t npc_id{0};
+    std::string npc_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_npc_template_request_data, std::string>;
+};
+
+// Admin search players request
+struct admin_search_players_request_data {
+    std::string query;
+    std::optional<int16_t> level_min;
+    std::optional<int16_t> level_max;
+    std::string map_name;
+    std::optional<int> faction;
+    std::string guild_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_search_players_request_data, std::string>;
+};
+
+// === Admin Web Tool - Phase 3 request data ===
+
+// Audit log request
+struct admin_get_audit_log_request_data {
+    int32_t count{100};
+    std::string executor_name;  // Optional filter
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_audit_log_request_data, std::string>;
+};
+
+// Config set request
+struct admin_set_config_request_data {
+    nlohmann::json values;  // Dot-notation key → value pairs
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_set_config_request_data, std::string>;
+};
+
+// Cancel scheduled task request
+struct admin_cancel_scheduled_task_request_data {
+    std::string tag;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_cancel_scheduled_task_request_data, std::string>;
+};
+
+// Run canned query request
+struct admin_run_query_request_data {
+    std::string query_name;
+    nlohmann::json params;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_run_query_request_data, std::string>;
+};
+
+// List map NPCs request (reuses admin_get_map_request_data pattern)
+struct admin_list_map_npcs_request_data {
+    std::string map_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_list_map_npcs_request_data, std::string>;
+};
+
+// List map ground items request
+struct admin_list_map_ground_items_request_data {
+    std::string map_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_list_map_ground_items_request_data, std::string>;
+};
+
+// Remove ground item request
+struct admin_remove_ground_item_request_data {
+    std::string map_name;
+    int16_t x{0};
+    int16_t y{0};
+    uint32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_remove_ground_item_request_data, std::string>;
+};
+
+// Guild action request
+struct admin_guild_action_request_data {
+    std::string guild_name;
+    std::string action;          // "disband", "kick", "set_rank"
+    std::string target_player;   // For kick/set_rank
+    std::string rank;            // For set_rank: "master","officer","veteran","member","recruit"
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_guild_action_request_data, std::string>;
+};
+
+// Message player request
+struct admin_message_player_request_data {
+    std::string player_name;
+    std::string message;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_message_player_request_data, std::string>;
+};
+
+// Set environment request
+struct admin_set_environment_request_data {
+    std::string map_name;        // Empty = global
+    std::optional<int> weather;
+    std::optional<int> hour;
+    std::optional<int> minute;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_set_environment_request_data, std::string>;
+};
+
+// Shutdown server request
+struct admin_shutdown_server_request_data {
+    int32_t countdown_seconds{0};
+    std::string reason;
+    bool cancel{false};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_shutdown_server_request_data, std::string>;
+};
+
+// === Admin Web Tool - Phase 4 request data ===
+
+// Skill management request
+struct admin_modify_skills_request_data {
+    std::string player_name;
+    std::string action;       // "set", "reset", "reset_all", "add_exp"
+    int32_t skill_type{0};
+    int32_t value{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_modify_skills_request_data, std::string>;
+};
+
+// Spell management request
+struct admin_modify_spells_request_data {
+    std::string player_name;
+    std::string action;       // "learn", "forget", "level_up", "reset_cooldowns"
+    uint32_t spell_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_modify_spells_request_data, std::string>;
+};
+
+// Quest inspection request
+struct admin_get_player_quests_request_data {
+    std::string player_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_player_quests_request_data, std::string>;
+};
+
+// Quest action request
+struct admin_quest_action_request_data {
+    std::string player_name;
+    std::string action;       // "accept", "abandon", "complete"
+    uint32_t quest_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_quest_action_request_data, std::string>;
+};
+
+// Effect removal request
+struct admin_remove_effects_request_data {
+    std::string player_name;
+    std::string mode;         // "all", "group", "single"
+    int32_t group{0};
+    int32_t effect_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_remove_effects_request_data, std::string>;
+};
+
+// Account creation request (admin)
+struct admin_create_account_request_data {
+    std::string username;
+    std::string password;
+    int32_t admin_level{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_create_account_request_data, std::string>;
+};
+
+// Password reset request (admin)
+struct admin_change_password_request_data {
+    std::string username;
+    std::string new_password;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_change_password_request_data, std::string>;
+};
+
+// Admin level change request
+struct admin_set_admin_level_request_data {
+    std::string username;
+    int32_t admin_level{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_set_admin_level_request_data, std::string>;
+};
+
+// Spawn point listing request
+struct admin_list_spawn_points_request_data {
+    std::string map_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_list_spawn_points_request_data, std::string>;
+};
+
+// Spell template detail request
+struct admin_get_spell_template_request_data {
+    uint32_t spell_id{0};
+    std::string spell_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_spell_template_request_data, std::string>;
+};
+
+// Maintenance mode request
+struct admin_set_maintenance_mode_request_data {
+    bool enabled{false};
+    std::string message;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_set_maintenance_mode_request_data, std::string>;
+};
+
+// Character creation request (admin)
+struct admin_create_character_request_admin_data {
+    std::string username;
+    std::string name;
+    int16_t gender{1};
+    int16_t hair_style{0};
+    int16_t hair_color{0};
+    int16_t skin_color{0};
+    int16_t underwear_color{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_create_character_request_admin_data, std::string>;
+};
+
+// Character deletion request (admin)
+struct admin_delete_character_request_admin_data {
+    std::string username;
+    std::string character_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_delete_character_request_admin_data, std::string>;
+};
+
+// IP ban management request
+struct admin_manage_ip_bans_request_data {
+    std::string action;       // "list", "add", "remove"
+    std::string ip;
+    std::string reason;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_manage_ip_bans_request_data, std::string>;
+};
+
+// Start task request
+struct admin_start_task_request_data {
+    std::string tag;
+    std::optional<int64_t> interval_ms;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_start_task_request_data, std::string>;
+};
 
 }  // namespace hb::network

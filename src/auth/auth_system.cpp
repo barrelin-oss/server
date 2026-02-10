@@ -436,6 +436,46 @@ auto auth_system::change_password(account_id id,
     return result<void, auth_error>::ok();
 }
 
+void auth_system::set_maintenance_mode(bool enabled, std::string_view message)
+{
+    maintenance_mode_ = enabled;
+    maintenance_message_ = std::string(message);
+    LOG_INFO(auth, "Maintenance mode {}: {}", enabled ? "enabled" : "disabled", message);
+}
+
+auto auth_system::admin_change_password(account_id id, std::string_view new_password)
+    -> result<void, auth_error>
+{
+    auto password_result = validate_password(new_password);
+    if (!password_result.valid) {
+        return result<void, auth_error>::err(auth_error::invalid_password_format);
+    }
+
+    auto hash_result = hash_password(new_password);
+    if (hash_result.is_err()) {
+        return result<void, auth_error>::err(auth_error::internal_error);
+    }
+
+    if (!database_) {
+        return result<void, auth_error>::err(auth_error::database_error);
+    }
+
+    auto db_result = database_->execute_params(
+        "UPDATE accounts SET password_hash = $1 WHERE id = $2",
+        hash_result.value(),
+        static_cast<int>(id.value)
+    );
+
+    if (db_result.is_err()) {
+        LOG_ERROR(auth, "Failed to admin-reset password: {}", db_result.error());
+        return result<void, auth_error>::err(auth_error::database_error);
+    }
+
+    invalidate_all_sessions(id);
+    LOG_INFO(auth, "Admin reset password for account {}", id.value);
+    return result<void, auth_error>::ok();
+}
+
 auto auth_system::get_account(account_id id) -> result<account, auth_error> {
     return db_get_account_by_id(id);
 }

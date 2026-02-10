@@ -396,7 +396,13 @@ void application::initialize() {
             &db_sys,
             subsystems().get<scheduler>(),
             subsystems().get<npc_registry>(),
-            subsystems().get<item_registry>()
+            subsystems().get<item_registry>(),
+            subsystems().get<war::war_system>(),
+            subsystems().get<effect::effect_system>(),
+            &config_sys,
+            subsystems().get<magic::magic_system>(),
+            subsystems().get<quest::quest_system>(),
+            subsystems().get<skill::skill_system>()
         );
 
         // Set save callback for death penalty persistence
@@ -544,6 +550,45 @@ void application::initialize() {
                 case network::json_message_type::admin_subscribe_map_request:
                 case network::json_message_type::admin_subscribe_player_request:
                 case network::json_message_type::admin_unsubscribe_request:
+                case network::json_message_type::admin_broadcast_request:
+                case network::json_message_type::admin_mute_player_request:
+                case network::json_message_type::admin_unmute_player_request:
+                case network::json_message_type::admin_list_item_templates_request:
+                case network::json_message_type::admin_get_item_template_request:
+                case network::json_message_type::admin_list_npc_templates_request:
+                case network::json_message_type::admin_get_npc_template_request:
+                case network::json_message_type::admin_get_war_status_request:
+                case network::json_message_type::admin_list_parties_request:
+                case network::json_message_type::admin_search_players_request:
+                case network::json_message_type::admin_get_audit_log_request:
+                case network::json_message_type::admin_get_config_request:
+                case network::json_message_type::admin_set_config_request:
+                case network::json_message_type::admin_reload_config_request:
+                case network::json_message_type::admin_list_scheduled_tasks_request:
+                case network::json_message_type::admin_cancel_scheduled_task_request:
+                case network::json_message_type::admin_run_query_request:
+                case network::json_message_type::admin_list_map_npcs_request:
+                case network::json_message_type::admin_list_map_ground_items_request:
+                case network::json_message_type::admin_remove_ground_item_request:
+                case network::json_message_type::admin_guild_action_request:
+                case network::json_message_type::admin_message_player_request:
+                case network::json_message_type::admin_set_environment_request:
+                case network::json_message_type::admin_shutdown_server_request:
+                case network::json_message_type::admin_modify_skills_request:
+                case network::json_message_type::admin_modify_spells_request:
+                case network::json_message_type::admin_get_player_quests_request:
+                case network::json_message_type::admin_quest_action_request:
+                case network::json_message_type::admin_remove_effects_request:
+                case network::json_message_type::admin_create_account_request:
+                case network::json_message_type::admin_change_password_request:
+                case network::json_message_type::admin_set_admin_level_request:
+                case network::json_message_type::admin_list_spawn_points_request:
+                case network::json_message_type::admin_list_spell_templates_request:
+                case network::json_message_type::admin_get_spell_template_request:
+                case network::json_message_type::admin_set_maintenance_mode_request:
+                case network::json_message_type::admin_create_character_request_admin:
+                case network::json_message_type::admin_delete_character_request_admin:
+                case network::json_message_type::admin_manage_ip_bans_request:
                     admin_web_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -588,22 +633,26 @@ void application::initialize() {
         }
     }
 
-    // Set up periodic auto-save if enabled
-    if (server_cfg.auto_save.enabled && auth_handlers_) {
+    // Register and start periodic auto-save if enabled
+    if (auth_handlers_) {
         auto* sched = subsystems().get<scheduler>();
         if (sched) {
             auto interval_ms = duration_ms{server_cfg.auto_save.interval_seconds * 1000};
-            auto_save_task_id_ = sched->schedule_repeating_tagged(
-                interval_ms,
-                "auto_save",
-                [this]() {
-                    if (auth_handlers_) {
-                        auth_handlers_->save_all_players();
-                    }
-                }
-            );
-            LOG_INFO(general, "Periodic auto-save scheduled every {} seconds",
-                server_cfg.auto_save.interval_seconds);
+            sched->register_task("auto_save",
+                "Periodic player state persistence to database",
+                interval_ms, true,
+                [this]() -> task_callback {
+                    return [this]() {
+                        if (auth_handlers_) {
+                            auth_handlers_->save_all_players();
+                        }
+                    };
+                });
+            if (server_cfg.auto_save.enabled) {
+                auto_save_task_id_ = sched->start_task("auto_save");
+                LOG_INFO(general, "Periodic auto-save scheduled every {} seconds",
+                    server_cfg.auto_save.interval_seconds);
+            }
         }
     }
 

@@ -47,14 +47,35 @@ namespace hb::combat {
     class combat_system;
 }
 
+namespace hb::war {
+    class war_system;
+}
+
+namespace hb::effect {
+    class effect_system;
+}
+
 namespace hb::database {
     class database_system;
+}
+
+namespace hb::magic {
+    class magic_system;
+}
+
+namespace hb::quest {
+    class quest_system;
+}
+
+namespace hb::skill {
+    class skill_system;
 }
 
 namespace hb {
     class scheduler;
     class npc_registry;
     class item_registry;
+    class config_system;
 }
 
 namespace hb::bridge {
@@ -77,7 +98,13 @@ public:
                     database::database_system* db,
                     scheduler* sched,
                     npc_registry* npc_reg,
-                    item_registry* item_reg);
+                    item_registry* item_reg,
+                    war::war_system* war,
+                    effect::effect_system* effects,
+                    config_system* config = nullptr,
+                    magic::magic_system* magic = nullptr,
+                    quest::quest_system* quest = nullptr,
+                    skill::skill_system* skill = nullptr);
 
     void handle_message(connection_id conn_id, const network::json_message& msg);
 
@@ -123,11 +150,59 @@ private:
     void handle_unsubscribe(connection_id conn_id, const network::json_message& msg);
     void send_spectator_init(connection_id conn_id, map_id map);
 
+    // New admin endpoints
+    void handle_broadcast(connection_id conn_id, const network::json_message& msg);
+    void handle_mute_player(connection_id conn_id, const network::json_message& msg);
+    void handle_unmute_player(connection_id conn_id, const network::json_message& msg);
+    void handle_list_item_templates(connection_id conn_id, const network::json_message& msg);
+    void handle_get_item_template(connection_id conn_id, const network::json_message& msg);
+    void handle_list_npc_templates(connection_id conn_id, const network::json_message& msg);
+    void handle_get_npc_template(connection_id conn_id, const network::json_message& msg);
+    void handle_get_war_status(connection_id conn_id, const network::json_message& msg);
+    void handle_list_parties(connection_id conn_id, const network::json_message& msg);
+    void handle_search_players(connection_id conn_id, const network::json_message& msg);
+
+    // Phase 3 admin endpoints
+    void handle_get_audit_log(connection_id conn_id, const network::json_message& msg);
+    void handle_get_config(connection_id conn_id, const network::json_message& msg);
+    void handle_set_config(connection_id conn_id, const network::json_message& msg);
+    void handle_reload_config(connection_id conn_id, const network::json_message& msg);
+    void handle_list_scheduled_tasks(connection_id conn_id, const network::json_message& msg);
+    void handle_cancel_scheduled_task(connection_id conn_id, const network::json_message& msg);
+    void handle_start_task(connection_id conn_id, const network::json_message& msg);
+    void handle_run_query(connection_id conn_id, const network::json_message& msg);
+    void handle_list_map_npcs(connection_id conn_id, const network::json_message& msg);
+    void handle_list_map_ground_items(connection_id conn_id, const network::json_message& msg);
+    void handle_remove_ground_item(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_action(connection_id conn_id, const network::json_message& msg);
+    void handle_message_player(connection_id conn_id, const network::json_message& msg);
+    void handle_set_environment(connection_id conn_id, const network::json_message& msg);
+    void handle_shutdown_server(connection_id conn_id, const network::json_message& msg);
+
+    // Phase 4 admin endpoints
+    void handle_modify_skills(connection_id conn_id, const network::json_message& msg);
+    void handle_modify_spells(connection_id conn_id, const network::json_message& msg);
+    void handle_get_player_quests(connection_id conn_id, const network::json_message& msg);
+    void handle_quest_action(connection_id conn_id, const network::json_message& msg);
+    void handle_remove_effects(connection_id conn_id, const network::json_message& msg);
+    void handle_create_account(connection_id conn_id, const network::json_message& msg);
+    void handle_change_password(connection_id conn_id, const network::json_message& msg);
+    void handle_set_admin_level(connection_id conn_id, const network::json_message& msg);
+    void handle_list_spawn_points(connection_id conn_id, const network::json_message& msg);
+    void handle_list_spell_templates(connection_id conn_id, const network::json_message& msg);
+    void handle_get_spell_template(connection_id conn_id, const network::json_message& msg);
+    void handle_set_maintenance_mode(connection_id conn_id, const network::json_message& msg);
+    void handle_create_character_admin(connection_id conn_id, const network::json_message& msg);
+    void handle_delete_character_admin(connection_id conn_id, const network::json_message& msg);
+    void handle_manage_ip_bans(connection_id conn_id, const network::json_message& msg);
+
     // Helpers
     void send_error(connection_id conn_id, uint32_t seq,
                     std::string_view error_code, std::string_view message);
     [[nodiscard]] auto require_admin(connection_id conn_id, uint32_t seq, uint8_t min_level = 10)
         -> network::ws_connection*;
+    void audit_log(connection_id conn_id, std::string_view action, bool success = true,
+                   std::string_view result = "");
 
     network::websocket_server* ws_server_{nullptr};
     auth::auth_system* auth_{nullptr};
@@ -143,6 +218,13 @@ private:
     scheduler* scheduler_{nullptr};
     npc_registry* npc_registry_{nullptr};
     item_registry* item_registry_{nullptr};
+    war::war_system* war_{nullptr};
+    effect::effect_system* effects_{nullptr};
+    config_system* config_{nullptr};
+    magic::magic_system* magic_{nullptr};
+    quest::quest_system* quest_{nullptr};
+    skill::skill_system* skill_{nullptr};
+    std::chrono::steady_clock::time_point start_time_{std::chrono::steady_clock::now()};
 };
 
 }  // namespace hb::bridge

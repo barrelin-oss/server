@@ -554,6 +554,132 @@ auto server_config::save_to_json(const std::filesystem::path& path) const
     return result<void, std::string>::ok();
 }
 
+auto server_config::to_json() const -> nlohmann::json {
+    nlohmann::json j;
+    j["server_name"] = server_name;
+    j["self_contained"] = self_contained;
+    j["enable_legacy_protocol"] = enable_legacy_protocol;
+    j["legacy_port"] = legacy_port;
+
+    j["database"] = {
+        {"host", database.host},
+        {"port", database.port},
+        {"database", database.database},
+        {"username", database.username},
+        {"password", database.password},
+        {"pool_size", database.pool_size},
+        {"connection_timeout_ms", database.connection_timeout.count()},
+        {"query_timeout_ms", database.query_timeout.count()}
+    };
+
+    j["websocket"] = {
+        {"bind_address", websocket.bind_address},
+        {"port", websocket.port},
+        {"max_connections", websocket.max_connections},
+        {"enable_ping", websocket.enable_ping},
+        {"ping_interval_seconds", websocket.ping_interval_seconds}
+    };
+
+    j["auth"] = {
+        {"max_characters_per_account", auth.max_characters_per_account},
+        {"session_duration_seconds", auth.session_duration.count()},
+        {"allow_registration", auth.allow_registration},
+        {"max_login_attempts", auth.max_login_attempts},
+        {"lockout_duration_seconds", auth.lockout_duration.count()}
+    };
+
+    j["forum_auth"] = {
+        {"enabled", forum_auth.enabled},
+        {"login_url", forum_auth.login_url},
+        {"validate_url", forum_auth.validate_url},
+        {"api_key", forum_auth.api_key}
+    };
+
+    j["auto_save"] = {
+        {"enabled", auto_save.enabled},
+        {"interval_seconds", auto_save.interval_seconds}
+    };
+
+    j["logging"] = {
+        {"console_level", logging.console_level},
+        {"file_level", logging.file_level},
+        {"log_directory", logging.log_directory},
+        {"log_file", logging.log_file},
+        {"max_file_size_mb", logging.max_file_size_mb},
+        {"max_files", logging.max_files}
+    };
+
+    return j;
+}
+
+auto server_config::to_json_sanitized() const -> nlohmann::json {
+    auto j = to_json();
+    if (j.contains("database") && j["database"].contains("password")) {
+        j["database"]["password"] = "***";
+    }
+    if (j.contains("forum_auth") && j["forum_auth"].contains("api_key")) {
+        j["forum_auth"]["api_key"] = "***";
+    }
+    return j;
+}
+
+auto server_config::apply_dot_values(const nlohmann::json& values)
+    -> result<std::vector<std::string>, std::string>
+{
+    std::vector<std::string> applied;
+
+    for (auto& [key, value] : values.items()) {
+        // Skip sentinel values
+        if (value.is_string() && value.get<std::string>() == "***") continue;
+
+        // Parse dot-notation: "section.field"
+        auto dot = key.find('.');
+        if (dot == std::string::npos) continue;
+
+        auto section = key.substr(0, dot);
+        auto field = key.substr(dot + 1);
+
+        bool matched = false;
+        if (section == "database") {
+            if (field == "host" && value.is_string()) { database.host = value; matched = true; }
+            else if (field == "port" && value.is_number()) { database.port = value; matched = true; }
+            else if (field == "database" && value.is_string()) { database.database = value; matched = true; }
+            else if (field == "username" && value.is_string()) { database.username = value; matched = true; }
+            else if (field == "password" && value.is_string()) { database.password = value; matched = true; }
+            else if (field == "pool_size" && value.is_number()) { database.pool_size = value; matched = true; }
+        } else if (section == "websocket") {
+            if (field == "bind_address" && value.is_string()) { websocket.bind_address = value; matched = true; }
+            else if (field == "port" && value.is_number()) { websocket.port = value; matched = true; }
+            else if (field == "max_connections" && value.is_number()) { websocket.max_connections = value; matched = true; }
+            else if (field == "enable_ping" && value.is_boolean()) { websocket.enable_ping = value; matched = true; }
+            else if (field == "ping_interval_seconds" && value.is_number()) { websocket.ping_interval_seconds = value; matched = true; }
+        } else if (section == "auth") {
+            if (field == "allow_registration" && value.is_boolean()) { auth.allow_registration = value; matched = true; }
+            else if (field == "max_login_attempts" && value.is_number()) { auth.max_login_attempts = value; matched = true; }
+        } else if (section == "auto_save") {
+            if (field == "enabled" && value.is_boolean()) { auto_save.enabled = value; matched = true; }
+            else if (field == "interval_seconds" && value.is_number()) { auto_save.interval_seconds = value; matched = true; }
+        } else if (section == "logging") {
+            if (field == "console_level" && value.is_string()) { logging.console_level = value; matched = true; }
+            else if (field == "file_level" && value.is_string()) { logging.file_level = value; matched = true; }
+        } else if (section == "forum_auth") {
+            if (field == "enabled" && value.is_boolean()) { forum_auth.enabled = value; matched = true; }
+            else if (field == "api_key" && value.is_string()) { forum_auth.api_key = value; matched = true; }
+        }
+
+        if (matched) applied.push_back(key);
+    }
+
+    return result<std::vector<std::string>, std::string>::ok(std::move(applied));
+}
+
+auto server_config::requires_restart(std::string_view key) -> bool {
+    return key.starts_with("database.") ||
+           key.starts_with("websocket.") ||
+           key == "enable_legacy_protocol" ||
+           key == "legacy_port";
+}
+
 auto game_config::load_from_file(const std::filesystem::path& path)
     -> result<game_config, std::string>
 {

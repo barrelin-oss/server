@@ -331,9 +331,11 @@ void admin_web_handlers::handle_list_players(connection_id conn_id, const networ
                     cj["active"] = false;
 
                     // If this character is the one in-game, overlay live data
-                    if (entry.in_game && ch.id == entry.active_player) {
+                    // Note: entry.active_player is runtime player_id, ch.id is DB character_id
+                    // Compare via player->character_id to match correctly
+                    if (entry.in_game) {
                         auto* plr = players_ ? players_->get_player(entry.active_player) : nullptr;
-                        if (plr) {
+                        if (plr && ch.id == plr->character_id) {
                             cj["active"] = true;
                             cj["level"] = plr->experience.level;
                             cj["map"] = world_ ? [&]() -> std::string {

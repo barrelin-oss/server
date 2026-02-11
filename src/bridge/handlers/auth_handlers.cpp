@@ -1208,6 +1208,7 @@ auto auth_handlers::build_visible_entities(player_id player_id)
                 .hp_percent = n.max_hp > 0 ? static_cast<int16_t>((n.hp * 100) / n.max_hp) : static_cast<int16_t>(100),
                 .direction = static_cast<int16_t>(n.facing),
                 .template_id = n.template_id.value,
+                .sprite_id = n.sprite_id,
                 .level = n.level
             });
         });

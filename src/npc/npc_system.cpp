@@ -254,12 +254,13 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
         stats.move_speed = new_npc->move_speed;
     }
 
-    // Add to spatial index
+    // Add to spatial index and mark as occupant
     auto* world = subsystems().get<world::world_subsystem>();
     if (world) {
         auto* m = world->get_map(map);
         if (m) {
             m->spatial().add(hb::entity_id{eid.index()}, pos);
+            m->set_occupant(pos, hb::entity_id{eid.index()}, world::owner_type::npc);
         }
     }
 
@@ -387,12 +388,13 @@ void npc_system::despawn_npc(entity::entity id) {
     // Stop scripts
     script_executor_.stop(id);
 
-    // Remove from spatial index
+    // Remove from spatial index and clear occupant
     auto* world = subsystems().get<world::world_subsystem>();
     if (world) {
         auto* m = world->get_map(npc_ref.current_map);
         if (m) {
             m->spatial().remove(hb::entity_id{id.index()});
+            m->clear_occupant(npc_ref.pos);
         }
     }
 
@@ -1074,12 +1076,28 @@ void npc_system::try_move_npc(npc& npc_ref, hb::world::position new_pos) {
         return;
     }
 
+    // Get the map
+    auto* m = world ? world->get_map(npc_ref.current_map) : nullptr;
+    if (!m) return;
+
+    // Check if new position is occupied by another alive entity
+    auto occupant = m->get_occupant(new_pos);
+    if (occupant.has_value() && occupant.value().value != 0) {
+        return;  // Blocked by another entity
+    }
+
+    // Clear old position's occupant
+    m->clear_occupant(npc_ref.pos);
+
     // Update position
     auto old_pos = npc_ref.pos;
     npc_ref.pos = new_pos;
     if (auto dir = hb::world::direction_to(old_pos, new_pos)) {
         npc_ref.facing = *dir;
     }
+
+    // Set new position's occupant
+    m->set_occupant(new_pos, hb::entity_id{npc_ref.entity_id.index()}, world::owner_type::npc);
 
     // Update transform component
     if (entity_manager_) {
@@ -1090,12 +1108,7 @@ void npc_system::try_move_npc(npc& npc_ref, hb::world::position new_pos) {
     }
 
     // Update spatial index
-    if (world) {
-        auto* m = world->get_map(npc_ref.current_map);
-        if (m) {
-            m->spatial().update(hb::entity_id{npc_ref.entity_id.index()}, new_pos);
-        }
-    }
+    m->spatial().update(hb::entity_id{npc_ref.entity_id.index()}, new_pos);
 
     // Invoke move callback
     if (on_move_callback_) {

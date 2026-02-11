@@ -2982,7 +2982,28 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
                 .direction = static_cast<int16_t>(p->facing)
             });
         }
-        // TODO: Also include NPCs from npc_system when available
+    }
+
+    // Include NPCs from npc_system
+    if (npc_) {
+        npc_->for_each_npc_on_map(map, [&](auto /*id*/, const hb::npc::npc& n) {
+            // Rect-filter: skip NPCs outside the rectangular viewport
+            if (std::abs(n.pos.x - pos.x) > visibility_radius_x
+                || std::abs(n.pos.y - pos.y) > visibility_radius_y) return;
+
+            entities.push_back(network::visible_entity_msg{
+                .entity_id = n.entity_id.id,
+                .type = "npc",
+                .name = n.name,
+                .x = n.pos.x,
+                .y = n.pos.y,
+                .hp_percent = static_cast<int16_t>(n.hp_percent() * 100),
+                .direction = static_cast<int16_t>(n.facing),
+                .template_id = n.template_id.value,
+                .sprite_id = n.sprite_id,
+                .level = n.level
+            });
+        });
     }
 
     return entities;
@@ -3017,6 +3038,23 @@ auto spell_element_to_damage_type_string(magic::spell_element elem) -> std::stri
         case magic::spell_element::holy:      return "holy";
         case magic::spell_element::dark:      return "dark";
         default: return "magic";
+    }
+}
+
+auto npc_category_to_string(hb::npc::npc_category category) -> std::string_view
+{
+    switch (category) {
+        case hb::npc::npc_category::monster:    return "monster";
+        case hb::npc::npc_category::boss:       return "boss";
+        case hb::npc::npc_category::guard:      return "guard";
+        case hb::npc::npc_category::merchant:   return "merchant";
+        case hb::npc::npc_category::quest:      return "quest";
+        case hb::npc::npc_category::trainer:    return "trainer";
+        case hb::npc::npc_category::banker:     return "banker";
+        case hb::npc::npc_category::warehouse:  return "warehouse";
+        case hb::npc::npc_category::pet:        return "pet";
+        case hb::npc::npc_category::summon:     return "summon";
+        default: return "unknown";
     }
 }
 
@@ -3526,6 +3564,7 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n) {
     network::npc_spawn_data data{
         .entity_id = n.entity_id.id,
         .template_id = n.template_id.value,
+        .sprite_id = n.sprite_id,
         .name = n.name,
         .x = n.pos.x,
         .y = n.pos.y,
@@ -3965,7 +4004,8 @@ void game_handlers::handle_entity_info_request(connection_id conn_id, const netw
 
             // NPC-specific fields
             response.template_id = target_npc->template_id.value;
-            // TODO: Add npc_type based on template flags when available
+            response.sprite_id = target_npc->sprite_id;
+            response.npc_type = std::string(npc_category_to_string(target_npc->category));
 
             conn->send(network::make_entity_info_response(msg.seq, true, &response));
             LOG_DEBUG(bridge, "Player {} requested info about NPC {} ({})",

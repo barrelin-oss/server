@@ -1040,6 +1040,7 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
     // Include NPC-specific fields only for NPCs
     if (type == "npc") {
         j["template_id"] = template_id;
+        j["sprite_id"] = sprite_id;
         j["level"] = level;
     }
 
@@ -1868,6 +1869,7 @@ auto npc_spawn_data::to_json() const -> nlohmann::json {
     return nlohmann::json{
         {"entity_id", entity_id},
         {"template_id", template_id},
+        {"sprite_id", sprite_id},
         {"name", name},
         {"x", x},
         {"y", y},
@@ -2098,6 +2100,9 @@ auto entity_info_response_data::to_json() const -> nlohmann::json {
     // Add NPC-specific fields if present
     if (template_id.has_value()) {
         j["template_id"] = *template_id;
+    }
+    if (sprite_id.has_value()) {
+        j["sprite_id"] = *sprite_id;
     }
     if (npc_type.has_value()) {
         j["npc_type"] = *npc_type;

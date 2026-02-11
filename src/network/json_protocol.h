@@ -918,6 +918,7 @@ struct visible_entity_msg {
 
     // NPC-specific fields (optional, only used when type == "npc")
     uint32_t template_id{0};
+    int16_t sprite_id{0};       // Legacy sprite type for client rendering (10=Slime, etc.)
     int16_t level{0};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
@@ -1217,6 +1218,7 @@ struct combat_effect_data {
 struct npc_spawn_data {
     uint32_t entity_id{0};
     uint32_t template_id{0};
+    int16_t sprite_id{0};       // Legacy sprite type for client rendering (10=Slime, etc.)
     std::string name;
     int16_t x{0};
     int16_t y{0};
@@ -1375,6 +1377,7 @@ struct entity_info_response_data {
 
     // NPC-specific fields
     std::optional<uint32_t> template_id;
+    std::optional<int16_t> sprite_id;         // Legacy sprite type for client rendering
     std::optional<std::string> npc_type;      // "monster", "vendor", "guard", etc.
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;

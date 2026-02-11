@@ -266,7 +266,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Guild MOTD | ✅ | Message of the day |
 | Party XP share | ✅ | Party exp sharing with original bonus table, equal split + level-weighted modes |
 | Guild warehouse | ❌ | Shared storage |
-| Friend list | ❌ | Add, remove, online status |
+| Friend list | ✅ | Add, remove, block/unblock, online status, DB persistence |
 
 ---
 
@@ -445,6 +445,15 @@ Priority order for remaining work toward a playable game:
   - DEX * 2 skill cap, chance starts at 1% and fluctuates based on skill vs difficulty dice rolls
   - Up to 30 players can fish the same node; caught fish deletes node and notifies all engaged players
   - 17 new tests (1330 total)
+- **Friend List System** - Friend requests, accept/decline, remove, block/unblock with online status tracking
+  - Friend request flow: send → accept/decline/cancel, auto-accept when reverse request exists
+  - Blocking is unidirectional: removes existing friendship and pending requests, prevents new requests
+  - Database persistence: 3 tables (friend_requests, friends with normalized ordering, friend_blocks)
+  - Online/offline notifications sent to accepted friends via auth lifecycle hooks
+  - `friend.h`: friend_entry, friend_request, friend_result enum (11 values)
+  - 20 new protocol messages: 8 request/response pairs + 4 push notifications
+  - 8 game_handlers: send/accept/decline/cancel request, remove, block, unblock, list
+  - 44 new tests (1374 total)
 
 ### 2026-02-09 (b)
 - **Admin Panel API Phase 3** - 14 new request/response pairs for advanced server management

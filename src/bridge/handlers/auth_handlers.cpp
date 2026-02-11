@@ -234,10 +234,23 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
         // Save player state
         save_player_state(pid);
 
-        // Disconnect from guild
+        // Disconnect from guild and friends
         if (social_ && players_) {
             auto* player = players_->get_player(pid);
             if (player) {
+                // Notify online friends before disconnecting
+                auto* friends = social_->get_friends(player->character_id);
+                if (friends && ws_server_) {
+                    for (const auto& f : *friends) {
+                        if (f.is_online()) {
+                            auto* friend_conn = ws_server_->get_connection_by_player(f.runtime_id);
+                            if (friend_conn) {
+                                friend_conn->send(network::make_friend_offline_notification(player->name));
+                            }
+                        }
+                    }
+                }
+                social_->disconnect_friend(pid, player->character_id);
                 social_->disconnect_guild_member(pid, player->character_id);
             }
             social_->unregister_player(pid);
@@ -730,6 +743,22 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                         auto* member = g->get_member(live_player_id);
                         if (member)
                             player->guild_rank = static_cast<uint8_t>(member->rank);
+                    }
+                }
+
+                // Connect friend list
+                social_->connect_friend(char_id, live_player_id, char_data.name);
+
+                // Notify online friends that this player came online
+                auto* friends = social_->get_friends(char_id);
+                if (friends && ws_server_) {
+                    for (const auto& f : *friends) {
+                        if (f.is_online()) {
+                            auto* friend_conn = ws_server_->get_connection_by_player(f.runtime_id);
+                            if (friend_conn) {
+                                friend_conn->send(network::make_friend_online_notification(char_data.name));
+                            }
+                        }
                     }
                 }
             }
@@ -1427,10 +1456,23 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
     // Save player state
     save_player_state(pid);
 
-    // Disconnect from guild (before removing player)
+    // Disconnect from guild and friends (before removing player)
     if (social_) {
         auto* player = players_ ? players_->get_player(pid) : nullptr;
         if (player) {
+            // Notify online friends before disconnecting
+            auto* friends = social_->get_friends(player->character_id);
+            if (friends && ws_server_) {
+                for (const auto& f : *friends) {
+                    if (f.is_online()) {
+                        auto* friend_conn = ws_server_->get_connection_by_player(f.runtime_id);
+                        if (friend_conn) {
+                            friend_conn->send(network::make_friend_offline_notification(player->name));
+                        }
+                    }
+                }
+            }
+            social_->disconnect_friend(pid, player->character_id);
             social_->disconnect_guild_member(pid, player->character_id);
         }
         social_->unregister_player(pid);

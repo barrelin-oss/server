@@ -481,6 +481,32 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             handle_fish_catch_request(conn_id, msg);
             break;
 
+        // Friends
+        case network::json_message_type::friend_request_send_request:
+            handle_friend_request_send(conn_id, msg);
+            break;
+        case network::json_message_type::friend_request_accept_request:
+            handle_friend_request_accept(conn_id, msg);
+            break;
+        case network::json_message_type::friend_request_decline_request:
+            handle_friend_request_decline(conn_id, msg);
+            break;
+        case network::json_message_type::friend_request_cancel_request:
+            handle_friend_request_cancel(conn_id, msg);
+            break;
+        case network::json_message_type::friend_remove_request:
+            handle_friend_remove(conn_id, msg);
+            break;
+        case network::json_message_type::friend_block_request:
+            handle_friend_block(conn_id, msg);
+            break;
+        case network::json_message_type::friend_unblock_request:
+            handle_friend_unblock(conn_id, msg);
+            break;
+        case network::json_message_type::friend_list_request:
+            handle_friend_list(conn_id, msg);
+            break;
+
         // Death/Respawn
         case network::json_message_type::respawn_request:
             handle_respawn_request(conn_id, msg);
@@ -4772,6 +4798,316 @@ void game_handlers::handle_fish_catch_request(connection_id conn_id,
     // attempt_catch handles all validation and fires callbacks
     fishing_->attempt_catch(entity_id(pid.value));
     // Response sent via catch_complete_callback
+}
+
+// ========== Friend System Handlers ==========
+
+void game_handlers::handle_friend_request_send(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::friend_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    // Look up target character
+    auto [target_char_id, target_name] = social_->lookup_character_by_name(data_result.value().target_name);
+    if (!target_char_id.is_valid()) {
+        conn->send(network::make_friend_response(msg.seq,
+            network::json_message_type::friend_request_send_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto result = social_->send_friend_request(plr->character_id, target_char_id);
+    bool success = result == social::friend_result::success;
+    conn->send(network::make_friend_response(msg.seq,
+        network::json_message_type::friend_request_send_response,
+        success, std::string(social::to_string_view(result))));
+
+    // If success, notify target if online
+    if (success) {
+        auto target_runtime = social_->get_friend_runtime_id(target_char_id);
+        if (target_runtime.is_valid()) {
+            auto* target_conn = ws_server_->get_connection_by_player(target_runtime);
+            if (target_conn) {
+                target_conn->send(network::make_friend_request_notification(plr->name));
+            }
+        }
+    }
+}
+
+void game_handlers::handle_friend_request_accept(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::friend_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto [requester_char_id, requester_name] = social_->lookup_character_by_name(data_result.value().target_name);
+    if (!requester_char_id.is_valid()) {
+        conn->send(network::make_friend_response(msg.seq,
+            network::json_message_type::friend_request_accept_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto result = social_->accept_friend_request(plr->character_id, requester_char_id);
+    bool success = result == social::friend_result::success;
+    conn->send(network::make_friend_response(msg.seq,
+        network::json_message_type::friend_request_accept_response,
+        success, std::string(social::to_string_view(result))));
+
+    // If success, notify requester if online
+    if (success) {
+        auto requester_runtime = social_->get_friend_runtime_id(requester_char_id);
+        if (requester_runtime.is_valid()) {
+            auto* req_conn = ws_server_->get_connection_by_player(requester_runtime);
+            if (req_conn) {
+                req_conn->send(network::make_friend_accepted_notification(plr->name));
+            }
+        }
+    }
+}
+
+void game_handlers::handle_friend_request_decline(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::friend_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto [requester_char_id, _] = social_->lookup_character_by_name(data_result.value().target_name);
+    if (!requester_char_id.is_valid()) {
+        conn->send(network::make_friend_response(msg.seq,
+            network::json_message_type::friend_request_decline_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto result = social_->decline_friend_request(plr->character_id, requester_char_id);
+    bool success = result == social::friend_result::success;
+    conn->send(network::make_friend_response(msg.seq,
+        network::json_message_type::friend_request_decline_response,
+        success, std::string(social::to_string_view(result))));
+}
+
+void game_handlers::handle_friend_request_cancel(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::friend_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto [target_char_id, _] = social_->lookup_character_by_name(data_result.value().target_name);
+    if (!target_char_id.is_valid()) {
+        conn->send(network::make_friend_response(msg.seq,
+            network::json_message_type::friend_request_cancel_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto result = social_->cancel_friend_request(plr->character_id, target_char_id);
+    bool success = result == social::friend_result::success;
+    conn->send(network::make_friend_response(msg.seq,
+        network::json_message_type::friend_request_cancel_response,
+        success, std::string(social::to_string_view(result))));
+}
+
+void game_handlers::handle_friend_remove(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::friend_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto [target_char_id, _] = social_->lookup_character_by_name(data_result.value().target_name);
+    if (!target_char_id.is_valid()) {
+        conn->send(network::make_friend_response(msg.seq,
+            network::json_message_type::friend_remove_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto result = social_->remove_friend(plr->character_id, target_char_id);
+    bool success = result == social::friend_result::success;
+    conn->send(network::make_friend_response(msg.seq,
+        network::json_message_type::friend_remove_response,
+        success, std::string(social::to_string_view(result))));
+}
+
+void game_handlers::handle_friend_block(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::friend_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto [target_char_id, _] = social_->lookup_character_by_name(data_result.value().target_name);
+    if (!target_char_id.is_valid()) {
+        conn->send(network::make_friend_response(msg.seq,
+            network::json_message_type::friend_block_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto result = social_->block_player_friend(plr->character_id, target_char_id);
+    bool success = result == social::friend_result::success;
+    conn->send(network::make_friend_response(msg.seq,
+        network::json_message_type::friend_block_response,
+        success, std::string(social::to_string_view(result))));
+}
+
+void game_handlers::handle_friend_unblock(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::friend_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto [target_char_id, _] = social_->lookup_character_by_name(data_result.value().target_name);
+    if (!target_char_id.is_valid()) {
+        conn->send(network::make_friend_response(msg.seq,
+            network::json_message_type::friend_unblock_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto result = social_->unblock_player_friend(plr->character_id, target_char_id);
+    bool success = result == social::friend_result::success;
+    conn->send(network::make_friend_response(msg.seq,
+        network::json_message_type::friend_unblock_response,
+        success, std::string(social::to_string_view(result))));
+}
+
+void game_handlers::handle_friend_list(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto char_id = plr->character_id;
+
+    // Build friend list
+    std::vector<network::friend_list_entry_msg> friends_list;
+    auto* friends = social_->get_friends(char_id);
+    if (friends) {
+        for (const auto& f : *friends) {
+            network::friend_list_entry_msg entry;
+            entry.name = f.name;
+            entry.is_online = f.is_online();
+            friends_list.push_back(std::move(entry));
+        }
+    }
+
+    // Build incoming requests
+    std::vector<network::friend_request_msg> incoming;
+    auto* in_reqs = social_->get_incoming_requests(char_id);
+    if (in_reqs) {
+        for (const auto& r : *in_reqs) {
+            network::friend_request_msg req_msg;
+            req_msg.name = r.requester_name;
+            incoming.push_back(std::move(req_msg));
+        }
+    }
+
+    // Build outgoing requests
+    std::vector<network::friend_request_msg> outgoing;
+    auto* out_reqs = social_->get_outgoing_requests(char_id);
+    if (out_reqs) {
+        for (const auto& r : *out_reqs) {
+            network::friend_request_msg req_msg;
+            req_msg.name = r.requestee_name;
+            if (req_msg.name.empty()) {
+                // Fallback: look up from online players
+                auto target_runtime = social_->get_friend_runtime_id(r.requestee_char_id);
+                if (target_runtime.is_valid() && players_) {
+                    auto* target_plr = players_->get_player(target_runtime);
+                    if (target_plr) req_msg.name = target_plr->name;
+                }
+            }
+            outgoing.push_back(std::move(req_msg));
+        }
+    }
+
+    // Build blocked list
+    std::vector<std::string> blocked;
+    auto* block_set = social_->get_blocked_players(char_id);
+    if (block_set) {
+        for (auto blocked_char_id : *block_set) {
+            auto name = social_->lookup_character_name(blocked_char_id);
+            blocked.push_back(name.empty() ? "Unknown" : name);
+        }
+    }
+
+    conn->send(network::make_friend_list_response(msg.seq,
+        friends_list, incoming, outgoing, blocked));
 }
 
 }  // namespace hb::bridge

@@ -175,6 +175,16 @@ private:
     void handle_fish_skill_request(connection_id conn_id, const network::json_message& msg);
     void handle_fish_catch_request(connection_id conn_id, const network::json_message& msg);
 
+    // Friends
+    void handle_friend_request_send(connection_id conn_id, const network::json_message& msg);
+    void handle_friend_request_accept(connection_id conn_id, const network::json_message& msg);
+    void handle_friend_request_decline(connection_id conn_id, const network::json_message& msg);
+    void handle_friend_request_cancel(connection_id conn_id, const network::json_message& msg);
+    void handle_friend_remove(connection_id conn_id, const network::json_message& msg);
+    void handle_friend_block(connection_id conn_id, const network::json_message& msg);
+    void handle_friend_unblock(connection_id conn_id, const network::json_message& msg);
+    void handle_friend_list(connection_id conn_id, const network::json_message& msg);
+
     // Death/Respawn
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
 

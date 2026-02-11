@@ -88,6 +88,13 @@ void social_system::shutdown() {
     player_rate_limits_.clear();
     player_names_.clear();
 
+    incoming_requests_.clear();
+    outgoing_requests_.clear();
+    character_friends_.clear();
+    character_blocks_.clear();
+    friend_char_to_runtime_.clear();
+    friend_runtime_to_char_.clear();
+
     guild_created_callbacks_.clear();
     party_created_callbacks_.clear();
     chat_callbacks_.clear();
@@ -1314,6 +1321,608 @@ auto social_system::generate_guild_id() -> guild_id {
 
 auto social_system::generate_party_id() -> party_id {
     return party_id{next_party_id_++};
+}
+
+// ========== Friend Operations ==========
+
+auto social_system::load_friends_from_database() -> result<void, std::string> {
+    if (!database_) {
+        return result<void, std::string>::err("No database configured");
+    }
+
+    // Load friend requests
+    auto req_result = database_->execute_params(
+        "SELECT fr.requester_id, fr.requestee_id, fr.created_at, "
+        "cr.name AS requester_name, ce.name AS requestee_name "
+        "FROM friend_requests fr "
+        "JOIN characters cr ON fr.requester_id = cr.id "
+        "JOIN characters ce ON fr.requestee_id = ce.id "
+        "ORDER BY fr.created_at");
+
+    if (req_result.is_err()) {
+        return result<void, std::string>::err("Failed to load friend requests: " + req_result.error());
+    }
+
+    auto& req_rows = req_result.value();
+    for (size_t i = 0; i < req_rows.size(); ++i) {
+        friend_request req;
+        req.requester_char_id = player_id{static_cast<uint32_t>(req_rows.get<int>(i, "requester_id"))};
+        req.requestee_char_id = player_id{static_cast<uint32_t>(req_rows.get<int>(i, "requestee_id"))};
+        req.requester_name = req_rows.get<std::string>(i, "requester_name");
+        req.requestee_name = req_rows.get<std::string>(i, "requestee_name");
+
+        incoming_requests_[req.requestee_char_id].push_back(req);
+        outgoing_requests_[req.requester_char_id].push_back(req);
+    }
+
+    // Load accepted friendships
+    auto friends_result = database_->execute_params(
+        "SELECT f.character_a, f.character_b, f.created_at, ca.name AS name_a, cb.name AS name_b "
+        "FROM friends f "
+        "JOIN characters ca ON f.character_a = ca.id "
+        "JOIN characters cb ON f.character_b = cb.id "
+        "ORDER BY f.created_at");
+
+    if (friends_result.is_err()) {
+        return result<void, std::string>::err("Failed to load friends: " + friends_result.error());
+    }
+
+    auto& friends_rows = friends_result.value();
+    for (size_t i = 0; i < friends_rows.size(); ++i) {
+        auto char_a = player_id{static_cast<uint32_t>(friends_rows.get<int>(i, "character_a"))};
+        auto char_b = player_id{static_cast<uint32_t>(friends_rows.get<int>(i, "character_b"))};
+        auto name_a = friends_rows.get<std::string>(i, "name_a");
+        auto name_b = friends_rows.get<std::string>(i, "name_b");
+
+        // Add B as a friend of A
+        friend_entry entry_b;
+        entry_b.character_id = char_b;
+        entry_b.name = name_b;
+        character_friends_[char_a].push_back(entry_b);
+
+        // Add A as a friend of B
+        friend_entry entry_a;
+        entry_a.character_id = char_a;
+        entry_a.name = name_a;
+        character_friends_[char_b].push_back(entry_a);
+    }
+
+    // Load blocks
+    auto blocks_result = database_->execute_params(
+        "SELECT blocker_id, blocked_id FROM friend_blocks");
+
+    if (blocks_result.is_err()) {
+        return result<void, std::string>::err("Failed to load friend blocks: " + blocks_result.error());
+    }
+
+    auto& blocks_rows = blocks_result.value();
+    for (size_t i = 0; i < blocks_rows.size(); ++i) {
+        auto blocker = player_id{static_cast<uint32_t>(blocks_rows.get<int>(i, "blocker_id"))};
+        auto blocked = player_id{static_cast<uint32_t>(blocks_rows.get<int>(i, "blocked_id"))};
+        character_blocks_[blocker].insert(blocked);
+    }
+
+    LOG_INFO(general, "Loaded friend data: {} requests, {} friendships, {} blocks",
+        req_rows.size(), friends_rows.size(), blocks_rows.size());
+    return result<void, std::string>::ok();
+}
+
+void social_system::connect_friend(player_id character_id, player_id runtime_id, const std::string& name) {
+    friend_char_to_runtime_[character_id] = runtime_id;
+    friend_runtime_to_char_[runtime_id] = character_id;
+
+    // Update name on friend entries (in case it changed)
+    auto& friends = character_friends_[character_id];
+    for (auto& f : friends) {
+        // Update runtime_id on each friend's entry for this player
+        auto friend_it = character_friends_.find(f.character_id);
+        if (friend_it != character_friends_.end()) {
+            for (auto& fe : friend_it->second) {
+                if (fe.character_id == character_id) {
+                    fe.runtime_id = runtime_id;
+                    fe.name = name;
+                    break;
+                }
+            }
+        }
+        // Update this friend's runtime_id from the lookup
+        auto rt_it = friend_char_to_runtime_.find(f.character_id);
+        if (rt_it != friend_char_to_runtime_.end()) {
+            f.runtime_id = rt_it->second;
+        }
+    }
+
+    LOG_DEBUG(general, "Friend system: '{}' connected (char_id={}, runtime_id={})",
+        name, character_id.value, runtime_id.value);
+}
+
+void social_system::disconnect_friend(player_id runtime_id, player_id character_id) {
+    // Clear runtime_id on all friends' entries for this player
+    auto friends_it = character_friends_.find(character_id);
+    if (friends_it != character_friends_.end()) {
+        for (auto& f : friends_it->second) {
+            auto friend_friends_it = character_friends_.find(f.character_id);
+            if (friend_friends_it != character_friends_.end()) {
+                for (auto& fe : friend_friends_it->second) {
+                    if (fe.character_id == character_id) {
+                        fe.runtime_id = player_id{};
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    friend_char_to_runtime_.erase(character_id);
+    friend_runtime_to_char_.erase(runtime_id);
+}
+
+auto social_system::send_friend_request(player_id requester_char_id, player_id target_char_id) -> friend_result {
+    if (requester_char_id == target_char_id) {
+        return friend_result::cannot_add_self;
+    }
+
+    // Check if blocked by target
+    if (is_blocked_friend(target_char_id, requester_char_id)) {
+        return friend_result::is_blocked;
+    }
+
+    // Check if already friends
+    if (are_friends(requester_char_id, target_char_id)) {
+        return friend_result::already_friends;
+    }
+
+    // Check if request already exists (either direction)
+    if (has_pending_request(requester_char_id, target_char_id)) {
+        return friend_result::request_already_exists;
+    }
+
+    // Check friend limit for requester
+    if (friend_count(requester_char_id) >= friend_config_.max_friends) {
+        return friend_result::friend_limit_reached;
+    }
+
+    // Check friend limit for target
+    if (friend_count(target_char_id) >= friend_config_.max_friends) {
+        return friend_result::target_limit_reached;
+    }
+
+    // If target already sent us a request, auto-accept
+    if (has_pending_request(target_char_id, requester_char_id)) {
+        return accept_friend_request(requester_char_id, target_char_id);
+    }
+
+    // Get names
+    std::string requester_name;
+    std::string target_name;
+    if (player_system_) {
+        auto rt_it = friend_char_to_runtime_.find(requester_char_id);
+        if (rt_it != friend_char_to_runtime_.end()) {
+            auto* p = player_system_->get_player(rt_it->second);
+            if (p) requester_name = p->name;
+        }
+        auto rt_target = friend_char_to_runtime_.find(target_char_id);
+        if (rt_target != friend_char_to_runtime_.end()) {
+            auto* p = player_system_->get_player(rt_target->second);
+            if (p) target_name = p->name;
+        }
+    }
+    // If target name is empty (offline), look up from DB
+    if (target_name.empty() && database_) {
+        auto name_res = database_->execute_params(
+            "SELECT name FROM characters WHERE id = $1",
+            static_cast<int>(target_char_id.value));
+        if (name_res.is_ok() && name_res.value().size() > 0) {
+            target_name = name_res.value().get<std::string>(0, "name");
+        }
+    }
+
+    // Save to database
+    auto db_result = save_friend_request_db(requester_char_id, target_char_id);
+    if (db_result.is_err()) {
+        LOG_ERROR(general, "Failed to save friend request: {}", db_result.error());
+    }
+
+    // Add to in-memory maps
+    friend_request req;
+    req.requester_char_id = requester_char_id;
+    req.requestee_char_id = target_char_id;
+    req.requester_name = requester_name;
+    req.requestee_name = target_name;
+    req.created_at = std::chrono::system_clock::now();
+
+    incoming_requests_[target_char_id].push_back(req);
+    outgoing_requests_[requester_char_id].push_back(req);
+
+    LOG_DEBUG(general, "Friend request sent: char {} -> char {}", requester_char_id.value, target_char_id.value);
+    return friend_result::success;
+}
+
+auto social_system::accept_friend_request(player_id accepter_char_id, player_id requester_char_id) -> friend_result {
+    if (!has_pending_request(requester_char_id, accepter_char_id)) {
+        return friend_result::no_pending_request;
+    }
+
+    // Delete request from DB
+    auto del_result = delete_friend_request_db(requester_char_id, accepter_char_id);
+    if (del_result.is_err()) {
+        LOG_ERROR(general, "Failed to delete friend request: {}", del_result.error());
+    }
+
+    // Save friendship to DB
+    auto save_result = save_friend_relationship_db(requester_char_id, accepter_char_id);
+    if (save_result.is_err()) {
+        LOG_ERROR(general, "Failed to save friendship: {}", save_result.error());
+    }
+
+    // Remove from request maps
+    auto& incoming = incoming_requests_[accepter_char_id];
+    incoming.erase(
+        std::remove_if(incoming.begin(), incoming.end(),
+            [&](const friend_request& r) { return r.requester_char_id == requester_char_id; }),
+        incoming.end());
+
+    auto& outgoing = outgoing_requests_[requester_char_id];
+    outgoing.erase(
+        std::remove_if(outgoing.begin(), outgoing.end(),
+            [&](const friend_request& r) { return r.requestee_char_id == accepter_char_id; }),
+        outgoing.end());
+
+    // Get names
+    std::string requester_name;
+    std::string accepter_name;
+    player_id requester_runtime{};
+    player_id accepter_runtime{};
+
+    auto rt_req = friend_char_to_runtime_.find(requester_char_id);
+    if (rt_req != friend_char_to_runtime_.end()) {
+        requester_runtime = rt_req->second;
+        if (player_system_) {
+            auto* p = player_system_->get_player(requester_runtime);
+            if (p) requester_name = p->name;
+        }
+    }
+    auto rt_acc = friend_char_to_runtime_.find(accepter_char_id);
+    if (rt_acc != friend_char_to_runtime_.end()) {
+        accepter_runtime = rt_acc->second;
+        if (player_system_) {
+            auto* p = player_system_->get_player(accepter_runtime);
+            if (p) accepter_name = p->name;
+        }
+    }
+
+    // If names still unknown, try to find from request data or existing friends
+    if (requester_name.empty()) {
+        // Check if the request had a name
+        for (const auto& [_, reqs] : outgoing_requests_) {
+            for (const auto& r : reqs) {
+                if (r.requester_char_id == requester_char_id && !r.requester_name.empty()) {
+                    requester_name = r.requester_name;
+                    break;
+                }
+            }
+            if (!requester_name.empty()) break;
+        }
+    }
+
+    // Add bidirectional friend entries
+    friend_entry entry_for_accepter;
+    entry_for_accepter.character_id = requester_char_id;
+    entry_for_accepter.runtime_id = requester_runtime;
+    entry_for_accepter.name = requester_name;
+    entry_for_accepter.created_at = std::chrono::system_clock::now();
+    character_friends_[accepter_char_id].push_back(entry_for_accepter);
+
+    friend_entry entry_for_requester;
+    entry_for_requester.character_id = accepter_char_id;
+    entry_for_requester.runtime_id = accepter_runtime;
+    entry_for_requester.name = accepter_name;
+    entry_for_requester.created_at = std::chrono::system_clock::now();
+    character_friends_[requester_char_id].push_back(entry_for_requester);
+
+    LOG_DEBUG(general, "Friend request accepted: char {} accepted char {}", accepter_char_id.value, requester_char_id.value);
+    return friend_result::success;
+}
+
+auto social_system::decline_friend_request(player_id decliner_char_id, player_id requester_char_id) -> friend_result {
+    if (!has_pending_request(requester_char_id, decliner_char_id)) {
+        return friend_result::no_pending_request;
+    }
+
+    auto del_result = delete_friend_request_db(requester_char_id, decliner_char_id);
+    if (del_result.is_err()) {
+        LOG_ERROR(general, "Failed to delete friend request: {}", del_result.error());
+    }
+
+    // Remove from request maps
+    auto& incoming = incoming_requests_[decliner_char_id];
+    incoming.erase(
+        std::remove_if(incoming.begin(), incoming.end(),
+            [&](const friend_request& r) { return r.requester_char_id == requester_char_id; }),
+        incoming.end());
+
+    auto& outgoing = outgoing_requests_[requester_char_id];
+    outgoing.erase(
+        std::remove_if(outgoing.begin(), outgoing.end(),
+            [&](const friend_request& r) { return r.requestee_char_id == decliner_char_id; }),
+        outgoing.end());
+
+    LOG_DEBUG(general, "Friend request declined: char {} declined char {}", decliner_char_id.value, requester_char_id.value);
+    return friend_result::success;
+}
+
+auto social_system::cancel_friend_request(player_id requester_char_id, player_id target_char_id) -> friend_result {
+    if (!has_pending_request(requester_char_id, target_char_id)) {
+        return friend_result::no_pending_request;
+    }
+
+    auto del_result = delete_friend_request_db(requester_char_id, target_char_id);
+    if (del_result.is_err()) {
+        LOG_ERROR(general, "Failed to delete friend request: {}", del_result.error());
+    }
+
+    auto& outgoing = outgoing_requests_[requester_char_id];
+    outgoing.erase(
+        std::remove_if(outgoing.begin(), outgoing.end(),
+            [&](const friend_request& r) { return r.requestee_char_id == target_char_id; }),
+        outgoing.end());
+
+    auto& incoming = incoming_requests_[target_char_id];
+    incoming.erase(
+        std::remove_if(incoming.begin(), incoming.end(),
+            [&](const friend_request& r) { return r.requester_char_id == requester_char_id; }),
+        incoming.end());
+
+    LOG_DEBUG(general, "Friend request cancelled: char {} cancelled request to char {}", requester_char_id.value, target_char_id.value);
+    return friend_result::success;
+}
+
+auto social_system::remove_friend(player_id remover_char_id, player_id target_char_id) -> friend_result {
+    if (!are_friends(remover_char_id, target_char_id)) {
+        return friend_result::not_friends;
+    }
+
+    auto del_result = delete_friend_relationship_db(remover_char_id, target_char_id);
+    if (del_result.is_err()) {
+        LOG_ERROR(general, "Failed to delete friendship: {}", del_result.error());
+    }
+
+    // Remove from both sides
+    auto& remover_friends = character_friends_[remover_char_id];
+    remover_friends.erase(
+        std::remove_if(remover_friends.begin(), remover_friends.end(),
+            [&](const friend_entry& e) { return e.character_id == target_char_id; }),
+        remover_friends.end());
+
+    auto& target_friends = character_friends_[target_char_id];
+    target_friends.erase(
+        std::remove_if(target_friends.begin(), target_friends.end(),
+            [&](const friend_entry& e) { return e.character_id == remover_char_id; }),
+        target_friends.end());
+
+    LOG_DEBUG(general, "Friend removed: char {} removed char {}", remover_char_id.value, target_char_id.value);
+    return friend_result::success;
+}
+
+auto social_system::block_player_friend(player_id blocker_char_id, player_id target_char_id) -> friend_result {
+    if (blocker_char_id == target_char_id) {
+        return friend_result::cannot_add_self;
+    }
+
+    // If already friends, remove the friendship first
+    if (are_friends(blocker_char_id, target_char_id)) {
+        remove_friend(blocker_char_id, target_char_id);
+    }
+
+    // If there's a pending request in either direction, remove it
+    if (has_pending_request(blocker_char_id, target_char_id)) {
+        cancel_friend_request(blocker_char_id, target_char_id);
+    }
+    if (has_pending_request(target_char_id, blocker_char_id)) {
+        decline_friend_request(blocker_char_id, target_char_id);
+    }
+
+    // Save block
+    auto db_result = save_block_db(blocker_char_id, target_char_id);
+    if (db_result.is_err()) {
+        LOG_ERROR(general, "Failed to save block: {}", db_result.error());
+    }
+
+    character_blocks_[blocker_char_id].insert(target_char_id);
+
+    LOG_DEBUG(general, "Friend block: char {} blocked char {}", blocker_char_id.value, target_char_id.value);
+    return friend_result::success;
+}
+
+auto social_system::unblock_player_friend(player_id blocker_char_id, player_id target_char_id) -> friend_result {
+    if (!is_blocked_friend(blocker_char_id, target_char_id)) {
+        return friend_result::not_friends;  // Not blocked
+    }
+
+    auto db_result = delete_block_db(blocker_char_id, target_char_id);
+    if (db_result.is_err()) {
+        LOG_ERROR(general, "Failed to delete block: {}", db_result.error());
+    }
+
+    character_blocks_[blocker_char_id].erase(target_char_id);
+
+    LOG_DEBUG(general, "Friend unblock: char {} unblocked char {}", blocker_char_id.value, target_char_id.value);
+    return friend_result::success;
+}
+
+// Friend queries
+
+auto social_system::get_friends(player_id character_id) const -> const std::vector<friend_entry>* {
+    auto it = character_friends_.find(character_id);
+    return it != character_friends_.end() ? &it->second : nullptr;
+}
+
+auto social_system::get_incoming_requests(player_id character_id) const -> const std::vector<friend_request>* {
+    auto it = incoming_requests_.find(character_id);
+    return it != incoming_requests_.end() ? &it->second : nullptr;
+}
+
+auto social_system::get_outgoing_requests(player_id character_id) const -> const std::vector<friend_request>* {
+    auto it = outgoing_requests_.find(character_id);
+    return it != outgoing_requests_.end() ? &it->second : nullptr;
+}
+
+auto social_system::get_blocked_players(player_id character_id) const -> const std::unordered_set<player_id>* {
+    auto it = character_blocks_.find(character_id);
+    return it != character_blocks_.end() ? &it->second : nullptr;
+}
+
+auto social_system::are_friends(player_id char_a, player_id char_b) const -> bool {
+    auto it = character_friends_.find(char_a);
+    if (it == character_friends_.end()) return false;
+    for (const auto& f : it->second) {
+        if (f.character_id == char_b) return true;
+    }
+    return false;
+}
+
+auto social_system::has_pending_request(player_id requester_char, player_id target_char) const -> bool {
+    auto it = outgoing_requests_.find(requester_char);
+    if (it == outgoing_requests_.end()) return false;
+    for (const auto& r : it->second) {
+        if (r.requestee_char_id == target_char) return true;
+    }
+    return false;
+}
+
+auto social_system::is_blocked_friend(player_id blocker_char, player_id target_char) const -> bool {
+    auto it = character_blocks_.find(blocker_char);
+    if (it == character_blocks_.end()) return false;
+    return it->second.contains(target_char);
+}
+
+auto social_system::friend_count(player_id character_id) const -> size_t {
+    auto it = character_friends_.find(character_id);
+    if (it == character_friends_.end()) return 0;
+    return it->second.size();
+}
+
+auto social_system::get_friend_runtime_id(player_id character_id) const -> player_id {
+    auto it = friend_char_to_runtime_.find(character_id);
+    return it != friend_char_to_runtime_.end() ? it->second : player_id{};
+}
+
+auto social_system::lookup_character_by_name(const std::string& name) -> std::pair<player_id, std::string> {
+    // First check online players
+    if (player_system_) {
+        player_id found_char_id{};
+        std::string found_name;
+        player_system_->for_each_player([&](player_id pid, const player::player& p) {
+            if (p.name == name) {
+                found_char_id = p.character_id;
+                found_name = p.name;
+            }
+        });
+        if (found_char_id.is_valid()) {
+            return {found_char_id, found_name};
+        }
+    }
+
+    // If not online, query database
+    if (database_) {
+        auto res = database_->execute_params(
+            "SELECT id, name FROM characters WHERE LOWER(name) = LOWER($1) LIMIT 1", name);
+        if (res.is_ok() && res.value().size() > 0) {
+            auto char_id = player_id{static_cast<uint32_t>(res.value().get<int>(0, "id"))};
+            auto db_name = res.value().get<std::string>(0, "name");
+            return {char_id, db_name};
+        }
+    }
+
+    return {player_id{}, ""};
+}
+
+auto social_system::lookup_character_name(player_id character_id) -> std::string {
+    // First check online players
+    auto rt_it = friend_char_to_runtime_.find(character_id);
+    if (rt_it != friend_char_to_runtime_.end() && player_system_) {
+        auto* p = player_system_->get_player(rt_it->second);
+        if (p) return p->name;
+    }
+
+    // Check friend entries (may have cached name)
+    auto friends_it = character_friends_.find(character_id);
+    if (friends_it != character_friends_.end()) {
+        // This character has friends, so it has entries. But we need the name of character_id itself.
+        // Check if any friend has this character_id in their list
+    }
+
+    // DB lookup
+    if (database_) {
+        auto res = database_->execute_params(
+            "SELECT name FROM characters WHERE id = $1", static_cast<int>(character_id.value));
+        if (res.is_ok() && res.value().size() > 0) {
+            return res.value().get<std::string>(0, "name");
+        }
+    }
+
+    return "";
+}
+
+// Friend DB helpers
+
+auto social_system::save_friend_request_db(player_id requester_char, player_id requestee_char) -> result<void, std::string> {
+    if (!database_) return result<void, std::string>::ok();
+    auto res = database_->execute_params(
+        "INSERT INTO friend_requests (requester_id, requestee_id) VALUES ($1, $2) "
+        "ON CONFLICT (requester_id, requestee_id) DO NOTHING",
+        static_cast<int>(requester_char.value), static_cast<int>(requestee_char.value));
+    if (res.is_err()) return result<void, std::string>::err(res.error());
+    return result<void, std::string>::ok();
+}
+
+auto social_system::delete_friend_request_db(player_id requester_char, player_id requestee_char) -> result<void, std::string> {
+    if (!database_) return result<void, std::string>::ok();
+    auto res = database_->execute_params(
+        "DELETE FROM friend_requests WHERE requester_id = $1 AND requestee_id = $2",
+        static_cast<int>(requester_char.value), static_cast<int>(requestee_char.value));
+    if (res.is_err()) return result<void, std::string>::err(res.error());
+    return result<void, std::string>::ok();
+}
+
+auto social_system::save_friend_relationship_db(player_id char_a, player_id char_b) -> result<void, std::string> {
+    if (!database_) return result<void, std::string>::ok();
+    auto [lower, higher] = std::minmax(char_a.value, char_b.value);
+    auto res = database_->execute_params(
+        "INSERT INTO friends (character_a, character_b) VALUES ($1, $2) "
+        "ON CONFLICT (character_a, character_b) DO NOTHING",
+        static_cast<int>(lower), static_cast<int>(higher));
+    if (res.is_err()) return result<void, std::string>::err(res.error());
+    return result<void, std::string>::ok();
+}
+
+auto social_system::delete_friend_relationship_db(player_id char_a, player_id char_b) -> result<void, std::string> {
+    if (!database_) return result<void, std::string>::ok();
+    auto [lower, higher] = std::minmax(char_a.value, char_b.value);
+    auto res = database_->execute_params(
+        "DELETE FROM friends WHERE character_a = $1 AND character_b = $2",
+        static_cast<int>(lower), static_cast<int>(higher));
+    if (res.is_err()) return result<void, std::string>::err(res.error());
+    return result<void, std::string>::ok();
+}
+
+auto social_system::save_block_db(player_id blocker_char, player_id blocked_char) -> result<void, std::string> {
+    if (!database_) return result<void, std::string>::ok();
+    auto res = database_->execute_params(
+        "INSERT INTO friend_blocks (blocker_id, blocked_id) VALUES ($1, $2) "
+        "ON CONFLICT (blocker_id, blocked_id) DO NOTHING",
+        static_cast<int>(blocker_char.value), static_cast<int>(blocked_char.value));
+    if (res.is_err()) return result<void, std::string>::err(res.error());
+    return result<void, std::string>::ok();
+}
+
+auto social_system::delete_block_db(player_id blocker_char, player_id blocked_char) -> result<void, std::string> {
+    if (!database_) return result<void, std::string>::ok();
+    auto res = database_->execute_params(
+        "DELETE FROM friend_blocks WHERE blocker_id = $1 AND blocked_id = $2",
+        static_cast<int>(blocker_char.value), static_cast<int>(blocked_char.value));
+    if (res.is_err()) return result<void, std::string>::err(res.error());
+    return result<void, std::string>::ok();
 }
 
 }  // namespace hb::social

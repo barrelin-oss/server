@@ -286,7 +286,27 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"admin_manage_ip_bans_request", json_message_type::admin_manage_ip_bans_request},
     {"admin_manage_ip_bans_response", json_message_type::admin_manage_ip_bans_response},
     {"admin_start_task_request", json_message_type::admin_start_task_request},
-    {"admin_start_task_response", json_message_type::admin_start_task_response}
+    {"admin_start_task_response", json_message_type::admin_start_task_response},
+    {"friend_request_send_request", json_message_type::friend_request_send_request},
+    {"friend_request_send_response", json_message_type::friend_request_send_response},
+    {"friend_request_accept_request", json_message_type::friend_request_accept_request},
+    {"friend_request_accept_response", json_message_type::friend_request_accept_response},
+    {"friend_request_decline_request", json_message_type::friend_request_decline_request},
+    {"friend_request_decline_response", json_message_type::friend_request_decline_response},
+    {"friend_request_cancel_request", json_message_type::friend_request_cancel_request},
+    {"friend_request_cancel_response", json_message_type::friend_request_cancel_response},
+    {"friend_remove_request", json_message_type::friend_remove_request},
+    {"friend_remove_response", json_message_type::friend_remove_response},
+    {"friend_block_request", json_message_type::friend_block_request},
+    {"friend_block_response", json_message_type::friend_block_response},
+    {"friend_unblock_request", json_message_type::friend_unblock_request},
+    {"friend_unblock_response", json_message_type::friend_unblock_response},
+    {"friend_list_request", json_message_type::friend_list_request},
+    {"friend_list_response", json_message_type::friend_list_response},
+    {"friend_request_notification", json_message_type::friend_request_notification},
+    {"friend_accepted_notification", json_message_type::friend_accepted_notification},
+    {"friend_online_notification", json_message_type::friend_online_notification},
+    {"friend_offline_notification", json_message_type::friend_offline_notification}
 };
 
 }  // namespace
@@ -3627,6 +3647,105 @@ auto admin_start_task_request_data::from_json(const nlohmann::json& j)
     if (j.contains("interval_ms") && j["interval_ms"].is_number_integer())
         data.interval_ms = j["interval_ms"].get<int64_t>();
     return result<admin_start_task_request_data, std::string>::ok(std::move(data));
+}
+
+// === Friend system ===
+
+auto friend_target_request_data::from_json(const nlohmann::json& j)
+    -> result<friend_target_request_data, std::string>
+{
+    friend_target_request_data data;
+    if (!j.contains("target_name") || !j["target_name"].is_string())
+        return result<friend_target_request_data, std::string>::err("Missing 'target_name'");
+    data.target_name = j["target_name"];
+    if (data.target_name.empty())
+        return result<friend_target_request_data, std::string>::err("Empty 'target_name'");
+    return result<friend_target_request_data, std::string>::ok(std::move(data));
+}
+
+auto make_friend_response(uint32_t seq, json_message_type type,
+    bool success, std::string_view error) -> json_message
+{
+    json_message msg;
+    msg.type = type;
+    msg.seq = seq;
+    msg.data = {
+        {"success", success}
+    };
+    if (!error.empty()) {
+        msg.data["error"] = std::string(error);
+    }
+    return msg;
+}
+
+auto make_friend_list_response(uint32_t seq,
+    const std::vector<friend_list_entry_msg>& friends,
+    const std::vector<friend_request_msg>& incoming_requests,
+    const std::vector<friend_request_msg>& outgoing_requests,
+    const std::vector<std::string>& blocked) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::friend_list_response;
+    msg.seq = seq;
+
+    auto friends_arr = nlohmann::json::array();
+    for (const auto& f : friends) {
+        friends_arr.push_back({
+            {"name", f.name},
+            {"is_online", f.is_online}
+        });
+    }
+
+    auto incoming_arr = nlohmann::json::array();
+    for (const auto& r : incoming_requests) {
+        incoming_arr.push_back({{"name", r.name}});
+    }
+
+    auto outgoing_arr = nlohmann::json::array();
+    for (const auto& r : outgoing_requests) {
+        outgoing_arr.push_back({{"name", r.name}});
+    }
+
+    auto blocked_arr = nlohmann::json::array();
+    for (const auto& b : blocked) {
+        blocked_arr.push_back({{"name", b}});
+    }
+
+    msg.data = {
+        {"friends", friends_arr},
+        {"incoming_requests", incoming_arr},
+        {"outgoing_requests", outgoing_arr},
+        {"blocked", blocked_arr}
+    };
+    return msg;
+}
+
+auto make_friend_request_notification(std::string_view requester_name) -> json_message {
+    json_message msg;
+    msg.type = json_message_type::friend_request_notification;
+    msg.data = {{"requester_name", std::string(requester_name)}};
+    return msg;
+}
+
+auto make_friend_accepted_notification(std::string_view friend_name) -> json_message {
+    json_message msg;
+    msg.type = json_message_type::friend_accepted_notification;
+    msg.data = {{"friend_name", std::string(friend_name)}};
+    return msg;
+}
+
+auto make_friend_online_notification(std::string_view friend_name) -> json_message {
+    json_message msg;
+    msg.type = json_message_type::friend_online_notification;
+    msg.data = {{"friend_name", std::string(friend_name)}};
+    return msg;
+}
+
+auto make_friend_offline_notification(std::string_view friend_name) -> json_message {
+    json_message msg;
+    msg.type = json_message_type::friend_offline_notification;
+    msg.data = {{"friend_name", std::string(friend_name)}};
+    return msg;
 }
 
 }  // namespace hb::network

@@ -345,6 +345,7 @@ add_executable(hgserver_tests
     tests/test_environment.cpp
     tests/test_safe_zone.cpp
     tests/test_admin_web.cpp
+    tests/test_friend_system.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

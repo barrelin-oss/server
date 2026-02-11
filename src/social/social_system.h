@@ -9,8 +9,10 @@
 #include "social/guild.h"
 #include "social/party.h"
 #include "social/chat.h"
+#include "social/friend.h"
 
 #include <unordered_map>
+#include <unordered_set>
 #include <string_view>
 #include <functional>
 #include <vector>
@@ -252,6 +254,43 @@ public:
     auto block_player(player_id blocker, player_id blocked) -> bool;
     auto unblock_player(player_id blocker, player_id blocked) -> bool;
 
+    // ========== Friend Operations ==========
+
+    // Friend persistence
+    auto load_friends_from_database() -> result<void, std::string>;
+    void connect_friend(player_id character_id, player_id runtime_id, const std::string& name);
+    void disconnect_friend(player_id runtime_id, player_id character_id);
+
+    // Friend request operations
+    auto send_friend_request(player_id requester_char_id, player_id target_char_id) -> friend_result;
+    auto accept_friend_request(player_id accepter_char_id, player_id requester_char_id) -> friend_result;
+    auto decline_friend_request(player_id decliner_char_id, player_id requester_char_id) -> friend_result;
+    auto cancel_friend_request(player_id requester_char_id, player_id target_char_id) -> friend_result;
+
+    // Friend management
+    auto remove_friend(player_id remover_char_id, player_id target_char_id) -> friend_result;
+    auto block_player_friend(player_id blocker_char_id, player_id target_char_id) -> friend_result;
+    auto unblock_player_friend(player_id blocker_char_id, player_id target_char_id) -> friend_result;
+
+    // Friend queries
+    [[nodiscard]] auto get_friends(player_id character_id) const -> const std::vector<friend_entry>*;
+    [[nodiscard]] auto get_incoming_requests(player_id character_id) const -> const std::vector<friend_request>*;
+    [[nodiscard]] auto get_outgoing_requests(player_id character_id) const -> const std::vector<friend_request>*;
+    [[nodiscard]] auto get_blocked_players(player_id character_id) const -> const std::unordered_set<player_id>*;
+    [[nodiscard]] auto are_friends(player_id char_a, player_id char_b) const -> bool;
+    [[nodiscard]] auto has_pending_request(player_id requester_char, player_id target_char) const -> bool;
+    [[nodiscard]] auto is_blocked_friend(player_id blocker_char, player_id target_char) const -> bool;
+    [[nodiscard]] auto friend_count(player_id character_id) const -> size_t;
+
+    // Resolve runtime_id for a character_id (0 if offline)
+    [[nodiscard]] auto get_friend_runtime_id(player_id character_id) const -> player_id;
+
+    // Look up character_id by name (checks online players first, then DB)
+    [[nodiscard]] auto lookup_character_by_name(const std::string& name) -> std::pair<player_id, std::string>;
+
+    // Look up character name by id (checks online players first, then DB)
+    [[nodiscard]] auto lookup_character_name(player_id character_id) -> std::string;
+
     // ========== Callbacks ==========
 
     void on_guild_created(std::function<void(const guild_created_event&)> callback);
@@ -275,6 +314,14 @@ private:
     auto delete_guild_from_database(guild_id gid) -> result<void, std::string>;
     auto lookup_character_id(player_id runtime_id) -> player_id;
 
+    // Friend persistence helpers
+    auto save_friend_request_db(player_id requester_char, player_id requestee_char) -> result<void, std::string>;
+    auto delete_friend_request_db(player_id requester_char, player_id requestee_char) -> result<void, std::string>;
+    auto save_friend_relationship_db(player_id char_a, player_id char_b) -> result<void, std::string>;
+    auto delete_friend_relationship_db(player_id char_a, player_id char_b) -> result<void, std::string>;
+    auto save_block_db(player_id blocker_char, player_id blocked_char) -> result<void, std::string>;
+    auto delete_block_db(player_id blocker_char, player_id blocked_char) -> result<void, std::string>;
+
     social_system_config config_;
 
     // Database and player system dependencies
@@ -297,6 +344,15 @@ private:
     std::unordered_map<player_id, chat_settings> player_chat_settings_;
     std::unordered_map<player_id, chat_rate_limit> player_rate_limits_;
     std::unordered_map<player_id, std::string> player_names_;
+
+    // Friends - all keyed by character_id (persistent)
+    friend_list_config friend_config_;
+    std::unordered_map<player_id, std::vector<friend_request>> incoming_requests_;   // char_id → requests TO them
+    std::unordered_map<player_id, std::vector<friend_request>> outgoing_requests_;   // char_id → requests FROM them
+    std::unordered_map<player_id, std::vector<friend_entry>> character_friends_;     // char_id → accepted friends
+    std::unordered_map<player_id, std::unordered_set<player_id>> character_blocks_;  // char_id → blocked char_ids
+    std::unordered_map<player_id, player_id> friend_char_to_runtime_;               // char_id → runtime_id (online only)
+    std::unordered_map<player_id, player_id> friend_runtime_to_char_;               // runtime_id → char_id (online only)
 
     // Callbacks
     std::vector<std::function<void(const guild_created_event&)>> guild_created_callbacks_;

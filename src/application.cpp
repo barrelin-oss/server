@@ -323,7 +323,7 @@ void application::initialize() {
 
     // Start self-contained auth services (WebSocket server)
     if (server_cfg.self_contained) {
-        // Load guilds from database
+        // Load guilds and friends from database
         auto* social_sys = subsystems().get<social::social_system>();
         if (social_sys) {
             social_sys->set_database(&db_sys);
@@ -331,6 +331,10 @@ void application::initialize() {
             auto guild_load = social_sys->load_guilds_from_database();
             if (guild_load.is_err()) {
                 LOG_ERROR(general, "Failed to load guilds: {}", guild_load.error());
+            }
+            auto friend_load = social_sys->load_friends_from_database();
+            if (friend_load.is_err()) {
+                LOG_ERROR(general, "Failed to load friends: {}", friend_load.error());
             }
         }
 

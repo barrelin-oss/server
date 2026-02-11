@@ -338,6 +338,28 @@ enum class json_message_type {
     admin_start_task_request,
     admin_start_task_response,
 
+    // Friend system
+    friend_request_send_request,
+    friend_request_send_response,
+    friend_request_accept_request,
+    friend_request_accept_response,
+    friend_request_decline_request,
+    friend_request_decline_response,
+    friend_request_cancel_request,
+    friend_request_cancel_response,
+    friend_remove_request,
+    friend_remove_response,
+    friend_block_request,
+    friend_block_response,
+    friend_unblock_request,
+    friend_unblock_response,
+    friend_list_request,
+    friend_list_response,
+    friend_request_notification,
+    friend_accepted_notification,
+    friend_online_notification,
+    friend_offline_notification,
+
     // Unknown/invalid
     unknown
 };
@@ -583,6 +605,26 @@ enum class json_message_type {
         case json_message_type::admin_manage_ip_bans_response: return "admin_manage_ip_bans_response";
         case json_message_type::admin_start_task_request: return "admin_start_task_request";
         case json_message_type::admin_start_task_response: return "admin_start_task_response";
+        case json_message_type::friend_request_send_request: return "friend_request_send_request";
+        case json_message_type::friend_request_send_response: return "friend_request_send_response";
+        case json_message_type::friend_request_accept_request: return "friend_request_accept_request";
+        case json_message_type::friend_request_accept_response: return "friend_request_accept_response";
+        case json_message_type::friend_request_decline_request: return "friend_request_decline_request";
+        case json_message_type::friend_request_decline_response: return "friend_request_decline_response";
+        case json_message_type::friend_request_cancel_request: return "friend_request_cancel_request";
+        case json_message_type::friend_request_cancel_response: return "friend_request_cancel_response";
+        case json_message_type::friend_remove_request: return "friend_remove_request";
+        case json_message_type::friend_remove_response: return "friend_remove_response";
+        case json_message_type::friend_block_request: return "friend_block_request";
+        case json_message_type::friend_block_response: return "friend_block_response";
+        case json_message_type::friend_unblock_request: return "friend_unblock_request";
+        case json_message_type::friend_unblock_response: return "friend_unblock_response";
+        case json_message_type::friend_list_request: return "friend_list_request";
+        case json_message_type::friend_list_response: return "friend_list_response";
+        case json_message_type::friend_request_notification: return "friend_request_notification";
+        case json_message_type::friend_accepted_notification: return "friend_accepted_notification";
+        case json_message_type::friend_online_notification: return "friend_online_notification";
+        case json_message_type::friend_offline_notification: return "friend_offline_notification";
         default: return "unknown";
     }
 }
@@ -1746,6 +1788,43 @@ struct mine_request_data {
 // Fish despawn broadcast
 [[nodiscard]] auto make_fish_despawn_broadcast(uint32_t fish_index,
     int16_t x, int16_t y) -> json_message;
+
+// === Friend system data structures and builders ===
+
+struct friend_target_request_data
+{
+    std::string target_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<friend_target_request_data, std::string>;
+};
+
+// Friend list response builder
+[[nodiscard]] auto make_friend_response(uint32_t seq, json_message_type type,
+    bool success, std::string_view error = "") -> json_message;
+
+struct friend_list_entry_msg
+{
+    std::string name;
+    bool is_online{false};
+};
+
+struct friend_request_msg
+{
+    std::string name;
+    bool is_outgoing{false};
+};
+
+[[nodiscard]] auto make_friend_list_response(uint32_t seq,
+    const std::vector<friend_list_entry_msg>& friends,
+    const std::vector<friend_request_msg>& incoming_requests,
+    const std::vector<friend_request_msg>& outgoing_requests,
+    const std::vector<std::string>& blocked) -> json_message;
+
+[[nodiscard]] auto make_friend_request_notification(std::string_view requester_name) -> json_message;
+[[nodiscard]] auto make_friend_accepted_notification(std::string_view friend_name) -> json_message;
+[[nodiscard]] auto make_friend_online_notification(std::string_view friend_name) -> json_message;
+[[nodiscard]] auto make_friend_offline_notification(std::string_view friend_name) -> json_message;
 
 // === Admin Web Tool data structures and builders ===
 

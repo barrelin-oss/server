@@ -149,6 +149,14 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"mine_response", json_message_type::mine_response},
     {"mineral_spawn", json_message_type::mineral_spawn},
     {"mineral_despawn", json_message_type::mineral_despawn},
+    {"fish_skill_request", json_message_type::fish_skill_request},
+    {"fish_skill_response", json_message_type::fish_skill_response},
+    {"fish_engaged", json_message_type::fish_engaged},
+    {"fish_chance_update", json_message_type::fish_chance_update},
+    {"fish_catch_request", json_message_type::fish_catch_request},
+    {"fish_catch_response", json_message_type::fish_catch_response},
+    {"fish_spawn_broadcast", json_message_type::fish_spawn_broadcast},
+    {"fish_despawn_broadcast", json_message_type::fish_despawn_broadcast},
     {"respawn_request", json_message_type::respawn_request},
     {"respawn_response", json_message_type::respawn_response},
     {"enter_admin_mode_request", json_message_type::enter_admin_mode_request},
@@ -2757,6 +2765,97 @@ auto make_mineral_despawn(uint32_t node_id,
         .seq = 0,
         .data = {
             {"node_id", node_id},
+            {"x", x},
+            {"y", y}
+        }
+    };
+}
+
+// === Fishing ===
+
+auto make_fish_skill_response(uint32_t seq, bool success,
+    std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+    if (error) data["error"] = std::string(*error);
+    return json_message{
+        .type = json_message_type::fish_skill_response,
+        .seq = seq,
+        .data = data
+    };
+}
+
+auto make_fish_engaged(entity_id player_eid,
+    std::string_view fish_name, uint8_t visual_type,
+    int32_t initial_chance) -> json_message
+{
+    return json_message{
+        .type = json_message_type::fish_engaged,
+        .seq = 0,
+        .data = {
+            {"fish_name", std::string(fish_name)},
+            {"visual_type", visual_type},
+            {"catch_chance", initial_chance}
+        }
+    };
+}
+
+auto make_fish_chance_update(entity_id /*player_eid*/,
+    int32_t catch_chance) -> json_message
+{
+    return json_message{
+        .type = json_message_type::fish_chance_update,
+        .seq = 0,
+        .data = {
+            {"catch_chance", catch_chance}
+        }
+    };
+}
+
+auto make_fish_catch_response(entity_id /*player_eid*/,
+    std::string_view result_str,
+    std::string_view item_name,
+    int32_t template_id,
+    int32_t exp_gained,
+    int16_t levels_gained) -> json_message
+{
+    nlohmann::json data;
+    data["result"] = std::string(result_str);
+    if (!item_name.empty()) data["item_name"] = std::string(item_name);
+    if (template_id > 0) data["template_id"] = template_id;
+    if (exp_gained > 0) data["exp_gained"] = exp_gained;
+    if (levels_gained > 0) data["levels_gained"] = levels_gained;
+    return json_message{
+        .type = json_message_type::fish_catch_response,
+        .seq = 0,
+        .data = data
+    };
+}
+
+auto make_fish_spawn_broadcast(uint32_t fish_index,
+    uint8_t visual_type, int16_t x, int16_t y) -> json_message
+{
+    return json_message{
+        .type = json_message_type::fish_spawn_broadcast,
+        .seq = 0,
+        .data = {
+            {"fish_index", fish_index},
+            {"visual_type", visual_type},
+            {"x", x},
+            {"y", y}
+        }
+    };
+}
+
+auto make_fish_despawn_broadcast(uint32_t fish_index,
+    int16_t x, int16_t y) -> json_message
+{
+    return json_message{
+        .type = json_message_type::fish_despawn_broadcast,
+        .seq = 0,
+        .data = {
+            {"fish_index", fish_index},
             {"x", x},
             {"y", y}
         }

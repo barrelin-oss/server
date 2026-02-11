@@ -186,6 +186,16 @@ enum class json_message_type {
     mineral_spawn,
     mineral_despawn,
 
+    // Fishing
+    fish_skill_request,             // Player activates fishing skill
+    fish_skill_response,            // Skill activated or error
+    fish_engaged,                   // Fish found, show dialog with preview
+    fish_chance_update,             // Periodic update of catch %
+    fish_catch_request,             // Player attempts catch ("Try Now!")
+    fish_catch_response,            // Success/fail/canceled result
+    fish_spawn_broadcast,           // Fish appeared on map
+    fish_despawn_broadcast,         // Fish removed from map
+
     // Death/Respawn
     respawn_request,
     respawn_response,
@@ -435,6 +445,14 @@ enum class json_message_type {
         case json_message_type::mine_response: return "mine_response";
         case json_message_type::mineral_spawn: return "mineral_spawn";
         case json_message_type::mineral_despawn: return "mineral_despawn";
+        case json_message_type::fish_skill_request: return "fish_skill_request";
+        case json_message_type::fish_skill_response: return "fish_skill_response";
+        case json_message_type::fish_engaged: return "fish_engaged";
+        case json_message_type::fish_chance_update: return "fish_chance_update";
+        case json_message_type::fish_catch_request: return "fish_catch_request";
+        case json_message_type::fish_catch_response: return "fish_catch_response";
+        case json_message_type::fish_spawn_broadcast: return "fish_spawn_broadcast";
+        case json_message_type::fish_despawn_broadcast: return "fish_despawn_broadcast";
         case json_message_type::respawn_request: return "respawn_request";
         case json_message_type::respawn_response: return "respawn_response";
         case json_message_type::enter_admin_mode_request: return "enter_admin_mode_request";
@@ -1696,6 +1714,37 @@ struct mine_request_data {
     int16_t x, int16_t y) -> json_message;
 
 [[nodiscard]] auto make_mineral_despawn(uint32_t node_id,
+    int16_t x, int16_t y) -> json_message;
+
+// === Fishing request/response data ===
+
+// Fish skill response (ack or error)
+[[nodiscard]] auto make_fish_skill_response(uint32_t seq, bool success,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Fish engaged: fish found, show preview dialog
+[[nodiscard]] auto make_fish_engaged(entity_id player_eid,
+    std::string_view fish_name, uint8_t visual_type,
+    int32_t initial_chance) -> json_message;
+
+// Fish chance update: periodic catch % update
+[[nodiscard]] auto make_fish_chance_update(entity_id player_eid,
+    int32_t catch_chance) -> json_message;
+
+// Fish catch result: success/fail/canceled
+[[nodiscard]] auto make_fish_catch_response(entity_id player_eid,
+    std::string_view result_str,
+    std::string_view item_name = "",
+    int32_t template_id = 0,
+    int32_t exp_gained = 0,
+    int16_t levels_gained = 0) -> json_message;
+
+// Fish spawn broadcast
+[[nodiscard]] auto make_fish_spawn_broadcast(uint32_t fish_index,
+    uint8_t visual_type, int16_t x, int16_t y) -> json_message;
+
+// Fish despawn broadcast
+[[nodiscard]] auto make_fish_despawn_broadcast(uint32_t fish_index,
     int16_t x, int16_t y) -> json_message;
 
 // === Admin Web Tool data structures and builders ===

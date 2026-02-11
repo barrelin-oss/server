@@ -1,0 +1,23 @@
+# fishing.yaml
+# Fish type definitions (legacy Helbreath fishing)
+# visual_type: 2 = fish sprite, 3 = fishobject sprite (non-fish items)
+# weight: relative spawn rarity (higher = more common)
+# difficulty: subtracted from skill for chance calculation
+# lifespan_min: base duration in minutes (actual varies +/- 5, clamped to 10-30)
+
+fish_types:
+  # Common fish
+  - { type_id: 1, name: "Red Carp", item: RedFish, difficulty: 25, lifespan_min: 20, visual_type: 2, weight: 10 }
+  - { type_id: 2, name: "Green Carp", item: GreenFish, difficulty: 12, lifespan_min: 20, visual_type: 2, weight: 15 }
+  - { type_id: 3, name: "Gold Carp", item: YellowFish, difficulty: 8, lifespan_min: 20, visual_type: 2, weight: 12 }
+  - { type_id: 4, name: "Crucian Carp", item: Fish, difficulty: 1, lifespan_min: 15, visual_type: 2, weight: 30 }
+  - { type_id: 5, name: "Blue Sea Bream", item: Fish, difficulty: 10, lifespan_min: 18, visual_type: 2, weight: 20 }
+  - { type_id: 6, name: "Red Sea Bream", item: RedFish, difficulty: 14, lifespan_min: 20, visual_type: 2, weight: 18 }
+  - { type_id: 7, name: "Salmon", item: RedFish, difficulty: 9, lifespan_min: 18, visual_type: 2, weight: 15 }
+  - { type_id: 8, name: "Gray Mullet", item: GreenFish, difficulty: 7, lifespan_min: 18, visual_type: 2, weight: 20 }
+
+  # Rare items (non-fish)
+  - { type_id: 10, name: "Power Green Potion", item: PowerGreenPotion, difficulty: 40, lifespan_min: 25, visual_type: 3, weight: 3 }
+  - { type_id: 11, name: "Super Power Green Potion", item: SuperPowerGreenPotion, difficulty: 60, lifespan_min: 25, visual_type: 3, weight: 2 }
+  - { type_id: 90, name: "Ruby", item: Ruby, difficulty: 50, lifespan_min: 25, visual_type: 3, weight: 1 }
+  - { type_id: 95, name: "Diamond", item: Diamond, difficulty: 50, lifespan_min: 25, visual_type: 3, weight: 1 }

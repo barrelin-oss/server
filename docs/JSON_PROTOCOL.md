@@ -3841,6 +3841,210 @@ Broadcast when a mineral node is removed (depleted or despawned).
 
 ---
 
+## Fishing Messages
+
+Fishing uses an engagement-based mechanic: the player activates the fishing skill near water, engages a fish node, watches catch chance fluctuate every 4 seconds, then chooses when to attempt a catch.
+
+### `fish_skill_request`
+
+**Direction:** Client → Server
+
+Activates the fishing skill. Player must be near a water tile with a fish node within 2 tiles.
+
+```json
+{
+  "type": "fish_skill_request",
+  "seq": 1,
+  "data": {}
+}
+```
+
+### `fish_skill_response`
+
+**Direction:** Server → Client
+
+Confirms whether fishing activation succeeded.
+
+```json
+{
+  "type": "fish_skill_response",
+  "seq": 1,
+  "data": {
+    "success": true
+  }
+}
+```
+
+**Error response:**
+
+```json
+{
+  "type": "fish_skill_response",
+  "seq": 1,
+  "data": {
+    "success": false,
+    "error": "no_fish_nearby"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether fishing was activated |
+| `error` | string? | Error reason if failed: `"no_fish_nearby"`, `"already_fishing"`, `"no_fishing_skill"` |
+
+### `fish_engaged`
+
+**Direction:** Server → Client (push)
+
+Sent when the player successfully engages a fish node. Opens the fishing UI with fish preview and initial catch chance.
+
+```json
+{
+  "type": "fish_engaged",
+  "seq": 0,
+  "data": {
+    "fish_name": "Trout",
+    "visual_type": 2,
+    "catch_chance": 1
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fish_name` | string | Display name of the engaged fish |
+| `visual_type` | uint8 | Visual/sprite type for the fish |
+| `catch_chance` | int32 | Initial catch chance percentage (starts at 1%) |
+
+### `fish_chance_update`
+
+**Direction:** Server → Client (push, every 4s)
+
+Periodic update of the fluctuating catch chance while engaged with a fish.
+
+```json
+{
+  "type": "fish_chance_update",
+  "seq": 0,
+  "data": {
+    "catch_chance": 35
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `catch_chance` | int32 | Current catch chance percentage (0-100) |
+
+### `fish_catch_request`
+
+**Direction:** Client → Server
+
+Player attempts to catch the currently engaged fish.
+
+```json
+{
+  "type": "fish_catch_request",
+  "seq": 2,
+  "data": {}
+}
+```
+
+### `fish_catch_response`
+
+**Direction:** Server → Client
+
+Result of the catch attempt.
+
+**Success:**
+
+```json
+{
+  "type": "fish_catch_response",
+  "seq": 0,
+  "data": {
+    "result": "success",
+    "item_name": "Trout",
+    "template_id": 300,
+    "exp_gained": 15,
+    "levels_gained": 1
+  }
+}
+```
+
+**Failure:**
+
+```json
+{
+  "type": "fish_catch_response",
+  "seq": 0,
+  "data": {
+    "result": "fail"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `result` | string | `"success"`, `"fail"`, or `"canceled"` |
+| `item_name` | string? | Name of caught item (on success) |
+| `template_id` | int32? | Item template ID of caught item (on success) |
+| `exp_gained` | int32? | Fishing experience gained (on success, if > 0) |
+| `levels_gained` | int16? | Fishing skill levels gained (on success, if > 0) |
+
+### `fish_spawn_broadcast`
+
+**Direction:** Server → Clients
+
+A fish node has appeared on the map, visible to nearby players.
+
+```json
+{
+  "type": "fish_spawn_broadcast",
+  "seq": 0,
+  "data": {
+    "fish_index": 5,
+    "visual_type": 2,
+    "x": 128,
+    "y": 256
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fish_index` | uint32 | Unique fish node identifier |
+| `visual_type` | uint8 | Visual/sprite type for the fish |
+| `x` | int16 | X tile position |
+| `y` | int16 | Y tile position |
+
+### `fish_despawn_broadcast`
+
+**Direction:** Server → Clients
+
+A fish node has been removed (caught, timed out, or despawned).
+
+```json
+{
+  "type": "fish_despawn_broadcast",
+  "seq": 0,
+  "data": {
+    "fish_index": 5,
+    "x": 128,
+    "y": 256
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fish_index` | uint32 | Fish node identifier being removed |
+| `x` | int16 | X position |
+| `y` | int16 | Y position |
+
+---
+
 ## Admin Web Tool Messages
 
 See [ADMIN_PROTOCOL.md](ADMIN_PROTOCOL.md) for the full admin web tool protocol documentation.

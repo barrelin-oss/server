@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-09
+**Last Updated:** 2026-02-11
 
 ---
 
@@ -156,7 +156,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Manufacturing | ✅ | YAML-driven build recipes, crafting with skill checks |
 | Alchemy | ✅ | YAML-driven craft/alchemy recipes, potion/gem crafting |
 | Mining | ✅ | Mineral node lifecycle, generation, mining skill, XP gain |
-| Fishing | ❌ | Fish catching |
+| Fishing | ✅ | Engagement-based fishing with fluctuating catch chance, YAML-driven fish types |
 
 ---
 
@@ -430,6 +430,21 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-11
+- **Fishing System** - Engagement-based fishing mechanic with YAML-driven fish types
+  - Legacy engagement mechanic: player activates skill near water → engages fish within 2 tiles → catch chance fluctuates every 4s → player chooses when to attempt catch
+  - `fishing_config.h`: fish_type_config, fishing_state (on player struct), catch_result enum, fish_catch_result
+  - `fishing_registry.h/.cpp`: YAML loader for fish types with weighted random selection for spawning
+  - `fishing_system.h/.cpp`: fish node lifecycle (spawn/despawn/timeout), engagement tracking (max 30 per node), chance calculation (skill - difficulty based), catch logic
+  - `fishing.yaml`: 12 fish types (8 common fish, 4 rare items) with difficulty 1-60 and weighted spawning
+  - 8 new protocol messages: `fish_skill_request/response`, `fish_engaged`, `fish_chance_update`, `fish_catch_request/response`, `fish_spawn/despawn_broadcast`
+  - `fish_point` struct added to map with YAML parsing (7 maps have fish spawn points)
+  - `fishing_state` on player struct tracks engagement (fish_node_index, catch_chance, last_update)
+  - Fish generation: 10% chance per 4s tick per map, fish lifespan 10-30 minutes
+  - DEX * 2 skill cap, chance starts at 1% and fluctuates based on skill vs difficulty dice rolls
+  - Up to 30 players can fish the same node; caught fish deletes node and notifies all engaged players
+  - 17 new tests (1330 total)
 
 ### 2026-02-09 (b)
 - **Admin Panel API Phase 3** - 14 new request/response pairs for advanced server management

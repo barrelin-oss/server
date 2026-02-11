@@ -36,6 +36,13 @@ struct mineral_point {
     int16_t y{0};
 };
 
+// Fish spawn point (predefined position where fish can appear, near water)
+struct fish_point {
+    int16_t id{0};
+    int16_t x{0};
+    int16_t y{0};
+};
+
 // Map configuration
 struct map_config {
     std::string name;
@@ -222,6 +229,10 @@ public:
     [[nodiscard]] auto get_mineral_generator() const -> const mineral_generator_config& { return config_.mineral_generator; }
     [[nodiscard]] auto max_mineral() const -> int16_t { return config_.max_mineral; }
 
+    // Fish points
+    [[nodiscard]] auto get_fish_points() const -> const std::vector<fish_point>& { return fish_points_; }
+    [[nodiscard]] auto fish_point_count() const -> size_t { return fish_points_.size(); }
+
     // Occupancy management
     void set_occupant(const position& pos, entity_id id, owner_type type);
     void clear_occupant(const position& pos);
@@ -300,6 +311,9 @@ private:
 
     // Mineral spawn points
     std::vector<mineral_point> mineral_points_;
+
+    // Fish spawn points
+    std::vector<fish_point> fish_points_;
 
     // Waypoints for NPC pathing
     std::unordered_map<int16_t, waypoint> waypoints_;

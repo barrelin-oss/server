@@ -443,6 +443,18 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
             }
         }
 
+        // Fish points
+        if (root["fish_points"]) {
+            for (const auto& node : root["fish_points"]) {
+                fish_point fp{
+                    .id = static_cast<int16_t>(node["id"].as<int>()),
+                    .x = static_cast<int16_t>(node["x"].as<int>()),
+                    .y = static_cast<int16_t>(node["y"].as<int>())
+                };
+                fish_points_.push_back(fp);
+            }
+        }
+
         // Teleports
         if (root["teleports"]) {
             for (const auto& node : root["teleports"]) {
@@ -460,8 +472,8 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
             }
         }
 
-        LOG_INFO(general, "Map {} config loaded (YAML): {} initial points, {} safe zones, {} spawners, {} teleports, {} mineral points",
-            config_.name, initial_points_.size(), safe_zones_.size(), mob_spawners_.size(), teleports_.size(), mineral_points_.size());
+        LOG_INFO(general, "Map {} config loaded (YAML): {} initial points, {} safe zones, {} spawners, {} teleports, {} mineral points, {} fish points",
+            config_.name, initial_points_.size(), safe_zones_.size(), mob_spawners_.size(), teleports_.size(), mineral_points_.size(), fish_points_.size());
 
         return result<void, std::string>::ok();
 

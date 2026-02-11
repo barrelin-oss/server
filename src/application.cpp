@@ -19,7 +19,9 @@
 #include "crafting/manufacturing_system.h"
 #include "crafting/alchemy_system.h"
 #include "crafting/mining_system.h"
+#include "crafting/fishing_system.h"
 #include "registry/mining_registry.h"
+#include "registry/fishing_registry.h"
 #include "platform/clock.h"
 #include "platform/platform.h"
 
@@ -221,6 +223,8 @@ void application::initialize() {
     subsystems().create_subsystem<crafting::alchemy_system>();
     subsystems().create_subsystem<mining_registry>();
     subsystems().create_subsystem<crafting::mining_system>();
+    subsystems().create_subsystem<fishing_registry>();
+    subsystems().create_subsystem<crafting::fishing_system>();
 
     // Load configuration BEFORE initializing subsystems
     auto config_path = std::filesystem::path(config_.config_file);
@@ -377,7 +381,8 @@ void application::initialize() {
             subsystems().get<crafting::alchemy_system>(),
             subsystems().get<skill::skill_system>(),
             subsystems().get<quest::quest_system>(),
-            subsystems().get<crafting::mining_system>()
+            subsystems().get<crafting::mining_system>(),
+            subsystems().get<crafting::fishing_system>()
         );
 
         // Create and initialize admin web handlers
@@ -525,6 +530,9 @@ void application::initialize() {
                 case network::json_message_type::alchemy_request:
                 // Mining
                 case network::json_message_type::mine_request:
+                // Fishing
+                case network::json_message_type::fish_skill_request:
+                case network::json_message_type::fish_catch_request:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -1131,6 +1139,37 @@ void application::load_game_configs() {
             subsystems().get<world::world_subsystem>()
         );
         mining->start_generation();
+    }
+
+    // Load fishing config
+    auto* fishing_reg = subsystems().get<fishing_registry>();
+    if (fishing_reg && items) {
+        auto fishing_yaml = config_dir / "fishing.yaml";
+        if (std::filesystem::exists(fishing_yaml)) {
+            auto result = fishing_reg->load_from_file(fishing_yaml, *items);
+            if (result.is_ok()) {
+                LOG_INFO(general, "Loaded {} fish types from fishing.yaml", result.value());
+            } else {
+                LOG_ERROR(general, "Failed to load fishing.yaml: {}", result.error());
+            }
+        } else {
+            LOG_INFO(general, "No fishing.yaml found (fishing will be disabled)");
+        }
+    }
+
+    // Wire fishing system dependencies
+    auto* fishing = subsystems().get<crafting::fishing_system>();
+    if (fishing) {
+        fishing->set_dependencies(
+            subsystems().get<player::player_system>(),
+            subsystems().get<skill::skill_system>(),
+            subsystems().get<inventory::inventory_system>(),
+            subsystems().get<item::item_system>(),
+            fishing_reg,
+            subsystems().get<scheduler>(),
+            subsystems().get<world::world_subsystem>()
+        );
+        fishing->start_generation();
     }
 
     // Load magic definitions

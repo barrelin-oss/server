@@ -72,12 +72,16 @@ namespace hb {
     class dialog_registry;
     class build_recipe_registry;
     class craft_recipe_registry;
+    class fishing_registry;
 }
 
 namespace hb::crafting {
     class manufacturing_system;
     class alchemy_system;
     class mining_system;
+    class fishing_system;
+    struct fish_type_config;
+    struct fish_catch_result;
 }
 
 namespace hb::skill {
@@ -119,7 +123,8 @@ public:
                     crafting::alchemy_system* alchemy = nullptr,
                     skill::skill_system* skills = nullptr,
                     quest::quest_system* quests = nullptr,
-                    crafting::mining_system* mining = nullptr);
+                    crafting::mining_system* mining = nullptr,
+                    crafting::fishing_system* fishing = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -165,6 +170,10 @@ private:
 
     // Mining
     void handle_mine_request(connection_id conn_id, const network::json_message& msg);
+
+    // Fishing
+    void handle_fish_skill_request(connection_id conn_id, const network::json_message& msg);
+    void handle_fish_catch_request(connection_id conn_id, const network::json_message& msg);
 
     // Death/Respawn
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
@@ -320,6 +329,7 @@ private:
     skill::skill_system* skills_{nullptr};
     quest::quest_system* quests_{nullptr};
     crafting::mining_system* mining_{nullptr};
+    crafting::fishing_system* fishing_{nullptr};
     save_player_callback save_callback_;
 };
 

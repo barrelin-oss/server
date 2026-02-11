@@ -11,6 +11,7 @@
 #include "player/experience.h"
 #include "player/equipment.h"
 #include "skill/skill.h"
+#include "crafting/fishing_config.h"
 
 #include <string>
 #include <array>
@@ -163,6 +164,9 @@ struct player {
     entity::entity target{};
     std::chrono::steady_clock::time_point last_attack_time{};
     std::chrono::steady_clock::time_point last_hit_time{};
+
+    // Fishing engagement state
+    crafting::fishing_state fishing;
 
     // Hunger-related regeneration delay accumulator
     float regen_delay_accumulator{0.0f};

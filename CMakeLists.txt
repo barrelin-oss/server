@@ -79,6 +79,7 @@ set(REGISTRY_SOURCES
     src/registry/build_recipe_registry.cpp
     src/registry/craft_recipe_registry.cpp
     src/registry/mining_registry.cpp
+    src/registry/fishing_registry.cpp
 )
 
 set(NETWORK_SOURCES
@@ -172,6 +173,7 @@ set(CRAFTING_SOURCES
     src/crafting/manufacturing_system.cpp
     src/crafting/alchemy_system.cpp
     src/crafting/mining_system.cpp
+    src/crafting/fishing_system.cpp
 )
 
 set(ADMIN_SOURCES
@@ -339,6 +341,7 @@ add_executable(hgserver_tests
     tests/test_alchemy.cpp
     tests/test_mining_registry.cpp
     tests/test_mining.cpp
+    tests/test_fishing.cpp
     tests/test_environment.cpp
     tests/test_safe_zone.cpp
     tests/test_admin_web.cpp

@@ -30,7 +30,9 @@
 #include "crafting/manufacturing_system.h"
 #include "crafting/alchemy_system.h"
 #include "crafting/mining_system.h"
+#include "crafting/fishing_system.h"
 #include "registry/mining_registry.h"
+#include "registry/fishing_registry.h"
 #include "skill/skill_system.h"
 #include "quest/quest_system.h"
 #include "registry/build_recipe_registry.h"
@@ -73,7 +75,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 crafting::alchemy_system* alchemy,
                                 skill::skill_system* skills,
                                 quest::quest_system* quests,
-                                crafting::mining_system* mining) {
+                                crafting::mining_system* mining,
+                                crafting::fishing_system* fishing) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -93,6 +96,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     skills_ = skills;
     quests_ = quests;
     mining_ = mining;
+    fishing_ = fishing;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -191,6 +195,105 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                 if (conn && conn->is_open()) {
                     conn->send(msg);
                 }
+            }
+        });
+    }
+
+    // Register fishing node spawn/despawn/engagement callbacks
+    if (fishing_) {
+        fishing_->set_spawn_callback([this](const crafting::fish_node& node) {
+            if (!players_ || !ws_server_ || !world_) return;
+
+            auto* map = world_->get_map_by_name(node.map_name);
+            if (!map) return;
+
+            auto msg = network::make_fish_spawn_broadcast(node.index, node.config ? node.config->visual_type : 2, node.x, node.y);
+            auto pos = world::position{node.x, node.y};
+            auto players = players_->get_players_who_can_see(map->id(), pos);
+            for (auto pid : players) {
+                auto* p = players_->get_player(pid);
+                if (!p || p->connection.value == 0) continue;
+                auto* conn = ws_server_->get_connection(p->connection);
+                if (conn && conn->is_open()) {
+                    conn->send(msg);
+                }
+            }
+        });
+
+        fishing_->set_despawn_callback([this](const crafting::fish_node& node) {
+            if (!players_ || !ws_server_ || !world_) return;
+
+            auto* map = world_->get_map_by_name(node.map_name);
+            if (!map) return;
+
+            auto msg = network::make_fish_despawn_broadcast(node.index, node.x, node.y);
+            auto pos = world::position{node.x, node.y};
+            auto players = players_->get_players_who_can_see(map->id(), pos);
+            for (auto pid : players) {
+                auto* p = players_->get_player(pid);
+                if (!p || p->connection.value == 0) continue;
+                auto* conn = ws_server_->get_connection(p->connection);
+                if (conn && conn->is_open()) {
+                    conn->send(msg);
+                }
+            }
+        });
+
+        fishing_->set_engaged_callback([this](entity_id player_eid, const crafting::fish_type_config& config, int32_t initial_chance) {
+            if (!players_ || !ws_server_) return;
+
+            auto pid = player_id{player_eid.value};
+            auto* plr = players_->get_player(pid);
+            if (!plr || plr->connection.value == 0) return;
+
+            auto msg = network::make_fish_engaged(player_eid, config.name, config.visual_type, initial_chance);
+            auto* conn = ws_server_->get_connection(plr->connection);
+            if (conn && conn->is_open()) {
+                conn->send(msg);
+            }
+        });
+
+        fishing_->set_chance_update_callback([this](entity_id player_eid, int32_t chance) {
+            if (!players_ || !ws_server_) return;
+
+            auto pid = player_id{player_eid.value};
+            auto* plr = players_->get_player(pid);
+            if (!plr || plr->connection.value == 0) return;
+
+            auto msg = network::make_fish_chance_update(player_eid, chance);
+            auto* conn = ws_server_->get_connection(plr->connection);
+            if (conn && conn->is_open()) {
+                conn->send(msg);
+            }
+        });
+
+        fishing_->set_catch_complete_callback([this](entity_id player_eid, const crafting::fish_catch_result& result) {
+            if (!players_ || !ws_server_) return;
+
+            auto pid = player_id{player_eid.value};
+            auto* plr = players_->get_player(pid);
+            if (!plr || plr->connection.value == 0) return;
+
+            auto result_str = [](crafting::catch_result r) -> std::string_view {
+                switch (r) {
+                    case crafting::catch_result::success: return "success";
+                    case crafting::catch_result::failure: return "failure";
+                    case crafting::catch_result::canceled_moved: return "canceled_moved";
+                    case crafting::catch_result::canceled_stolen: return "canceled_stolen";
+                    case crafting::catch_result::canceled_timeout: return "canceled_timeout";
+                    case crafting::catch_result::no_fish: return "no_fish";
+                    case crafting::catch_result::no_rod: return "no_rod";
+                    case crafting::catch_result::rod_broken: return "rod_broken";
+                    default: return "failure";
+                }
+            }(result.result);
+
+            auto msg = network::make_fish_catch_response(player_eid,
+                result_str, result.item_name, result.template_id,
+                result.exp_gained, result.levels_gained);
+            auto* conn = ws_server_->get_connection(plr->connection);
+            if (conn && conn->is_open()) {
+                conn->send(msg);
             }
         });
     }
@@ -368,6 +471,14 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
         // Mining
         case network::json_message_type::mine_request:
             handle_mine_request(conn_id, msg);
+            break;
+
+        // Fishing
+        case network::json_message_type::fish_skill_request:
+            handle_fish_skill_request(conn_id, msg);
+            break;
+        case network::json_message_type::fish_catch_request:
+            handle_fish_catch_request(conn_id, msg);
             break;
 
         // Death/Respawn
@@ -4586,6 +4697,81 @@ void game_handlers::handle_mine_request(connection_id conn_id,
 
     conn->send(network::make_mine_response(msg.seq, true,
         result.item_name, result.template_id, result.exp_gained, result.node_depleted));
+}
+
+// === Fishing ===
+
+void game_handlers::handle_fish_skill_request(connection_id conn_id,
+                                               const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!fishing_) {
+        send_error(conn_id, msg.seq, "not_available", "Fishing is not available");
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    // Check if player has fishing skill
+    if (skills_) {
+        auto skill_level = skills_->get_skill_level(pid, skill::skill_type::fishing);
+        if (skill_level == 0) {
+            conn->send(network::make_fish_skill_response(msg.seq, false, "You don't know how to fish"));
+            return;
+        }
+    }
+
+    // Check if already fishing
+    if (plr->fishing.fish_node_index != 0) {
+        conn->send(network::make_fish_skill_response(msg.seq, false, "Already fishing"));
+        return;
+    }
+
+    auto* map = world_->get_map(plr->current_map);
+    if (!map) {
+        send_error(conn_id, msg.seq, "internal_error", "Map not found");
+        return;
+    }
+
+    auto map_name = std::string(map->name());
+    auto fish_index = fishing_->check_fish_nearby(
+        entity_id(pid.value), map_name, plr->pos.x, plr->pos.y);
+
+    if (!fish_index) {
+        conn->send(network::make_fish_skill_response(msg.seq, false, "No fish nearby"));
+        return;
+    }
+
+    // Success — engaged callback already fired by fishing_system
+    conn->send(network::make_fish_skill_response(msg.seq, true));
+}
+
+void game_handlers::handle_fish_catch_request(connection_id conn_id,
+                                               const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!fishing_) {
+        send_error(conn_id, msg.seq, "not_available", "Fishing is not available");
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    // attempt_catch handles all validation and fires callbacks
+    fishing_->attempt_catch(entity_id(pid.value));
+    // Response sent via catch_complete_callback
 }
 
 }  // namespace hb::bridge

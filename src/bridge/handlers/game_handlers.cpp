@@ -2823,6 +2823,9 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         return;
     }
 
+    // Use the resolved position from the teleport result (handles -1,-1 → initial point)
+    auto resolved_pos = teleport_result.new_pos;
+
     // Check if this is a cross-map teleport
     bool is_cross_map = (old_map_id != teleport_result.new_map);
 
@@ -2842,15 +2845,15 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
     }
 
     // Build visible entities at destination using teleporting player's visibility
-    auto visible_entities = build_visible_entities_at(teleport_result.new_map, dest_pos,
+    auto visible_entities = build_visible_entities_at(teleport_result.new_map, resolved_pos,
                                                        player->visibility_radius_x,
                                                        player->visibility_radius_y);
 
     // Build and send player_teleport message
     network::player_teleport_msg teleport_msg{
         .dest_map = dest_map,
-        .dest_x = dest_pos.x,
-        .dest_y = dest_pos.y,
+        .dest_x = resolved_pos.x,
+        .dest_y = resolved_pos.y,
         .dest_dir = static_cast<int16_t>(dest_dir),
         .entities = visible_entities
     };
@@ -2868,7 +2871,7 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         }
 
         // Send visible ground items at destination
-        send_visible_ground_items(conn_id, teleport_result.new_map, dest_pos,
+        send_visible_ground_items(conn_id, teleport_result.new_map, resolved_pos,
                                    player->visibility_radius_x,
                                    player->visibility_radius_y);
 
@@ -2896,14 +2899,14 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
     }
 
     // Spawn to players who can see NEW position
-    auto new_viewers = players_->get_players_who_can_see(teleport_result.new_map, dest_pos);
+    auto new_viewers = players_->get_players_who_can_see(teleport_result.new_map, resolved_pos);
 
     network::visible_entity_msg spawn_entity{
         .entity_id = player->ecs_entity.id,
         .type = "player",
         .name = player->name,
-        .x = dest_pos.x,
-        .y = dest_pos.y,
+        .x = resolved_pos.x,
+        .y = resolved_pos.y,
         .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
         .direction = static_cast<int16_t>(dest_dir)
     };
@@ -2922,7 +2925,7 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
     }
 
     LOG_INFO(bridge, "Player {} teleported to {} ({}, {}), {} entities visible",
-        pid.value, dest_map, dest_pos.x, dest_pos.y, visible_entities.size());
+        pid.value, dest_map, resolved_pos.x, resolved_pos.y, visible_entities.size());
 }
 
 void game_handlers::send_map_teleporters(connection_id conn_id, const world::map& map) {

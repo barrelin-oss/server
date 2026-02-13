@@ -717,6 +717,16 @@ auto player_system::execute_teleport(player_id id,
         return result;
     }
 
+    // Resolve (-1,-1) to a random initial point on the map
+    if (dest_pos.x == -1 || dest_pos.y == -1) {
+        auto initial = dest_map->get_random_initial_point();
+        if (!initial) {
+            result.error = "No initial spawn point on map: " + dest_map_name;
+            return result;
+        }
+        dest_pos = *initial;
+    }
+
     // Validate destination position is walkable
     if (!dest_map->is_walkable(dest_pos)) {
         result.error = "Destination position is not walkable";

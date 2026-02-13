@@ -9,6 +9,8 @@
 #include "inventory/inventory_system.h"
 #include "magic/magic_system.h"
 #include "registry/magic_registry.h"
+#include "skill/skill_system.h"
+#include "skill/skill.h"
 #include "scheduler/scheduler.h"
 #include "network/json_protocol.h"
 #include "core/logger.h"
@@ -814,6 +816,73 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx) {
 
             return command_result::ok("Granted " + std::to_string(learned) + " new spells to " +
                 target_name + " (" + std::to_string(all_spells.size()) + " total in registry)");
+        });
+    }
+
+    // /grantallskills [player] - Set all skills to 100
+    {
+        command_info info;
+        info.name = "grantallskills";
+        info.aliases = {"allskills", "maxskills"};
+        info.description = "Set all skills to 100 for a player";
+        info.usage = "/grantallskills [player_name]";
+        info.required_level = admin_level::admin;
+        info.arguments = {make_arg("player", arg_type::player_name, false, "", "Player to grant skills (default: self)")};
+
+        auto* players = ctx.players;
+        auto* skills = ctx.skills;
+        auto send = ctx.send_to_player;
+
+        admin.register_command(info, [players, skills, send](const command_context& cmd_ctx) -> command_result {
+            if (!players || !skills) {
+                return command_result::error("Required systems not available");
+            }
+
+            player::player* target = nullptr;
+            std::string target_name;
+
+            if (cmd_ctx.args.empty()) {
+                target = players->get_player(cmd_ctx.executor);
+                target_name = cmd_ctx.executor_name;
+            } else {
+                target_name = cmd_ctx.args[0].string_value;
+                target = players->get_player_by_name(target_name);
+            }
+
+            if (!target) {
+                return command_result::error("Player not found");
+            }
+
+            int updated = 0;
+            for (uint8_t i = 0; i < static_cast<uint8_t>(skill::skill_type::skill_count); ++i) {
+                auto type = static_cast<skill::skill_type>(i);
+                if (skills->get_skill_level(target->id, type) < 100) {
+                    skills->set_skill_level(target->id, type, 100);
+                    ++updated;
+                }
+            }
+
+            // Send updated skill list to client
+            if (send && updated > 0) {
+                auto* ps = skills->get_player_skills(target->id);
+                if (ps) {
+                    std::vector<network::skill_entry_msg> skill_list;
+                    for (uint8_t i = 0; i < static_cast<uint8_t>(skill::skill_type::skill_count); ++i) {
+                        auto type = static_cast<skill::skill_type>(i);
+                        const auto& ss = ps->get(type);
+                        skill_list.push_back({
+                            .skill_id = i,
+                            .level = ss.level,
+                            .total_uses = ss.total_uses,
+                            .uses_this_level = ss.uses_this_level,
+                            .uses_to_next_level = skills->uses_to_next_level(type, ss.level)
+                        });
+                    }
+                    send(target->id, network::make_skills_data(0, skill_list));
+                }
+            }
+
+            return command_result::ok("Set " + std::to_string(updated) + " skills to 100 for " + target_name);
         });
     }
 

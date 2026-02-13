@@ -9,23 +9,15 @@
 #include "skill/skill.h"
 
 #include <unordered_map>
+#include <string>
 #include <string_view>
 #include <functional>
 
 namespace hb::skill {
 
-// Skill training configuration
-struct skill_config {
-    float exp_multiplier{1.0f};
-    bool allow_training{true};
-    int16_t max_skill_level{200};
-};
-
 // Skill system configuration
 struct skill_system_config {
-    float global_exp_modifier{1.0f};
     int32_t training_cooldown_ms{1000};
-    bool enable_skill_decay{false};
 };
 
 // Skill level up event
@@ -52,6 +44,7 @@ public:
 
     // Configuration
     void set_config(const skill_system_config& config);
+    void load_config(const std::string& yaml_path);
 
     // Player skill management
     void register_player(player_id id);
@@ -59,12 +52,15 @@ public:
 
     // Skill queries
     [[nodiscard]] auto get_skill_level(player_id player, skill_type skill) const -> int16_t;
-    [[nodiscard]] auto get_skill_exp(player_id player, skill_type skill) const -> int32_t;
+    [[nodiscard]] auto get_uses_this_level(player_id player, skill_type skill) const -> int32_t;
+    [[nodiscard]] auto get_total_uses(player_id player, skill_type skill) const -> int32_t;
     [[nodiscard]] auto get_mastery(player_id player, skill_type skill) const -> mastery_level;
+    [[nodiscard]] auto uses_to_next_level(skill_type type, int16_t level) const -> int32_t;
 
     // Skill modification
     void set_skill_level(player_id player, skill_type skill, int16_t level);
-    auto add_skill_exp(player_id player, skill_type skill, int32_t amount) -> int16_t;
+    auto record_skill_use(player_id player, skill_type skill) -> int16_t;
+    void add_skill_uses(player_id player, skill_type skill, int32_t count);
     void reset_skill(player_id player, skill_type skill);
     void reset_all_skills(player_id player);
 
@@ -86,8 +82,11 @@ public:
 
 private:
     void notify_level_up(player_id player, skill_type skill, int16_t old_level, int16_t new_level);
+    [[nodiscard]] auto get_config_for(skill_type type) const -> const skill_config_entry&;
 
     skill_system_config config_;
+    skill_config_entry default_config_;
+    std::unordered_map<skill_type, skill_config_entry> skill_configs_;
     std::unordered_map<player_id, player_skills> player_skills_;
     std::vector<level_up_callback> level_up_callbacks_;
 };

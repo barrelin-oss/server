@@ -10,6 +10,7 @@
 #include "world/world_subsystem.h"
 #include "entity/entity_manager.h"
 #include "entity/components/transform.h"
+#include "perf/perf_stats.h"
 
 namespace hb::player {
 
@@ -775,6 +776,9 @@ auto player_system::execute_teleport(player_id id,
 auto player_system::get_players_who_can_see(map_id map,
                                              const hb::world::position& pos) const -> std::vector<player_id>
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::spatial_query_visibility);
+
     std::vector<player_id> result;
 
     // Use max possible visibility range to get candidates from spatial index
@@ -807,6 +811,9 @@ auto player_system::get_players_on_map_in_range(map_id map,
                                                  const hb::world::position& center,
                                                  int radius) const -> std::vector<player_id>
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::spatial_query_range);
+
     std::vector<player_id> result;
 
     auto* world_sys = subsystems().get<world::world_subsystem>();

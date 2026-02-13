@@ -38,6 +38,7 @@
 #include "quest/quest.h"
 #include "skill/skill_system.h"
 #include "skill/skill.h"
+#include "perf/perf_stats.h"
 #include "application.h"
 
 namespace hb::bridge {
@@ -65,7 +66,8 @@ void admin_web_handlers::initialize(
     config_system* config,
     magic::magic_system* magic,
     quest::quest_system* quest,
-    skill::skill_system* skill)
+    skill::skill_system* skill,
+    perf::perf_stats_system* perf_stats)
 {
     ws_server_ = ws_server;
     auth_ = auth;
@@ -87,6 +89,7 @@ void admin_web_handlers::initialize(
     magic_ = magic;
     quest_ = quest;
     skill_ = skill;
+    perf_stats_ = perf_stats;
 }
 
 void admin_web_handlers::handle_message(connection_id conn_id, const network::json_message& msg)
@@ -154,6 +157,7 @@ void admin_web_handlers::handle_message(connection_id conn_id, const network::js
         case mt::admin_create_character_request_admin: handle_create_character_admin(conn_id, msg); break;
         case mt::admin_delete_character_request_admin: handle_delete_character_admin(conn_id, msg); break;
         case mt::admin_manage_ip_bans_request:       handle_manage_ip_bans(conn_id, msg); break;
+        case mt::admin_perf_stats_request:           handle_perf_stats(conn_id, msg); break;
         default:
             send_error(conn_id, msg.seq, "unknown_admin_message", "Unknown admin message type");
             break;
@@ -486,11 +490,12 @@ void admin_web_handlers::handle_get_player(connection_id conn_id, const network:
             for (int i = 0; i < static_cast<int>(skill::skill_type::skill_count); ++i) {
                 auto st = static_cast<skill::skill_type>(i);
                 auto& s = ps->get(st);
-                if (s.level > 0 || s.experience > 0) {
+                if (s.level > 0 || s.total_uses > 0) {
                     skills_arr.push_back({
                         {"type", i},
                         {"level", s.level},
-                        {"experience", s.experience}
+                        {"total_uses", s.total_uses},
+                        {"uses_this_level", s.uses_this_level}
                     });
                 }
             }
@@ -2961,8 +2966,9 @@ void admin_web_handlers::handle_modify_skills(connection_id conn_id, const netwo
     } else if (req.action == "reset_all") {
         skill_->reset_all_skills(plr->id);
         new_level = 0;
-    } else if (req.action == "add_exp") {
-        new_level = skill_->add_skill_exp(plr->id, st, req.value);
+    } else if (req.action == "add_uses") {
+        skill_->add_skill_uses(plr->id, st, req.value);
+        new_level = skill_->get_skill_level(plr->id, st);
     } else {
         ws_server_->send(conn_id, network::make_admin_response(
             network::json_message_type::admin_modify_skills_response,
@@ -3768,6 +3774,90 @@ void admin_web_handlers::handle_manage_ip_bans(connection_id conn_id, const netw
 
     ws_server_->send(conn_id, network::make_admin_response(
         network::json_message_type::admin_manage_ip_bans_response,
+        msg.seq, true, data));
+}
+
+// === Performance Stats ===
+
+void admin_web_handlers::handle_perf_stats(connection_id conn_id, const network::json_message& msg)
+{
+    if (!require_admin(conn_id, msg.seq)) return;
+
+    auto req_result = network::admin_perf_stats_request_data::from_json(msg.data);
+    auto req = req_result.is_ok() ? req_result.value() : network::admin_perf_stats_request_data{};
+
+    nlohmann::json data;
+
+    if (perf_stats_)
+    {
+        if (req.include_timing)
+        {
+            auto timing = perf_stats_->get_all_timing_snapshots();
+            auto arr = nlohmann::json::array();
+            for (const auto& t : timing)
+            {
+                arr.push_back({
+                    {"name", std::string(t.name)},
+                    {"importance", static_cast<int>(t.importance)},
+                    {"status", std::string(perf::health_status_string(t.status))},
+                    {"sample_count", t.sample_count},
+                    {"avg_ms", t.avg_ms},
+                    {"min_ms", t.min_ms},
+                    {"max_ms", t.max_ms},
+                    {"p99_ms", t.p99_ms}
+                });
+            }
+            data["timing"] = std::move(arr);
+        }
+
+        if (req.include_counters)
+        {
+            auto counters = perf_stats_->get_all_counter_snapshots();
+            auto arr = nlohmann::json::array();
+            for (const auto& c : counters)
+            {
+                arr.push_back({
+                    {"name", std::string(c.name)},
+                    {"importance", static_cast<int>(c.importance)},
+                    {"status", std::string(perf::health_status_string(c.status))},
+                    {"total", c.total},
+                    {"per_second", c.per_second}
+                });
+            }
+            data["counters"] = std::move(arr);
+        }
+
+        if (req.include_gauges)
+        {
+            auto g = perf_stats_->get_gauge_snapshot();
+            data["gauges"] = {
+                {"players_online", g.players_online},
+                {"npcs_alive", g.npcs_alive},
+                {"ground_items", g.ground_items},
+                {"active_effects", g.active_effects},
+                {"scheduled_tasks", g.scheduled_tasks},
+                {"active_connections", g.active_connections}
+            };
+
+            nlohmann::json gauge_statuses;
+            for (const auto& [name, status] : g.statuses)
+            {
+                gauge_statuses[name] = std::string(perf::health_status_string(status));
+            }
+            data["gauge_statuses"] = std::move(gauge_statuses);
+        }
+
+        data["enabled"] = perf_stats_->is_enabled();
+        data["server_health"] = std::string(
+            perf::health_status_string(perf_stats_->compute_overall_health()));
+    }
+    else
+    {
+        data["enabled"] = false;
+    }
+
+    ws_server_->send(conn_id, network::make_admin_response(
+        network::json_message_type::admin_perf_stats_response,
         msg.seq, true, data));
 }
 

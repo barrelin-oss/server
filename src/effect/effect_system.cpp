@@ -5,6 +5,7 @@
 #include "core/logger.h"
 #include "core/subsystem.h"
 #include "player/player_system.h"
+#include "perf/perf_stats.h"
 
 #include <algorithm>
 #include <chrono>
@@ -43,6 +44,9 @@ void effect_system::shutdown()
 
 void effect_system::update(float /*delta_time*/)
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::effect_tick);
+
     auto now = get_current_time_ms();
 
     // Collect entities that need modifier recomputation

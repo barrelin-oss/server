@@ -20,9 +20,11 @@
 #include "social/social_system.h"
 #include "magic/magic_system.h"
 #include "quest/quest_system.h"
+#include "skill/skill_system.h"
 #include "scheduler/scheduler.h"
 #include "core/logger.h"
 #include "core/subsystem.h"
+#include "perf/perf_stats.h"
 
 namespace hb::bridge {
 
@@ -463,6 +465,9 @@ void auth_handlers::handle_delete_character(connection_id conn_id, const network
 }
 
 void auth_handlers::handle_enter_game(connection_id conn_id, const network::json_message& msg) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::player_save);
+
     auto* conn = require_authenticated(conn_id, msg.seq);
     if (!conn) return;
 
@@ -623,6 +628,16 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             if (!char_data.skills_data.empty()) {
                 player->skills = auth::deserialize_skills(char_data.skills_data);
                 LOG_DEBUG(bridge, "Loaded skills for player {}", live_player_id.value);
+            }
+
+            // Register skills with skill_system so record_skill_use/set_skill_level work
+            auto* skill_sys = subsystems().get<skill::skill_system>();
+            if (skill_sys) {
+                skill_sys->register_player(live_player_id);
+                auto* ps = skill_sys->get_player_skills(live_player_id);
+                if (ps) {
+                    *ps = player->skills;
+                }
             }
 
             // Deserialize and apply equipment
@@ -907,15 +922,21 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     }
 
     // Build skills data for network message
-    std::vector<std::pair<uint8_t, int16_t>> skills_list;
+    std::vector<network::skill_entry_msg> skills_list;
     if (players_) {
         auto* player = players_->get_player(live_player_id);
         if (player) {
+            auto* skill_sys = subsystems().get<skill::skill_system>();
             for (size_t i = 0; i < skill::max_skills; ++i) {
                 const auto& sk = player->skills.skills[i];
-                if (sk.level > 0) {
-                    skills_list.emplace_back(static_cast<uint8_t>(i), sk.level);
-                }
+                auto st = static_cast<skill::skill_type>(i);
+                skills_list.push_back({
+                    .skill_id = static_cast<uint8_t>(i),
+                    .level = sk.level,
+                    .total_uses = sk.total_uses,
+                    .uses_this_level = sk.uses_this_level,
+                    .uses_to_next_level = skill_sys ? skill_sys->uses_to_next_level(st, sk.level) : 0
+                });
             }
         }
     }
@@ -1303,12 +1324,24 @@ auto auth_handlers::require_authenticated(connection_id conn_id, uint32_t seq)
 }
 
 void auth_handlers::save_player_state(player_id pid) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::player_save);
+
     if (!players_ || !auth_) return;
 
     auto* player = players_->get_player(pid);
     if (!player) {
         LOG_WARN(bridge, "Cannot save player {}: not found", pid.value);
         return;
+    }
+
+    // Sync skills from skill_system back to player struct before saving
+    auto* skill_sys = subsystems().get<skill::skill_system>();
+    if (skill_sys) {
+        auto* ps = skill_sys->get_player_skills(pid);
+        if (ps) {
+            player->skills = *ps;
+        }
     }
 
     // Serialize skills and equipment
@@ -1507,6 +1540,14 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
     // Clean up inventory
     if (inventory_) {
         inventory_->destroy_inventory(entity_id{pid.value});
+    }
+
+    // Unregister from skill system
+    {
+        auto* skill_sys = subsystems().get<skill::skill_system>();
+        if (skill_sys) {
+            skill_sys->unregister_player(pid);
+        }
     }
 
     // Unregister from admin system

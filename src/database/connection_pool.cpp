@@ -3,6 +3,7 @@
 
 #include "database/connection_pool.h"
 #include "core/logger.h"
+#include "perf/perf_stats.h"
 
 #include <sstream>
 
@@ -172,6 +173,8 @@ auto connection_pool::acquire() -> result<pooled_connection, std::string> {
 auto connection_pool::acquire(std::chrono::milliseconds timeout)
     -> result<pooled_connection, std::string>
 {
+    PERF_TIMER(perf_stats_, perf::metric_category::db_pool_acquire);
+
     std::unique_lock lock{mutex_};
 
     if (!initialized_) {

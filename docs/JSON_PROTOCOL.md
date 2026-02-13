@@ -612,9 +612,9 @@ Returns complete game state on success. This is the primary payload for game ini
       }
     ],
     "skills": [
-      { "skill_id": 1, "level": 50 },
-      { "skill_id": 3, "level": 35 },
-      { "skill_id": 10, "level": 20 }
+      { "skill_id": 1, "level": 50, "total_uses": 15000, "uses_this_level": 320, "uses_to_next_level": 5100 },
+      { "skill_id": 3, "level": 35, "total_uses": 8000, "uses_this_level": 0, "uses_to_next_level": 900 },
+      { "skill_id": 10, "level": 20, "total_uses": 3000, "uses_this_level": 100, "uses_to_next_level": 525 }
     ],
     "spells": [
       { "spell_id": 0, "level": 1, "total_casts": 42 },
@@ -761,6 +761,9 @@ Returns complete game state on success. This is the primary payload for game ini
 |-------|------|-------------|
 | `skill_id` | uint8 | Skill identifier |
 | `level` | int16 | Skill level (0-200) |
+| `total_uses` | int32 | Lifetime use count |
+| `uses_this_level` | int32 | Uses accumulated toward next level |
+| `uses_to_next_level` | int32 | Uses required to reach next level |
 
 #### Known Spell Object
 
@@ -1116,12 +1119,20 @@ Update skill levels.
   "seq": 0,
   "data": {
     "skills": [
-      { "skill_id": 1, "level": 50 },
-      { "skill_id": 3, "level": 35 }
+      { "skill_id": 1, "level": 50, "total_uses": 15000, "uses_this_level": 320, "uses_to_next_level": 5100 },
+      { "skill_id": 3, "level": 35, "total_uses": 8000, "uses_this_level": 0, "uses_to_next_level": 900 }
     ]
   }
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skills[].skill_id` | uint8 | Skill type identifier |
+| `skills[].level` | int16 | Current skill level |
+| `skills[].total_uses` | int32 | Lifetime use count for this skill |
+| `skills[].uses_this_level` | int32 | Uses accumulated toward next level |
+| `skills[].uses_to_next_level` | int32 | Uses required to reach next level |
 
 ---
 
@@ -3603,8 +3614,7 @@ Attempt to craft a manufacturing recipe.
   "seq": 2,
   "data": {
     "success": true,
-    "item_name": "Sword",
-    "exp_gained": 3
+    "item_name": "Sword"
   }
 }
 ```
@@ -3624,7 +3634,6 @@ Attempt to craft a manufacturing recipe.
 |-------|------|-------------|
 | `success` | bool | Whether crafting succeeded |
 | `item_name` | string | Name of crafted item (on success) |
-| `exp_gained` | int | Manufacturing XP gained |
 | `reason` | string | Failure reason: `"insufficient_skill"`, `"insufficient_materials"`, `"inventory_full"` |
 
 ### `alchemy_list_request`
@@ -3696,8 +3705,7 @@ Attempt to craft an alchemy recipe.
   "seq": 4,
   "data": {
     "success": true,
-    "item_name": "HealthPotion",
-    "exp_gained": 2
+    "item_name": "HealthPotion"
   }
 }
 ```
@@ -3717,7 +3725,6 @@ Attempt to craft an alchemy recipe.
 |-------|------|-------------|
 | `success` | bool | Whether crafting succeeded |
 | `item_name` | string | Name of crafted item (on success) |
-| `exp_gained` | int | Alchemy XP gained |
 | `reason` | string | Failure reason: `"insufficient_skill"`, `"insufficient_materials"`, `"inventory_full"` |
 
 ---
@@ -3749,7 +3756,7 @@ Client requests to mine a mineral node at the specified position.
 
 ### `mine_response`
 
-Server response to a mining attempt. On success, includes the mined item and XP gained. On failure, includes the reason.
+Server response to a mining attempt. On success, includes the mined item. On failure, includes the reason.
 
 **Success Response:**
 ```json
@@ -3760,7 +3767,6 @@ Server response to a mining attempt. On success, includes the mined item and XP 
     "success": true,
     "item_name": "Iron Ore",
     "template_id": 350,
-    "exp_gained": 15,
     "node_depleted": false
   }
 }
@@ -3783,7 +3789,6 @@ Server response to a mining attempt. On success, includes the mined item and XP 
 | `success` | bool | Yes | Whether mining succeeded |
 | `item_name` | string | No | Name of mined item (on success) |
 | `template_id` | int32 | No | Item template ID of mined item (on success) |
-| `exp_gained` | int32 | No | Mining XP gained (on success) |
 | `node_depleted` | bool | No | Whether the mineral node was exhausted by this action |
 | `error` | string | No | Failure reason (on failure) |
 
@@ -3966,9 +3971,7 @@ Result of the catch attempt.
   "data": {
     "result": "success",
     "item_name": "Trout",
-    "template_id": 300,
-    "exp_gained": 15,
-    "levels_gained": 1
+    "template_id": 300
   }
 }
 ```
@@ -3990,8 +3993,6 @@ Result of the catch attempt.
 | `result` | string | `"success"`, `"fail"`, or `"canceled"` |
 | `item_name` | string? | Name of caught item (on success) |
 | `template_id` | int32? | Item template ID of caught item (on success) |
-| `exp_gained` | int32? | Fishing experience gained (on success, if > 0) |
-| `levels_gained` | int16? | Fishing skill levels gained (on success, if > 0) |
 
 ### `fish_spawn_broadcast`
 

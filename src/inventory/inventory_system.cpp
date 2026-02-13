@@ -3,6 +3,7 @@
 
 #include "inventory/inventory_system.h"
 #include "core/logger.h"
+#include "perf/perf_stats.h"
 
 namespace hb::inventory {
 
@@ -79,6 +80,9 @@ auto inventory_system::get_bank(entity_id owner) -> bank_storage* {
 auto inventory_system::add_item(entity_id owner, item_id item, int16_t count)
     -> inventory_result
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::inventory_op);
+
     auto* inv = get_inventory(owner);
     if (!inv) return inventory_result::failed;
 
@@ -97,6 +101,9 @@ auto inventory_system::add_item(entity_id owner, item_id item, int16_t count)
 auto inventory_system::remove_item(entity_id owner, item_id item, int16_t count)
     -> inventory_result
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::inventory_op);
+
     auto* inv = get_inventory(owner);
     if (!inv) return inventory_result::failed;
 
@@ -115,6 +122,9 @@ auto inventory_system::remove_item(entity_id owner, item_id item, int16_t count)
 auto inventory_system::move_item(entity_id owner, int16_t from_slot, int16_t to_slot)
     -> inventory_result
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::inventory_op);
+
     auto* inv = get_inventory(owner);
     if (!inv) return inventory_result::failed;
 
@@ -128,6 +138,9 @@ auto inventory_system::move_item(entity_id owner, int16_t from_slot, int16_t to_
 auto inventory_system::swap_items(entity_id owner, int16_t slot_a, int16_t slot_b)
     -> inventory_result
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::inventory_op);
+
     auto* inv = get_inventory(owner);
     if (!inv) return inventory_result::failed;
 
@@ -322,6 +335,9 @@ void inventory_system::lock_trade(entity_id player) {
 }
 
 auto inventory_system::complete_trade(entity_id player1, entity_id player2) -> bool {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::trade_complete);
+
     auto* window1 = get_trade_window(player1);
     auto* window2 = get_trade_window(player2);
 

@@ -15,6 +15,10 @@
 #include <functional>
 #include <chrono>
 
+namespace hb::perf {
+class perf_stats_system;
+}
+
 namespace hb::database {
 
 // Database system configuration
@@ -163,9 +167,13 @@ public:
     // Get raw pool access (for advanced use)
     [[nodiscard]] auto pool() -> connection_pool& { return pool_; }
 
+    // Performance statistics
+    void set_perf_stats(hb::perf::perf_stats_system* perf) { perf_stats_ = perf; }
+
 private:
     database_config config_;
     connection_pool pool_;
+    hb::perf::perf_stats_system* perf_stats_{nullptr};
 };
 
 }  // namespace hb::database

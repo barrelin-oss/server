@@ -59,8 +59,6 @@ struct fish_catch_result
     catch_result result{};
     std::string item_name;
     int32_t template_id{};
-    int32_t exp_gained{};
-    int16_t levels_gained{};
 };
 
 }  // namespace hb::crafting

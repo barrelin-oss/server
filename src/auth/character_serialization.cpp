@@ -10,13 +10,13 @@ auto serialize_skills(const skill::player_skills& skills) -> std::string {
     nlohmann::json j = nlohmann::json::array();
 
     for (size_t i = 0; i < skill::max_skills; ++i) {
-        const auto& skill = skills.skills[i];
-        // Only serialize skills that have been trained (level > 0 or exp > 0)
-        if (skill.level > 0 || skill.experience > 0) {
+        const auto& sk = skills.skills[i];
+        if (sk.level > 0 || sk.total_uses > 0) {
             j.push_back({
-                {"type", static_cast<int>(skill.type)},
-                {"level", skill.level},
-                {"exp", skill.experience}
+                {"type", static_cast<int>(i)},
+                {"level", sk.level},
+                {"total_uses", sk.total_uses},
+                {"uses", sk.uses_this_level}
             });
         }
     }
@@ -57,10 +57,10 @@ auto deserialize_skills(const std::string& json_str) -> skill::player_skills {
             }
 
             auto type = static_cast<skill::skill_type>(type_idx);
-            skills.get(type).level = skill_obj["level"].get<int16_t>();
-            if (skill_obj.contains("exp")) {
-                skills.get(type).experience = skill_obj["exp"].get<int32_t>();
-            }
+            auto& sk = skills.get(type);
+            sk.level = skill_obj["level"].get<int16_t>();
+            sk.total_uses = skill_obj.value("total_uses", static_cast<int32_t>(0));
+            sk.uses_this_level = skill_obj.value("uses", static_cast<int32_t>(0));
         }
     } catch (const nlohmann::json::exception& e) {
         LOG_WARN(auth, "Failed to parse skills data: {}", e.what());

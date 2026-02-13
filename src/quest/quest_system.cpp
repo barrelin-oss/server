@@ -3,6 +3,7 @@
 
 #include "quest/quest_system.h"
 #include "core/logger.h"
+#include "perf/perf_stats.h"
 
 #include <algorithm>
 
@@ -333,6 +334,9 @@ void quest_system::check_quest_completion(player_id player, quest_state& state) 
 }
 
 void quest_system::update_kill_objectives(player_id player, npc_id killed, bool was_player) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::quest_update);
+
     auto* journal = get_journal(player);
     if (!journal) return;
 
@@ -366,6 +370,9 @@ void quest_system::update_kill_objectives(player_id player, npc_id killed, bool 
 }
 
 void quest_system::update_collect_objectives(player_id player, item_id item, int32_t count) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::quest_update);
+
     auto* journal = get_journal(player);
     if (!journal) return;
 
@@ -396,6 +403,9 @@ void quest_system::update_collect_objectives(player_id player, item_id item, int
 }
 
 void quest_system::update_location_objectives(player_id player, map_id map, int16_t x, int16_t y) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::quest_update);
+
     auto* journal = get_journal(player);
     if (!journal) return;
 

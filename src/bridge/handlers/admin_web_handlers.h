@@ -78,6 +78,10 @@ namespace hb {
     class config_system;
 }
 
+namespace hb::perf {
+    class perf_stats_system;
+}
+
 namespace hb::bridge {
 
 class admin_web_handlers {
@@ -104,7 +108,8 @@ public:
                     config_system* config = nullptr,
                     magic::magic_system* magic = nullptr,
                     quest::quest_system* quest = nullptr,
-                    skill::skill_system* skill = nullptr);
+                    skill::skill_system* skill = nullptr,
+                    perf::perf_stats_system* perf_stats = nullptr);
 
     void handle_message(connection_id conn_id, const network::json_message& msg);
 
@@ -196,6 +201,9 @@ private:
     void handle_delete_character_admin(connection_id conn_id, const network::json_message& msg);
     void handle_manage_ip_bans(connection_id conn_id, const network::json_message& msg);
 
+    // Performance stats
+    void handle_perf_stats(connection_id conn_id, const network::json_message& msg);
+
     // Helpers
     void send_error(connection_id conn_id, uint32_t seq,
                     std::string_view error_code, std::string_view message);
@@ -224,6 +232,7 @@ private:
     magic::magic_system* magic_{nullptr};
     quest::quest_system* quest_{nullptr};
     skill::skill_system* skill_{nullptr};
+    perf::perf_stats_system* perf_stats_{nullptr};
     std::chrono::steady_clock::time_point start_time_{std::chrono::steady_clock::now()};
 };
 

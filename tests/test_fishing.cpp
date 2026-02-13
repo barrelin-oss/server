@@ -36,8 +36,6 @@ TEST(fishing_test, fish_catch_result_defaults)
     EXPECT_EQ(result.result, catch_result::success);
     EXPECT_TRUE(result.item_name.empty());
     EXPECT_EQ(result.template_id, 0);
-    EXPECT_EQ(result.exp_gained, 0);
-    EXPECT_EQ(result.levels_gained, 0);
 }
 
 TEST(fishing_test, fishing_rod_template_id)

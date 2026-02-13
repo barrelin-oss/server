@@ -24,6 +24,10 @@ namespace hb::magic {
     class magic_system;
 }
 
+namespace hb::skill {
+    class skill_system;
+}
+
 namespace hb {
     class magic_registry;
     class scheduler;
@@ -43,6 +47,7 @@ struct gm_command_context {
     inventory::inventory_system* inventory{nullptr};
     magic::magic_system* magic{nullptr};
     magic_registry* spells{nullptr};
+    skill::skill_system* skills{nullptr};
     scheduler* sched{nullptr};
     send_to_player_fn send_to_player;
 };

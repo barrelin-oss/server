@@ -42,6 +42,7 @@
 #include "config/config_system.h"
 #include "core/subsystem.h"
 #include "core/logger.h"
+#include "perf/perf_stats.h"
 
 #include <chrono>
 #include <random>
@@ -157,6 +158,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     // Register mining node spawn/despawn callbacks
     if (mining_) {
         mining_->set_spawn_callback([this](const crafting::mineral_node& node) {
+            auto* perf = subsystems().get<perf::perf_stats_system>();
+            PERF_TIMER(perf, perf::metric_category::broadcast);
+
             if (!players_ || !ws_server_ || !world_) return;
 
             auto* map = world_->get_map_by_name(node.map_name);
@@ -180,6 +184,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
 
         mining_->set_despawn_callback([this](const crafting::mineral_node& node) {
+            auto* perf = subsystems().get<perf::perf_stats_system>();
+            PERF_TIMER(perf, perf::metric_category::broadcast);
+
             if (!players_ || !ws_server_ || !world_) return;
 
             auto* map = world_->get_map_by_name(node.map_name);
@@ -202,6 +209,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     // Register fishing node spawn/despawn/engagement callbacks
     if (fishing_) {
         fishing_->set_spawn_callback([this](const crafting::fish_node& node) {
+            auto* perf = subsystems().get<perf::perf_stats_system>();
+            PERF_TIMER(perf, perf::metric_category::broadcast);
+
             if (!players_ || !ws_server_ || !world_) return;
 
             auto* map = world_->get_map_by_name(node.map_name);
@@ -221,6 +231,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
 
         fishing_->set_despawn_callback([this](const crafting::fish_node& node) {
+            auto* perf = subsystems().get<perf::perf_stats_system>();
+            PERF_TIMER(perf, perf::metric_category::broadcast);
+
             if (!players_ || !ws_server_ || !world_) return;
 
             auto* map = world_->get_map_by_name(node.map_name);
@@ -240,6 +253,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
 
         fishing_->set_engaged_callback([this](entity_id player_eid, const crafting::fish_type_config& config, int32_t initial_chance) {
+            auto* perf = subsystems().get<perf::perf_stats_system>();
+            PERF_TIMER(perf, perf::metric_category::broadcast);
+
             if (!players_ || !ws_server_) return;
 
             auto pid = player_id{player_eid.value};
@@ -289,8 +305,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
             }(result.result);
 
             auto msg = network::make_fish_catch_response(player_eid,
-                result_str, result.item_name, result.template_id,
-                result.exp_gained, result.levels_gained);
+                result_str, result.item_name, result.template_id);
             auto* conn = ws_server_->get_connection(plr->connection);
             if (conn && conn->is_open()) {
                 conn->send(msg);
@@ -366,6 +381,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
 }
 
 void game_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::message_handler);
+
     switch (msg.type) {
         // Movement
         case network::json_message_type::player_move_request:
@@ -976,6 +994,18 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         }
     }
 
+    // Grant weapon skill exp on hit
+    if (combat_result.hit.is_hit() && skills_) {
+        auto weapon_skill = skill::skill_type::hand_attack;
+        if (item_ && attacker->equipment.has_equipped(player::equip_slot::weapon)) {
+            auto* weapon_item = item_->get_item(attacker->equipment.weapon().id);
+            if (weapon_item) {
+                weapon_skill = skill::weapon_type_to_skill_type(weapon_item->weapon);
+            }
+        }
+        skills_->record_skill_use(pid, weapon_skill);
+    }
+
     LOG_DEBUG(bridge, "Player {} {} player {} (hit={}, crit={}, dmg={}, target_hp={}, ranged={})",
         pid.value, is_ranged ? "shot" : "attacked", target_pid_opt->value,
         combat_result.hit.is_hit(), combat_result.hit.is_critical(),
@@ -1044,6 +1074,8 @@ void game_handlers::handle_player_magic(connection_id conn_id, const network::js
         }
 
         // Cast started - result will come via callback when cast completes
+        if (skills_) skills_->record_skill_use(pid, skill::skill_type::magic);
+
         network::magic_result_msg result{
             .success = true,
             .spell_id = data.spell_id,
@@ -1064,6 +1096,10 @@ void game_handlers::handle_player_magic(connection_id conn_id, const network::js
         }
 
         auto& effect = cast_result.value();
+        if (effect.success && skills_) {
+            skills_->record_skill_use(pid, skill::skill_type::magic);
+        }
+
         network::magic_result_msg result{
             .success = effect.success,
             .spell_id = data.spell_id,
@@ -2095,6 +2131,9 @@ void game_handlers::broadcast_position_update(player_id moved_player,
                                                std::optional<int16_t> dest_x,
                                                std::optional<int16_t> dest_y)
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::broadcast);
+
     if (!players_ || !ws_server_) return;
 
     auto* player = players_->get_player(moved_player);
@@ -2128,6 +2167,9 @@ void game_handlers::update_entity_visibility(player_id moved_player,
                                               const world::position& old_pos,
                                               const world::position& new_pos)
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::visibility_update);
+
     if (!players_ || !ws_server_) return;
 
     auto* player = players_->get_player(moved_player);
@@ -2756,6 +2798,9 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
                                              const world::position& dest_pos,
                                              world::direction dest_dir)
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::visibility_update);
+
     if (!players_ || !ws_server_ || !world_) {
         send_error(conn_id, seq, "internal_error", "System unavailable");
         return;
@@ -2845,6 +2890,9 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
                 conn->send(network::make_environment_update(env));
             }
         }
+
+        // Send updated skills data
+        send_skills_data(conn_id, pid);
     }
 
     // Spawn to players who can see NEW position
@@ -2953,6 +3001,9 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
                                                int visibility_radius_y)
     -> std::vector<network::visible_entity_msg>
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::visibility_update);
+
     std::vector<network::visible_entity_msg> entities;
 
     if (!players_ || !world_) return entities;
@@ -3134,6 +3185,9 @@ void game_handlers::on_entity_death(const combat::death_event& event) {
 }
 
 void game_handlers::handle_player_death(player_id pid, const combat::death_event& event) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::player_death);
+
     if (!players_ || !ws_server_ || !world_) return;
 
     auto* player = players_->get_player(pid);
@@ -3222,6 +3276,9 @@ void game_handlers::handle_player_death(player_id pid, const combat::death_event
 void game_handlers::execute_respawn(player_id pid, const std::string& map_name,
                                      const world::position& pos)
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::player_death);
+
     if (!players_ || !ws_server_ || !combat_) return;
 
     auto* player = players_->get_player(pid);
@@ -3559,6 +3616,9 @@ void game_handlers::on_spell_cast(entity::entity caster, const magic::spell_temp
 // ========== NPC Broadcast Methods ==========
 
 void game_handlers::broadcast_npc_spawn(const npc::npc& n) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::broadcast);
+
     if (!players_ || !ws_server_) return;
 
     network::npc_spawn_data data{
@@ -3595,6 +3655,9 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n) {
 }
 
 void game_handlers::broadcast_npc_move(const npc::npc& n) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::broadcast);
+
     if (!players_ || !ws_server_) return;
 
     network::npc_move_data data{
@@ -3624,6 +3687,9 @@ void game_handlers::broadcast_npc_move(const npc::npc& n) {
 }
 
 void game_handlers::broadcast_npc_attack(const npc::npc& n, entity::entity target, int32_t damage) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::broadcast);
+
     if (!players_ || !ws_server_) return;
 
     // Resolve target position for projectile visuals
@@ -3667,6 +3733,9 @@ void game_handlers::broadcast_npc_attack(const npc::npc& n, entity::entity targe
 }
 
 void game_handlers::broadcast_npc_death(const npc::npc& n, entity::entity killer) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::broadcast);
+
     if (!players_ || !ws_server_) return;
 
     network::npc_death_data data{
@@ -3807,6 +3876,9 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
 }
 
 void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity killer) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::loot_generation);
+
     if (!item_ || !world_ || !loot_registry_) return;
 
     // Copy needed data from the npc reference (only valid during callback)
@@ -3844,6 +3916,9 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
 }
 
 void game_handlers::handle_npc_despawn_drop(const npc::npc& n) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::loot_generation);
+
     if (!item_ || !world_ || !loot_registry_) return;
 
     // Copy needed data from the npc reference (only valid during callback)
@@ -3880,6 +3955,9 @@ void game_handlers::handle_npc_despawn_drop(const npc::npc& n) {
 void game_handlers::send_visible_ground_items(connection_id conn_id, map_id map,
                                                const world::position& pos,
                                                int radius_x, int radius_y) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::visibility_update);
+
     if (!world_ || !ws_server_ || !item_) return;
 
     auto* conn = ws_server_->get_connection(conn_id);
@@ -4035,6 +4113,32 @@ void game_handlers::send_hunger_update(player_id pid, int8_t level) {
 
     LOG_DEBUG(bridge, "Sent hunger update to player {}: level={}, starving={}",
         pid.value, level, level <= 0);
+}
+
+// ========== Skill Data Sync ==========
+
+void game_handlers::send_skills_data(connection_id conn_id, player_id pid) {
+    if (!skills_ || !ws_server_) return;
+
+    auto* ps = skills_->get_player_skills(pid);
+    if (!ps) return;
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (!conn || !conn->is_open()) return;
+
+    std::vector<network::skill_entry_msg> skill_list;
+    for (uint8_t i = 0; i < static_cast<uint8_t>(skill::skill_type::skill_count); ++i) {
+        auto type = static_cast<skill::skill_type>(i);
+        const auto& ss = ps->get(type);
+        skill_list.push_back({
+            .skill_id = i,
+            .level = ss.level,
+            .total_uses = ss.total_uses,
+            .uses_this_level = ss.uses_this_level,
+            .uses_to_next_level = skills_->uses_to_next_level(type, ss.level)
+        });
+    }
+    conn->send(network::make_skills_data(0, skill_list));
 }
 
 // ========== Environment (Day/Night + Weather) ==========
@@ -4587,15 +4691,15 @@ void game_handlers::handle_manufacture_request(connection_id conn_id,
     auto result = manufacturing_->attempt_craft(entity_id{pid.value}, data.recipe_index);
 
     if (result.reason == skill::skill_use_result::insufficient_skill) {
-        conn->send(network::make_manufacture_response(msg.seq, false, "", 0, "insufficient_skill"));
+        conn->send(network::make_manufacture_response(msg.seq, false, "", "insufficient_skill"));
         return;
     }
     if (result.reason == skill::skill_use_result::insufficient_materials) {
-        conn->send(network::make_manufacture_response(msg.seq, false, "", 0, "insufficient_materials"));
+        conn->send(network::make_manufacture_response(msg.seq, false, "", "insufficient_materials"));
         return;
     }
     if (!result.success && result.reason == skill::skill_use_result::failure) {
-        conn->send(network::make_manufacture_response(msg.seq, false, "", 0, "inventory_full"));
+        conn->send(network::make_manufacture_response(msg.seq, false, "", "inventory_full"));
         return;
     }
 
@@ -4608,7 +4712,7 @@ void game_handlers::handle_manufacture_request(connection_id conn_id,
     }
 
     conn->send(network::make_manufacture_response(
-        msg.seq, result.success, item_name, result.exp_gained));
+        msg.seq, result.success, item_name));
 
     // Fire quest event on success
     if (result.success && quests_ && result.created_item.is_valid()) {
@@ -4676,15 +4780,15 @@ void game_handlers::handle_alchemy_request(connection_id conn_id,
     auto result = alchemy_->attempt_craft(entity_id{pid.value}, data.recipe_id);
 
     if (result.reason == skill::skill_use_result::insufficient_skill) {
-        conn->send(network::make_alchemy_response(msg.seq, false, "", 0, "insufficient_skill"));
+        conn->send(network::make_alchemy_response(msg.seq, false, "", "insufficient_skill"));
         return;
     }
     if (result.reason == skill::skill_use_result::insufficient_materials) {
-        conn->send(network::make_alchemy_response(msg.seq, false, "", 0, "insufficient_materials"));
+        conn->send(network::make_alchemy_response(msg.seq, false, "", "insufficient_materials"));
         return;
     }
     if (!result.success && result.reason == skill::skill_use_result::failure) {
-        conn->send(network::make_alchemy_response(msg.seq, false, "", 0, "inventory_full"));
+        conn->send(network::make_alchemy_response(msg.seq, false, "", "inventory_full"));
         return;
     }
 
@@ -4697,7 +4801,7 @@ void game_handlers::handle_alchemy_request(connection_id conn_id,
     }
 
     conn->send(network::make_alchemy_response(
-        msg.seq, result.success, item_name, result.exp_gained));
+        msg.seq, result.success, item_name));
 
     // Fire quest event on success
     if (result.success && quests_ && result.created_item.is_valid()) {
@@ -4744,25 +4848,25 @@ void game_handlers::handle_mine_request(connection_id conn_id,
     auto result = mining_->attempt_mine(entity_id(pid.value), data.target_x, data.target_y, map_name);
 
     if (result.reason == skill::skill_use_result::invalid_target) {
-        conn->send(network::make_mine_response(msg.seq, false, "", 0, 0, false, "invalid_target"));
+        conn->send(network::make_mine_response(msg.seq, false, "", 0, false, "invalid_target"));
         return;
     }
     if (result.reason == skill::skill_use_result::insufficient_materials) {
-        conn->send(network::make_mine_response(msg.seq, false, "", 0, 0, false, "no_pickaxe"));
+        conn->send(network::make_mine_response(msg.seq, false, "", 0, false, "no_pickaxe"));
         return;
     }
     if (result.reason == skill::skill_use_result::insufficient_skill) {
-        conn->send(network::make_mine_response(msg.seq, false, "", 0, 0, false, "insufficient_skill"));
+        conn->send(network::make_mine_response(msg.seq, false, "", 0, false, "insufficient_skill"));
         return;
     }
 
     if (!result.success) {
-        conn->send(network::make_mine_response(msg.seq, false, "", 0, 0, result.node_depleted, "miss"));
+        conn->send(network::make_mine_response(msg.seq, false, "", 0, result.node_depleted, "miss"));
         return;
     }
 
     conn->send(network::make_mine_response(msg.seq, true,
-        result.item_name, result.template_id, result.exp_gained, result.node_depleted));
+        result.item_name, result.template_id, result.node_depleted));
 }
 
 // === Fishing ===

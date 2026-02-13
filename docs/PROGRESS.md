@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-11
+**Last Updated:** 2026-02-12
 
 ---
 
@@ -148,14 +148,14 @@ This document tracks implementation progress for the modernized Helbreath server
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Skill tracking | ✅ | All weapon skills tracked per player |
-| Skill experience | ✅ | XP gain through use, leveling |
+| Skill experience | ✅ | Use-count leveling with tiered multipliers from YAML |
 | Skill mastery | ✅ | Mastery levels |
 | Weapon skill bonuses | ✅ | Damage and hit rate bonuses |
 | Skill training | ✅ | Training mechanics |
 | Skill reset | ✅ | Reset functionality |
 | Manufacturing | ✅ | YAML-driven build recipes, crafting with skill checks |
 | Alchemy | ✅ | YAML-driven craft/alchemy recipes, potion/gem crafting |
-| Mining | ✅ | Mineral node lifecycle, generation, mining skill, XP gain |
+| Mining | ✅ | Mineral node lifecycle, generation, mining skill, use-count leveling |
 | Fishing | ✅ | Engagement-based fishing with fluctuating catch chance, YAML-driven fish types |
 
 ---
@@ -324,6 +324,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Admin API expansion | ✅ | Broadcast, mute, template browsing, war status, parties, player search, effects |
 | Admin API phase 3 | ✅ | Audit log, config management, scheduler control, DB queries, NPC/ground item inspection, guild mutations, messaging, environment, shutdown |
 | Admin API phase 4 | ✅ | Skills/spells/quests/effects management, account/character CRUD, spawn/spell template browsing, maintenance mode, IP bans, enriched player/inventory/search |
+| Performance profiling | ✅ | Timing/counter/gauge metrics via `admin_perf_stats_request`, scoped timers on hot paths |
 
 ---
 
@@ -339,7 +340,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Bank save | ✅ | JSON serialization to JSONB column |
 | Gold save | ✅ | Stored in characters table |
 | Guild save | ✅ | Guilds and members persist to PostgreSQL across server restarts |
-| World state | ❌ | Dynamic objects |
+| World state | ✅ | Not needed — ground items, mining nodes, fish, NPCs are ephemeral by design |
 
 ---
 
@@ -374,7 +375,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Manufacturing system | ✅ | Skill-gated crafting, STR*2 cap, success formula |
 | Alchemy system | ✅ | Difficulty-based crafting, INT*2 cap, success formula |
 | Material consumption | ✅ | Ingredients consumed on both success and failure |
-| Skill integration | ✅ | Manufacturing/alchemy skill checks, XP gain |
+| Skill integration | ✅ | Manufacturing/alchemy skill checks, use-count leveling |
 | Protocol messages | ✅ | 8 messages (4 manufacturing, 4 alchemy) |
 | Dialog actions | ✅ | `open_manufacturing` / `open_alchemy` dialog triggers |
 | Crafting interface | ✅ | List + craft request/response flow |
@@ -424,14 +425,39 @@ Priority order for remaining work toward a playable game:
 | ~~Magic data loading~~ | ~~High~~ | ✅ Magic registry from YAML |
 | Unit tests | Medium | Limited test coverage |
 | Integration tests | Medium | End-to-end testing |
-| Performance profiling | Low | Not yet needed |
+| Performance profiling | ✅ | Lightweight timing/counter system, exposed via admin API |
 | Memory leak checking | Low | Valgrind/sanitizers |
 
 ---
 
 ## Recent Changes
 
+### 2026-02-12
+- **Skill System Refactor: Use-Count Leveling** - Replaced abstract experience system with use-count based progression
+  - Formula: `uses_to_next_level = (level + 1) * N` where N comes from per-skill tiered multiplier tables
+  - Default tier table: 0-19→10, 20-39→25, 40-59→50, 60-79→75, 80-89→100, 90+→125
+  - Per-skill tier overrides loaded from `skills.yaml` (JSON format)
+  - `skill_state` becomes pure data: `total_uses`, `uses_this_level` replace `experience`
+  - `skill_system` owns all leveling logic via `record_skill_use()` and `add_skill_uses()`
+  - All callers updated: combat hits, spell casts, manufacturing, alchemy, mining, fishing
+  - Removed `exp_gained` from crafting result structs and protocol responses
+  - Protocol: `skill_entry_msg` now sends `total_uses`, `uses_this_level`, `uses_to_next_level`
+  - Admin API: `add_exp` action → `add_uses` action in `admin_modify_skills_request`
+  - Character serialization: backward-compatible (old `"exp"` key silently ignored)
+  - DB migration: `20260212_120000_skill_uses_format.sql` transforms JSONB skill data
+  - 25 skill tests rewritten, 1424 total tests passing
+
 ### 2026-02-11
+- **Performance Profiling System** - Lightweight built-in performance monitoring via admin API
+  - `perf_stats_system` subsystem: timing, counters, and gauge metrics
+  - RAII `scoped_timer` for automatic timing measurement (~100ns overhead)
+  - Lock-free atomic counters for message/byte tracking
+  - Circular `sample_buffer` for p99 percentile calculation
+  - Instrumented: tick_total, npc_ai_update, spatial queries, scheduler tasks, message handlers
+  - Gauge snapshot: players, NPCs, ground items, scheduled tasks, connections
+  - `admin_perf_stats_request/response` protocol messages with include_timing/counters/gauges filters
+  - Enable/disable toggle, per-second rate calculation
+  - 24 new tests (1398 total)
 - **Fishing System** - Engagement-based fishing mechanic with YAML-driven fish types
   - Legacy engagement mechanic: player activates skill near water → engages fish within 2 tiles → catch chance fluctuates every 4s → player chooses when to attempt catch
   - `fishing_config.h`: fish_type_config, fishing_state (on player struct), catch_result enum, fish_catch_result

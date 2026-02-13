@@ -176,6 +176,10 @@ set(CRAFTING_SOURCES
     src/crafting/fishing_system.cpp
 )
 
+set(PERF_SOURCES
+    src/perf/perf_stats.cpp
+)
+
 set(ADMIN_SOURCES
     src/admin/admin_system.cpp
     src/admin/gm_commands.cpp
@@ -236,6 +240,7 @@ add_library(hgserver_core STATIC
     ${WAR_SOURCES}
     ${PERSISTENCE_SOURCES}
     ${CRAFTING_SOURCES}
+    ${PERF_SOURCES}
     ${ADMIN_SOURCES}
     ${DATABASE_SOURCES}
     ${AUTH_SOURCES}
@@ -346,6 +351,7 @@ add_executable(hgserver_tests
     tests/test_safe_zone.cpp
     tests/test_admin_web.cpp
     tests/test_friend_system.cpp
+    tests/test_perf_stats.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

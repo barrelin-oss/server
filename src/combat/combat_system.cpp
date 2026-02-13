@@ -8,6 +8,7 @@
 #include "npc/npc_system.h"
 #include "effect/effect_system.h"
 #include "world/world_subsystem.h"
+#include "perf/perf_stats.h"
 
 #include <chrono>
 
@@ -49,6 +50,9 @@ void combat_system::set_config(const combat_system_config& config) {
 }
 
 auto combat_system::process_attack(const attack_event& attack) -> combat_result {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::combat_attack);
+
     combat_result result;
 
     if (!can_attack(attack.attacker, attack.defender)) {

@@ -167,11 +167,8 @@ auto mining_system::attempt_mine(entity_id player_eid, int16_t target_x, int16_t
             }
         }
 
-        // Grant XP
-        int32_t exp = type_config->difficulty;
-        auto levels = skills_->add_skill_exp(pid, skill::skill_type::mining, exp);
-        result.exp_gained = exp;
-        result.levels_gained = levels;
+        // Record skill use
+        skills_->record_skill_use(pid, skill::skill_type::mining);
     }
     else
     {

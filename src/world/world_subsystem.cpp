@@ -287,6 +287,14 @@ auto world_subsystem::ground_item_count(map_id map, const position& pos) const -
     return it != ground_items_.end() ? it->second.size() : 0;
 }
 
+auto world_subsystem::total_ground_item_count() const -> size_t {
+    size_t total = 0;
+    for (const auto& [key, entries] : ground_items_) {
+        total += entries.size();
+    }
+    return total;
+}
+
 auto world_subsystem::remove_expired_ground_items(std::chrono::seconds max_age)
     -> std::vector<std::tuple<map_id, position, item_id>>
 {

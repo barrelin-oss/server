@@ -8,6 +8,7 @@
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
 #include "core/logger.h"
+#include "perf/perf_stats.h"
 
 #include <algorithm>
 #include <random>
@@ -82,6 +83,9 @@ auto manufacturing_system::calculate_success_chance(int16_t skill_level,
 auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index)
     -> craft_result
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::crafting);
+
     craft_result result;
 
     if (!recipes_ || !skills_ || !inventory_ || !items_ || !players_)
@@ -164,16 +168,10 @@ auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index)
         }
     }
 
-    // Grant XP if skill < skill_limit (or skill_limit == 0)
+    // Record skill use if skill < skill_limit (or skill_limit == 0)
     if (recipe->skill_limit == 0 || skill_level < recipe->skill_limit)
     {
-        int32_t max_exp = std::max(1, static_cast<int32_t>(recipe->skill_limit) / 4);
-        std::uniform_int_distribution<int32_t> exp_dist(1, max_exp);
-        int32_t exp = exp_dist(rng);
-
-        result.levels_gained = skills_->add_skill_exp(
-            pid, skill::skill_type::manufacturing, exp);
-        result.exp_gained = exp;
+        skills_->record_skill_use(pid, skill::skill_type::manufacturing);
     }
 
     return result;

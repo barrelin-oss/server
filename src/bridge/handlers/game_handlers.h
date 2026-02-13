@@ -313,6 +313,9 @@ private:
                                     const world::position& pos,
                                     int radius_x, int radius_y);
 
+    // Skill data sync
+    void send_skills_data(connection_id conn_id, player_id pid);
+
     // Hunger update helper
     void send_hunger_update(player_id pid, int8_t level);
 

@@ -9,6 +9,7 @@
 #include "combat/combat_system.h"
 #include "effect/effect_system.h"
 #include "world/world_subsystem.h"
+#include "perf/perf_stats.h"
 
 #include <chrono>
 #include <algorithm>
@@ -252,6 +253,9 @@ auto magic_system::get_cast_state(hb::entity::entity caster) const -> const spel
 }
 
 void magic_system::learn_spell(hb::entity::entity caster, spell_id spell) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::magic_learn);
+
     auto& spells = player_spells_[caster];
 
     // Check if already known
@@ -475,6 +479,9 @@ void magic_system::process_active_casts(float /*delta_time*/) {
 auto magic_system::apply_spell_effect(hb::entity::entity caster, const spell_template& spell, const cast_target& target)
     -> spell_effect_result
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::magic_cast);
+
     spell_effect_result result;
     result.success = true;
 

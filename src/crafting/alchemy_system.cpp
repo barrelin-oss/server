@@ -8,6 +8,7 @@
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
 #include "core/logger.h"
+#include "perf/perf_stats.h"
 
 #include <algorithm>
 #include <random>
@@ -90,6 +91,9 @@ auto alchemy_system::calculate_success_chance(int16_t skill_level,
 auto alchemy_system::attempt_craft(entity_id player, int32_t recipe_id)
     -> craft_result
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::crafting);
+
     craft_result result;
 
     if (!recipes_ || !skills_ || !inventory_ || !items_ || !players_)
@@ -171,14 +175,8 @@ auto alchemy_system::attempt_craft(entity_id player, int32_t recipe_id)
         }
     }
 
-    // Grant XP based on difficulty
-    int32_t max_exp = std::max(1, static_cast<int32_t>(recipe->difficulty) / 3);
-    std::uniform_int_distribution<int32_t> exp_dist(1, max_exp);
-    int32_t exp = exp_dist(rng);
-
-    result.levels_gained = skills_->add_skill_exp(
-        pid, skill::skill_type::alchemy, exp);
-    result.exp_gained = exp;
+    // Record skill use
+    skills_->record_skill_use(pid, skill::skill_type::alchemy);
 
     return result;
 }

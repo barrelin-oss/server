@@ -1,3 +1,18 @@
+# Skill definitions and leveling configuration
+# IDs match original Helbreath skill indices
+# type: 0=combat, 1=crafting/gathering, 2=special
+# value1/value2: legacy config values from original data
+
+defaults:
+  max_level: 100
+  tiers:
+    - { max_level: 20, multiplier: 10 }
+    - { max_level: 40, multiplier: 25 }
+    - { max_level: 60, multiplier: 50 }
+    - { max_level: 80, multiplier: 75 }
+    - { max_level: 90, multiplier: 100 }
+    - { max_level: 200, multiplier: 125 }
+
 skills:
   - { id: 0, name: Mining, type: 1, value1: 1, value2: 6 }
   - { id: 1, name: Fishing, type: 1, value1: 2, value2: 6 }
@@ -15,11 +30,19 @@ skills:
   - { id: 13, name: Manufacturing, type: 1, value1: 2 }
   - { id: 14, name: Hammer, type: 0 }
   - { id: 15, name: Crafting, type: 1 }
-  - { id: 16, name: ????, type: 1, value1: 1 }
-  - { id: 17, name: ????, type: 1 }
-  - { id: 18, name: ????, type: 1, value1: 1 }
+  - { id: 16, name: "????", type: 1, value1: 1 }
+  - { id: 17, name: "????", type: 1 }
+  - { id: 18, name: "????", type: 1, value1: 1 }
   - { id: 19, name: Pretend-Corpse, type: 2, value1: 1 }
-  - { id: 20, name: ????, type: 1, value1: 1 }
+  - { id: 20, name: "????", type: 1, value1: 1 }
   - { id: 21, name: Staff-Attack, type: 0 }
-  - { id: 22, name: ????, type: 1, value1: 2 }
+  - { id: 22, name: "????", type: 1, value1: 2 }
   - { id: 23, name: Poison-Resistance, type: 1 }
+
+# Per-skill tier overrides (optional)
+# Uncomment to customize leveling curves for specific skills:
+# skill_tiers:
+#   mining:
+#     tiers:
+#       - { max_level: 20, multiplier: 8 }
+#       - { max_level: 200, multiplier: 20 }

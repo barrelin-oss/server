@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS characters (
     stat_points_available SMALLINT DEFAULT 0,
 
     -- JSON data for complex serialized data (JSONB for queryability)
-    -- skills_data: [{"type":5,"level":45,"exp":1200}, ...]
+    -- skills_data: [{"type":5,"level":45,"total_uses":15000,"uses":200}, ...]
     -- inventory_data: [{"slot":0,"item_id":123,"count":1}, ...]
     -- equipment_data: [{"slot":5,"item_id":123,"durability":80,"max_durability":100}, ...]
     skills_data     JSONB DEFAULT '[]'::jsonb,

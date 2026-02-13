@@ -56,8 +56,6 @@ TEST(mining_test, mine_result_defaults)
     EXPECT_TRUE(result.item_name.empty());
     EXPECT_EQ(result.template_id, 0);
     EXPECT_EQ(result.count, 1);
-    EXPECT_EQ(result.exp_gained, 0);
-    EXPECT_EQ(result.levels_gained, 0);
     EXPECT_FALSE(result.node_depleted);
 }
 

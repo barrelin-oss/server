@@ -81,6 +81,7 @@ public:
     [[nodiscard]] auto get_ground_items(map_id map, const position& pos) const -> std::vector<item_id>;
     [[nodiscard]] auto has_ground_items(map_id map, const position& pos) const -> bool;
     [[nodiscard]] auto ground_item_count(map_id map, const position& pos) const -> size_t;
+    [[nodiscard]] auto total_ground_item_count() const -> size_t;
 
     // Remove ground items older than max_age, returns list of (map, pos, item_id) removed
     auto remove_expired_ground_items(std::chrono::seconds max_age)

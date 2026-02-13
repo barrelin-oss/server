@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <vector>
+#include <random>
 
 namespace hb::npc {
 
@@ -42,9 +43,17 @@ struct spawn_point {
     }
 
     [[nodiscard]] auto get_spawn_position() const -> hb::world::position {
-        // Random position within radius (simplified)
-        // Real implementation would use proper random
-        return center;
+        // Generate random offset within spawn radius
+        static thread_local std::mt19937 rng{std::random_device{}()};
+        std::uniform_int_distribution<int16_t> dist(-radius, radius);
+
+        int16_t offset_x = dist(rng);
+        int16_t offset_y = dist(rng);
+
+        return hb::world::position{
+            static_cast<int16_t>(center.x + offset_x),
+            static_cast<int16_t>(center.y + offset_y)
+        };
     }
 };
 

@@ -3,6 +3,8 @@
 
 #include "scheduler/scheduler.h"
 #include "core/logger.h"
+#include "core/subsystem.h"
+#include "perf/perf_stats.h"
 #include "platform/clock.h"
 
 namespace hb {
@@ -80,9 +82,11 @@ void scheduler::update(float delta_time) {
     }
 
     // Execute tasks outside the lock
+    auto* perf = subsystems().get<perf::perf_stats_system>();
     for (auto& task : to_execute) {
         try {
             if (task.callback) {
+                PERF_TIMER(perf, perf::metric_category::scheduler_task_exec);
                 task.callback();
             }
             ++tasks_executed_;

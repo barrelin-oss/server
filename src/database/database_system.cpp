@@ -3,6 +3,7 @@
 
 #include "database/database_system.h"
 #include "core/logger.h"
+#include "perf/perf_stats.h"
 
 namespace hb::database {
 
@@ -104,6 +105,8 @@ auto database_system::reconnect() -> result<void, std::string> {
 auto database_system::execute_unsafe(std::string_view query)
     -> hb::result<query_result, std::string>
 {
+    PERF_TIMER(perf_stats_, perf::metric_category::db_query);
+
     auto conn = pool_.acquire();
     if (conn.is_err()) {
         return hb::result<query_result, std::string>::err(conn.error());
@@ -148,6 +151,8 @@ auto database_system::execute(std::string_view query)
 auto database_system::execute_transaction(transaction_func func)
     -> hb::result<void, std::string>
 {
+    PERF_TIMER(perf_stats_, perf::metric_category::db_query);
+
     auto conn = pool_.acquire();
     if (conn.is_err()) {
         return hb::result<void, std::string>::err(conn.error());

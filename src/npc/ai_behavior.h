@@ -3,6 +3,7 @@
 // ai_behavior.h
 // NPC AI state machine and behavior
 
+#include "core/enums.h"
 #include "entity/entity.h"
 #include "world/position.h"
 
@@ -57,6 +58,7 @@ struct ai_config {
     int16_t flee_hp_percent{15}; // HP% to start fleeing
     int16_t wander_range{5};     // Wander distance from spawn
     int32_t think_interval_ms{500}; // AI update interval
+    hb::npc_move_type move_type{hb::npc_move_type::random}; // Movement behavior type
 
     // Behavior tree name (empty = use state machine)
     std::string behavior_tree;

@@ -20,6 +20,7 @@
 #include "crafting/alchemy_system.h"
 #include "crafting/mining_system.h"
 #include "crafting/fishing_system.h"
+#include "perf/perf_stats.h"
 #include "registry/mining_registry.h"
 #include "registry/fishing_registry.h"
 #include "platform/clock.h"
@@ -217,6 +218,7 @@ void application::initialize() {
     subsystems().create_subsystem<quest::quest_system>();
     subsystems().create_subsystem<social::social_system>();
     subsystems().create_subsystem<war::war_system>();
+    subsystems().create_subsystem<war::crusade_system>();
     subsystems().create_subsystem<persistence::persistence_system>();
     subsystems().create_subsystem<admin::admin_system>();
     subsystems().create_subsystem<crafting::manufacturing_system>();
@@ -225,6 +227,7 @@ void application::initialize() {
     subsystems().create_subsystem<crafting::mining_system>();
     subsystems().create_subsystem<fishing_registry>();
     subsystems().create_subsystem<crafting::fishing_system>();
+    subsystems().create_subsystem<perf::perf_stats_system>();
 
     // Load configuration BEFORE initializing subsystems
     auto config_path = std::filesystem::path(config_.config_file);
@@ -281,6 +284,13 @@ void application::initialize() {
 
     // NOW initialize subsystems (database will use the configured settings)
     subsystems().initialize_all();
+
+    // Wire performance statistics to database systems
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    if (perf) {
+        db_sys.set_perf_stats(perf);
+        db_sys.pool().set_perf_stats(perf);
+    }
 
     // Wire effect system callbacks
     wire_effect_system();
@@ -411,7 +421,8 @@ void application::initialize() {
             &config_sys,
             subsystems().get<magic::magic_system>(),
             subsystems().get<quest::quest_system>(),
-            subsystems().get<skill::skill_system>()
+            subsystems().get<skill::skill_system>(),
+            subsystems().get<perf::perf_stats_system>()
         );
 
         // Set save callback for death penalty persistence
@@ -431,6 +442,7 @@ void application::initialize() {
                 .inventory = subsystems().get<inventory::inventory_system>(),
                 .magic = subsystems().get<magic::magic_system>(),
                 .spells = subsystems().get<magic_registry>(),
+                .skills = subsystems().get<skill::skill_system>(),
                 .sched = subsystems().get<scheduler>(),
                 .send_to_player = [player_sys, ws](player_id pid, const network::json_message& msg) {
                     if (!player_sys || !ws) return;
@@ -578,6 +590,7 @@ void application::initialize() {
                 case network::json_message_type::admin_reload_config_request:
                 case network::json_message_type::admin_list_scheduled_tasks_request:
                 case network::json_message_type::admin_cancel_scheduled_task_request:
+                case network::json_message_type::admin_start_task_request:
                 case network::json_message_type::admin_run_query_request:
                 case network::json_message_type::admin_list_map_npcs_request:
                 case network::json_message_type::admin_list_map_ground_items_request:
@@ -601,6 +614,7 @@ void application::initialize() {
                 case network::json_message_type::admin_create_character_request_admin:
                 case network::json_message_type::admin_delete_character_request_admin:
                 case network::json_message_type::admin_manage_ip_bans_request:
+                case network::json_message_type::admin_perf_stats_request:
                     admin_web_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -1176,6 +1190,13 @@ void application::load_game_configs() {
         fishing->start_generation();
     }
 
+    // Load skill progression config
+    auto* skill_sys = subsystems().get<skill::skill_system>();
+    if (skill_sys) {
+        auto skills_yaml = config_dir / "skills.yaml";
+        skill_sys->load_config(skills_yaml.string());
+    }
+
     // Load magic definitions
     auto* magic_reg = subsystems().get<magic_registry>();
     if (magic_reg) {
@@ -1379,6 +1400,9 @@ void application::on_tick() {
     last_tick_time_ = now;
 
     ++tick_count_;
+
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::tick_total);
 
     // Process any pending WebSocket disconnects first (handles player cleanup)
     if (ws_server_) {

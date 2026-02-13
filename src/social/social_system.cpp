@@ -5,6 +5,7 @@
 #include "database/database_system.h"
 #include "player/player_system.h"
 #include "core/logger.h"
+#include "perf/perf_stats.h"
 
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -1090,6 +1091,9 @@ void social_system::update_party_member_map(player_id player, map_id map) {
 // ========== Chat Operations ==========
 
 auto social_system::send_message(const chat_message& msg) -> filter_result {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::chat_send);
+
     // Check rate limit
     if (!check_rate_limit(msg.sender)) {
         return filter_result::rate_limited;
@@ -1230,6 +1234,9 @@ void social_system::on_chat_message(chat_callback callback) {
 // ========== Private Helpers ==========
 
 auto social_system::filter_message(const std::string& content) -> std::pair<filter_result, std::string> {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::chat_filter);
+
     if (!config_.enable_profanity_filter || config_.profanity_words.empty()) {
         return {filter_result::allowed, content};
     }

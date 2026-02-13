@@ -1156,9 +1156,9 @@ Modify player skills. Admin level 20.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `player_name` | string | Yes | Target player |
-| `action` | string | Yes | One of: `set`, `reset`, `reset_all`, `add_exp` |
-| `skill_type` | int | For set/reset/add_exp | Skill type index (0-23) |
-| `value` | int | For set/add_exp | Level to set or experience to add |
+| `action` | string | Yes | One of: `set`, `reset`, `reset_all`, `add_uses` |
+| `skill_type` | int | For set/reset/add_uses | Skill type index (0-23) |
+| `value` | int | For set/add_uses | Level to set or uses to add |
 
 **Response data:**
 
@@ -1517,3 +1517,64 @@ Manage server IP bans. Admin level 20.
 | `ip` | string | IP address |
 
 IP bans are checked at login time. Banned IPs receive error: `ip_banned`.
+
+---
+
+### Performance Stats
+
+**Request**: `admin_perf_stats_request` (admin level 10+)
+
+```json
+{
+  "type": "admin_perf_stats_request",
+  "seq": 42,
+  "data": {
+    "include_timing": true,
+    "include_counters": true,
+    "include_gauges": true
+  }
+```
+
+All filter fields default to `true` if omitted.
+
+**Response**: `admin_perf_stats_response`
+
+```json
+{
+  "type": "admin_perf_stats_response",
+  "seq": 42,
+  "success": true,
+  "enabled": true,
+  "timing": [
+    {
+      "name": "tick_total",
+      "sample_count": 600,
+      "avg_ms": 12.3,
+      "min_ms": 8.1,
+      "max_ms": 45.7,
+      "p99_ms": 38.2
+    }
+  ],
+  "counters": [
+    {
+      "name": "messages_received",
+      "total": 123456,
+      "per_second": 245.2
+    }
+  ],
+  "gauges": {
+    "players_online": 42,
+    "npcs_alive": 1823,
+    "ground_items": 156,
+    "active_effects": 0,
+    "scheduled_tasks": 12,
+    "active_connections": 45
+  }
+}
+```
+
+**Timing categories:** `tick_total`, `npc_ai_update`, `spatial_query_visibility`, `spatial_query_range`, `db_query`, `db_pool_acquire`, `scheduler_task_exec`, `message_handler`
+
+**Counter categories:** `messages_received`, `messages_sent`, `bytes_received`, `bytes_sent`, `db_queries`
+
+Arrays only include categories with non-zero sample counts/totals. Gauges are updated once per tick.

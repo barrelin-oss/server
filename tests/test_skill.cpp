@@ -6,6 +6,9 @@
 #include "skill/skill.h"
 #include "skill/skill_system.h"
 
+#include <filesystem>
+#include <fstream>
+
 using hb::player_id;
 using namespace hb::skill;
 
@@ -13,32 +16,9 @@ using namespace hb::skill;
 
 TEST(skill_state_test, default_values) {
     skill_state state;
-    EXPECT_EQ(state.type, skill_type::none);
     EXPECT_EQ(state.level, 0);
-    EXPECT_EQ(state.experience, 0);
-}
-
-TEST(skill_state_test, exp_for_next_level) {
-    skill_state state;
-    state.level = 0;
-    EXPECT_EQ(state.exp_for_next_level(), 100);
-
-    state.level = 10;
-    EXPECT_EQ(state.exp_for_next_level(), 1100);
-}
-
-TEST(skill_state_test, add_experience) {
-    skill_state state;
-    state.type = skill_type::sword;
-    state.level = 0;
-    state.experience = 0;
-
-    // Level 0->1 needs 100 exp, Level 1->2 needs 200 exp
-    // With 350 exp: 100 + 200 = 300, leaves 50 extra
-    int16_t levels = state.add_experience(350);
-    EXPECT_EQ(levels, 2);
-    EXPECT_EQ(state.level, 2);
-    EXPECT_EQ(state.experience, 50);  // 350 - 100 - 200 = 50
+    EXPECT_EQ(state.total_uses, 0);
+    EXPECT_EQ(state.uses_this_level, 0);
 }
 
 TEST(skill_state_test, mastery_levels) {
@@ -61,35 +41,27 @@ TEST(skill_state_test, mastery_levels) {
 TEST(player_skills_test, initialization) {
     player_skills skills;
 
-    // All skills should be initialized with correct type
-    EXPECT_EQ(skills.get(skill_type::sword).type, skill_type::sword);
-    EXPECT_EQ(skills.get(skill_type::mining).type, skill_type::mining);
+    // All skills should default to level 0
+    EXPECT_EQ(skills.get(skill_type::short_sword).level, 0);
+    EXPECT_EQ(skills.get(skill_type::mining).level, 0);
 }
 
 TEST(player_skills_test, get_set_level) {
     player_skills skills;
 
-    skills.set_level(skill_type::sword, 50);
-    EXPECT_EQ(skills.level(skill_type::sword), 50);
+    skills.set_level(skill_type::short_sword, 50);
+    EXPECT_EQ(skills.level(skill_type::short_sword), 50);
 
     skills.set_level(skill_type::mining, 75);
     EXPECT_EQ(skills.level(skill_type::mining), 75);
 }
 
-TEST(player_skills_test, add_experience) {
-    player_skills skills;
-
-    int16_t levels = skills.add_experience(skill_type::sword, 150);
-    EXPECT_EQ(levels, 1);
-    EXPECT_EQ(skills.level(skill_type::sword), 1);
-}
-
 TEST(player_skills_test, total_combat_skill) {
     player_skills skills;
 
-    skills.set_level(skill_type::sword, 50);
+    skills.set_level(skill_type::short_sword, 50);
     skills.set_level(skill_type::axe, 30);
-    skills.set_level(skill_type::bow, 20);
+    skills.set_level(skill_type::archery, 20);
 
     int32_t total = skills.total_combat_skill();
     EXPECT_EQ(total, 100);  // 50 + 30 + 20
@@ -98,9 +70,9 @@ TEST(player_skills_test, total_combat_skill) {
 // Skill category tests
 
 TEST(skill_category_test, combat_skills) {
-    EXPECT_EQ(get_skill_category(skill_type::sword), skill_category::combat);
+    EXPECT_EQ(get_skill_category(skill_type::short_sword), skill_category::combat);
     EXPECT_EQ(get_skill_category(skill_type::axe), skill_category::combat);
-    EXPECT_EQ(get_skill_category(skill_type::bow), skill_category::combat);
+    EXPECT_EQ(get_skill_category(skill_type::archery), skill_category::combat);
 }
 
 TEST(skill_category_test, gathering_skills) {
@@ -143,27 +115,113 @@ TEST_F(skill_system_test, register_unregister_player) {
     player_id player{1};
 
     system_.register_player(player);
-    EXPECT_EQ(system_.get_skill_level(player, skill_type::sword), 0);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0);
 
     system_.unregister_player(player);
-    EXPECT_EQ(system_.get_skill_level(player, skill_type::sword), 0);  // Returns 0 for unknown player
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0);  // Returns 0 for unknown player
 }
 
 TEST_F(skill_system_test, set_skill_level) {
     player_id player{1};
     system_.register_player(player);
 
-    system_.set_skill_level(player, skill_type::sword, 50);
-    EXPECT_EQ(system_.get_skill_level(player, skill_type::sword), 50);
+    system_.set_skill_level(player, skill_type::short_sword, 50);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 50);
+    // set_skill_level resets uses_this_level
+    EXPECT_EQ(system_.get_uses_this_level(player, skill_type::short_sword), 0);
 }
 
-TEST_F(skill_system_test, add_skill_exp) {
+TEST_F(skill_system_test, uses_to_next_level_default_tiers) {
+    // Default tiers: 0-19 → N=10, 20-39 → N=25, 40-59 → N=50,
+    //                60-79 → N=75, 80-89 → N=100, 90+ → N=125
+
+    // Level 0: (0+1)*10 = 10
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 0), 10);
+
+    // Level 19: (19+1)*10 = 200
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 19), 200);
+
+    // Level 20: (20+1)*25 = 525
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 20), 525);
+
+    // Level 39: (39+1)*25 = 1000
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 39), 1000);
+
+    // Level 40: (40+1)*50 = 2050
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 40), 2050);
+
+    // Level 59: (59+1)*50 = 3000
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 59), 3000);
+
+    // Level 60: (60+1)*75 = 4575
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 60), 4575);
+
+    // Level 79: (79+1)*75 = 6000
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 79), 6000);
+
+    // Level 80: (80+1)*100 = 8100
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 80), 8100);
+
+    // Level 89: (89+1)*100 = 9000
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 89), 9000);
+
+    // Level 90: (90+1)*125 = 11375
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 90), 11375);
+
+    // Level 99: (99+1)*125 = 12500
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 99), 12500);
+}
+
+TEST_F(skill_system_test, record_skill_use_single) {
     player_id player{1};
     system_.register_player(player);
 
-    int16_t levels = system_.add_skill_exp(player, skill_type::mining, 500);
-    EXPECT_GT(levels, 0);
-    EXPECT_GT(system_.get_skill_level(player, skill_type::mining), 0);
+    auto levels = system_.record_skill_use(player, skill_type::short_sword);
+    EXPECT_EQ(levels, 0);
+    EXPECT_EQ(system_.get_uses_this_level(player, skill_type::short_sword), 1);
+    EXPECT_EQ(system_.get_total_uses(player, skill_type::short_sword), 1);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0);
+}
+
+TEST_F(skill_system_test, record_skill_use_level_up) {
+    player_id player{1};
+    system_.register_player(player);
+
+    // Level 0→1 needs 10 uses (default tier: (0+1)*10 = 10)
+    for (int i = 0; i < 9; ++i) {
+        system_.record_skill_use(player, skill_type::mining);
+    }
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::mining), 0);
+    EXPECT_EQ(system_.get_uses_this_level(player, skill_type::mining), 9);
+
+    // 10th use triggers level up
+    auto levels = system_.record_skill_use(player, skill_type::mining);
+    EXPECT_EQ(levels, 1);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::mining), 1);
+    EXPECT_EQ(system_.get_uses_this_level(player, skill_type::mining), 0);
+    EXPECT_EQ(system_.get_total_uses(player, skill_type::mining), 10);
+}
+
+TEST_F(skill_system_test, add_skill_uses_bulk_level_up) {
+    player_id player{1};
+    system_.register_player(player);
+
+    // Level 0→1 = 10, level 1→2 = 20: total 30 for 2 levels
+    system_.add_skill_uses(player, skill_type::axe, 30);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::axe), 2);
+    EXPECT_EQ(system_.get_total_uses(player, skill_type::axe), 30);
+    EXPECT_EQ(system_.get_uses_this_level(player, skill_type::axe), 0);
+}
+
+TEST_F(skill_system_test, add_skill_uses_with_remainder) {
+    player_id player{1};
+    system_.register_player(player);
+
+    // Level 0→1 = 10, +5 leftover
+    system_.add_skill_uses(player, skill_type::fencing, 15);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::fencing), 1);
+    EXPECT_EQ(system_.get_uses_this_level(player, skill_type::fencing), 5);
+    EXPECT_EQ(system_.get_total_uses(player, skill_type::fencing), 15);
 }
 
 TEST_F(skill_system_test, get_mastery) {
@@ -178,21 +236,24 @@ TEST_F(skill_system_test, reset_skill) {
     player_id player{1};
     system_.register_player(player);
 
-    system_.set_skill_level(player, skill_type::sword, 50);
-    system_.reset_skill(player, skill_type::sword);
+    system_.set_skill_level(player, skill_type::short_sword, 50);
+    system_.add_skill_uses(player, skill_type::short_sword, 100);
+    system_.reset_skill(player, skill_type::short_sword);
 
-    EXPECT_EQ(system_.get_skill_level(player, skill_type::sword), 0);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0);
+    EXPECT_EQ(system_.get_total_uses(player, skill_type::short_sword), 0);
+    EXPECT_EQ(system_.get_uses_this_level(player, skill_type::short_sword), 0);
 }
 
 TEST_F(skill_system_test, reset_all_skills) {
     player_id player{1};
     system_.register_player(player);
 
-    system_.set_skill_level(player, skill_type::sword, 50);
+    system_.set_skill_level(player, skill_type::short_sword, 50);
     system_.set_skill_level(player, skill_type::mining, 75);
     system_.reset_all_skills(player);
 
-    EXPECT_EQ(system_.get_skill_level(player, skill_type::sword), 0);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0);
     EXPECT_EQ(system_.get_skill_level(player, skill_type::mining), 0);
 }
 
@@ -205,9 +266,12 @@ TEST_F(skill_system_test, level_up_callback) {
         callback_fired = true;
         EXPECT_EQ(event.player, player);
         EXPECT_EQ(event.skill, skill_type::fishing);
+        EXPECT_EQ(event.old_level, 0);
+        EXPECT_EQ(event.new_level, 1);
     });
 
-    system_.add_skill_exp(player, skill_type::fishing, 500);
+    // Level 0→1 needs 10 uses
+    system_.add_skill_uses(player, skill_type::fishing, 10);
     EXPECT_TRUE(callback_fired);
 }
 
@@ -215,8 +279,8 @@ TEST_F(skill_system_test, damage_bonus) {
     player_id player{1};
     system_.register_player(player);
 
-    system_.set_skill_level(player, skill_type::sword, 50);
-    int16_t bonus = system_.calculate_damage_bonus(player, skill_type::sword);
+    system_.set_skill_level(player, skill_type::short_sword, 50);
+    int16_t bonus = system_.calculate_damage_bonus(player, skill_type::short_sword);
     EXPECT_EQ(bonus, 5);  // 50 / 10
 }
 
@@ -227,4 +291,101 @@ TEST_F(skill_system_test, hit_bonus) {
     system_.set_skill_level(player, skill_type::axe, 30);
     int16_t bonus = system_.calculate_hit_bonus(player, skill_type::axe);
     EXPECT_EQ(bonus, 6);  // 30 / 5
+}
+
+TEST_F(skill_system_test, max_level_stops_leveling) {
+    player_id player{1};
+    system_.register_player(player);
+
+    // Default max_level is 100
+    system_.set_skill_level(player, skill_type::archery, 100);
+
+    auto levels = system_.record_skill_use(player, skill_type::archery);
+    EXPECT_EQ(levels, 0);
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::archery), 100);
+    // total_uses should not increment at max level
+    EXPECT_EQ(system_.get_total_uses(player, skill_type::archery), 0);
+}
+
+TEST_F(skill_system_test, train_skill_calls_record_skill_use) {
+    player_id player{1};
+    system_.register_player(player);
+
+    auto result = system_.train_skill(player, skill_type::staff);
+    EXPECT_EQ(result, skill_use_result::success);
+    EXPECT_EQ(system_.get_total_uses(player, skill_type::staff), 1);
+    EXPECT_EQ(system_.get_uses_this_level(player, skill_type::staff), 1);
+}
+
+// YAML loading tests
+
+TEST_F(skill_system_test, load_config_file_not_found_uses_defaults) {
+    system_.load_config("/nonexistent/path.yaml");
+
+    // Should still use defaults
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 0), 10);
+}
+
+TEST_F(skill_system_test, load_config_custom_tiers) {
+    auto tmp_path = std::filesystem::temp_directory_path() / "test_skills.yaml";
+    {
+        std::ofstream f(tmp_path);
+        f << "defaults:\n"
+             "  max_level: 50\n"
+             "  tiers:\n"
+             "    - { max_level: 10, multiplier: 5 }\n"
+             "    - { max_level: 200, multiplier: 20 }\n"
+             "skill_tiers:\n"
+             "  mining:\n"
+             "    max_level: 80\n"
+             "    tiers:\n"
+             "      - { max_level: 20, multiplier: 8 }\n"
+             "      - { max_level: 200, multiplier: 30 }\n";
+    }
+
+    system_.load_config(tmp_path.string());
+
+    // Default config updated: level 0 → (0+1)*5 = 5
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 0), 5);
+    // Default config: level 15 → (15+1)*20 = 320 (>= max_level 10)
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 15), 320);
+
+    // Mining has custom tiers: level 0 → (0+1)*8 = 8
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::mining, 0), 8);
+    // Mining: level 25 → (25+1)*30 = 780 (>= max_level 20)
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::mining, 25), 780);
+
+    // Mining respects its custom max_level=80 (test via record_skill_use)
+    player_id player{1};
+    system_.register_player(player);
+    system_.set_skill_level(player, skill_type::mining, 80);
+    auto levels = system_.record_skill_use(player, skill_type::mining);
+    EXPECT_EQ(levels, 0);
+
+    std::filesystem::remove(tmp_path);
+}
+
+TEST_F(skill_system_test, unconfigured_skill_falls_back_to_defaults) {
+    auto tmp_path = std::filesystem::temp_directory_path() / "test_skills2.yaml";
+    {
+        std::ofstream f(tmp_path);
+        f << "defaults:\n"
+             "  max_level: 100\n"
+             "  tiers:\n"
+             "    - { max_level: 200, multiplier: 7 }\n"
+             "skill_tiers:\n"
+             "  magic:\n"
+             "    tiers:\n"
+             "      - { max_level: 200, multiplier: 15 }\n";
+    }
+
+    system_.load_config(tmp_path.string());
+
+    // Magic has custom multiplier 15
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::magic, 0), 15);
+
+    // Short_sword falls back to default multiplier 7
+    EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 0), 7);
+
+    std::filesystem::remove(tmp_path);
 }

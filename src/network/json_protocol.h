@@ -338,6 +338,10 @@ enum class json_message_type {
     admin_start_task_request,
     admin_start_task_response,
 
+    // Admin web tool - performance stats
+    admin_perf_stats_request,
+    admin_perf_stats_response,
+
     // Friend system
     friend_request_send_request,
     friend_request_send_response,
@@ -605,6 +609,8 @@ enum class json_message_type {
         case json_message_type::admin_manage_ip_bans_response: return "admin_manage_ip_bans_response";
         case json_message_type::admin_start_task_request: return "admin_start_task_request";
         case json_message_type::admin_start_task_response: return "admin_start_task_response";
+        case json_message_type::admin_perf_stats_request: return "admin_perf_stats_request";
+        case json_message_type::admin_perf_stats_response: return "admin_perf_stats_response";
         case json_message_type::friend_request_send_request: return "friend_request_send_request";
         case json_message_type::friend_request_send_response: return "friend_request_send_response";
         case json_message_type::friend_request_accept_request: return "friend_request_accept_request";
@@ -966,6 +972,15 @@ struct skill_result_msg {
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
+// Skill entry for skills_data message
+struct skill_entry_msg {
+    uint8_t skill_id{0};
+    int16_t level{0};
+    int32_t total_uses{0};
+    int32_t uses_this_level{0};
+    int32_t uses_to_next_level{0};
+};
+
 // Pickup result for pickup response
 struct pickup_result_msg {
     bool success{false};
@@ -1087,7 +1102,7 @@ struct game_state_msg {
     character_data_msg character;
     std::vector<inventory_item_msg> inventory;
     std::vector<equipment_item_msg> equipment;
-    std::vector<std::pair<uint8_t, int16_t>> skills;
+    std::vector<skill_entry_msg> skills;
     std::vector<known_spell_msg> spells;
     std::vector<active_quest_msg> quests;
     std::vector<uint16_t> completed_quests;
@@ -1115,7 +1130,7 @@ struct game_state_msg {
                                         const std::vector<equipment_item_msg>& equipped) -> json_message;
 
 [[nodiscard]] auto make_skills_data(uint32_t seq,
-                                     const std::vector<std::pair<uint8_t, int16_t>>& skills) -> json_message;
+                                     const std::vector<skill_entry_msg>& skills) -> json_message;
 
 [[nodiscard]] auto make_world_init(uint32_t seq,
                                     const std::vector<visible_entity_msg>& entities) -> json_message;
@@ -1707,7 +1722,6 @@ struct alchemy_request_data {
 
 [[nodiscard]] auto make_manufacture_response(uint32_t seq, bool success,
     std::string_view item_name = "",
-    int32_t exp_gained = 0,
     std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 [[nodiscard]] auto make_alchemy_list_response(uint32_t seq,
@@ -1715,7 +1729,6 @@ struct alchemy_request_data {
 
 [[nodiscard]] auto make_alchemy_response(uint32_t seq, bool success,
     std::string_view item_name = "",
-    int32_t exp_gained = 0,
     std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // === Death/Respawn response data ===
@@ -1751,7 +1764,6 @@ struct mine_request_data {
 [[nodiscard]] auto make_mine_response(uint32_t seq, bool success,
     std::string_view item_name = "",
     int32_t template_id = 0,
-    int32_t exp_gained = 0,
     bool node_depleted = false,
     std::optional<std::string_view> error = std::nullopt) -> json_message;
 
@@ -1780,9 +1792,7 @@ struct mine_request_data {
 [[nodiscard]] auto make_fish_catch_response(entity_id player_eid,
     std::string_view result_str,
     std::string_view item_name = "",
-    int32_t template_id = 0,
-    int32_t exp_gained = 0,
-    int16_t levels_gained = 0) -> json_message;
+    int32_t template_id = 0) -> json_message;
 
 // Fish spawn broadcast
 [[nodiscard]] auto make_fish_spawn_broadcast(uint32_t fish_index,
@@ -2300,6 +2310,16 @@ struct admin_start_task_request_data {
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j)
         -> result<admin_start_task_request_data, std::string>;
+};
+
+// Performance stats request
+struct admin_perf_stats_request_data {
+    bool include_timing{true};
+    bool include_counters{true};
+    bool include_gauges{true};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_perf_stats_request_data, std::string>;
 };
 
 }  // namespace hb::network

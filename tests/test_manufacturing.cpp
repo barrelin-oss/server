@@ -116,8 +116,6 @@ TEST(craft_result_test, default_values)
 {
     craft_result r;
     EXPECT_FALSE(r.success);
-    EXPECT_EQ(r.exp_gained, 0);
-    EXPECT_EQ(r.levels_gained, 0);
 }
 
 // === Edge case tests ===

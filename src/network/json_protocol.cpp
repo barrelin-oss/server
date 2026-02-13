@@ -287,6 +287,8 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"admin_manage_ip_bans_response", json_message_type::admin_manage_ip_bans_response},
     {"admin_start_task_request", json_message_type::admin_start_task_request},
     {"admin_start_task_response", json_message_type::admin_start_task_response},
+    {"admin_perf_stats_request", json_message_type::admin_perf_stats_request},
+    {"admin_perf_stats_response", json_message_type::admin_perf_stats_response},
     {"friend_request_send_request", json_message_type::friend_request_send_request},
     {"friend_request_send_response", json_message_type::friend_request_send_response},
     {"friend_request_accept_request", json_message_type::friend_request_accept_request},
@@ -1198,8 +1200,14 @@ auto game_state_msg::to_json() const -> nlohmann::json {
     }
 
     nlohmann::json skills_json = nlohmann::json::array();
-    for (const auto& [skill_id, level] : skills) {
-        skills_json.push_back({{"skill_id", skill_id}, {"level", level}});
+    for (const auto& s : skills) {
+        skills_json.push_back({
+            {"skill_id", s.skill_id},
+            {"level", s.level},
+            {"total_uses", s.total_uses},
+            {"uses_this_level", s.uses_this_level},
+            {"uses_to_next_level", s.uses_to_next_level}
+        });
     }
 
     nlohmann::json spells_json = nlohmann::json::array();
@@ -1446,13 +1454,16 @@ auto make_equipment_data(uint32_t seq,
 }
 
 auto make_skills_data(uint32_t seq,
-                       const std::vector<std::pair<uint8_t, int16_t>>& skills) -> json_message
+                       const std::vector<skill_entry_msg>& skills) -> json_message
 {
     nlohmann::json skills_json = nlohmann::json::array();
-    for (const auto& [skill_id, level] : skills) {
+    for (const auto& s : skills) {
         skills_json.push_back({
-            {"skill_id", skill_id},
-            {"level", level}
+            {"skill_id", s.skill_id},
+            {"level", s.level},
+            {"total_uses", s.total_uses},
+            {"uses_this_level", s.uses_this_level},
+            {"uses_to_next_level", s.uses_to_next_level}
         });
     }
 
@@ -2679,13 +2690,11 @@ auto make_manufacture_list_response(uint32_t seq,
 
 auto make_manufacture_response(uint32_t seq, bool success,
     std::string_view item_name,
-    int32_t exp_gained,
     std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
     if (!item_name.empty()) data["item_name"] = std::string(item_name);
-    if (exp_gained > 0) data["exp_gained"] = exp_gained;
     if (error) data["error"] = std::string(*error);
     return json_message{
         .type = json_message_type::manufacture_response,
@@ -2706,13 +2715,11 @@ auto make_alchemy_list_response(uint32_t seq,
 
 auto make_alchemy_response(uint32_t seq, bool success,
     std::string_view item_name,
-    int32_t exp_gained,
     std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
     if (!item_name.empty()) data["item_name"] = std::string(item_name);
-    if (exp_gained > 0) data["exp_gained"] = exp_gained;
     if (error) data["error"] = std::string(*error);
     return json_message{
         .type = json_message_type::alchemy_response,
@@ -2749,7 +2756,6 @@ auto mine_request_data::from_json(const nlohmann::json& j)
 auto make_mine_response(uint32_t seq, bool success,
     std::string_view item_name,
     int32_t template_id,
-    int32_t exp_gained,
     bool node_depleted,
     std::optional<std::string_view> error) -> json_message
 {
@@ -2757,7 +2763,6 @@ auto make_mine_response(uint32_t seq, bool success,
     data["success"] = success;
     if (!item_name.empty()) data["item_name"] = std::string(item_name);
     if (template_id > 0) data["template_id"] = template_id;
-    if (exp_gained > 0) data["exp_gained"] = exp_gained;
     if (node_depleted) data["node_depleted"] = true;
     if (error) data["error"] = std::string(*error);
     return json_message{
@@ -2841,16 +2846,12 @@ auto make_fish_chance_update(entity_id /*player_eid*/,
 auto make_fish_catch_response(entity_id /*player_eid*/,
     std::string_view result_str,
     std::string_view item_name,
-    int32_t template_id,
-    int32_t exp_gained,
-    int16_t levels_gained) -> json_message
+    int32_t template_id) -> json_message
 {
     nlohmann::json data;
     data["result"] = std::string(result_str);
     if (!item_name.empty()) data["item_name"] = std::string(item_name);
     if (template_id > 0) data["template_id"] = template_id;
-    if (exp_gained > 0) data["exp_gained"] = exp_gained;
-    if (levels_gained > 0) data["levels_gained"] = levels_gained;
     return json_message{
         .type = json_message_type::fish_catch_response,
         .seq = 0,
@@ -3751,6 +3752,21 @@ auto make_friend_offline_notification(std::string_view friend_name) -> json_mess
     msg.type = json_message_type::friend_offline_notification;
     msg.data = {{"friend_name", std::string(friend_name)}};
     return msg;
+}
+
+// === Performance stats ===
+
+auto admin_perf_stats_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_perf_stats_request_data, std::string>
+{
+    admin_perf_stats_request_data data;
+    if (j.contains("include_timing") && j["include_timing"].is_boolean())
+        data.include_timing = j["include_timing"].get<bool>();
+    if (j.contains("include_counters") && j["include_counters"].is_boolean())
+        data.include_counters = j["include_counters"].get<bool>();
+    if (j.contains("include_gauges") && j["include_gauges"].is_boolean())
+        data.include_gauges = j["include_gauges"].get<bool>();
+    return result<admin_perf_stats_request_data, std::string>::ok(std::move(data));
 }
 
 }  // namespace hb::network

@@ -16,6 +16,10 @@
 #include <functional>
 #include <optional>
 
+namespace hb::perf {
+class perf_stats_system;
+}
+
 namespace hb::database {
 
 // Connection pool configuration
@@ -102,6 +106,9 @@ public:
     // Get connection string (for diagnostic purposes)
     [[nodiscard]] auto connection_string() const -> std::string;
 
+    // Performance statistics
+    void set_perf_stats(hb::perf::perf_stats_system* perf) { perf_stats_ = perf; }
+
 private:
     auto create_connection() -> result<std::shared_ptr<pqxx::connection>, std::string>;
     void return_connection(std::shared_ptr<pqxx::connection> conn);
@@ -114,6 +121,7 @@ private:
     std::condition_variable cv_;
     bool initialized_{false};
     bool shutdown_{false};
+    hb::perf::perf_stats_system* perf_stats_{nullptr};
 };
 
 }  // namespace hb::database

@@ -48,8 +48,6 @@ struct craft_result
     bool success{};
     skill::skill_use_result reason{};    // failure reason if !success
     item_id created_item{};              // created item ID (only on success)
-    int32_t exp_gained{};
-    int16_t levels_gained{};
 };
 
 }  // namespace hb::crafting

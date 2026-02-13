@@ -192,13 +192,8 @@ auto fishing_system::attempt_catch(entity_id player_eid) -> fish_catch_result
             result.item_name = fish.config->item_name;
             result.template_id = fish.config->template_id;
 
-            // Award XP: difficulty * d5
-            std::uniform_int_distribution<int32_t> d5(1, 5);
-            int32_t exp = fish.config->difficulty * d5(rng);
-            if (exp < 1) exp = 1;
-            auto levels = skills_->add_skill_exp(pid, skill::skill_type::fishing, exp);
-            result.exp_gained = exp;
-            result.levels_gained = levels;
+            // Record skill use
+            skills_->record_skill_use(pid, skill::skill_type::fishing);
 
             // Create the item and add to inventory (or drop at feet)
             if (fish.config->template_id > 0)

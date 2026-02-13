@@ -43,8 +43,6 @@ struct mine_result
     std::string item_name;
     int32_t template_id{};
     int32_t count{1};
-    int32_t exp_gained{};
-    int16_t levels_gained{};
     bool node_depleted{};
 };
 

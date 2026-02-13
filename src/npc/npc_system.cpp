@@ -16,6 +16,7 @@
 #include "entity/entity_manager.h"
 #include "entity/components/transform.h"
 #include "entity/components/combat_stats.h"
+#include "perf/perf_stats.h"
 
 #include <array>
 #include <random>
@@ -102,6 +103,8 @@ void npc_system::update(float delta_time) {
     update_spawns(delta_time);
     update_corpses(delta_time);
     if (config_.enable_ai) {
+        auto* perf = subsystems().get<perf::perf_stats_system>();
+        PERF_TIMER(perf, perf::metric_category::npc_ai_update);
         update_all_ai(delta_time);
     }
     script_executor_.update(delta_time);
@@ -116,6 +119,9 @@ void npc_system::set_config(const npc_system_config& config) {
 auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position pos)
     -> result<entity::entity, std::string>
 {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::entity_lifecycle);
+
     if (npcs_.size() >= config_.max_npcs) {
         return result<entity::entity, std::string>::err("Maximum NPC count reached");
     }
@@ -207,6 +213,9 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
 
         // Set action interval from template (with 0-299ms spawn jitter to desynchronize NPCs)
         new_npc->ai.think_interval_ms = tmpl->action_time + random_int(0, 299);
+
+        // Set movement type from template
+        new_npc->ai.move_type = tmpl->move_type;
 
         // Loot is generated at death/despawn time by config-driven loot generator
         // (see loot_generator.h) using sprite_id and gold_min/gold_max from template
@@ -361,6 +370,9 @@ auto npc_system::spawn_random_mob(map_id map, hb::world::position pos)
 }
 
 void npc_system::despawn_npc(entity::entity id) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::entity_lifecycle);
+
     auto it = npcs_.find(id);
     if (it == npcs_.end()) return;
 
@@ -785,9 +797,36 @@ void npc_system::process_idle_state(npc& npc_ref) {
         try_form_pack(npc_ref);
     }
 
-    // Random chance to wander
+    // Decide whether to wander based on movement type
     if (!npc_ref.ai.has_flag(ai_flags::stationary)) {
-        if (random_int(1, 100) <= 10) {  // 10% chance per think tick
+        bool should_wander = false;
+
+        switch (npc_ref.ai.move_type) {
+            case hb::npc_move_type::stop:
+                // Never wander
+                should_wander = false;
+                break;
+
+            case hb::npc_move_type::random_area:
+            case hb::npc_move_type::random:
+                // Always wander for free roaming types
+                should_wander = true;
+                break;
+
+            case hb::npc_move_type::seq_waypoint:
+            case hb::npc_move_type::random_waypoint:
+            case hb::npc_move_type::guard:
+                // Waypoint and guard types follow paths (not implemented here,
+                // would need separate handling in process_wander_state)
+                should_wander = true;
+                break;
+
+            case hb::npc_move_type::follow:
+                // Follow types would be handled separately
+                break;
+        }
+
+        if (should_wander) {
             state.set_state(ai_state::wander);
         }
     }
@@ -1062,6 +1101,9 @@ auto npc_system::get_entity_map(entity::entity e) const -> std::optional<map_id>
 }
 
 void npc_system::move_towards(npc& npc_ref, hb::world::position target_pos) {
+    auto* perf = subsystems().get<perf::perf_stats_system>();
+    PERF_TIMER(perf, perf::metric_category::npc_pathfinding);
+
     auto dir = hb::world::direction_to(npc_ref.pos, target_pos);
     if (!dir.has_value()) return;
 

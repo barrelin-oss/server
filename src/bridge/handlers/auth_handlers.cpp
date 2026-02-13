@@ -1152,18 +1152,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         if (player) {
             auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
-            // Build spawn message for this player
-            auto spawn_entity = network::visible_entity_msg{
-                .entity_id = live_player_id.value,
-                .type = "player",
-                .name = player->name,
-                .x = player->pos.x,
-                .y = player->pos.y,
-                .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
-                .direction = static_cast<int16_t>(player->facing)
-            };
-            auto spawn_msg = network::make_entity_spawn(0, spawn_entity);
-
+            // Send per-player (hostility is viewer-relative)
             for (auto other_id : nearby) {
                 if (other_id == live_player_id) continue;
 
@@ -1171,9 +1160,21 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 if (!other || other->connection.value == 0) continue;
 
                 auto* other_conn = ws_server_->get_connection(other->connection);
-                if (other_conn && other_conn->is_open()) {
-                    other_conn->send(spawn_msg);
-                }
+                if (!other_conn || !other_conn->is_open()) continue;
+
+                auto spawn_entity = network::visible_entity_msg{
+                    .entity_id = live_player_id.value,
+                    .type = "player",
+                    .name = player->name,
+                    .x = player->pos.x,
+                    .y = player->pos.y,
+                    .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
+                    .direction = static_cast<int16_t>(player->facing),
+                    .faction = std::string(faction_to_string(player->faction)),
+                    .hostility = std::string(player_hostility(other->faction, player->faction)),
+                    .pk_status = std::string(player->pk.status_string())
+                };
+                other_conn->send(network::make_entity_spawn(0, spawn_entity));
             }
 
             LOG_DEBUG(bridge, "Notified {} nearby players of spawn for {}",
@@ -1244,7 +1245,10 @@ auto auth_handlers::build_visible_entities(player_id player_id)
             .x = other->pos.x,
             .y = other->pos.y,
             .hp_percent = static_cast<int16_t>(other->hp_percent() * 100),
-            .direction = static_cast<int16_t>(other->facing)
+            .direction = static_cast<int16_t>(other->facing),
+            .faction = std::string(faction_to_string(other->faction)),
+            .hostility = std::string(player_hostility(player->faction, other->faction)),
+            .pk_status = std::string(other->pk.status_string())
         });
     }
 
@@ -1266,9 +1270,12 @@ auto auth_handlers::build_visible_entities(player_id player_id)
                 .y = n.pos.y,
                 .hp_percent = n.max_hp > 0 ? static_cast<int16_t>((n.hp * 100) / n.max_hp) : static_cast<int16_t>(100),
                 .direction = static_cast<int16_t>(n.facing),
+                .hostility = std::string(npc::npc_hostility_for_player(
+                    n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
                 .template_id = n.template_id.value,
                 .sprite_id = n.sprite_id,
-                .level = n.level
+                .level = n.level,
+                .category = std::string(npc::npc_category_to_string(n.category))
             });
         });
     }

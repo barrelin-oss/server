@@ -4,6 +4,7 @@
 // NPC component and state
 
 #include "core/types.h"
+#include "core/enums.h"
 #include "entity/entity.h"
 #include "world/position.h"
 #include "npc/ai_behavior.h"
@@ -38,9 +39,11 @@ struct npc {
     std::string name;
     int16_t sprite_id{0};  // Legacy m_sType - used for drop level tiers
     npc_category category{npc_category::monster};
+    hb::faction faction{hb::faction::neutral};
 
     // Owner (for pets/summons)
     entity::entity owner{};
+    hb::faction owner_faction{hb::faction::neutral};
 
     // Stats
     int32_t hp{0};
@@ -126,5 +129,78 @@ struct npc {
         return base + attack_bonus;
     }
 };
+
+[[nodiscard]] inline auto npc_category_to_string(npc_category cat) -> std::string_view
+{
+    switch (cat)
+    {
+        case npc_category::monster:    return "monster";
+        case npc_category::boss:       return "boss";
+        case npc_category::guard:      return "guard";
+        case npc_category::merchant:   return "merchant";
+        case npc_category::quest:      return "quest";
+        case npc_category::trainer:    return "trainer";
+        case npc_category::banker:     return "banker";
+        case npc_category::warehouse:  return "warehouse";
+        case npc_category::pet:        return "pet";
+        case npc_category::summon:     return "summon";
+        default: return "unknown";
+    }
+}
+
+// Compute NPC hostility relative to a specific player.
+// Returns "enemy", "friendly", or "neutral".
+//
+// Rules (matching legacy m_cSide behavior):
+//   - Monsters/bosses: enemy if aggressive, neutral if passive (rabbit, cat, etc.)
+//   - Guards: enemy to criminals/murderers regardless of faction;
+//             enemy to opposing faction; friendly to same or neutral faction
+//   - Merchants/quest/trainer/banker/warehouse: always friendly
+//   - Pets/summons: friendly if same faction as viewer, enemy if opposing, neutral if traveler
+[[nodiscard]] inline auto npc_hostility_for_player(
+    const npc& n,
+    hb::faction player_faction,
+    bool player_is_criminal,
+    bool player_is_murderer) -> std::string_view
+{
+    switch (n.category)
+    {
+        case npc_category::monster:
+        case npc_category::boss:
+            return n.ai.has_flag(ai_flags::aggressive) ? "enemy" : "neutral";
+
+        case npc_category::guard:
+        {
+            // Guards always hostile to criminals/murderers
+            if (player_is_criminal || player_is_murderer)
+                return "enemy";
+            // Neutral guards are friendly to everyone
+            if (n.faction == hb::faction::neutral)
+                return "friendly";
+            // Faction guards: friendly to same, enemy to opposing
+            if (player_faction == hb::faction::neutral)
+                return "neutral";
+            return (n.faction == player_faction) ? "friendly" : "enemy";
+        }
+
+        case npc_category::merchant:
+        case npc_category::quest:
+        case npc_category::trainer:
+        case npc_category::banker:
+        case npc_category::warehouse:
+            return "friendly";
+
+        case npc_category::pet:
+        case npc_category::summon:
+        {
+            if (n.owner_faction == hb::faction::neutral)
+                return "neutral";
+            if (player_faction == hb::faction::neutral)
+                return "neutral";
+            return (n.owner_faction == player_faction) ? "friendly" : "enemy";
+        }
+    }
+    return "neutral";
+}
 
 }  // namespace hb::npc

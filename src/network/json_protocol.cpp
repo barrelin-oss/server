@@ -70,7 +70,6 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"inventory_data", json_message_type::inventory_data},
     {"equipment_data", json_message_type::equipment_data},
     {"skills_data", json_message_type::skills_data},
-    {"world_init", json_message_type::world_init},
     {"entity_spawn", json_message_type::entity_spawn},
     {"entity_despawn", json_message_type::entity_despawn},
     {"player_move_request", json_message_type::player_move_request},
@@ -1076,11 +1075,16 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
         {"direction", direction}
     };
 
-    // Include NPC-specific fields only for NPCs
-    if (type == "npc") {
+    if (type == "player") {
+        j["faction"] = faction;
+        j["hostility"] = hostility;
+        j["pk_status"] = pk_status;
+    } else if (type == "npc") {
         j["template_id"] = template_id;
         j["sprite_id"] = sprite_id;
         j["level"] = level;
+        j["category"] = category;
+        j["hostility"] = hostility;
     }
 
     return j;
@@ -1513,23 +1517,6 @@ auto make_skills_data(uint32_t seq,
     };
 }
 
-auto make_world_init(uint32_t seq,
-                      const std::vector<visible_entity_msg>& entities) -> json_message
-{
-    nlohmann::json entities_json = nlohmann::json::array();
-    for (const auto& entity : entities) {
-        entities_json.push_back(entity.to_json());
-    }
-
-    return json_message{
-        .type = json_message_type::world_init,
-        .seq = seq,
-        .data = nlohmann::json{
-            {"entities", std::move(entities_json)}
-        }
-    };
-}
-
 auto make_entity_spawn(uint32_t seq,
                         const visible_entity_msg& entity) -> json_message
 {
@@ -1924,7 +1911,9 @@ auto npc_spawn_data::to_json() const -> nlohmann::json {
         {"direction", direction},
         {"hp", hp},
         {"max_hp", max_hp},
-        {"level", level}
+        {"level", level},
+        {"category", category},
+        {"hostility", hostility}
     };
 }
 

@@ -209,6 +209,25 @@ enum class faction : uint8_t {
     elvine = 2
 };
 
+[[nodiscard]] inline auto faction_to_string(faction f) -> std::string_view
+{
+    switch (f)
+    {
+        case faction::aresden: return "aresden";
+        case faction::elvine:  return "elvine";
+        default:               return "neutral";
+    }
+}
+
+// Compute player-vs-player hostility.
+// Same faction = friendly, opposing = enemy, traveler = neutral.
+[[nodiscard]] inline auto player_hostility(faction viewer, faction target) -> std::string_view
+{
+    if (viewer == faction::neutral || target == faction::neutral)
+        return "neutral";
+    return (viewer == target) ? "friendly" : "enemy";
+}
+
 // Map type
 enum class map_type : uint8_t {
     normal = 0,

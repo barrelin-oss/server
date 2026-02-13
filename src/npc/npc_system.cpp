@@ -204,6 +204,13 @@ auto npc_system::spawn_npc(npc_id template_id, map_id map, hb::world::position p
             if (tmpl->behavior_tree.empty()) {
                 new_npc->ai.behavior_tree = "dungeon_guardian";
             }
+            // Derive guard faction from name
+            if (new_npc->name.find("Aresden") != std::string::npos) {
+                new_npc->faction = faction::aresden;
+            } else if (new_npc->name.find("Elvine") != std::string::npos) {
+                new_npc->faction = faction::elvine;
+            }
+            // else stays neutral (Guard-Neutral)
         }
 
         // Apply behavior tree from template

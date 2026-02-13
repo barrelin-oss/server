@@ -395,7 +395,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Random Mob Generator | ✅ | docs/RANDOM_MOB_GENERATOR.md |
 | Database Schema | ✅ | src/database/schema.sql |
 | API Reference | ❌ | docs/API.md |
-| Deployment Guide | ❌ | docs/DEPLOYMENT.md |
+| Deployment Guide | ✅ | docs/DEPLOYMENT.md |
 
 ---
 

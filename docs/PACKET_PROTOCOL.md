@@ -78,7 +78,6 @@ This document provides a complete reference for all packets in the Helbreath ser
 | `inventory_data` | ✅ | `json_protocol.cpp` |
 | `equipment_data` | ✅ | `json_protocol.cpp` |
 | `skills_data` | ✅ | `json_protocol.cpp` |
-| `world_init` | ✅ | `json_protocol.cpp` |
 | `entity_spawn` | ✅ | `json_protocol.cpp` |
 | `entity_despawn` | ✅ | `json_protocol.cpp` |
 | `player_move_request` | ✅ | `game_handlers.cpp` |

@@ -99,6 +99,12 @@ struct pk_state {
     [[nodiscard]] auto is_criminal() const -> bool { return points >= 30 && points < 100; }
     [[nodiscard]] auto is_innocent() const -> bool { return points < 30; }
 
+    [[nodiscard]] auto status_string() const -> std::string_view {
+        if (is_murderer()) return "murderer";
+        if (is_criminal()) return "criminal";
+        return "innocent";
+    }
+
     void add_kill() {
         ++count;
         points += 50;

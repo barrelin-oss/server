@@ -70,7 +70,6 @@ enum class json_message_type {
     inventory_data,
     equipment_data,
     skills_data,
-    world_init,
     entity_spawn,
     entity_despawn,
 
@@ -444,7 +443,6 @@ enum class json_message_type {
         case json_message_type::inventory_data: return "inventory_data";
         case json_message_type::equipment_data: return "equipment_data";
         case json_message_type::skills_data: return "skills_data";
-        case json_message_type::world_init: return "world_init";
         case json_message_type::entity_spawn: return "entity_spawn";
         case json_message_type::entity_despawn: return "entity_despawn";
         case json_message_type::player_move_request: return "player_move_request";
@@ -1000,7 +998,7 @@ struct equipment_item_msg {
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
-// Visible entity for world_init message
+// Visible entity for enter_game_response and entity_spawn messages
 struct visible_entity_msg {
     uint32_t entity_id;
     std::string type;  // "player" or "npc"
@@ -1010,10 +1008,16 @@ struct visible_entity_msg {
     int16_t hp_percent;
     int16_t direction;
 
+    // Player-specific fields (optional, only used when type == "player")
+    std::string faction;         // "neutral", "aresden", "elvine"
+    std::string hostility;       // "enemy", "friendly", "neutral" (relative to viewing player)
+    std::string pk_status;       // "innocent", "criminal", "murderer"
+
     // NPC-specific fields (optional, only used when type == "npc")
     uint32_t template_id{0};
     int16_t sprite_id{0};       // Legacy sprite type for client rendering (10=Slime, etc.)
     int16_t level{0};
+    std::string category;        // "monster", "guard", "merchant", etc.
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1220,9 +1224,6 @@ struct game_state_msg {
 [[nodiscard]] auto make_skills_data(uint32_t seq,
                                      const std::vector<skill_entry_msg>& skills) -> json_message;
 
-[[nodiscard]] auto make_world_init(uint32_t seq,
-                                    const std::vector<visible_entity_msg>& entities) -> json_message;
-
 [[nodiscard]] auto make_entity_spawn(uint32_t seq,
                                       const visible_entity_msg& entity) -> json_message;
 
@@ -1329,6 +1330,8 @@ struct npc_spawn_data {
     int32_t hp{0};
     int32_t max_hp{0};
     int16_t level{0};
+    std::string category;        // "monster", "guard", "merchant", etc.
+    std::string hostility;       // "enemy", "friendly", "neutral" (relative to viewing player)
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };

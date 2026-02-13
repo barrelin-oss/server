@@ -848,33 +848,6 @@ The `world.environment` sub-object in `enter_game_response` provides the initial
 
 These messages can be sent individually during teleports or map changes.
 
-### `world_init`
-
-Sent after teleport to provide entities in the new area.
-
-**Server Message:**
-```json
-{
-  "type": "world_init",
-  "seq": 0,
-  "data": {
-    "entities": [
-      {
-        "entity_id": 1001,
-        "type": "player",
-        "name": "OtherPlayer",
-        "x": 105,
-        "y": 148,
-        "hp_percent": 100,
-        "direction": 4
-      }
-    ]
-  }
-}
-```
-
----
-
 ### `inventory_data`
 
 Update full inventory state (e.g., after trade).
@@ -1140,9 +1113,9 @@ Update skill levels.
 
 ### `entity_spawn`
 
-A new entity entered visibility range.
+A new entity entered visibility range. Player entities include `faction`, `hostility`, and `pk_status`; NPC entities include `category`, `hostility`, `template_id`, `sprite_id`, and `level`.
 
-**Server Broadcast:**
+**Server Broadcast (player):**
 ```json
 {
   "type": "entity_spawn",
@@ -1154,10 +1127,19 @@ A new entity entered visibility range.
     "x": 110,
     "y": 145,
     "hp_percent": 100,
-    "direction": 4
+    "direction": 4,
+    "faction": "elvine",
+    "hostility": "enemy",
+    "pk_status": "innocent"
   }
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `faction` | string | Player's faction: `neutral`, `aresden`, `elvine` |
+| `hostility` | string | Hostility relative to receiving player: `enemy`, `friendly`, `neutral` |
+| `pk_status` | string | PK status: `innocent`, `criminal`, `murderer` |
 
 ---
 
@@ -2640,13 +2622,16 @@ An NPC entered visibility range.
   "data": {
     "entity_id": 5001,
     "template_id": 100,
+    "sprite_id": 14,
     "name": "Orc Warrior",
     "x": 105,
     "y": 150,
     "direction": 4,
     "hp": 200,
     "max_hp": 200,
-    "level": 25
+    "level": 25,
+    "category": "monster",
+    "hostility": "enemy"
   }
 }
 ```
@@ -2655,6 +2640,7 @@ An NPC entered visibility range.
 |-------|------|-------------|
 | `entity_id` | uint32 | Unique NPC entity ID |
 | `template_id` | uint32 | NPC template/type ID |
+| `sprite_id` | int16 | Legacy sprite type for client rendering |
 | `name` | string | NPC display name |
 | `x` | int16 | X coordinate |
 | `y` | int16 | Y coordinate |
@@ -2662,6 +2648,8 @@ An NPC entered visibility range.
 | `hp` | int32 | Current HP |
 | `max_hp` | int32 | Maximum HP |
 | `level` | int16 | NPC level |
+| `category` | string | NPC category: `monster`, `boss`, `guard`, `merchant`, `quest`, `trainer`, `banker`, `warehouse`, `pet`, `summon` |
+| `hostility` | string | Hostility relative to receiving player: `enemy`, `friendly`, `neutral` |
 
 ---
 

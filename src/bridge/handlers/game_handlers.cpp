@@ -2249,30 +2249,34 @@ void game_handlers::update_entity_visibility(player_id moved_player,
 
         if (!was_visible && is_visible) {
             // Player just came into view - send entity_spawn to other
-            auto spawn_msg = network::make_entity_spawn(0, network::visible_entity_msg{
+            other_conn->send(network::make_entity_spawn(0, network::visible_entity_msg{
                 .entity_id = player->ecs_entity.id,
                 .type = "player",
                 .name = player->name,
                 .x = new_pos.x,
                 .y = new_pos.y,
                 .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
-                .direction = static_cast<int16_t>(player->facing)
-            });
-            other_conn->send(spawn_msg);
+                .direction = static_cast<int16_t>(player->facing),
+                .faction = std::string(faction_to_string(player->faction)),
+                .hostility = std::string(player_hostility(other->faction, player->faction)),
+                .pk_status = std::string(player->pk.status_string())
+            }));
 
             // Also send the other player info to the moving player
             auto* my_conn = ws_server_->get_connection(player->connection);
             if (my_conn && my_conn->is_open()) {
-                auto other_spawn_msg = network::make_entity_spawn(0, network::visible_entity_msg{
+                my_conn->send(network::make_entity_spawn(0, network::visible_entity_msg{
                     .entity_id = other->ecs_entity.id,
                     .type = "player",
                     .name = other->name,
                     .x = other->pos.x,
                     .y = other->pos.y,
                     .hp_percent = static_cast<int16_t>(other->hp_percent() * 100),
-                    .direction = static_cast<int16_t>(other->facing)
-                });
-                my_conn->send(other_spawn_msg);
+                    .direction = static_cast<int16_t>(other->facing),
+                    .faction = std::string(faction_to_string(other->faction)),
+                    .hostility = std::string(player_hostility(player->faction, other->faction)),
+                    .pk_status = std::string(other->pk.status_string())
+                }));
             }
         }
         else if (was_visible && !is_visible) {
@@ -2950,17 +2954,6 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
     // Spawn to players who can see NEW position
     auto new_viewers = players_->get_players_who_can_see(teleport_result.new_map, resolved_pos);
 
-    network::visible_entity_msg spawn_entity{
-        .entity_id = player->ecs_entity.id,
-        .type = "player",
-        .name = player->name,
-        .x = resolved_pos.x,
-        .y = resolved_pos.y,
-        .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
-        .direction = static_cast<int16_t>(dest_dir)
-    };
-    auto spawn_msg = network::make_entity_spawn(0, spawn_entity);
-
     for (auto other_id : new_viewers) {
         if (other_id == pid) continue;
 
@@ -2968,9 +2961,20 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         if (!other || other->connection.value == 0) continue;
 
         auto* other_conn = ws_server_->get_connection(other->connection);
-        if (other_conn && other_conn->is_open()) {
-            other_conn->send(spawn_msg);
-        }
+        if (!other_conn || !other_conn->is_open()) continue;
+
+        other_conn->send(network::make_entity_spawn(0, network::visible_entity_msg{
+            .entity_id = player->ecs_entity.id,
+            .type = "player",
+            .name = player->name,
+            .x = resolved_pos.x,
+            .y = resolved_pos.y,
+            .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
+            .direction = static_cast<int16_t>(dest_dir),
+            .faction = std::string(faction_to_string(player->faction)),
+            .hostility = std::string(player_hostility(other->faction, player->faction)),
+            .pk_status = std::string(player->pk.status_string())
+        }));
     }
 
     LOG_INFO(bridge, "Player {} teleported to {} ({}, {}), {} entities visible",
@@ -3144,22 +3148,7 @@ auto spell_element_to_damage_type_string(magic::spell_element elem) -> std::stri
     }
 }
 
-auto npc_category_to_string(hb::npc::npc_category category) -> std::string_view
-{
-    switch (category) {
-        case hb::npc::npc_category::monster:    return "monster";
-        case hb::npc::npc_category::boss:       return "boss";
-        case hb::npc::npc_category::guard:      return "guard";
-        case hb::npc::npc_category::merchant:   return "merchant";
-        case hb::npc::npc_category::quest:      return "quest";
-        case hb::npc::npc_category::trainer:    return "trainer";
-        case hb::npc::npc_category::banker:     return "banker";
-        case hb::npc::npc_category::warehouse:  return "warehouse";
-        case hb::npc::npc_category::pet:        return "pet";
-        case hb::npc::npc_category::summon:     return "summon";
-        default: return "unknown";
-    }
-}
+// Use npc::npc::npc_category_to_string() from npc.h
 
 }  // namespace
 
@@ -3683,7 +3672,38 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n) {
 
     if (!players_ || !ws_server_) return;
 
-    network::npc_spawn_data data{
+    auto cat_str = std::string(npc::npc_category_to_string(n.category));
+
+    // Send per-player (hostility is viewer-relative)
+    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
+    for (auto pid : players) {
+        auto* p = players_->get_player(pid);
+        if (!p || p->connection.value == 0) continue;
+
+        auto* conn = ws_server_->get_connection(p->connection);
+        if (!conn || !conn->is_open()) continue;
+
+        network::npc_spawn_data data{
+            .entity_id = n.entity_id.id,
+            .template_id = n.template_id.value,
+            .sprite_id = n.sprite_id,
+            .name = n.name,
+            .x = n.pos.x,
+            .y = n.pos.y,
+            .direction = static_cast<uint8_t>(n.facing),
+            .hp = n.hp,
+            .max_hp = n.max_hp,
+            .level = n.level,
+            .category = cat_str,
+            .hostility = std::string(npc::npc_hostility_for_player(
+                n, p->faction, p->pk.is_criminal(), p->pk.is_murderer()))
+        };
+
+        conn->send(network::make_npc_spawn_message(data));
+    }
+
+    // Forward to admin spectators (neutral perspective)
+    network::npc_spawn_data admin_data{
         .entity_id = n.entity_id.id,
         .template_id = n.template_id.value,
         .sprite_id = n.sprite_id,
@@ -3693,26 +3713,13 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n) {
         .direction = static_cast<uint8_t>(n.facing),
         .hp = n.hp,
         .max_hp = n.max_hp,
-        .level = n.level
+        .level = n.level,
+        .category = cat_str,
+        .hostility = "neutral"
     };
-
-    auto msg = network::make_npc_spawn_message(data);
-
-    // Send to all players who can see this position
-    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
-    for (auto pid : players) {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0) continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (conn && conn->is_open()) {
-            conn->send(msg);
-        }
-    }
-
-    // Forward to admin spectators
+    auto admin_msg = network::make_npc_spawn_message(admin_data);
     for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map)) {
-        ws_server_->send(admin_conn, msg);
+        ws_server_->send(admin_conn, admin_msg);
     }
 }
 
@@ -4145,7 +4152,7 @@ void game_handlers::handle_entity_info_request(connection_id conn_id, const netw
             // NPC-specific fields
             response.template_id = target_npc->template_id.value;
             response.sprite_id = target_npc->sprite_id;
-            response.npc_type = std::string(npc_category_to_string(target_npc->category));
+            response.npc_type = std::string(npc::npc_category_to_string(target_npc->category));
 
             conn->send(network::make_entity_info_response(msg.seq, true, &response));
             LOG_DEBUG(bridge, "Player {} requested info about NPC {} ({})",

@@ -636,7 +636,21 @@ void crusade_system::persist_war_result(war_faction winner)
         auto* participant = war->get_participant(pid);
         if (!participant) continue;
 
-        auto rewards = war_->calculate_rewards(current_war_id_, pid);
+        // Calculate crusade-specific rewards for persistence
+        int32_t level = 1;
+        if (players_)
+        {
+            auto* plr = players_->get_player(pid);
+            if (plr) level = plr->experience.level;
+        }
+
+        auto crusade_rwd = calculate_crusade_reward(
+            pdata.war_contribution, level, pdata.faction, winner);
+
+        war_rewards rewards;
+        rewards.experience = crusade_rwd.experience;
+        rewards.gold = 0;
+        rewards.contribution_points = pdata.war_contribution;
 
         persistence_->save_participant(
             war_db_id, char_id, *participant,

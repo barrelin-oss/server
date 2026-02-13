@@ -26,6 +26,9 @@ namespace bridge {
     class game_handlers;
     class admin_web_handlers;
 }
+namespace war {
+    class war_persistence;
+}
 
 // Application configuration
 struct application_config {
@@ -102,6 +105,7 @@ private:
     std::unique_ptr<bridge::auth_handlers> auth_handlers_;
     std::unique_ptr<bridge::game_handlers> game_handlers_;
     std::unique_ptr<bridge::admin_web_handlers> admin_web_handlers_;
+    std::unique_ptr<war::war_persistence> war_persistence_;
 
     // Periodic auto-save task
     task_id auto_save_task_id_;

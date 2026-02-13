@@ -116,6 +116,7 @@ public:
     using on_npc_death_callback = std::function<void(const npc&, entity::entity killer)>;
     using on_npc_attack_callback = std::function<void(const npc&, entity::entity target, int32_t damage)>;
     using on_npc_despawn_callback = std::function<void(const npc&)>;
+    using on_npc_damage_callback = std::function<void(const npc&, int32_t damage, entity::entity source)>;
 
     // Register callbacks
     void set_on_spawn_callback(on_npc_spawn_callback cb) { on_spawn_callback_ = std::move(cb); }
@@ -123,6 +124,7 @@ public:
     void set_on_death_callback(on_npc_death_callback cb) { on_death_callback_ = std::move(cb); }
     void set_on_attack_callback(on_npc_attack_callback cb) { on_attack_callback_ = std::move(cb); }
     void set_on_despawn_callback(on_npc_despawn_callback cb) { on_despawn_callback_ = std::move(cb); }
+    void set_on_damage_callback(on_npc_damage_callback cb) { on_damage_callback_ = std::move(cb); }
 
     // Iteration
     template<typename Func>
@@ -209,6 +211,7 @@ private:
     on_npc_death_callback on_death_callback_;
     on_npc_attack_callback on_attack_callback_;
     on_npc_despawn_callback on_despawn_callback_;
+    on_npc_damage_callback on_damage_callback_;
 };
 
 }  // namespace hb::npc

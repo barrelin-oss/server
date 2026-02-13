@@ -364,6 +364,58 @@ enum class json_message_type {
     friend_online_notification,
     friend_offline_notification,
 
+    // Crusade warfare
+    crusade_started,                // S->C: Crusade has begun
+    crusade_ended,                  // S->C: Crusade is over
+    crusade_status_update,          // S->C: Periodic status to participants
+    select_duty_request,            // C->S: Player selects crusade duty
+    select_duty_response,           // S->C: Duty selection result
+    crusade_strike_point_update,    // S->C: Strike point HP changes
+    crusade_meteor_warning,         // S->C: Meteor incoming
+    crusade_meteor_hit,             // S->C: Meteor impact results
+    crusade_meteor_result,          // S->C: Full meteor event summary
+    crusade_mana_update,            // S->C: Mana pool status (to commanders)
+    crusade_construction_point_update, // S->C: Construction point change
+    summon_war_unit_request,        // C->S: Summon a war structure
+    summon_war_unit_response,       // S->C: Result of summon attempt
+    crusade_map_status,             // S->C: War structure overview for commanders
+
+    // Heldenian warfare
+    heldenian_started,              // S->C: Heldenian war started
+    heldenian_ended,                // S->C: Heldenian war ended
+    heldenian_status_update,        // S->C: Tower/door status update
+
+    // Apocalypse event
+    apocalypse_started,             // S->C: Apocalypse event started
+    apocalypse_ended,               // S->C: Apocalypse event ended
+    apocalypse_gate_open,           // S->C: Gate open notification
+
+    // Force recall
+    force_recall_timer,             // S->C: Countdown timer in enemy territory
+    force_recall_execute,           // S->C: Player being recalled
+
+    // War rewards
+    crusade_reward_summary,         // S->C: End-of-war reward summary to participant
+
+    // Admin war management
+    admin_start_war_request,        // C->S: Start a war event (admin)
+    admin_start_war_response,       // S->C: Result
+    admin_end_war_request,          // C->S: End a running war (admin)
+    admin_end_war_response,         // S->C: Result
+    admin_war_history_request,      // C->S: Get war history
+    admin_war_history_response,     // S->C: War history list
+    admin_war_participants_request, // C->S: Get participants for a specific war
+    admin_war_participants_response,// S->C: Participant list
+
+    // Crusade guild teleport
+    crusade_set_guild_teleport_request,  // C->S: Commander sets guild teleport location
+    crusade_set_guild_teleport_response, // S->C: Result
+    crusade_guild_teleport_request,      // C->S: Member requests guild teleport
+    crusade_guild_teleport_response,     // S->C: Teleport destination or error
+
+    // Crusade mana collector MP restoration
+    crusade_mp_restore,             // S->C: Mana collector restored MP to nearby allies
+
     // Unknown/invalid
     unknown
 };
@@ -631,6 +683,42 @@ enum class json_message_type {
         case json_message_type::friend_accepted_notification: return "friend_accepted_notification";
         case json_message_type::friend_online_notification: return "friend_online_notification";
         case json_message_type::friend_offline_notification: return "friend_offline_notification";
+        case json_message_type::crusade_started: return "crusade_started";
+        case json_message_type::crusade_ended: return "crusade_ended";
+        case json_message_type::crusade_status_update: return "crusade_status_update";
+        case json_message_type::select_duty_request: return "select_duty_request";
+        case json_message_type::select_duty_response: return "select_duty_response";
+        case json_message_type::crusade_strike_point_update: return "crusade_strike_point_update";
+        case json_message_type::crusade_meteor_warning: return "crusade_meteor_warning";
+        case json_message_type::crusade_meteor_hit: return "crusade_meteor_hit";
+        case json_message_type::crusade_meteor_result: return "crusade_meteor_result";
+        case json_message_type::crusade_mana_update: return "crusade_mana_update";
+        case json_message_type::crusade_construction_point_update: return "crusade_construction_point_update";
+        case json_message_type::summon_war_unit_request: return "summon_war_unit_request";
+        case json_message_type::summon_war_unit_response: return "summon_war_unit_response";
+        case json_message_type::crusade_map_status: return "crusade_map_status";
+        case json_message_type::heldenian_started: return "heldenian_started";
+        case json_message_type::heldenian_ended: return "heldenian_ended";
+        case json_message_type::heldenian_status_update: return "heldenian_status_update";
+        case json_message_type::apocalypse_started: return "apocalypse_started";
+        case json_message_type::apocalypse_ended: return "apocalypse_ended";
+        case json_message_type::apocalypse_gate_open: return "apocalypse_gate_open";
+        case json_message_type::force_recall_timer: return "force_recall_timer";
+        case json_message_type::force_recall_execute: return "force_recall_execute";
+        case json_message_type::crusade_reward_summary: return "crusade_reward_summary";
+        case json_message_type::admin_start_war_request: return "admin_start_war_request";
+        case json_message_type::admin_start_war_response: return "admin_start_war_response";
+        case json_message_type::admin_end_war_request: return "admin_end_war_request";
+        case json_message_type::admin_end_war_response: return "admin_end_war_response";
+        case json_message_type::admin_war_history_request: return "admin_war_history_request";
+        case json_message_type::admin_war_history_response: return "admin_war_history_response";
+        case json_message_type::admin_war_participants_request: return "admin_war_participants_request";
+        case json_message_type::admin_war_participants_response: return "admin_war_participants_response";
+        case json_message_type::crusade_set_guild_teleport_request: return "crusade_set_guild_teleport_request";
+        case json_message_type::crusade_set_guild_teleport_response: return "crusade_set_guild_teleport_response";
+        case json_message_type::crusade_guild_teleport_request: return "crusade_guild_teleport_request";
+        case json_message_type::crusade_guild_teleport_response: return "crusade_guild_teleport_response";
+        case json_message_type::crusade_mp_restore: return "crusade_mp_restore";
         default: return "unknown";
     }
 }
@@ -1838,6 +1926,34 @@ struct friend_request_msg
 [[nodiscard]] auto make_friend_accepted_notification(std::string_view friend_name) -> json_message;
 [[nodiscard]] auto make_friend_online_notification(std::string_view friend_name) -> json_message;
 [[nodiscard]] auto make_friend_offline_notification(std::string_view friend_name) -> json_message;
+
+// === Crusade warfare builders ===
+
+[[nodiscard]] auto make_select_duty_response(uint32_t seq, bool success,
+    uint8_t duty = 0, int32_t construction_points = 0,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+[[nodiscard]] auto make_summon_war_unit_response(uint32_t seq, bool success,
+    uint8_t unit_type = 0, int32_t remaining_points = 0,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// War reward summary builder (sent to each participant at war end)
+// winner_faction: 0=neutral/draw, 1=aresden, 2=elvine
+[[nodiscard]] auto make_crusade_reward_summary(uint32_t seq,
+    uint8_t winner_faction, int32_t contribution, int64_t reward_exp,
+    int64_t reward_gold, int32_t reward_contribution) -> json_message;
+
+// Guild teleport response builders
+[[nodiscard]] auto make_set_guild_teleport_response(uint32_t seq, bool success,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+[[nodiscard]] auto make_guild_teleport_response(uint32_t seq, bool success,
+    const std::string& map = {}, int16_t x = 0, int16_t y = 0,
+    std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Mana collector MP restoration broadcast
+[[nodiscard]] auto make_crusade_mp_restore(int16_t source_x, int16_t source_y,
+    int32_t radius, int32_t your_restore) -> json_message;
 
 // === Admin Web Tool data structures and builders ===
 

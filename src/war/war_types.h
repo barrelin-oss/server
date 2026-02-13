@@ -5,6 +5,8 @@
 
 #include "core/types.h"
 
+#include <nlohmann/json.hpp>
+
 #include <string>
 #include <vector>
 #include <chrono>
@@ -226,6 +228,7 @@ struct war_result {
 
     std::vector<war_participant> participants;
     std::vector<war_contribution> contributions;
+    nlohmann::json metadata;  // Extra data to persist (e.g. crusade_advantage)
 
     [[nodiscard]] auto winning_score() const -> const faction_score& {
         return winner == war_faction::aresden ? aresden_score : elvine_score;

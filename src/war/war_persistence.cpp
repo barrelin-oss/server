@@ -41,6 +41,11 @@ auto war_persistence::save_war_result(const war_result& result) -> hb::result<in
 
     nlohmann::json metadata;
     metadata["draw"] = result.draw;
+    // Merge any extra metadata from the war_result
+    if (result.metadata.is_object())
+    {
+        metadata.merge_patch(result.metadata);
+    }
 
     auto query_result = db_->execute_params(
         "INSERT INTO war_history (war_type, started_at, ended_at, duration_seconds, "
@@ -257,6 +262,62 @@ auto war_persistence::count_wars_by_type(war_type type) -> hb::result<int32_t, s
     }
 
     return hb::result<int32_t, std::string>::ok(query_result.value().get<int32_t>(0, 0));
+}
+
+auto war_persistence::load_last_winner(war_type type) -> hb::result<war_faction, std::string>
+{
+    if (!db_) return hb::result<war_faction, std::string>::err("No database system");
+
+    auto query_result = db_->execute_params(
+        "SELECT winner_faction FROM war_history "
+        "WHERE war_type = $1 AND winner_faction != 0 "
+        "ORDER BY ended_at DESC LIMIT 1",
+        static_cast<int16_t>(type)
+    );
+
+    if (query_result.is_err())
+    {
+        return hb::result<war_faction, std::string>::err(query_result.error());
+    }
+
+    if (query_result.value().empty())
+    {
+        return hb::result<war_faction, std::string>::ok(war_faction::neutral);
+    }
+
+    auto faction_val = query_result.value().get<int16_t>(0, 0);
+    return hb::result<war_faction, std::string>::ok(static_cast<war_faction>(faction_val));
+}
+
+auto war_persistence::load_crusade_advantage() -> hb::result<int8_t, std::string>
+{
+    if (!db_) return hb::result<int8_t, std::string>::err("No database system");
+
+    auto query_result = db_->execute_params(
+        "SELECT metadata FROM war_history "
+        "WHERE war_type = $1 ORDER BY ended_at DESC LIMIT 1",
+        static_cast<int16_t>(war_type::crusade)
+    );
+
+    if (query_result.is_err())
+    {
+        return hb::result<int8_t, std::string>::err(query_result.error());
+    }
+
+    if (query_result.value().empty())
+    {
+        return hb::result<int8_t, std::string>::ok(0);
+    }
+
+    auto meta_str = query_result.value().get<std::string>(0, 0);
+    auto metadata = nlohmann::json::parse(meta_str, nullptr, false);
+    if (metadata.is_discarded() || !metadata.contains("crusade_advantage"))
+    {
+        return hb::result<int8_t, std::string>::ok(0);
+    }
+
+    return hb::result<int8_t, std::string>::ok(
+        static_cast<int8_t>(metadata["crusade_advantage"].get<int>()));
 }
 
 auto war_persistence::get_unclaimed_rewards(int32_t character_id)

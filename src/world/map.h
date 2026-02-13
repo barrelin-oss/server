@@ -252,6 +252,10 @@ public:
     [[nodiscard]] auto get_entities_in_range(const position& center, int radius) const -> std::vector<entity_id>;
     [[nodiscard]] auto get_entities_in_rect(const rect& area) const -> std::vector<entity_id>;
 
+    // Map disabled state (legacy: m_bIsDisabled — set during crusade when strike point destroyed)
+    [[nodiscard]] auto is_disabled() const -> bool { return disabled_; }
+    void set_disabled(bool disabled) { disabled_ = disabled; }
+
     // Weather
     [[nodiscard]] auto weather() const -> weather_type { return weather_; }
     void set_weather(weather_type weather) { weather_ = weather; }
@@ -322,6 +326,9 @@ private:
     weather_type weather_{weather_type::clear};
     bool weather_active_{false};
     std::chrono::steady_clock::time_point weather_end_time_{};
+
+    // Disabled state (crusade: no spawning, no entry, no combat)
+    bool disabled_{false};
 };
 
 }  // namespace hb::world

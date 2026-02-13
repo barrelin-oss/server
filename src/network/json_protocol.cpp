@@ -308,7 +308,44 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"friend_request_notification", json_message_type::friend_request_notification},
     {"friend_accepted_notification", json_message_type::friend_accepted_notification},
     {"friend_online_notification", json_message_type::friend_online_notification},
-    {"friend_offline_notification", json_message_type::friend_offline_notification}
+    {"friend_offline_notification", json_message_type::friend_offline_notification},
+    // Crusade warfare
+    {"crusade_started", json_message_type::crusade_started},
+    {"crusade_ended", json_message_type::crusade_ended},
+    {"crusade_status_update", json_message_type::crusade_status_update},
+    {"select_duty_request", json_message_type::select_duty_request},
+    {"select_duty_response", json_message_type::select_duty_response},
+    {"crusade_strike_point_update", json_message_type::crusade_strike_point_update},
+    {"crusade_meteor_warning", json_message_type::crusade_meteor_warning},
+    {"crusade_meteor_hit", json_message_type::crusade_meteor_hit},
+    {"crusade_meteor_result", json_message_type::crusade_meteor_result},
+    {"crusade_mana_update", json_message_type::crusade_mana_update},
+    {"crusade_construction_point_update", json_message_type::crusade_construction_point_update},
+    {"summon_war_unit_request", json_message_type::summon_war_unit_request},
+    {"summon_war_unit_response", json_message_type::summon_war_unit_response},
+    {"crusade_map_status", json_message_type::crusade_map_status},
+    {"heldenian_started", json_message_type::heldenian_started},
+    {"heldenian_ended", json_message_type::heldenian_ended},
+    {"heldenian_status_update", json_message_type::heldenian_status_update},
+    {"apocalypse_started", json_message_type::apocalypse_started},
+    {"apocalypse_ended", json_message_type::apocalypse_ended},
+    {"apocalypse_gate_open", json_message_type::apocalypse_gate_open},
+    {"force_recall_timer", json_message_type::force_recall_timer},
+    {"force_recall_execute", json_message_type::force_recall_execute},
+    {"crusade_reward_summary", json_message_type::crusade_reward_summary},
+    {"admin_start_war_request", json_message_type::admin_start_war_request},
+    {"admin_start_war_response", json_message_type::admin_start_war_response},
+    {"admin_end_war_request", json_message_type::admin_end_war_request},
+    {"admin_end_war_response", json_message_type::admin_end_war_response},
+    {"admin_war_history_request", json_message_type::admin_war_history_request},
+    {"admin_war_history_response", json_message_type::admin_war_history_response},
+    {"admin_war_participants_request", json_message_type::admin_war_participants_request},
+    {"admin_war_participants_response", json_message_type::admin_war_participants_response},
+    {"crusade_mp_restore", json_message_type::crusade_mp_restore},
+    {"crusade_set_guild_teleport_request", json_message_type::crusade_set_guild_teleport_request},
+    {"crusade_set_guild_teleport_response", json_message_type::crusade_set_guild_teleport_response},
+    {"crusade_guild_teleport_request", json_message_type::crusade_guild_teleport_request},
+    {"crusade_guild_teleport_response", json_message_type::crusade_guild_teleport_response}
 };
 
 }  // namespace
@@ -3751,6 +3788,110 @@ auto make_friend_offline_notification(std::string_view friend_name) -> json_mess
     json_message msg;
     msg.type = json_message_type::friend_offline_notification;
     msg.data = {{"friend_name", std::string(friend_name)}};
+    return msg;
+}
+
+// === Crusade warfare ===
+
+auto make_select_duty_response(uint32_t seq, bool success,
+    uint8_t duty, int32_t construction_points,
+    std::optional<std::string_view> error) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::select_duty_response;
+    msg.seq = seq;
+    msg.data = {{"success", success}};
+    if (success)
+    {
+        msg.data["duty"] = duty;
+        msg.data["construction_points"] = construction_points;
+    }
+    if (error.has_value())
+    {
+        msg.data["error"] = std::string(*error);
+    }
+    return msg;
+}
+
+auto make_summon_war_unit_response(uint32_t seq, bool success,
+    uint8_t unit_type, int32_t remaining_points,
+    std::optional<std::string_view> error) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::summon_war_unit_response;
+    msg.seq = seq;
+    msg.data = {{"success", success}};
+    if (success)
+    {
+        msg.data["unit_type"] = unit_type;
+        msg.data["remaining_points"] = remaining_points;
+    }
+    if (error.has_value())
+    {
+        msg.data["error"] = std::string(*error);
+    }
+    return msg;
+}
+
+// === War reward summary ===
+
+auto make_crusade_reward_summary(uint32_t seq,
+    uint8_t winner_faction, int32_t contribution, int64_t reward_exp,
+    int64_t reward_gold, int32_t reward_contribution) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::crusade_reward_summary;
+    msg.seq = seq;
+    msg.data = {
+        {"winner_faction", winner_faction},
+        {"contribution", contribution},
+        {"reward_exp", reward_exp},
+        {"reward_gold", reward_gold},
+        {"reward_contribution", reward_contribution}
+    };
+    return msg;
+}
+
+auto make_set_guild_teleport_response(uint32_t seq, bool success,
+    std::optional<std::string_view> error) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::crusade_set_guild_teleport_response;
+    msg.seq = seq;
+    msg.data = {{"success", success}};
+    if (error) msg.data["error"] = *error;
+    return msg;
+}
+
+auto make_guild_teleport_response(uint32_t seq, bool success,
+    const std::string& map, int16_t x, int16_t y,
+    std::optional<std::string_view> error) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::crusade_guild_teleport_response;
+    msg.seq = seq;
+    msg.data = {{"success", success}};
+    if (success)
+    {
+        msg.data["map"] = map;
+        msg.data["x"] = x;
+        msg.data["y"] = y;
+    }
+    if (error) msg.data["error"] = *error;
+    return msg;
+}
+
+auto make_crusade_mp_restore(int16_t source_x, int16_t source_y,
+    int32_t radius, int32_t your_restore) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::crusade_mp_restore;
+    msg.data = {
+        {"source_x", source_x},
+        {"source_y", source_y},
+        {"radius", radius},
+        {"your_restore", your_restore}
+    };
     return msg;
 }
 

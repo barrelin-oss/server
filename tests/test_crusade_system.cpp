@@ -15,6 +15,8 @@
 #include "social/social_system.h"
 #include "social/guild.h"
 #include "network/json_protocol.h"
+#include "world/world_subsystem.h"
+#include "world/map.h"
 
 using hb::player_id;
 using namespace hb::war;
@@ -205,16 +207,17 @@ TEST_F(crusade_system_test, all_strike_points_destroyed) {
     EXPECT_TRUE(crusade_.is_active());
 }
 
-TEST_F(crusade_system_test, destroying_all_strike_points_ends_crusade) {
+TEST_F(crusade_system_test, destroying_all_strike_points_does_not_end_immediately) {
+    // Victory is deferred to meteor result phase (legacy: CalcMeteorStrikeEffectHandler)
     crusade_.start_crusade();
 
-    // Destroying all aresden points should make elvine win
     crusade_.damage_strike_point(war_faction::aresden, 1, 999);
-    EXPECT_TRUE(crusade_.is_active());  // Still have point 2
+    EXPECT_TRUE(crusade_.is_active());
 
     crusade_.damage_strike_point(war_faction::aresden, 2, 999);
-    // The victory check runs inside damage_strike_point → check_victory_condition
-    EXPECT_FALSE(crusade_.is_active());
+    // Direct damage no longer triggers victory — deferred to meteor result callback
+    EXPECT_TRUE(crusade_.is_active());
+    EXPECT_TRUE(crusade_.all_strike_points_destroyed(war_faction::aresden));
 }
 
 TEST_F(crusade_system_test, neutral_faction_returns_empty_points) {
@@ -506,14 +509,17 @@ TEST_F(crusade_multi_sp_test, partial_destruction_not_victory) {
     EXPECT_TRUE(crusade_.is_active());  // Still 1 more
 }
 
-TEST_F(crusade_multi_sp_test, all_destroyed_triggers_victory) {
+TEST_F(crusade_multi_sp_test, all_destroyed_does_not_trigger_immediate_victory) {
+    // Victory deferred to meteor result phase
     crusade_.start_crusade();
 
     crusade_.damage_strike_point(war_faction::aresden, 1, 999);
     crusade_.damage_strike_point(war_faction::aresden, 2, 999);
     crusade_.damage_strike_point(war_faction::aresden, 3, 999);
 
-    EXPECT_FALSE(crusade_.is_active());  // Elvine should have won
+    // All destroyed but crusade still active — victory checked in meteor result callback
+    EXPECT_TRUE(crusade_.is_active());
+    EXPECT_TRUE(crusade_.all_strike_points_destroyed(war_faction::aresden));
 }
 
 // ========== Protocol Message Tests ==========
@@ -561,6 +567,7 @@ TEST_F(crusade_system_test, each_crusade_gets_unique_guid) {
     auto guid1 = crusade_.crusade_guid();
     crusade_.end_crusade(war_faction::neutral);
 
+    crusade_.set_last_crusade_day(-1);
     crusade_.start_crusade();
     auto guid2 = crusade_.crusade_guid();
 
@@ -656,23 +663,23 @@ TEST_F(mana_system_test, meteor_fires_when_charges_accumulated) {
     EXPECT_EQ(mana_.get_state(war_faction::aresden).meteors_fired, 1);
 }
 
-TEST_F(mana_system_test, multiple_meteors_from_large_mana) {
+TEST_F(mana_system_test, single_charge_per_threshold_crossing) {
     int meteor_count = 0;
     mana_.set_meteor_trigger([&](war_faction) { meteor_count++; });
 
-    // Collect 45 mana → 3 charges → 3 meteors
+    // Collect 45 mana in one tick → only 1 charge (pool resets to 0)
     mana_.tick_faction_mana(war_faction::elvine, 1, 15);  // 15 * 3 = 45
-    EXPECT_EQ(meteor_count, 3);
-    EXPECT_EQ(mana_.get_state(war_faction::elvine).meteors_fired, 3);
-    EXPECT_EQ(mana_.elvine_mana(), 0);  // Fully consumed
+    EXPECT_EQ(meteor_count, 1);  // charges_for_meteor=1, so 1 meteor
+    EXPECT_EQ(mana_.get_state(war_faction::elvine).meteors_fired, 1);
+    EXPECT_EQ(mana_.elvine_mana(), 0);
 }
 
 TEST_F(mana_system_test, leftover_mana_after_gmg) {
     mana_.set_meteor_trigger([](war_faction) {});
 
-    // Collect 20 mana → 1 charge used, 5 leftover
+    // Collect 21 mana → 1 charge used, pool resets to 0 (remainder discarded)
     mana_.tick_faction_mana(war_faction::aresden, 1, 7);  // 7 * 3 = 21
-    EXPECT_EQ(mana_.aresden_mana(), 6);  // 21 - 15 = 6
+    EXPECT_EQ(mana_.aresden_mana(), 0);  // Legacy: remainder discarded
 }
 
 TEST_F(mana_system_test, add_mana_directly) {
@@ -741,10 +748,181 @@ TEST_F(mana_system_test, multi_charge_threshold) {
     EXPECT_EQ(meteor_count, 0);  // Need 3 charges
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
 
-    // Collect 30 more = 2 more charges = 3 total
+    // Collect 30 mana → pool goes to 30, check_gmg: 30>=15 → pool=0, charge=2
+    // Only 1 charge per check_gmg call now (not 2)
     mana_.add_mana(war_faction::aresden, 30);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 2);
+    EXPECT_EQ(meteor_count, 0);  // Still need 3 charges
+
+    // One more charge
+    mana_.add_mana(war_faction::aresden, 15);
     EXPECT_EQ(meteor_count, 1);
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 0);
+}
+
+TEST_F(mana_system_test, mana_pool_reset_discards_remainder) {
+    // Override to 1 charge for simplicity
+    mana_config cfg = mana_.get_config();
+    cfg.gmg_charges_for_meteor = 1;
+    mana_.set_config(cfg);
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    // Collect 21 mana (threshold=15). Legacy discards remainder.
+    mana_.add_mana(war_faction::aresden, 21);
+    EXPECT_EQ(mana_.aresden_mana(), 0);  // NOT 6 — remainder discarded
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 0);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).meteors_fired, 1);
+}
+
+TEST_F(mana_system_test, gmg_requires_multiple_charges_default) {
+    // Use default config (charges_for_meteor=10)
+    mana_system fresh;
+    int meteor_count = 0;
+    fresh.set_meteor_trigger([&](war_faction) { meteor_count++; });
+
+    // Add 15 mana = 1 charge. Need 10 charges for meteor.
+    fresh.add_mana(war_faction::aresden, 15);
+    EXPECT_EQ(meteor_count, 0);
+    EXPECT_EQ(fresh.get_state(war_faction::aresden).gmg_charge, 1);
+
+    // Add 15 mana 8 more times = 9 charges total
+    for (int i = 0; i < 8; i++)
+    {
+        fresh.add_mana(war_faction::aresden, 15);
+    }
+    EXPECT_EQ(meteor_count, 0);
+    EXPECT_EQ(fresh.get_state(war_faction::aresden).gmg_charge, 9);
+
+    // 10th charge triggers meteor
+    fresh.add_mana(war_faction::aresden, 15);
+    EXPECT_EQ(meteor_count, 1);
+    EXPECT_EQ(fresh.get_state(war_faction::aresden).gmg_charge, 0);
+}
+
+// ========== GMG Damage Tests ==========
+
+TEST_F(mana_system_test, gmg_damage_reduces_charges) {
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    // Increase charges_for_meteor so charges accumulate without firing
+    mana_config cfg = mana_.get_config();
+    cfg.gmg_charges_for_meteor = 10;
+    mana_.set_config(cfg);
+
+    // Give aresden 2 charges
+    mana_.add_mana(war_faction::aresden, 15);
+    mana_.add_mana(war_faction::aresden, 15);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 2);
+
+    // Accumulate 500 damage -> lose 1 charge
+    mana_.apply_gmg_damage(war_faction::aresden, 500);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
+}
+
+TEST_F(mana_system_test, gmg_damage_below_threshold_no_effect) {
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    mana_config cfg = mana_.get_config();
+    cfg.gmg_charges_for_meteor = 10;
+    mana_.set_config(cfg);
+
+    mana_.add_mana(war_faction::aresden, 15);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
+
+    // 499 damage -- not enough
+    mana_.apply_gmg_damage(war_faction::aresden, 499);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
+}
+
+TEST_F(mana_system_test, gmg_damage_resets_accumulator) {
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    mana_config cfg = mana_.get_config();
+    cfg.gmg_charges_for_meteor = 10;
+    mana_.set_config(cfg);
+
+    mana_.add_mana(war_faction::aresden, 15);
+    mana_.add_mana(war_faction::aresden, 15);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 2);
+
+    // 300 damage, then 250 more = 550 total -> triggers at 500, accumulator resets
+    mana_.apply_gmg_damage(war_faction::aresden, 300);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 2);
+
+    mana_.apply_gmg_damage(war_faction::aresden, 250);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
+
+    // 450 more won't trigger (accumulator was reset to 0, now at 450)
+    mana_.apply_gmg_damage(war_faction::aresden, 450);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
+
+    // 50 more (accumulator = 500) -> triggers again
+    mana_.apply_gmg_damage(war_faction::aresden, 50);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 0);
+}
+
+TEST_F(mana_system_test, gmg_damage_at_zero_charges_no_underflow) {
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    // No charges, take 500 damage -- should not underflow
+    mana_.apply_gmg_damage(war_faction::aresden, 500);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 0);
+}
+
+// ========== Mana Stone Depletion Tests ==========
+
+TEST_F(mana_system_test, stone_depletion_limits_harvest) {
+    // 1 stone, 2 collectors. Stone has max 5 mana.
+    // First collector drains 3, second drains 2 (remaining). Total = 5, not 6.
+    mana_.initialize_stones(1);
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    mana_.tick(2, 0);
+    EXPECT_EQ(mana_.aresden_mana(), 5);
+}
+
+TEST_F(mana_system_test, stones_regenerate_each_tick) {
+    mana_.initialize_stones(1);
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    // First tick: 1 collector takes 3 from stone
+    mana_.tick(1, 0);
+    EXPECT_EQ(mana_.aresden_mana(), 3);
+
+    // Second tick: stone regens to 5, collector takes 3 again
+    mana_.tick(1, 0);
+    EXPECT_EQ(mana_.aresden_mana(), 6);
+}
+
+TEST_F(mana_system_test, both_factions_compete_for_stones) {
+    mana_.initialize_stones(1);
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    // 1 stone, 1 collector each faction
+    // Aresden goes first: takes 3 (stone has 2 left)
+    // Elvine goes second: takes 2 (stone has 0)
+    mana_.tick(1, 1);
+    EXPECT_EQ(mana_.aresden_mana(), 3);
+    EXPECT_EQ(mana_.elvine_mana(), 2);
+}
+
+TEST_F(mana_system_test, multiple_stones_provide_more_mana) {
+    mana_.initialize_stones(5);
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    // 5 stones, 1 collector: takes 3 from each = 15 total
+    // Pool is reset to 0 by GMG (threshold=15), so check total_mana_collected
+    mana_.tick(1, 0);
+    EXPECT_EQ(mana_.get_state(war_faction::aresden).total_mana_collected, 15);
+}
+
+TEST_F(mana_system_test, zero_collectors_yields_zero_with_stones) {
+    mana_.initialize_stones(5);
+    mana_.set_meteor_trigger([](war_faction) {});
+
+    mana_.tick(0, 0);
+    EXPECT_EQ(mana_.aresden_mana(), 0);
+    EXPECT_EQ(mana_.elvine_mana(), 0);
 }
 
 // ========== Meteor Handler Tests ==========
@@ -974,6 +1152,11 @@ protected:
 
         crusade_.set_config(cfg);
 
+        // Override mana config for integration tests: 1 charge per meteor
+        mana_config mcfg;
+        mcfg.gmg_charges_for_meteor = 1;
+        crusade_.mana().set_config(mcfg);
+
         // Track broadcasts
         crusade_.set_broadcast_all_fn([this](const hb::network::json_message& msg) {
             all_broadcasts_.push_back(msg);
@@ -1015,6 +1198,7 @@ TEST_F(mana_meteor_integration_test, mana_reset_on_crusade_start) {
     crusade_.end_crusade(war_faction::neutral);
 
     // Start a new crusade — mana should be reset
+    crusade_.set_last_crusade_day(-1);
     crusade_.start_crusade();
     EXPECT_EQ(crusade_.mana().aresden_mana(), 0);
 }
@@ -1022,7 +1206,7 @@ TEST_F(mana_meteor_integration_test, mana_reset_on_crusade_start) {
 TEST_F(mana_meteor_integration_test, direct_mana_injection_triggers_meteor) {
     crusade_.start_crusade();
 
-    // Default mana config: threshold=15, charges_for_meteor=1
+    // Mana config overridden in SetUp: threshold=15, charges_for_meteor=1
     crusade_.mana().add_mana(war_faction::aresden, 15);
 
     // Should have triggered a meteor on elvine
@@ -1110,6 +1294,67 @@ TEST_F(mana_meteor_integration_test, mana_update_sent_to_commanders) {
     EXPECT_FALSE(fighter_got_mana);  // Only commanders get mana updates
 }
 
+TEST_F(mana_meteor_integration_test, mp_restoration_no_crash_without_players) {
+    crusade_.start_crusade();
+
+    // Place a mana collector for aresden
+    war_structure_instance collector;
+    collector.type = war_unit_type::mana_collector;
+    collector.faction = war_faction::aresden;
+    collector.map_name = "middleland";
+    collector.x = 100;
+    collector.y = 100;
+    crusade_.add_war_structure(collector);
+
+    // Without player_system wired (nullptr in fixture), MP restoration
+    // should not crash — the null guard skips the loop
+    crusade_.update(5.1f);  // Trigger mana tick
+    EXPECT_TRUE(true);  // No crash = success
+}
+
+TEST_F(mana_meteor_integration_test, gmg_damage_wiring_through_crusade) {
+    // Use high charges_for_meteor so charges accumulate without firing
+    mana_config mcfg;
+    mcfg.gmg_charges_for_meteor = 10;
+    crusade_.set_mana_config(mcfg);
+
+    crusade_.start_crusade();
+
+    // Place a GMG structure for aresden
+    war_structure_instance gmg;
+    gmg.eid = hb::entity::entity{999};
+    gmg.type = war_unit_type::esg;  // Placeholder type (GMG has no dedicated war_unit_type)
+    gmg.faction = war_faction::aresden;
+    gmg.map_name = "middleland";
+    gmg.x = 100;
+    gmg.y = 100;
+    crusade_.add_war_structure(gmg);
+
+    crusade_.mana().add_mana(war_faction::aresden, 15);
+    auto& state = crusade_.mana().get_state(war_faction::aresden);
+    EXPECT_EQ(state.gmg_charge, 1);
+
+    // Damage GMG via entity
+    crusade_.on_gmg_damage(hb::entity::entity{999}, 500);
+    EXPECT_EQ(state.gmg_charge, 0);
+}
+
+TEST_F(mana_meteor_integration_test, gmg_damage_unknown_entity_ignored) {
+    mana_config mcfg;
+    mcfg.gmg_charges_for_meteor = 10;
+    crusade_.set_mana_config(mcfg);
+
+    crusade_.start_crusade();
+
+    crusade_.mana().add_mana(war_faction::aresden, 15);
+    auto& state = crusade_.mana().get_state(war_faction::aresden);
+    EXPECT_EQ(state.gmg_charge, 1);
+
+    // Damage unknown entity -- should be ignored
+    crusade_.on_gmg_damage(hb::entity::entity{12345}, 500);
+    EXPECT_EQ(state.gmg_charge, 1);  // Unchanged
+}
+
 // ========== Phase 2 Protocol Message Tests ==========
 
 TEST(crusade_phase2_protocol_test, meteor_message_types) {
@@ -1134,16 +1379,40 @@ TEST(crusade_phase2_protocol_test, meteor_message_type_roundtrip) {
     EXPECT_EQ(parsed, hb::network::json_message_type::crusade_mana_update);
 }
 
+TEST(crusade_phase2_protocol_test, crusade_mp_restore_protocol_message) {
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_mp_restore),
+              "crusade_mp_restore");
+
+    auto parsed = hb::network::parse_message_type("crusade_mp_restore");
+    EXPECT_EQ(parsed, hb::network::json_message_type::crusade_mp_restore);
+
+    auto msg = hb::network::make_crusade_mp_restore(128, 130, 5, 12);
+    EXPECT_EQ(msg.type, hb::network::json_message_type::crusade_mp_restore);
+    EXPECT_EQ(msg.data["source_x"], 128);
+    EXPECT_EQ(msg.data["source_y"], 130);
+    EXPECT_EQ(msg.data["radius"], 5);
+    EXPECT_EQ(msg.data["your_restore"], 12);
+}
+
 // ========== Phase 3: Construction & Duty Tests ==========
 
 TEST(construction_cost_test, costs_are_correct) {
-    EXPECT_EQ(get_construction_cost(war_unit_type::agt), 2000);
-    EXPECT_EQ(get_construction_cost(war_unit_type::cgt), 3000);
-    EXPECT_EQ(get_construction_cost(war_unit_type::mana_collector), 1500);
-    EXPECT_EQ(get_construction_cost(war_unit_type::detector), 1000);
-    EXPECT_EQ(get_construction_cost(war_unit_type::lwb), 500);
-    EXPECT_EQ(get_construction_cost(war_unit_type::catapult), 4000);
-    EXPECT_EQ(get_construction_cost(war_unit_type::esg), 2500);
+    // Structures: zero cost (location-restricted)
+    EXPECT_EQ(get_construction_cost(war_unit_type::agt), 0);
+    EXPECT_EQ(get_construction_cost(war_unit_type::cgt), 0);
+    EXPECT_EQ(get_construction_cost(war_unit_type::mana_collector), 0);
+    EXPECT_EQ(get_construction_cost(war_unit_type::detector), 0);
+
+    // Mobile units: legacy costs
+    EXPECT_EQ(get_construction_cost(war_unit_type::lwb), 1000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::ghk), 2000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::ghkabs), 3000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::tk), 2000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::bg), 3000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::catapult), 1500);
+
+    // ESG: not player-summonable
+    EXPECT_LT(get_construction_cost(war_unit_type::esg), 0);
 }
 
 // ========== Kill-Based Construction Points ==========
@@ -1385,9 +1654,9 @@ TEST_F(crusade_system_test, summon_requires_enough_points) {
     player_id pid(1);
     crusade_.join_crusade(pid, war_faction::aresden);
     crusade_.select_duty(pid, crusade_duty::constructor);
-    crusade_.award_construction_points(pid, 100);  // Not enough for AGT (2000)
+    crusade_.award_construction_points(pid, 500);  // Not enough for LWB (1000)
 
-    auto result = crusade_.summon_war_unit(pid, war_unit_type::agt);
+    auto result = crusade_.summon_war_unit(pid, war_unit_type::lwb);
     EXPECT_EQ(result, crusade_result::insufficient_points);
 }
 
@@ -1399,7 +1668,7 @@ TEST_F(crusade_system_test, summon_deducts_cost) {
     crusade_.select_duty(pid, crusade_duty::constructor);
     crusade_.award_construction_points(pid, 5000);
 
-    auto result = crusade_.summon_war_unit(pid, war_unit_type::agt);  // Cost 2000
+    auto result = crusade_.summon_war_unit(pid, war_unit_type::ghk);  // Cost 2000
     EXPECT_EQ(result, crusade_result::success);
 
     auto* data = crusade_.get_player_data(pid);
@@ -1414,11 +1683,11 @@ TEST_F(crusade_system_test, summon_creates_structure_record) {
     crusade_.select_duty(pid, crusade_duty::constructor);
     crusade_.award_construction_points(pid, 5000);
 
-    crusade_.summon_war_unit(pid, war_unit_type::detector);
+    crusade_.summon_war_unit(pid, war_unit_type::lwb);
 
     const auto& structures = crusade_.get_war_structures();
     ASSERT_EQ(structures.size(), 1);
-    EXPECT_EQ(structures[0].type, war_unit_type::detector);
+    EXPECT_EQ(structures[0].type, war_unit_type::lwb);
     EXPECT_EQ(structures[0].faction, war_faction::aresden);
     EXPECT_EQ(structures[0].summoner, pid);
 }
@@ -1431,12 +1700,13 @@ TEST_F(crusade_system_test, summon_multiple_units) {
     crusade_.select_duty(pid, crusade_duty::constructor);
     crusade_.award_construction_points(pid, 10000);
 
-    crusade_.summon_war_unit(pid, war_unit_type::lwb);
-    crusade_.summon_war_unit(pid, war_unit_type::lwb);
-    crusade_.summon_war_unit(pid, war_unit_type::detector);
+    crusade_.summon_war_unit(pid, war_unit_type::lwb);    // 1000
+    crusade_.summon_war_unit(pid, war_unit_type::ghk);    // 2000
+    crusade_.summon_war_unit(pid, war_unit_type::catapult); // 1500
 
-    EXPECT_EQ(crusade_.count_structures_by_type(war_faction::elvine, war_unit_type::lwb), 2);
-    EXPECT_EQ(crusade_.count_structures_by_type(war_faction::elvine, war_unit_type::detector), 1);
+    EXPECT_EQ(crusade_.count_structures_by_type(war_faction::elvine, war_unit_type::lwb), 1);
+    EXPECT_EQ(crusade_.count_structures_by_type(war_faction::elvine, war_unit_type::ghk), 1);
+    EXPECT_EQ(crusade_.count_structures_by_type(war_faction::elvine, war_unit_type::catapult), 1);
     EXPECT_EQ(crusade_.count_structures_by_type(war_faction::aresden, war_unit_type::lwb), 0);
 }
 
@@ -1452,15 +1722,15 @@ TEST_F(crusade_system_test, structures_per_faction) {
     crusade_.award_construction_points(pid1, 5000);
     crusade_.award_construction_points(pid2, 5000);
 
-    crusade_.summon_war_unit(pid1, war_unit_type::agt);
-    crusade_.summon_war_unit(pid2, war_unit_type::cgt);
+    crusade_.summon_war_unit(pid1, war_unit_type::lwb);
+    crusade_.summon_war_unit(pid2, war_unit_type::ghk);
 
     auto aresden = crusade_.get_war_structures(war_faction::aresden);
     auto elvine = crusade_.get_war_structures(war_faction::elvine);
     EXPECT_EQ(aresden.size(), 1);
     EXPECT_EQ(elvine.size(), 1);
-    EXPECT_EQ(aresden[0].type, war_unit_type::agt);
-    EXPECT_EQ(elvine[0].type, war_unit_type::cgt);
+    EXPECT_EQ(aresden[0].type, war_unit_type::lwb);
+    EXPECT_EQ(elvine[0].type, war_unit_type::ghk);
 }
 
 TEST_F(crusade_system_test, structures_cleared_on_end) {
@@ -1688,6 +1958,7 @@ TEST_F(crusade_system_test, winner_bonus_awarded_to_commander) {
     EXPECT_EQ(crusade_.last_winner(), war_faction::aresden);
 
     // Second crusade: aresden commander should get bonus
+    crusade_.set_last_crusade_day(-1);  // Allow same-day restart for testing
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1704,6 +1975,7 @@ TEST_F(crusade_system_test, winner_bonus_not_awarded_different_faction) {
     crusade_.start_crusade();
     crusade_.end_crusade(war_faction::aresden);
 
+    crusade_.set_last_crusade_day(-1);
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1719,6 +1991,7 @@ TEST_F(crusade_system_test, winner_bonus_not_awarded_neutral_winner) {
     crusade_.end_crusade(war_faction::neutral);  // Draw
     EXPECT_EQ(crusade_.last_winner(), war_faction::neutral);
 
+    crusade_.set_last_crusade_day(-1);
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1746,12 +2019,14 @@ TEST_F(crusade_system_test, mana_tick_with_zero_collectors_yields_zero) {
 TEST_F(crusade_system_test, mana_tick_with_collector_yields_mana) {
     crusade_.start_crusade();
 
-    // Spawn a mana collector manually by simulating a summon
-    player_id pid(1);
-    crusade_.join_crusade(pid, war_faction::aresden);
-    crusade_.select_duty(pid, crusade_duty::constructor);
-    crusade_.award_construction_points(pid, 5000);
-    crusade_.summon_war_unit(pid, war_unit_type::mana_collector);
+    // Place a mana collector directly (pre-placed structure)
+    war_structure_instance collector;
+    collector.type = war_unit_type::mana_collector;
+    collector.faction = war_faction::aresden;
+    collector.map_name = "war_map";
+    collector.x = 50;
+    collector.y = 50;
+    crusade_.add_war_structure(collector);
 
     EXPECT_EQ(crusade_.count_structures_by_type(war_faction::aresden, war_unit_type::mana_collector), 1);
 
@@ -1765,6 +2040,11 @@ TEST_F(crusade_system_test, mana_tick_with_collector_yields_mana) {
 // ========== A9: ESG Count ==========
 
 TEST_F(crusade_system_test, esg_count_zero_without_structures) {
+    // Set gmg_charges_for_meteor=1 so 15 mana → 1 charge → instant meteor
+    mana_config mc;
+    mc.gmg_charges_for_meteor = 1;
+    crusade_.set_mana_config(mc);
+
     crusade_.start_crusade();
 
     // Fire meteor — should see 0 ESG count on results
@@ -1790,14 +2070,20 @@ TEST_F(crusade_system_test, esg_within_radius_reduces_damage) {
     cfg.elvine_strike_points[1].y = 100;
     crusade_.set_config(cfg);
 
+    mana_config mc;
+    mc.gmg_charges_for_meteor = 1;
+    crusade_.set_mana_config(mc);
+
     crusade_.start_crusade();
 
-    // Summon an ESG near elvine strike point 1 (within radius 10)
-    player_id pid(1);
-    crusade_.join_crusade(pid, war_faction::elvine);
-    crusade_.select_duty(pid, crusade_duty::constructor);
-    crusade_.award_construction_points(pid, 5000);
-    crusade_.summon_war_unit(pid, war_unit_type::esg, "war_map", 52, 52);
+    // Place ESG near elvine strike point 1 (within radius 10) — ESG is pre-placed only
+    war_structure_instance esg;
+    esg.type = war_unit_type::esg;
+    esg.faction = war_faction::elvine;
+    esg.map_name = "war_map";
+    esg.x = 52;
+    esg.y = 52;
+    crusade_.add_war_structure(esg);
 
     // Fire meteor from aresden targeting elvine
     crusade_.mana().add_mana(war_faction::aresden, 15);
@@ -1819,14 +2105,20 @@ TEST_F(crusade_system_test, esg_outside_radius_not_counted) {
     cfg.elvine_strike_points[1].y = 100;
     crusade_.set_config(cfg);
 
+    mana_config mc;
+    mc.gmg_charges_for_meteor = 1;
+    crusade_.set_mana_config(mc);
+
     crusade_.start_crusade();
 
     // Place ESG far from both strike points
-    player_id pid(1);
-    crusade_.join_crusade(pid, war_faction::elvine);
-    crusade_.select_duty(pid, crusade_duty::constructor);
-    crusade_.award_construction_points(pid, 5000);
-    crusade_.summon_war_unit(pid, war_unit_type::esg, "war_map", 200, 200);
+    war_structure_instance esg;
+    esg.type = war_unit_type::esg;
+    esg.faction = war_faction::elvine;
+    esg.map_name = "war_map";
+    esg.x = 200;
+    esg.y = 200;
+    crusade_.add_war_structure(esg);
 
     crusade_.mana().add_mana(war_faction::aresden, 15);
 
@@ -1846,15 +2138,28 @@ TEST_F(crusade_system_test, two_esgs_fully_protect) {
     cfg.elvine_strike_points[1].y = 100;
     crusade_.set_config(cfg);
 
+    mana_config mc;
+    mc.gmg_charges_for_meteor = 1;
+    crusade_.set_mana_config(mc);
+
     crusade_.start_crusade();
 
-    // Place 2 ESGs near strike point 1
-    player_id pid(1);
-    crusade_.join_crusade(pid, war_faction::elvine);
-    crusade_.select_duty(pid, crusade_duty::constructor);
-    crusade_.award_construction_points(pid, 10000);
-    crusade_.summon_war_unit(pid, war_unit_type::esg, "war_map", 51, 51);
-    crusade_.summon_war_unit(pid, war_unit_type::esg, "war_map", 52, 52);
+    // Place 2 ESGs near strike point 1 — ESGs are pre-placed only
+    war_structure_instance esg1;
+    esg1.type = war_unit_type::esg;
+    esg1.faction = war_faction::elvine;
+    esg1.map_name = "war_map";
+    esg1.x = 51;
+    esg1.y = 51;
+    crusade_.add_war_structure(esg1);
+
+    war_structure_instance esg2;
+    esg2.type = war_unit_type::esg;
+    esg2.faction = war_faction::elvine;
+    esg2.map_name = "war_map";
+    esg2.x = 52;
+    esg2.y = 52;
+    crusade_.add_war_structure(esg2);
 
     crusade_.mana().add_mana(war_faction::aresden, 15);
 
@@ -1914,7 +2219,7 @@ TEST_F(crusade_system_test, summon_stores_position) {
     crusade_.select_duty(pid, crusade_duty::constructor);
     crusade_.award_construction_points(pid, 5000);
 
-    crusade_.summon_war_unit(pid, war_unit_type::agt, "war_map", 10, 20);
+    crusade_.summon_war_unit(pid, war_unit_type::ghk, "war_map", 10, 20);
 
     const auto& structures = crusade_.get_war_structures();
     ASSERT_EQ(structures.size(), 1);
@@ -1932,7 +2237,7 @@ TEST_F(crusade_system_test, summon_without_npc_system_still_records) {
     crusade_.select_duty(pid, crusade_duty::constructor);
     crusade_.award_construction_points(pid, 5000);
 
-    auto result = crusade_.summon_war_unit(pid, war_unit_type::detector, "map1", 5, 5);
+    auto result = crusade_.summon_war_unit(pid, war_unit_type::tk, "map1", 5, 5);
     EXPECT_EQ(result, crusade_result::success);
 
     const auto& structures = crusade_.get_war_structures();
@@ -1958,14 +2263,24 @@ TEST_F(crusade_system_test, cleanup_clears_structures) {
 
 // ========== NPC Type Mapping ==========
 
-TEST(crusade_npc_type_test, unit_types_map_correctly) {
-    EXPECT_EQ(get_npc_type_for_unit(war_unit_type::agt), 36);
-    EXPECT_EQ(get_npc_type_for_unit(war_unit_type::cgt), 37);
-    EXPECT_EQ(get_npc_type_for_unit(war_unit_type::mana_collector), 38);
-    EXPECT_EQ(get_npc_type_for_unit(war_unit_type::detector), 39);
-    EXPECT_EQ(get_npc_type_for_unit(war_unit_type::lwb), 43);
-    EXPECT_EQ(get_npc_type_for_unit(war_unit_type::catapult), 51);
-    EXPECT_EQ(get_npc_type_for_unit(war_unit_type::esg), 40);
+TEST(crusade_npc_type_test, unit_types_map_correctly_aresden) {
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::agt, war_faction::aresden), 64);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::cgt, war_faction::aresden), 66);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::mana_collector, war_faction::aresden), 68);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::detector, war_faction::aresden), 70);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::lwb, war_faction::aresden), 77);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::catapult, war_faction::aresden), 85);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::esg, war_faction::aresden), 72);
+}
+
+TEST(crusade_npc_type_test, unit_types_map_correctly_elvine) {
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::agt, war_faction::elvine), 65);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::cgt, war_faction::elvine), 67);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::mana_collector, war_faction::elvine), 69);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::detector, war_faction::elvine), 71);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::lwb, war_faction::elvine), 78);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::catapult, war_faction::elvine), 86);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::esg, war_faction::elvine), 73);
 }
 
 // ========== Magic Protection vs Meteor Damage ==========
@@ -2271,4 +2586,935 @@ TEST(crusade_reward_test, zero_level) {
 TEST(crusade_reward_test, no_gold_field) {
     auto reward = calculate_crusade_reward(10000, 80, war_faction::aresden, war_faction::aresden);
     EXPECT_GT(reward.experience, 0);
+}
+
+// ========== Build System Tests ==========
+
+class crusade_build_test : public ::testing::Test {
+protected:
+    void SetUp() override {
+        war_sys_.initialize();
+        social_.initialize();
+        crusade_.initialize();
+        crusade_.set_dependencies(&war_sys_, nullptr, nullptr, nullptr, nullptr);
+        crusade_.set_social(&social_);
+
+        crusade_config cfg;
+        cfg.enabled = true;
+        cfg.timing.duration_seconds = 3600;
+
+        strike_point sp1;
+        sp1.id = 1;
+        sp1.max_hp = 100;
+        cfg.aresden_strike_points.push_back(sp1);
+
+        strike_point sp2;
+        sp2.id = 1;
+        sp2.max_hp = 100;
+        cfg.elvine_strike_points.push_back(sp2);
+
+        crusade_.set_config(cfg);
+
+        // Create guild with commander as guild master, constructor as member
+        auto guild_result = social_.create_guild(commander_, "TestGuild", "TG");
+        gid_ = guild_result.value();
+        social_.join_guild(constructor_, gid_);
+    }
+
+    void TearDown() override {
+        crusade_.shutdown();
+        social_.shutdown();
+        war_sys_.shutdown();
+    }
+
+    void start_and_join() {
+        crusade_.start_crusade();
+        crusade_.join_crusade(commander_, war_faction::aresden);
+        crusade_.join_crusade(constructor_, war_faction::aresden);
+        crusade_.select_duty(commander_, crusade_duty::commander);
+        crusade_.select_duty(constructor_, crusade_duty::constructor);
+    }
+
+    war_system war_sys_;
+    hb::social::social_system social_;
+    crusade_system crusade_;
+
+    player_id commander_{1};
+    player_id constructor_{2};
+    hb::guild_id gid_{};
+};
+
+// -- Initial structure spawning --
+
+TEST(crusade_build_types_test, initial_structure_defaults) {
+    initial_structure is;
+    EXPECT_EQ(is.npc_type, 0);
+    EXPECT_EQ(is.x, 0);
+    EXPECT_EQ(is.y, 0);
+    EXPECT_EQ(is.faction, war_faction::neutral);
+}
+
+TEST_F(crusade_system_test, initial_structures_in_config) {
+    crusade_config cfg = crusade_.config();
+
+    initial_structure is;
+    is.map_name = "middleland";
+    is.npc_type = 36;  // AGT
+    is.x = 100;
+    is.y = 200;
+    is.faction = war_faction::aresden;
+    cfg.initial_structures.push_back(is);
+
+    crusade_.set_config(cfg);
+
+    // Without world/npc systems, structures won't actually spawn
+    crusade_.start_crusade();
+    // But the config should be stored
+    EXPECT_EQ(crusade_.config().initial_structures.size(), 1);
+    EXPECT_EQ(crusade_.config().initial_structures[0].npc_type, 36);
+}
+
+// -- Guild construct location --
+
+TEST_F(crusade_build_test, set_construct_location_requires_active) {
+    auto result = crusade_.set_guild_construct_location(commander_, "map1", 50, 50);
+    EXPECT_EQ(result, crusade_result::not_active);
+}
+
+TEST_F(crusade_build_test, set_construct_location_requires_commander) {
+    start_and_join();
+
+    // Constructor can't set location
+    auto result = crusade_.set_guild_construct_location(constructor_, "map1", 50, 50);
+    EXPECT_EQ(result, crusade_result::not_guild_master);
+}
+
+TEST_F(crusade_build_test, set_construct_location_success) {
+    start_and_join();
+
+    auto result = crusade_.set_guild_construct_location(commander_, "war_map", 100, 200);
+    EXPECT_EQ(result, crusade_result::success);
+
+    auto* loc = crusade_.get_guild_construct_location(gid_.value);
+    ASSERT_NE(loc, nullptr);
+    EXPECT_EQ(loc->map_name, "war_map");
+    EXPECT_EQ(loc->x, 100);
+    EXPECT_EQ(loc->y, 200);
+    EXPECT_EQ(loc->structure_count, 0);
+}
+
+TEST_F(crusade_build_test, construct_location_can_be_updated) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 10, 20);
+    crusade_.set_guild_construct_location(commander_, "map2", 30, 40);
+
+    auto* loc = crusade_.get_guild_construct_location(gid_.value);
+    ASSERT_NE(loc, nullptr);
+    EXPECT_EQ(loc->map_name, "map2");
+    EXPECT_EQ(loc->x, 30);
+    EXPECT_EQ(loc->y, 40);
+    EXPECT_EQ(loc->structure_count, 0);  // Reset on update
+}
+
+// -- Structure placement: construct location required --
+
+TEST_F(crusade_build_test, structure_requires_construct_location) {
+    start_and_join();
+    crusade_.award_construction_points(constructor_, 5000);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "map1", 50, 50);
+    EXPECT_EQ(result, crusade_result::no_construct_location);
+}
+
+TEST_F(crusade_build_test, mobile_unit_does_not_require_construct_location) {
+    start_and_join();
+    crusade_.award_construction_points(constructor_, 5000);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::lwb, "map1", 50, 50);
+    EXPECT_EQ(result, crusade_result::success);
+}
+
+// -- Structure placement: within 10 tiles --
+
+TEST_F(crusade_build_test, structure_within_10_tiles_succeeds) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 100);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "map1", 105, 105);
+    EXPECT_EQ(result, crusade_result::success);
+}
+
+TEST_F(crusade_build_test, structure_beyond_10_tiles_rejected) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 100);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "map1", 111, 100);
+    EXPECT_EQ(result, crusade_result::too_far_from_construct_location);
+}
+
+TEST_F(crusade_build_test, structure_at_exactly_10_tiles_succeeds) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 100);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::detector, "map1", 110, 110);
+    EXPECT_EQ(result, crusade_result::success);
+}
+
+// -- Per-guild build limit --
+
+TEST_F(crusade_build_test, guild_build_limit_10) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
+
+    // Build 10 structures (all allowed)
+    for (int i = 0; i < 10; ++i)
+    {
+        auto result = crusade_.summon_war_unit(constructor_, war_unit_type::detector,
+            "map1", static_cast<int16_t>(100 + i), 400);
+        EXPECT_EQ(result, crusade_result::success) << "Build " << i << " should succeed";
+    }
+
+    // 11th should fail
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::detector, "map1", 100, 400);
+    EXPECT_EQ(result, crusade_result::guild_build_limit);
+}
+
+// -- Guard tower proximity --
+
+TEST_F(crusade_build_test, guard_tower_proximity_2_tiles) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
+
+    // Place first tower
+    auto r1 = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "map1", 100, 400);
+    EXPECT_EQ(r1, crusade_result::success);
+
+    // Place second tower within 2 tiles — rejected
+    auto r2 = crusade_.summon_war_unit(constructor_, war_unit_type::cgt, "map1", 101, 401);
+    EXPECT_EQ(r2, crusade_result::too_close_to_tower);
+}
+
+TEST_F(crusade_build_test, guard_tower_at_3_tiles_succeeds) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
+
+    auto r1 = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "map1", 97, 400);
+    EXPECT_EQ(r1, crusade_result::success);
+
+    // 3 tiles away — should succeed
+    auto r2 = crusade_.summon_war_unit(constructor_, war_unit_type::cgt, "map1", 100, 400);
+    EXPECT_EQ(r2, crusade_result::success);
+}
+
+TEST_F(crusade_build_test, non_tower_structure_ignores_proximity) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
+
+    auto r1 = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "map1", 100, 400);
+    EXPECT_EQ(r1, crusade_result::success);
+
+    // Detector right next to tower — allowed (not a tower)
+    auto r2 = crusade_.summon_war_unit(constructor_, war_unit_type::detector, "map1", 101, 400);
+    EXPECT_EQ(r2, crusade_result::success);
+}
+
+// -- Guard tower Y-bounds --
+
+TEST_F(crusade_build_test, guard_tower_y_too_low) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 30);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "map1", 100, 32);
+    EXPECT_EQ(result, crusade_result::invalid_position);
+}
+
+TEST_F(crusade_build_test, guard_tower_y_too_high) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 785);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::cgt, "map1", 100, 783);
+    EXPECT_EQ(result, crusade_result::invalid_position);
+}
+
+TEST_F(crusade_build_test, guard_tower_y_at_boundary_ok) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 40);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "map1", 100, 33);
+    EXPECT_EQ(result, crusade_result::success);
+}
+
+// -- Construction costs --
+
+TEST(crusade_cost_test, structures_zero_cost) {
+    EXPECT_EQ(get_construction_cost(war_unit_type::agt), 0);
+    EXPECT_EQ(get_construction_cost(war_unit_type::cgt), 0);
+    EXPECT_EQ(get_construction_cost(war_unit_type::mana_collector), 0);
+    EXPECT_EQ(get_construction_cost(war_unit_type::detector), 0);
+}
+
+TEST(crusade_cost_test, mobile_units_legacy_costs) {
+    EXPECT_EQ(get_construction_cost(war_unit_type::lwb), 1000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::ghk), 2000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::ghkabs), 3000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::tk), 2000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::bg), 3000);
+    EXPECT_EQ(get_construction_cost(war_unit_type::catapult), 1500);
+}
+
+TEST(crusade_cost_test, esg_not_summonable) {
+    EXPECT_LT(get_construction_cost(war_unit_type::esg), 0);
+}
+
+TEST_F(crusade_build_test, structure_zero_cost_no_deduction) {
+    start_and_join();
+    crusade_.award_construction_points(constructor_, 5000);
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
+
+    crusade_.summon_war_unit(constructor_, war_unit_type::detector, "map1", 100, 400);
+
+    auto* data = crusade_.get_player_data(constructor_);
+    EXPECT_EQ(data->construction_points, 5000);  // No deduction for structures
+}
+
+// -- Map restrictions --
+
+TEST_F(crusade_build_test, toh3_restricted) {
+    start_and_join();
+    crusade_.award_construction_points(constructor_, 5000);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::lwb, "toh3", 50, 50);
+    EXPECT_EQ(result, crusade_result::restricted_map);
+}
+
+TEST_F(crusade_build_test, icebound_restricted) {
+    start_and_join();
+    crusade_.award_construction_points(constructor_, 5000);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::lwb, "icebound", 50, 50);
+    EXPECT_EQ(result, crusade_result::restricted_map);
+}
+
+// -- ESG rectangular query --
+
+TEST(crusade_esg_query_test, rectangular_includes_corners) {
+    // Verify the is_structure_type / is_mobile_unit_type / is_guard_tower_type helpers
+    EXPECT_TRUE(is_structure_type(war_unit_type::agt));
+    EXPECT_TRUE(is_structure_type(war_unit_type::cgt));
+    EXPECT_TRUE(is_structure_type(war_unit_type::mana_collector));
+    EXPECT_TRUE(is_structure_type(war_unit_type::detector));
+    EXPECT_FALSE(is_structure_type(war_unit_type::lwb));
+    EXPECT_FALSE(is_structure_type(war_unit_type::esg));
+
+    EXPECT_TRUE(is_mobile_unit_type(war_unit_type::lwb));
+    EXPECT_TRUE(is_mobile_unit_type(war_unit_type::ghk));
+    EXPECT_TRUE(is_mobile_unit_type(war_unit_type::ghkabs));
+    EXPECT_TRUE(is_mobile_unit_type(war_unit_type::tk));
+    EXPECT_TRUE(is_mobile_unit_type(war_unit_type::bg));
+    EXPECT_TRUE(is_mobile_unit_type(war_unit_type::catapult));
+    EXPECT_FALSE(is_mobile_unit_type(war_unit_type::agt));
+
+    EXPECT_TRUE(is_guard_tower_type(war_unit_type::agt));
+    EXPECT_TRUE(is_guard_tower_type(war_unit_type::cgt));
+    EXPECT_FALSE(is_guard_tower_type(war_unit_type::detector));
+}
+
+TEST_F(crusade_system_test, esg_at_corner_counts_with_rectangular) {
+    crusade_config cfg = crusade_.config();
+    cfg.elvine_strike_points[0].map_name = "war_map";
+    cfg.elvine_strike_points[0].x = 50;
+    cfg.elvine_strike_points[0].y = 50;
+    crusade_.set_config(cfg);
+
+    mana_config mc;
+    mc.gmg_charges_for_meteor = 1;
+    crusade_.set_mana_config(mc);
+
+    crusade_.start_crusade();
+
+    // Place ESG at exactly (60, 60) — at corner, 10 tiles away in both axes
+    // Circular: distance = sqrt(200) ≈ 14.14 > 10 → NOT counted
+    // Rectangular: abs(10) <= 10 && abs(10) <= 10 → counted
+    war_structure_instance esg;
+    esg.type = war_unit_type::esg;
+    esg.faction = war_faction::elvine;
+    esg.map_name = "war_map";
+    esg.x = 60;
+    esg.y = 60;
+    crusade_.add_war_structure(esg);
+
+    // Fire meteor and check protection
+    crusade_.mana().add_mana(war_faction::aresden, 15);
+
+    const auto& elvine = crusade_.get_strike_points(war_faction::elvine);
+    // ESG at corner should be counted (rectangular), reducing damage by 1
+    EXPECT_EQ(elvine[0].hp, 99);  // 100 - max(0, 2-1) = 99
+}
+
+// -- NPC type mapping for new types --
+
+TEST(crusade_npc_type_test, shared_unit_types_same_for_both_factions) {
+    // GHK, GHKABS, TK, BG are shared — same NPC ID regardless of faction
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::ghk, war_faction::aresden), 79);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::ghk, war_faction::elvine), 79);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::ghkabs, war_faction::aresden), 80);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::ghkabs, war_faction::elvine), 80);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::tk, war_faction::aresden), 81);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::tk, war_faction::elvine), 81);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::bg, war_faction::aresden), 82);
+    EXPECT_EQ(get_npc_id_for_unit(war_unit_type::bg, war_faction::elvine), 82);
+}
+
+// -- Construct location cleared on crusade end --
+
+TEST_F(crusade_build_test, construct_locations_cleared_on_end) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "map1", 100, 100);
+    EXPECT_NE(crusade_.get_guild_construct_location(gid_.value), nullptr);
+
+    crusade_.end_crusade(war_faction::neutral);
+
+    EXPECT_EQ(crusade_.get_guild_construct_location(gid_.value), nullptr);
+}
+
+// -- ESG not summonable --
+
+TEST_F(crusade_build_test, esg_summon_rejected) {
+    start_and_join();
+    crusade_.award_construction_points(constructor_, 5000);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::esg, "map1", 50, 50);
+    EXPECT_EQ(result, crusade_result::invalid_unit);
+}
+
+// ========== Lifecycle Fix Tests ==========
+
+// -- Duplicate-in-day prevention --
+
+TEST_F(crusade_system_test, duplicate_in_day_prevented) {
+    // First crusade starts successfully
+    auto r1 = crusade_.start_crusade();
+    ASSERT_TRUE(r1.is_ok());
+    EXPECT_TRUE(crusade_.is_active());
+    EXPECT_GE(crusade_.last_crusade_day(), 0);
+
+    // End it
+    crusade_.end_crusade(war_faction::aresden);
+    EXPECT_FALSE(crusade_.is_active());
+
+    // Second start on same day should fail
+    auto r2 = crusade_.start_crusade();
+    ASSERT_TRUE(r2.is_err());
+    EXPECT_EQ(r2.error(), crusade_result::duplicate_today);
+    EXPECT_FALSE(crusade_.is_active());
+}
+
+TEST_F(crusade_system_test, different_day_allows_start) {
+    // Simulate previous crusade was on a different day
+    crusade_.set_last_crusade_day(6);  // Saturday
+
+    // As long as today isn't Saturday, start should succeed
+    // We verify by starting — if today IS Saturday, the test is still valid
+    // because last_crusade_day was set before any start
+    auto r = crusade_.start_crusade();
+    auto now = std::chrono::system_clock::now();
+    auto time_t_now = std::chrono::system_clock::to_time_t(now);
+    std::tm local_tm{};
+    localtime_r(&time_t_now, &local_tm);
+
+    if (local_tm.tm_wday == 6) {
+        // Today IS Saturday, so duplicate prevention kicks in
+        EXPECT_TRUE(r.is_err());
+    } else {
+        EXPECT_TRUE(r.is_ok());
+    }
+}
+
+TEST_F(crusade_system_test, first_start_always_succeeds) {
+    // With last_crusade_day_ == -1 (default), any day should work
+    EXPECT_EQ(crusade_.last_crusade_day(), -1);
+    auto r = crusade_.start_crusade();
+    EXPECT_TRUE(r.is_ok());
+}
+
+// -- Victory deferred to meteor result phase --
+
+TEST_F(crusade_system_test, victory_deferred_to_meteor_result) {
+    // Set up crusade with meteor handler (no scheduler = synchronous execution)
+    crusade_.start_crusade();
+
+    // Destroy all aresden strike points directly — should NOT end crusade
+    crusade_.damage_strike_point(war_faction::aresden, 1, 999);
+    crusade_.damage_strike_point(war_faction::aresden, 2, 999);
+    EXPECT_TRUE(crusade_.is_active());
+    EXPECT_TRUE(crusade_.all_strike_points_destroyed(war_faction::aresden));
+
+    // Now fire meteor — the result callback should trigger victory check
+    // Without scheduler, meteor executes synchronously (impact → waves → result)
+    crusade_.meteor().fire_meteor(war_faction::elvine);  // Elvine attacks aresden
+
+    // Meteor result callback runs check_victory_condition → ends crusade
+    EXPECT_FALSE(crusade_.is_active());
+    EXPECT_EQ(crusade_.last_winner(), war_faction::elvine);
+}
+
+TEST_F(crusade_system_test, partial_destruction_no_victory_even_after_meteor) {
+    crusade_.start_crusade();
+
+    // Only destroy ONE of two aresden strike points
+    crusade_.damage_strike_point(war_faction::aresden, 1, 999);
+    EXPECT_TRUE(crusade_.is_active());
+
+    // Fire meteor — result callback checks victory, but not all points destroyed
+    crusade_.meteor().fire_meteor(war_faction::elvine);
+    EXPECT_TRUE(crusade_.is_active());
+}
+
+// -- Last winner persistence --
+
+TEST_F(crusade_system_test, last_winner_set_on_end) {
+    crusade_.start_crusade();
+    EXPECT_EQ(crusade_.last_winner(), war_faction::neutral);
+
+    crusade_.end_crusade(war_faction::aresden);
+    EXPECT_EQ(crusade_.last_winner(), war_faction::aresden);
+}
+
+// -- Map disabling on strike point destruction --
+
+class crusade_map_disable_test : public ::testing::Test {
+protected:
+    void SetUp() override {
+        war_sys_.initialize();
+        world_.initialize();
+
+        // Create maps
+        hb::world::map_config mc;
+        mc.name = "aresden_city";
+        mc.width = 100;
+        mc.height = 100;
+        world_.create_map(mc);
+
+        mc.name = "elvine_city";
+        world_.create_map(mc);
+
+        crusade_.initialize();
+        crusade_.set_dependencies(&war_sys_, nullptr, &world_, nullptr, nullptr);
+
+        // Config with linked_map on strike points
+        crusade_config cfg;
+        cfg.enabled = true;
+        cfg.timing.duration_seconds = 3600;
+
+        strike_point sp1;
+        sp1.id = 1;
+        sp1.max_hp = 100;
+        sp1.linked_map = "aresden_city";
+        cfg.aresden_strike_points.push_back(sp1);
+
+        strike_point sp2;
+        sp2.id = 1;
+        sp2.max_hp = 100;
+        sp2.linked_map = "elvine_city";
+        cfg.elvine_strike_points.push_back(sp2);
+
+        crusade_.set_config(cfg);
+    }
+
+    void TearDown() override {
+        crusade_.shutdown();
+        world_.shutdown();
+        war_sys_.shutdown();
+    }
+
+    war_system war_sys_;
+    hb::world::world_subsystem world_;
+    crusade_system crusade_;
+};
+
+TEST_F(crusade_map_disable_test, map_disabled_on_strike_point_destruction) {
+    crusade_.start_crusade();
+
+    EXPECT_FALSE(world_.is_map_disabled("aresden_city"));
+
+    crusade_.damage_strike_point(war_faction::aresden, 1, 999);
+
+    EXPECT_TRUE(world_.is_map_disabled("aresden_city"));
+    EXPECT_FALSE(world_.is_map_disabled("elvine_city"));
+}
+
+TEST_F(crusade_map_disable_test, map_not_disabled_on_partial_damage) {
+    crusade_.start_crusade();
+
+    crusade_.damage_strike_point(war_faction::aresden, 1, 10);
+
+    EXPECT_FALSE(world_.is_map_disabled("aresden_city"));
+}
+
+TEST_F(crusade_map_disable_test, maps_reenabled_on_crusade_end) {
+    crusade_.start_crusade();
+
+    crusade_.damage_strike_point(war_faction::aresden, 1, 999);
+    EXPECT_TRUE(world_.is_map_disabled("aresden_city"));
+
+    crusade_.end_crusade(war_faction::elvine);
+
+    EXPECT_FALSE(world_.is_map_disabled("aresden_city"));
+    EXPECT_FALSE(world_.is_map_disabled("elvine_city"));
+}
+
+TEST_F(crusade_map_disable_test, maps_reenabled_on_cancel) {
+    crusade_.start_crusade();
+
+    crusade_.damage_strike_point(war_faction::aresden, 1, 999);
+    EXPECT_TRUE(world_.is_map_disabled("aresden_city"));
+
+    crusade_.cancel_crusade();
+
+    EXPECT_FALSE(world_.is_map_disabled("aresden_city"));
+}
+
+TEST_F(crusade_map_disable_test, strike_point_without_linked_map_does_not_crash) {
+    // Create config with no linked_map
+    crusade_config cfg;
+    cfg.enabled = true;
+    cfg.timing.duration_seconds = 3600;
+
+    strike_point sp;
+    sp.id = 1;
+    sp.max_hp = 50;
+    // linked_map is empty
+    cfg.aresden_strike_points.push_back(sp);
+
+    strike_point sp2;
+    sp2.id = 1;
+    sp2.max_hp = 50;
+    cfg.elvine_strike_points.push_back(sp2);
+
+    crusade_.set_config(cfg);
+    crusade_.start_crusade();
+    crusade_.damage_strike_point(war_faction::aresden, 1, 999);
+    // Should not crash — no map to disable
+    crusade_.end_crusade(war_faction::elvine);
+}
+
+// -- Offline player reward persistence (character_id stored at join) --
+
+TEST_F(crusade_system_test, character_id_stored_at_join) {
+    hb::player::player_system player_sys;
+    player_sys.initialize();
+    crusade_.set_dependencies(&war_sys_, &player_sys, nullptr, nullptr, nullptr);
+
+    hb::player::player_create_info info;
+    info.name = "test_char";
+    info.account_name = "test_acct";
+    auto pid = player_sys.create_player(info).value();
+    auto* plr = player_sys.get_player(pid);
+    plr->character_id = player_id{42};
+    plr->experience.level = 75;
+    plr->faction = hb::faction::aresden;
+
+    crusade_.start_crusade();
+    crusade_.join_crusade(pid, war_faction::aresden);
+
+    auto* pdata = crusade_.get_player_data(pid);
+    ASSERT_NE(pdata, nullptr);
+    EXPECT_EQ(pdata->character_id, 42);
+    EXPECT_EQ(pdata->level, 75);
+
+    crusade_.end_crusade(war_faction::neutral);
+    player_sys.shutdown();
+}
+
+TEST_F(crusade_system_test, character_id_zero_without_player_system) {
+    // No player system wired
+    crusade_.set_dependencies(&war_sys_, nullptr, nullptr, nullptr, nullptr);
+    crusade_.start_crusade();
+    crusade_.join_crusade(player_id{1}, war_faction::aresden);
+
+    auto* pdata = crusade_.get_player_data(player_id{1});
+    ASSERT_NE(pdata, nullptr);
+    EXPECT_EQ(pdata->character_id, 0);
+    EXPECT_EQ(pdata->level, 1);
+
+    crusade_.end_crusade(war_faction::neutral);
+}
+
+// ========== Bug Fix Tests ==========
+
+// Fix 1: Summon types 8-11 should succeed (GHK=8, GHKABS=9, TK=10, BG=11)
+TEST_F(crusade_system_test, summon_mobile_units_types_8_to_11) {
+    crusade_.start_crusade();
+
+    player_id pid(1);
+    crusade_.join_crusade(pid, war_faction::aresden);
+    crusade_.select_duty(pid, crusade_duty::constructor);
+    crusade_.award_construction_points(pid, 30000);
+
+    // GHK (type 8, cost 2000)
+    EXPECT_EQ(crusade_.summon_war_unit(pid, war_unit_type::ghk), crusade_result::success);
+    // GHKABS (type 9, cost 3000)
+    EXPECT_EQ(crusade_.summon_war_unit(pid, war_unit_type::ghkabs), crusade_result::success);
+    // TK (type 10, cost 2000)
+    EXPECT_EQ(crusade_.summon_war_unit(pid, war_unit_type::tk), crusade_result::success);
+    // BG (type 11, cost 3000)
+    EXPECT_EQ(crusade_.summon_war_unit(pid, war_unit_type::bg), crusade_result::success);
+
+    EXPECT_EQ(crusade_.get_war_structures().size(), 4);
+}
+
+// Fix 2: Cross-map structure build rejected
+TEST_F(crusade_build_test, cross_map_structure_rejected) {
+    start_and_join();
+
+    // Commander sets construct location on "middleland"
+    crusade_.set_guild_construct_location(commander_, "middleland", 100, 100);
+
+    // Constructor tries to build on a different map
+    crusade_.award_construction_points(constructor_, 5000);
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt,
+        "aresden", 100, 100);
+    EXPECT_EQ(result, crusade_result::wrong_map);
+}
+
+TEST_F(crusade_build_test, same_map_structure_accepted) {
+    start_and_join();
+
+    crusade_.set_guild_construct_location(commander_, "middleland", 100, 100);
+    crusade_.award_construction_points(constructor_, 5000);
+
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt,
+        "middleland", 100, 100);
+    EXPECT_EQ(result, crusade_result::success);
+}
+
+// Fix 3: MP restore deducts mana from pool; no restore when pool empty
+TEST_F(crusade_system_test, mp_restore_requires_mana_pool) {
+    // The mana system's try_consume should work correctly
+    mana_system mana;
+    mana_config cfg;
+    cfg.gmg_mana_threshold = 15;
+    mana.set_config(cfg);
+    mana.initialize_stones(0);
+
+    // No mana in pool — try_consume should fail
+    EXPECT_FALSE(mana.try_consume(war_faction::aresden, 1));
+
+    // Add some mana
+    mana.add_mana(war_faction::aresden, 5);
+    EXPECT_TRUE(mana.try_consume(war_faction::aresden, 1));
+    EXPECT_EQ(mana.aresden_mana(), 4);
+
+    // Consume remaining
+    EXPECT_TRUE(mana.try_consume(war_faction::aresden, 4));
+    EXPECT_EQ(mana.aresden_mana(), 0);
+
+    // Pool empty again
+    EXPECT_FALSE(mana.try_consume(war_faction::aresden, 1));
+}
+
+// Fix 5: NPC ID mapping returns correct sequential IDs (not sprite IDs)
+TEST(crusade_npc_id_test, faction_specific_ids_differ) {
+    // AGT: Aresden=64, Elvine=65
+    EXPECT_NE(get_npc_id_for_unit(war_unit_type::agt, war_faction::aresden),
+              get_npc_id_for_unit(war_unit_type::agt, war_faction::elvine));
+
+    // Catapult: Aresden=85, Elvine=86
+    EXPECT_NE(get_npc_id_for_unit(war_unit_type::catapult, war_faction::aresden),
+              get_npc_id_for_unit(war_unit_type::catapult, war_faction::elvine));
+}
+
+TEST(crusade_npc_id_test, ids_are_not_sprite_ids) {
+    // The old buggy function returned sprite IDs like 36, 37, etc.
+    // New function returns sequential npc_ids ≥ 64
+    EXPECT_GE(get_npc_id_for_unit(war_unit_type::agt, war_faction::aresden), 64);
+    EXPECT_GE(get_npc_id_for_unit(war_unit_type::cgt, war_faction::aresden), 64);
+    EXPECT_GE(get_npc_id_for_unit(war_unit_type::mana_collector, war_faction::aresden), 64);
+}
+
+// ========== Crusade Advantage Tests ==========
+
+TEST_F(crusade_system_test, advantage_increments_toward_aresden_winner) {
+    EXPECT_EQ(crusade_.crusade_advantage(), 0);
+
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::aresden);
+    EXPECT_EQ(crusade_.crusade_advantage(), 1);
+
+    crusade_.set_last_crusade_day(-1);  // Bypass duplicate-day check
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::aresden);
+    EXPECT_EQ(crusade_.crusade_advantage(), 2);
+}
+
+TEST_F(crusade_system_test, advantage_increments_toward_elvine_winner) {
+    EXPECT_EQ(crusade_.crusade_advantage(), 0);
+
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::elvine);
+    EXPECT_EQ(crusade_.crusade_advantage(), -1);
+
+    crusade_.set_last_crusade_day(-1);
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::elvine);
+    EXPECT_EQ(crusade_.crusade_advantage(), -2);
+}
+
+TEST_F(crusade_system_test, advantage_caps_at_plus_minus_5) {
+    crusade_.set_crusade_advantage(4);
+
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::aresden);
+    EXPECT_EQ(crusade_.crusade_advantage(), 5);
+
+    // Beyond 5 should stay at 5
+    crusade_.set_last_crusade_day(-1);
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::aresden);
+    EXPECT_EQ(crusade_.crusade_advantage(), 5);
+}
+
+TEST_F(crusade_system_test, advantage_caps_at_minus_5) {
+    crusade_.set_crusade_advantage(-4);
+
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::elvine);
+    EXPECT_EQ(crusade_.crusade_advantage(), -5);
+
+    crusade_.set_last_crusade_day(-1);
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::elvine);
+    EXPECT_EQ(crusade_.crusade_advantage(), -5);
+}
+
+TEST_F(crusade_system_test, advantage_no_change_on_draw) {
+    crusade_.set_crusade_advantage(3);
+
+    crusade_.start_crusade();
+    crusade_.end_crusade(war_faction::neutral);  // Draw
+    EXPECT_EQ(crusade_.crusade_advantage(), 3);  // Unchanged
+}
+
+TEST(mana_advantage_test, advantage_adjusts_gmg_threshold) {
+    mana_system mana;
+    mana_config cfg;
+    cfg.gmg_mana_threshold = 15;
+    cfg.gmg_charges_for_meteor = 100;  // High so we don't trigger meteor
+    mana.set_config(cfg);
+    mana.initialize_stones(0);
+
+    // Aresden dominant: needs 15 + 16 = 31 mana per charge
+    mana.set_threshold_adjustments(16, 0);
+
+    // Add 15 mana to Aresden — should NOT convert to charge (threshold is 31)
+    mana.add_mana(war_faction::aresden, 15);
+    EXPECT_EQ(mana.get_state(war_faction::aresden).gmg_charge, 0);
+    EXPECT_EQ(mana.aresden_mana(), 15);
+
+    // Add 16 more — now at 31, should convert
+    mana.add_mana(war_faction::aresden, 16);
+    EXPECT_EQ(mana.get_state(war_faction::aresden).gmg_charge, 1);
+    EXPECT_EQ(mana.aresden_mana(), 0);
+
+    // Elvine has no adjustment — 15 mana converts to charge
+    mana.add_mana(war_faction::elvine, 15);
+    EXPECT_EQ(mana.get_state(war_faction::elvine).gmg_charge, 1);
+}
+
+TEST(mana_advantage_test, threshold_adjustments_reset_on_reset) {
+    mana_system mana;
+    mana_config cfg;
+    cfg.gmg_mana_threshold = 15;
+    cfg.gmg_charges_for_meteor = 100;
+    mana.set_config(cfg);
+    mana.initialize_stones(0);
+
+    mana.set_threshold_adjustments(16, 0);
+    mana.reset();
+    mana.initialize_stones(0);
+
+    // After reset, threshold should be back to base 15
+    mana.add_mana(war_faction::aresden, 15);
+    EXPECT_EQ(mana.get_state(war_faction::aresden).gmg_charge, 1);
+}
+
+// ========== Guild Teleport Tests ==========
+
+TEST_F(crusade_build_test, commander_can_set_teleport_location) {
+    start_and_join();
+
+    auto result = crusade_.set_guild_teleport_location(commander_, "middleland", 50, 60);
+    EXPECT_EQ(result, crusade_result::success);
+
+    auto* loc = crusade_.get_guild_teleport_location(gid_.value);
+    ASSERT_NE(loc, nullptr);
+    EXPECT_EQ(loc->map_name, "middleland");
+    EXPECT_EQ(loc->x, 50);
+    EXPECT_EQ(loc->y, 60);
+}
+
+TEST_F(crusade_build_test, non_commander_cannot_set_teleport) {
+    start_and_join();
+
+    // constructor_ has constructor duty, not commander
+    auto result = crusade_.set_guild_teleport_location(constructor_, "middleland", 50, 60);
+    EXPECT_EQ(result, crusade_result::not_guild_master);
+}
+
+TEST_F(crusade_build_test, guild_member_can_use_teleport) {
+    start_and_join();
+
+    crusade_.set_guild_teleport_location(commander_, "middleland", 50, 60);
+
+    auto result = crusade_.use_guild_teleport(constructor_);
+    EXPECT_EQ(result, crusade_result::success);
+
+    auto* dest = crusade_.get_guild_teleport_dest(constructor_);
+    ASSERT_NE(dest, nullptr);
+    EXPECT_EQ(dest->map_name, "middleland");
+    EXPECT_EQ(dest->x, 50);
+    EXPECT_EQ(dest->y, 60);
+}
+
+TEST_F(crusade_build_test, use_teleport_fails_without_set) {
+    start_and_join();
+
+    auto result = crusade_.use_guild_teleport(constructor_);
+    EXPECT_EQ(result, crusade_result::no_construct_location);
+}
+
+TEST_F(crusade_build_test, teleport_locations_cleared_at_crusade_end) {
+    start_and_join();
+
+    crusade_.set_guild_teleport_location(commander_, "middleland", 50, 60);
+    EXPECT_NE(crusade_.get_guild_teleport_location(gid_.value), nullptr);
+
+    crusade_.end_crusade(war_faction::neutral);
+
+    // After crusade end, teleport locations should be cleared
+    // (crusade is no longer active, so we can't query — but the internal map was cleared)
+    // Start a new one to verify
+    crusade_.start_crusade();
+    crusade_.join_crusade(commander_, war_faction::aresden);
+    crusade_.select_duty(commander_, crusade_duty::commander);
+    EXPECT_EQ(crusade_.get_guild_teleport_location(gid_.value), nullptr);
+}
+
+TEST_F(crusade_build_test, teleport_requires_active_crusade) {
+    // Don't start crusade
+    auto result = crusade_.set_guild_teleport_location(commander_, "middleland", 50, 60);
+    EXPECT_EQ(result, crusade_result::not_active);
 }

@@ -49,6 +49,7 @@ namespace hb::combat {
 
 namespace hb::war {
     class war_system;
+    class war_persistence;
 }
 
 namespace hb::effect {
@@ -112,6 +113,8 @@ public:
                     perf::perf_stats_system* perf_stats = nullptr);
 
     void handle_message(connection_id conn_id, const network::json_message& msg);
+
+    void set_war_persistence(war::war_persistence* wp) { war_persistence_ = wp; }
 
     // Push notifications (called from auth_handlers/game_handlers)
     void notify_player_connected(const std::string& name, int16_t level, const std::string& map_name);
@@ -204,6 +207,12 @@ private:
     // Performance stats
     void handle_perf_stats(connection_id conn_id, const network::json_message& msg);
 
+    // War management (Phase 6)
+    void handle_start_war(connection_id conn_id, const network::json_message& msg);
+    void handle_end_war(connection_id conn_id, const network::json_message& msg);
+    void handle_war_history(connection_id conn_id, const network::json_message& msg);
+    void handle_war_participants(connection_id conn_id, const network::json_message& msg);
+
     // Helpers
     void send_error(connection_id conn_id, uint32_t seq,
                     std::string_view error_code, std::string_view message);
@@ -233,6 +242,7 @@ private:
     quest::quest_system* quest_{nullptr};
     skill::skill_system* skill_{nullptr};
     perf::perf_stats_system* perf_stats_{nullptr};
+    war::war_persistence* war_persistence_{nullptr};
     std::chrono::steady_clock::time_point start_time_{std::chrono::steady_clock::now()};
 };
 

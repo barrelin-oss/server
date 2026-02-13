@@ -155,6 +155,18 @@ auto world_subsystem::get_map_by_name(std::string_view name) const -> const map*
     return get_map(it->second);
 }
 
+void world_subsystem::set_map_disabled(std::string_view map_name, bool disabled) {
+    auto* m = get_map_by_name(map_name);
+    if (m) {
+        m->set_disabled(disabled);
+    }
+}
+
+auto world_subsystem::is_map_disabled(std::string_view map_name) const -> bool {
+    auto* m = get_map_by_name(map_name);
+    return m && m->is_disabled();
+}
+
 auto world_subsystem::is_walkable(map_id map_id, const position& pos) const -> bool {
     auto* m = get_map(map_id);
     return m && m->is_walkable(pos);

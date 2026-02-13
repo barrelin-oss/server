@@ -4,6 +4,7 @@
 #include "war/crusade/crusade_system.h"
 #include "war/war_system.h"
 #include "war/war_persistence.h"
+#include "war/force_recall/force_recall_system.h"
 #include "player/player_system.h"
 #include "player/player.h"
 #include "world/world_subsystem.h"
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <random>
 #include <unordered_set>
 
 namespace hb::war {
@@ -36,6 +38,26 @@ crusade_system::~crusade_system()
 void crusade_system::initialize()
 {
     LOG_INFO(general, "Crusade system initializing...");
+
+    // Restore last crusade winner and advantage from DB (legacy: bReadCrusadeGUIDFile)
+    if (persistence_)
+    {
+        auto winner_result = persistence_->load_last_winner(war_type::crusade);
+        if (winner_result.is_ok())
+        {
+            last_crusade_winner_ = winner_result.value();
+            LOG_INFO(general, "Loaded last crusade winner: faction {}",
+                static_cast<int>(last_crusade_winner_));
+        }
+
+        auto advantage_result = persistence_->load_crusade_advantage();
+        if (advantage_result.is_ok())
+        {
+            crusade_advantage_ = advantage_result.value();
+            LOG_INFO(general, "Loaded crusade advantage: {}", crusade_advantage_);
+        }
+    }
+
     set_initialized(true);
     LOG_INFO(general, "Crusade system initialized");
 }
@@ -156,6 +178,24 @@ auto crusade_system::start_crusade() -> result<war_id, crusade_result>
         return result<war_id, crusade_result>::err(crusade_result::already_active);
     }
 
+    // Duplicate-in-day prevention (legacy: m_iLatestCrusadeDayOfWeek)
+    {
+        auto now = std::chrono::system_clock::now();
+        auto time_t_now = std::chrono::system_clock::to_time_t(now);
+        std::tm local_tm{};
+#ifdef _WIN32
+        localtime_s(&local_tm, &time_t_now);
+#else
+        localtime_r(&time_t_now, &local_tm);
+#endif
+        if (last_crusade_day_ == static_cast<int8_t>(local_tm.tm_wday))
+        {
+            LOG_DEBUG(general, "Skipping crusade — already had one today (day {})", local_tm.tm_wday);
+            return result<war_id, crusade_result>::err(crusade_result::duplicate_today);
+        }
+        last_crusade_day_ = static_cast<int8_t>(local_tm.tm_wday);
+    }
+
     // Start war in the generic war_system
     war_id wid{};
     if (war_)
@@ -181,12 +221,91 @@ auto crusade_system::start_crusade() -> result<war_id, crusade_result>
 
     LOG_INFO(general, "Crusade started (war_id={}, guid={})", wid.value, crusade_guid_);
 
+    // Spawn initial structures from config
+    for (const auto& is : config_.initial_structures)
+    {
+        if (npcs_ && world_)
+        {
+            auto* m = world_->get_map_by_name(is.map_name);
+            if (m)
+            {
+                auto npc_result = npcs_->spawn_npc(npc_id(is.npc_type), m->id(), {is.x, is.y});
+                if (npc_result.is_ok())
+                {
+                    war_structure_instance ws;
+                    ws.eid = npc_result.value();
+                    ws.type = static_cast<war_unit_type>(0);  // pre-placed, not player-summonable type
+                    ws.faction = is.faction;
+                    ws.map_name = is.map_name;
+                    ws.x = is.x;
+                    ws.y = is.y;
+
+                    // Map NPC type to war_unit_type if possible
+                    switch (is.npc_type)
+                    {
+                        case 36: ws.type = war_unit_type::agt; break;
+                        case 37: ws.type = war_unit_type::cgt; break;
+                        case 38: ws.type = war_unit_type::mana_collector; break;
+                        case 39: ws.type = war_unit_type::detector; break;
+                        case 40: ws.type = war_unit_type::esg; break;
+                        default: break;
+                    }
+
+                    war_structures_.push_back(ws);
+                    LOG_DEBUG(general, "Spawned initial structure NPC type {} at {}({},{}) for faction {}",
+                        is.npc_type, is.map_name, is.x, is.y, static_cast<int>(is.faction));
+                }
+            }
+        }
+    }
+
     broadcast_crusade_started();
     broadcast_strike_point_update(war_faction::aresden);
     broadcast_strike_point_update(war_faction::elvine);
 
     // Set up mana and meteor subsystems
     setup_mana_and_meteor();
+
+    // Apply crusade advantage: dominant faction needs more mana per GMG charge
+    // Legacy formula: gmg_threshold_bonus = 8 * abs(advantage)
+    if (crusade_advantage_ != 0)
+    {
+        int32_t bonus = 8 * std::abs(static_cast<int>(crusade_advantage_));
+        int32_t aresden_adj = (crusade_advantage_ > 0) ? bonus : 0;
+        int32_t elvine_adj = (crusade_advantage_ < 0) ? bonus : 0;
+        mana_system_.set_threshold_adjustments(aresden_adj, elvine_adj);
+    }
+
+    // Force recall players in enemy territory (legacy: m_iTimeLeft_ForceRecall = 0)
+    if (force_recall_ && players_ && world_)
+    {
+        players_->for_each_player([&](player_id pid, player::player& plr)
+        {
+            if (plr.faction == hb::faction::neutral) return;
+
+            war_faction plr_faction = (plr.faction == hb::faction::aresden)
+                ? war_faction::aresden : war_faction::elvine;
+
+            auto* m = world_->get_map(plr.current_map);
+            if (!m) return;
+
+            std::string map_name_str(m->name());
+            war_faction map_faction = war_faction::neutral;
+
+            // Determine map faction from name
+            if (map_name_str.starts_with("aresden"))
+                map_faction = war_faction::aresden;
+            else if (map_name_str.starts_with("elvine"))
+                map_faction = war_faction::elvine;
+            else if (force_recall_system::is_building_map(map_name_str))
+                map_faction = force_recall_system::get_building_faction(map_name_str);
+
+            if (map_faction != war_faction::neutral && map_faction != plr_faction)
+            {
+                force_recall_->check_player_territory(pid, plr_faction, map_faction, {});
+            }
+        });
+    }
 
     return result<war_id, crusade_result>::ok(wid);
 }
@@ -204,24 +323,28 @@ auto crusade_system::end_crusade(war_faction winner) -> crusade_result
     // Track winner for next crusade's commander bonus
     last_crusade_winner_ = winner;
 
+    // Adjust crusade advantage toward winner (legacy: m_iCrusadeAdvantage)
+    if (winner == war_faction::aresden)
+        crusade_advantage_ = std::clamp(static_cast<int8_t>(crusade_advantage_ + 1), int8_t{-5}, int8_t{5});
+    else if (winner == war_faction::elvine)
+        crusade_advantage_ = std::clamp(static_cast<int8_t>(crusade_advantage_ - 1), int8_t{-5}, int8_t{5});
+    // Draw: no change
+
     broadcast_crusade_ended(winner);
 
     // Persist war results before cleanup
     persist_war_result(winner);
 
-    // Calculate and send crusade-specific rewards to participants
+    // Calculate and send crusade-specific rewards to online participants
+    // (Offline players get rewards delivered at login via war_persistence)
     for (const auto& [pid, pdata] : player_data_)
     {
-        // Get player level for formula
-        int32_t level = 1;
-        if (players_)
-        {
-            auto* plr = players_->get_player(pid);
-            if (plr) level = plr->experience.level;
-        }
+        if (!players_) continue;
+        auto* plr = players_->get_player(pid);
+        if (!plr) continue;  // Offline — rewards persisted for login delivery
 
         auto reward = calculate_crusade_reward(
-            pdata.war_contribution, level, pdata.faction, winner);
+            pdata.war_contribution, plr->experience.level, pdata.faction, winner);
 
         // Send reward summary (gold is always 0 for crusade)
         auto msg = network::make_crusade_reward_summary(
@@ -230,8 +353,8 @@ auto crusade_system::end_crusade(war_faction winner) -> crusade_result
             0, 0);
         send_to_player(pid, msg);
 
-        // Apply EXP to online players
-        if (players_ && reward.experience > 0)
+        // Apply EXP
+        if (reward.experience > 0)
         {
             players_->add_experience(pid, reward.experience);
         }
@@ -292,8 +415,16 @@ auto crusade_system::damage_strike_point(war_faction faction, uint16_t point_id,
             LOG_DEBUG(general, "Strike point {}/{} took {} damage, hp={}/{}",
                 static_cast<int>(faction), point_id, damage, sp.hp, sp.max_hp);
 
+            // Disable linked map when strike point is destroyed (legacy: m_bIsDisabled)
+            if (sp.is_destroyed() && !sp.linked_map.empty() && world_)
+            {
+                world_->set_map_disabled(sp.linked_map, true);
+                LOG_INFO(general, "Map '{}' disabled — strike point {}/{} destroyed",
+                    sp.linked_map, static_cast<int>(faction), point_id);
+            }
+
             broadcast_strike_point_update(faction);
-            check_victory_condition();
+            // Victory check deferred to meteor result phase (legacy: CalcMeteorStrikeEffectHandler)
             return true;
         }
     }
@@ -330,6 +461,17 @@ auto crusade_system::join_crusade(player_id pid, war_faction faction) -> crusade
     data.pid = pid;
     data.faction = faction;
     data.crusade_guid = crusade_guid_;
+
+    // Capture character_id and level now — player may be offline at crusade end
+    if (players_)
+    {
+        if (auto* plr = players_->get_player(pid))
+        {
+            data.character_id = static_cast<int32_t>(plr->character_id.value);
+            data.level = plr->experience.level;
+        }
+    }
+
     player_data_.emplace(pid, data);
 
     // Also register in generic war_system
@@ -610,6 +752,7 @@ void crusade_system::persist_war_result(war_faction winner)
     wr.started_at = war->started_at;
     wr.ended_at = std::chrono::system_clock::now();
     wr.duration_seconds = elapsed_seconds_;
+    wr.metadata["crusade_advantage"] = static_cast<int>(crusade_advantage_);
 
     auto save_result = persistence_->save_war_result(wr);
     if (save_result.is_err())
@@ -623,25 +766,24 @@ void crusade_system::persist_war_result(war_faction winner)
     // Save each participant
     for (const auto& [pid, pdata] : player_data_)
     {
-        // Look up character_id from player system
-        int32_t char_id = 0;
-        if (players_)
-        {
-            auto* plr = players_->get_player(pid);
-            if (plr) char_id = static_cast<int32_t>(plr->character_id.value);
-        }
-        if (char_id == 0) continue;
+        // Use character_id captured at join time (works even if player is offline now)
+        if (pdata.character_id == 0) continue;
 
         // Get participant stats from war_system
         auto* participant = war->get_participant(pid);
         if (!participant) continue;
 
-        // Calculate crusade-specific rewards for persistence
-        int32_t level = 1;
+        // Use level captured at join time, but prefer current level if player is still online
+        int32_t level = pdata.level;
+        bool is_online = false;
         if (players_)
         {
             auto* plr = players_->get_player(pid);
-            if (plr) level = plr->experience.level;
+            if (plr)
+            {
+                level = plr->experience.level;
+                is_online = true;
+            }
         }
 
         auto crusade_rwd = calculate_crusade_reward(
@@ -652,16 +794,8 @@ void crusade_system::persist_war_result(war_faction winner)
         rewards.gold = 0;
         rewards.contribution_points = pdata.war_contribution;
 
-        // Online players already received their reward in end_crusade
-        bool is_online = false;
-        if (players_)
-        {
-            auto* plr = players_->get_player(pid);
-            is_online = (plr != nullptr);
-        }
-
         persistence_->save_participant_with_claimed(
-            war_db_id, char_id, *participant,
+            war_db_id, pdata.character_id, *participant,
             static_cast<uint8_t>(pdata.duty), rewards, is_online);
     }
 
@@ -671,6 +805,27 @@ void crusade_system::persist_war_result(war_faction winner)
 
 void crusade_system::cleanup_crusade()
 {
+    // Clear force recall timers set during this crusade
+    if (force_recall_)
+    {
+        force_recall_->clear_crusade_trackers();
+    }
+
+    // Re-enable maps disabled during crusade
+    if (world_)
+    {
+        for (const auto& sp : aresden_strike_points_)
+        {
+            if (!sp.linked_map.empty())
+                world_->set_map_disabled(sp.linked_map, false);
+        }
+        for (const auto& sp : elvine_strike_points_)
+        {
+            if (!sp.linked_map.empty())
+                world_->set_map_disabled(sp.linked_map, false);
+        }
+    }
+
     active_ = false;
     current_war_id_ = war_id{};
     elapsed_seconds_ = 0;
@@ -679,17 +834,27 @@ void crusade_system::cleanup_crusade()
     mana_broadcast_accumulator_ = 0.0f;
     construction_transfer_accumulator_ = 0.0f;
     player_data_.clear();
+    guild_construct_locations_.clear();
+    guild_teleport_locations_.clear();
     aresden_strike_points_.clear();
     elvine_strike_points_.clear();
 
-    // Despawn all war structure NPCs
+    // Remove war structure NPCs — mobile units are killed (triggers death/loot),
+    // fixed structures are silently despawned (legacy: RemoveCrusadeStructures vs RemoveCrusadeNpcs)
     if (npcs_)
     {
         for (const auto& ws : war_structures_)
         {
             if (ws.eid.is_valid())
             {
-                npcs_->despawn_npc(ws.eid);
+                if (is_mobile_unit_type(ws.type))
+                {
+                    npcs_->kill_npc(ws.eid, entity::entity{});
+                }
+                else
+                {
+                    npcs_->despawn_npc(ws.eid);
+                }
             }
         }
     }
@@ -724,6 +889,7 @@ void crusade_system::send_to_all(const network::json_message& msg)
 void crusade_system::setup_mana_and_meteor()
 {
     mana_system_.reset();
+    mana_system_.initialize_stones(config_.mana_stone_count);
     meteor_handler_.set_scheduler(scheduler_);
 
     // Wire meteor trigger: when mana system accumulates enough, fire meteor
@@ -750,9 +916,8 @@ void crusade_system::setup_mana_and_meteor()
             if (ws.type == war_unit_type::esg && ws.faction == faction
                 && ws.map_name == sp->map_name)
             {
-                int32_t dx = ws.x - sp->x;
-                int32_t dy = ws.y - sp->y;
-                if (dx * dx + dy * dy <= radius * radius)
+                // Legacy uses rectangular (Manhattan-style) scan, not Euclidean
+                if (std::abs(ws.x - sp->x) <= radius && std::abs(ws.y - sp->y) <= radius)
                 {
                     count++;
                 }
@@ -775,6 +940,9 @@ void crusade_system::setup_mana_and_meteor()
 
     cbs.broadcast_result = [this](const meteor_event_result& result) {
         broadcast_meteor_result(result);
+
+        // Check victory AFTER the full meteor sequence completes (legacy: CalcMeteorStrikeEffectHandler)
+        check_victory_condition();
     };
 
     cbs.damage_players = [this](war_faction target, int32_t /*wave*/) -> int32_t {
@@ -865,9 +1033,60 @@ void crusade_system::tick_mana(float delta_time)
 
     int32_t aresden_collectors = count_structures_by_type(war_faction::aresden, war_unit_type::mana_collector);
     int32_t elvine_collectors = count_structures_by_type(war_faction::elvine, war_unit_type::mana_collector);
-    int32_t stones = config_.mana_stone_count;
-    mana_system_.tick_faction_mana(war_faction::aresden, aresden_collectors, stones);
-    mana_system_.tick_faction_mana(war_faction::elvine, elvine_collectors, stones);
+    mana_system_.tick(aresden_collectors, elvine_collectors);
+
+    // MP restoration: collectors restore MP to nearby allied players
+    if (players_ && world_)
+    {
+        for (const auto& ws : war_structures_)
+        {
+            if (ws.type != war_unit_type::mana_collector) continue;
+
+            auto* m = world_->get_map_by_name(ws.map_name);
+            if (!m) continue;
+
+            int32_t radius = mana_system_.get_config().collector_mp_restore_radius;
+
+            // Get all players who can see the collector (for broadcast)
+            auto viewers = players_->get_players_who_can_see(m->id(), {ws.x, ws.y});
+
+            for (auto viewer_pid : viewers)
+            {
+                auto* plr = players_->get_player(viewer_pid);
+                if (!plr) continue;
+
+                int32_t restore = 0;
+
+                // Check if viewer is within restore radius AND same faction
+                bool in_range = std::abs(plr->pos.x - ws.x) <= radius &&
+                                std::abs(plr->pos.y - ws.y) <= radius;
+
+                war_faction plr_faction = war_faction::neutral;
+                if (plr->faction == hb::faction::aresden)
+                    plr_faction = war_faction::aresden;
+                else if (plr->faction == hb::faction::elvine)
+                    plr_faction = war_faction::elvine;
+
+                if (in_range && plr_faction == ws.faction && plr->computed.magic > 0)
+                {
+                    // Each MP restore costs 1 mana from the faction pool (legacy: m_iCollectedMana)
+                    if (mana_system_.try_consume(ws.faction, 1))
+                    {
+                        thread_local std::mt19937 rng{std::random_device{}()};
+                        std::uniform_int_distribution<int32_t> dist(1, plr->computed.magic);
+                        restore = dist(rng);
+                        // Add equipment MP regen bonus (legacy: m_iAddMP)
+                        restore += std::max(0, plr->computed.mp_regen);
+                        plr->mp = std::min(plr->mp + restore, plr->computed.max_mp);
+                    }
+                }
+
+                // Broadcast to ALL viewers (even those who get 0)
+                auto msg = network::make_crusade_mp_restore(ws.x, ws.y, radius, restore);
+                send_to_player(viewer_pid, msg);
+            }
+        }
+    }
 
     // Periodic mana broadcast to commanders
     mana_broadcast_accumulator_ += interval;
@@ -945,6 +1164,23 @@ void crusade_system::broadcast_meteor_result(const meteor_event_result& result)
     msg.data = std::move(data);
 
     send_to_all(msg);
+}
+
+// ========== GMG Damage ==========
+
+void crusade_system::on_gmg_damage(entity::entity eid, int32_t damage)
+{
+    if (!active_ || damage <= 0) return;
+
+    // Find which faction owns this GMG
+    for (const auto& ws : war_structures_)
+    {
+        if (ws.eid == eid)
+        {
+            mana_system_.apply_gmg_damage(ws.faction, damage);
+            return;
+        }
+    }
 }
 
 // ========== Phase 3: Construction Points & Combat ==========
@@ -1152,6 +1388,126 @@ void crusade_system::broadcast_construction_point_update(player_id pid)
     send_to_player(pid, msg);
 }
 
+// ========== Guild Construct Location ==========
+
+auto crusade_system::set_guild_construct_location(player_id commander,
+    const std::string& map, int16_t x, int16_t y) -> crusade_result
+{
+    if (!active_) return crusade_result::not_active;
+
+    auto* data = get_player_data(commander);
+    if (!data) return crusade_result::not_in_crusade;
+
+    if (data->duty != crusade_duty::commander)
+        return crusade_result::not_guild_master;
+
+    if (!social_) return crusade_result::config_error;
+
+    auto guild_id = social_->get_player_guild(commander);
+    if (!guild_id.is_valid()) return crusade_result::not_guild_master;
+
+    guild_construct_location loc;
+    loc.guild_id = guild_id.value;
+    loc.map_name = map;
+    loc.x = x;
+    loc.y = y;
+    loc.structure_count = 0;
+
+    guild_construct_locations_[guild_id.value] = loc;
+
+    LOG_INFO(general, "Guild {} set construct location at {}({},{}) by commander {}",
+        guild_id.value, map, x, y, commander.value);
+
+    return crusade_result::success;
+}
+
+auto crusade_system::get_guild_construct_location(uint32_t guild_id) const -> const guild_construct_location*
+{
+    auto it = guild_construct_locations_.find(guild_id);
+    return it != guild_construct_locations_.end() ? &it->second : nullptr;
+}
+
+// ========== Guild Teleport ==========
+
+auto crusade_system::set_guild_teleport_location(player_id commander,
+    const std::string& map, int16_t x, int16_t y) -> crusade_result
+{
+    if (!active_) return crusade_result::not_active;
+
+    auto* data = get_player_data(commander);
+    if (!data) return crusade_result::not_in_crusade;
+
+    if (data->duty != crusade_duty::commander)
+        return crusade_result::not_guild_master;
+
+    if (!social_) return crusade_result::config_error;
+
+    auto guild_id = social_->get_player_guild(commander);
+    if (!guild_id.is_valid()) return crusade_result::not_guild_master;
+
+    // Verify guild master rank
+    auto* g = social_->get_guild(guild_id);
+    if (!g) return crusade_result::not_guild_master;
+    auto* member = g->get_member(commander);
+    if (!member || member->rank != social::guild_rank::guild_master)
+        return crusade_result::not_guild_master;
+
+    // Validate map exists
+    if (world_)
+    {
+        auto* m = world_->get_map_by_name(map);
+        if (!m) return crusade_result::invalid_position;
+    }
+
+    guild_teleport_location loc;
+    loc.guild_id = guild_id.value;
+    loc.map_name = map;
+    loc.x = x;
+    loc.y = y;
+
+    guild_teleport_locations_[guild_id.value] = loc;
+
+    LOG_INFO(general, "Guild {} set teleport location at {}({},{}) by commander {}",
+        guild_id.value, map, x, y, commander.value);
+
+    return crusade_result::success;
+}
+
+auto crusade_system::use_guild_teleport(player_id pid) -> crusade_result
+{
+    if (!active_) return crusade_result::not_active;
+
+    auto* data = get_player_data(pid);
+    if (!data) return crusade_result::not_in_crusade;
+
+    if (!social_) return crusade_result::config_error;
+
+    auto guild_id = social_->get_player_guild(pid);
+    if (!guild_id.is_valid()) return crusade_result::not_in_faction;
+
+    auto it = guild_teleport_locations_.find(guild_id.value);
+    if (it == guild_teleport_locations_.end())
+        return crusade_result::no_construct_location;  // Reuse: no teleport set
+
+    return crusade_result::success;
+}
+
+auto crusade_system::get_guild_teleport_location(uint32_t guild_id) const -> const guild_teleport_location*
+{
+    auto it = guild_teleport_locations_.find(guild_id);
+    return it != guild_teleport_locations_.end() ? &it->second : nullptr;
+}
+
+auto crusade_system::get_guild_teleport_dest(player_id pid) const -> const guild_teleport_location*
+{
+    if (!social_) return nullptr;
+
+    auto guild_id = social_->get_player_guild(pid);
+    if (!guild_id.is_valid()) return nullptr;
+
+    return get_guild_teleport_location(guild_id.value);
+}
+
 // ========== War Unit Summoning ==========
 
 auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
@@ -1170,16 +1526,78 @@ auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
 
     // Validate unit type
     int32_t cost = get_construction_cost(type);
-    if (cost <= 0) return crusade_result::invalid_unit;
+    if (cost < 0) return crusade_result::invalid_unit;
 
-    // Check points
-    if (data->construction_points < cost)
+    // Map restrictions
+    if (!map_name.empty())
     {
-        return crusade_result::insufficient_points;
+        if (map_name == "toh3" || map_name == "icebound")
+            return crusade_result::restricted_map;
+
+        if (world_)
+        {
+            auto* m = world_->get_map_by_name(map_name);
+            if (m && m->config().is_fixed_day_mode)
+                return crusade_result::restricted_map;
+        }
     }
 
-    // Deduct cost
-    data->construction_points -= cost;
+    // Structure placement validation
+    if (is_structure_type(type))
+    {
+        if (!social_) return crusade_result::no_construct_location;
+
+        auto guild_id = social_->get_player_guild(data->pid);
+        if (!guild_id.is_valid()) return crusade_result::no_construct_location;
+
+        auto loc_it = guild_construct_locations_.find(guild_id.value);
+        if (loc_it == guild_construct_locations_.end())
+            return crusade_result::no_construct_location;
+
+        auto& loc = loc_it->second;
+
+        // Must be on the same map as the construct location
+        if (map_name != loc.map_name)
+            return crusade_result::wrong_map;
+
+        // Must be within 10 tiles of construct location
+        if (std::abs(x - loc.x) > construct_location_radius ||
+            std::abs(y - loc.y) > construct_location_radius)
+            return crusade_result::too_far_from_construct_location;
+
+        // Per-guild build limit
+        if (loc.structure_count >= max_constructions_per_guild)
+            return crusade_result::guild_build_limit;
+
+        // Guard tower proximity and Y-bounds
+        if (is_guard_tower_type(type))
+        {
+            for (const auto& ws : war_structures_)
+            {
+                if (is_guard_tower_type(ws.type) && ws.map_name == map_name &&
+                    std::abs(ws.x - x) <= guard_tower_min_distance &&
+                    std::abs(ws.y - y) <= guard_tower_min_distance)
+                {
+                    return crusade_result::too_close_to_tower;
+                }
+            }
+
+            if (y < guard_tower_min_y || y > guard_tower_max_y)
+                return crusade_result::invalid_position;
+        }
+
+        loc.structure_count++;
+    }
+
+    // Check points (only for units with non-zero cost)
+    if (cost > 0)
+    {
+        if (data->construction_points < cost)
+        {
+            return crusade_result::insufficient_points;
+        }
+        data->construction_points -= cost;
+    }
 
     // Spawn NPC if system available
     entity::entity eid{};
@@ -1197,7 +1615,7 @@ auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
 
         if (mid.is_valid())
         {
-            uint16_t npc_type = get_npc_type_for_unit(type);
+            uint16_t npc_type = get_npc_id_for_unit(type, data->faction);
             auto spawn_result = npcs_->spawn_npc(npc_id(npc_type), mid, {x, y});
             if (spawn_result.is_ok())
             {

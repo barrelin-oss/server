@@ -96,6 +96,11 @@ auto magic_registry::load_from_file(const std::filesystem::path& path)
             int sides = e["sides"].as<int>(0);
             int bonus = e["bonus"].as<int>(0);
             spell.base_damage = static_cast<int16_t>(dice * (sides + 1) / 2 + bonus);
+
+            // Store raw dice value as effect base_value (used as magnitude for buffs/debuffs)
+            spell_effect se{};
+            se.base_value = static_cast<int16_t>(dice);
+            spell.effects.push_back(se);
         }
 
         // Determine offensive/targeting from type

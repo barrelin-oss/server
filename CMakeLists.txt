@@ -163,6 +163,13 @@ set(SOCIAL_SOURCES
 
 set(WAR_SOURCES
     src/war/war_system.cpp
+    src/war/crusade/crusade_system.cpp
+    src/war/crusade/mana_system.cpp
+    src/war/crusade/meteor_handler.cpp
+    src/war/heldenian/heldenian_system.cpp
+    src/war/apocalypse/apocalypse_system.cpp
+    src/war/force_recall/force_recall_system.cpp
+    src/war/war_persistence.cpp
 )
 
 set(PERSISTENCE_SOURCES
@@ -352,6 +359,10 @@ add_executable(hgserver_tests
     tests/test_admin_web.cpp
     tests/test_friend_system.cpp
     tests/test_perf_stats.cpp
+    tests/test_crusade_system.cpp
+    tests/test_heldenian_system.cpp
+    tests/test_apocalypse_system.cpp
+    tests/test_war_persistence.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

@@ -1,0 +1,43 @@
+# Crusade Warfare Configuration
+# Controls scheduling, timing, and strike point definitions
+
+enabled: true
+
+timing:
+  preparation_seconds: 300     # 5 minutes before combat
+  duration_seconds: 5400       # 90 minutes max duration
+  ending_seconds: 60           # 1 minute ending phase
+  status_broadcast_seconds: 30 # Status update interval
+
+# Schedule entries: when crusades auto-start
+# day_of_week: 0=Sunday, 1=Monday, ..., 6=Saturday
+schedule:
+  - { day: 6, hour: 20, minute: 0 }   # Saturday 8:00 PM
+  - { day: 0, hour: 15, minute: 0 }   # Sunday 3:00 PM
+
+# Maps involved in crusade
+war_maps:
+  - "middleland"
+
+# Strike points per faction
+# These are the destructible targets each side must defend
+aresden_strike_points:
+  - { id: 1, map: "middleland", x: 128, y: 128, max_hp: 100 }
+  - { id: 2, map: "middleland", x: 140, y: 120, max_hp: 100 }
+
+elvine_strike_points:
+  - { id: 1, map: "middleland", x: 200, y: 200, max_hp: 100 }
+  - { id: 2, map: "middleland", x: 210, y: 190, max_hp: 100 }
+
+# Pre-placed structures spawned at crusade start
+# npc_type: 36=AGT, 37=CGT, 38=ManaCollector, 39=Detector, 40=ESG, 41=GMG, 42=ManaStone
+# faction: aresden or elvine
+initial_structures:
+  # Aresden defensive structures
+  - { map: "middleland", npc_type: 36, x: 125, y: 125, faction: aresden }  # AGT
+  - { map: "middleland", npc_type: 37, x: 130, y: 130, faction: aresden }  # CGT
+  - { map: "middleland", npc_type: 40, x: 128, y: 128, faction: aresden }  # ESG
+  # Elvine defensive structures
+  - { map: "middleland", npc_type: 36, x: 195, y: 195, faction: elvine }   # AGT
+  - { map: "middleland", npc_type: 37, x: 205, y: 205, faction: elvine }   # CGT
+  - { map: "middleland", npc_type: 40, x: 200, y: 200, faction: elvine }   # ESG

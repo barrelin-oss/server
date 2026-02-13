@@ -83,6 +83,12 @@ public:
     // Count wars by type
     auto count_wars_by_type(war_type type) -> hb::result<int32_t, std::string>;
 
+    // Load the winner of the most recent completed war of a given type
+    auto load_last_winner(war_type type) -> hb::result<war_faction, std::string>;
+
+    // Load crusade advantage from most recent crusade war history metadata
+    auto load_crusade_advantage() -> hb::result<int8_t, std::string>;
+
     // Get unclaimed rewards for a character (for deferred reward delivery at login)
     auto get_unclaimed_rewards(int32_t character_id)
         -> hb::result<std::vector<war_participant_row>, std::string>;

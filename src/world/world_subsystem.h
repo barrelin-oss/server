@@ -63,6 +63,10 @@ public:
     [[nodiscard]] auto map_count() const -> size_t { return maps_.size(); }
     [[nodiscard]] auto map_exists(map_id id) const -> bool { return maps_.contains(id); }
 
+    // Map disabled state (used during crusade when strike points are destroyed)
+    void set_map_disabled(std::string_view map_name, bool disabled);
+    [[nodiscard]] auto is_map_disabled(std::string_view map_name) const -> bool;
+
     // Position queries across all maps
     [[nodiscard]] auto is_walkable(map_id map, const position& pos) const -> bool;
     [[nodiscard]] auto can_move_to(map_id map, const position& pos) const -> bool;

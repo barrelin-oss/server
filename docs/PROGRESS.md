@@ -293,7 +293,7 @@ This document tracks implementation progress for the modernized Helbreath server
 
 ---
 
-## Phase 16: War Systems 🔄
+## Phase 16: War Systems ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -302,10 +302,11 @@ This document tracks implementation progress for the modernized Helbreath server
 | War states | ✅ | Scheduled, preparing, active, ending, ended |
 | Territory control | ✅ | Faction tracking, territory state |
 | War statistics | ✅ | Contribution tracking |
-| Crusade mechanics | ❌ | Actual battle objectives, flag capture |
-| Heldenian mechanics | ❌ | Castle siege logic |
-| Apocalypse mechanics | ❌ | World boss event |
-| War rewards | ❌ | Contribution point redemption |
+| Crusade mechanics | ✅ | Strike points, duty selection, mana collection, meteor strikes, construction points, war unit summoning |
+| Heldenian mechanics | ✅ | Tower defense and door defense modes |
+| Apocalypse mechanics | ✅ | PvE event with force recall system |
+| War rewards | ✅ | Contribution-based rewards, DB persistence (war_history + war_participants) |
+| Admin war management | ✅ | Start/end war, war history, war participants endpoints |
 
 ---
 
@@ -410,7 +411,7 @@ Priority order for remaining work toward a playable game:
 6. ~~**Spell Effects System**~~ - ✅ Duration tracking, group slots, DoT/HoT, stat pipeline
 7. ~~**Ranged Combat**~~ - ✅ Bow/crossbow with arrow consumption and min/max range
 8. ~~**Crafting System**~~ - ✅ Manufacturing (83 recipes) + alchemy (80+38 recipes) with YAML configs
-9. **War Mechanics** - Crusade, Heldenian, Apocalypse battle logic
+9. ~~**War Mechanics**~~ - ✅ Crusade, Heldenian, Apocalypse battle logic with DB persistence and admin API
 10. ~~**Guild Persistence**~~ - ✅ Guilds and members persist to PostgreSQL, guild info on login
 
 ---
@@ -432,7 +433,28 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-02-13: Mana System Legacy Fixes
+- Fixed GMG to require 10 charges (configurable) before firing meteor (was 1)
+- Fixed mana pool to reset to 0 on charge consumption, discarding remainder
+- Added per-stone mana tracking with regeneration and depletion (shared between factions)
+- Added MP restoration to allied players within 5 tiles of mana collectors
+- Added GMG damage vulnerability: 500 accumulated damage removes one mana charge
+- Added `on_npc_damage` callback to npc_system for damage event notifications
+- Added `crusade_mp_restore` protocol message for client-side effect rendering
+- ~12 new tests
+
 ### 2026-02-12
+- **Crusade Warfare System (Phases 1-6)** - Complete war battle mechanics implementation
+  - Phase 1: Crusade core with strike points, duty selection (combat/mana/construction), scheduling
+  - Phase 2: Mana collection pipeline and meteor strike mechanics
+  - Phase 3: Construction point system and war unit summoning
+  - Phase 4: Heldenian warfare with tower defense and door defense modes
+  - Phase 5: Apocalypse PvE event and force recall system
+  - Phase 6: War rewards, DB persistence (`war_history` + `war_participants` tables), admin war management API
+  - ~30 total war protocol messages (9 new in Phase 6)
+  - ~160+ total war system tests (22 new in Phase 6)
+  - New DB tables: `war_history`, `war_participants`
+  - Admin endpoints: `start_war`, `end_war`, `war_history`, `war_participants`
 - **Skill System Refactor: Use-Count Leveling** - Replaced abstract experience system with use-count based progression
   - Formula: `uses_to_next_level = (level + 1) * N` where N comes from per-skill tiered multiplier tables
   - Default tier table: 0-19→10, 20-39→25, 40-59→50, 60-79→75, 80-89→100, 90+→125

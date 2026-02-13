@@ -92,6 +92,10 @@ namespace hb::quest {
     class quest_system;
 }
 
+namespace hb::war {
+    class crusade_system;
+}
+
 namespace hb::bridge {
 
 // Game message handler
@@ -124,7 +128,8 @@ public:
                     skill::skill_system* skills = nullptr,
                     quest::quest_system* quests = nullptr,
                     crafting::mining_system* mining = nullptr,
-                    crafting::fishing_system* fishing = nullptr);
+                    crafting::fishing_system* fishing = nullptr,
+                    war::crusade_system* crusade = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -174,6 +179,13 @@ private:
     // Fishing
     void handle_fish_skill_request(connection_id conn_id, const network::json_message& msg);
     void handle_fish_catch_request(connection_id conn_id, const network::json_message& msg);
+
+    // Crusade
+    void handle_select_duty(connection_id conn_id, const network::json_message& msg);
+    void handle_summon_war_unit(connection_id conn_id, const network::json_message& msg);
+    void handle_crusade_map_status(connection_id conn_id, const network::json_message& msg);
+    void handle_set_guild_teleport(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_teleport(connection_id conn_id, const network::json_message& msg);
 
     // Friends
     void handle_friend_request_send(connection_id conn_id, const network::json_message& msg);
@@ -343,6 +355,7 @@ private:
     quest::quest_system* quests_{nullptr};
     crafting::mining_system* mining_{nullptr};
     crafting::fishing_system* fishing_{nullptr};
+    war::crusade_system* crusade_{nullptr};
     save_player_callback save_callback_;
 };
 

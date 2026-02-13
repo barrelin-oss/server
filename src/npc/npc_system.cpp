@@ -522,6 +522,12 @@ void npc_system::apply_damage(entity::entity id, int32_t damage, entity::entity 
     // Increase aggro
     npc_ptr->ai_state.aggro_level += damage;
 
+    // Notify damage callback
+    if (on_damage_callback_)
+    {
+        on_damage_callback_(*npc_ptr, damage, source);
+    }
+
     // Call for help if this NPC has the calls_help flag
     if (npc_ptr->ai.has_flag(ai_flags::calls_help))
     {

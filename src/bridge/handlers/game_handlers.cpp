@@ -43,6 +43,7 @@
 #include "core/subsystem.h"
 #include "core/logger.h"
 #include "perf/perf_stats.h"
+#include "war/crusade/crusade_system.h"
 
 #include <chrono>
 #include <random>
@@ -77,7 +78,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 skill::skill_system* skills,
                                 quest::quest_system* quests,
                                 crafting::mining_system* mining,
-                                crafting::fishing_system* fishing) {
+                                crafting::fishing_system* fishing,
+                                war::crusade_system* crusade) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -98,6 +100,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     quests_ = quests;
     mining_ = mining;
     fishing_ = fishing;
+    crusade_ = crusade;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -138,9 +141,38 @@ void game_handlers::initialize(network::websocket_server* ws_server,
             broadcast_npc_death(n, killer);  // Copies data immediately
             handle_npc_loot_drop(n, killer); // Generate and drop loot
             distribute_npc_kill_exp(killer, n.exp_reward); // Award XP
+
+            // Crusade NPC kill rewards
+            if (crusade_ && crusade_->is_active())
+            {
+                player_id killer_pid(killer.id);
+                auto* killer_player = players_ ? players_->get_player(killer_pid) : nullptr;
+                if (killer_player)
+                {
+                    // Check if NPC is friendly to the killer's faction
+                    // War unit NPCs are enemy if they belong to the opposing faction
+                    // For simplicity: if the NPC is a monster/boss, it's an enemy NPC kill
+                    // Friendly NPCs (guards, merchants, etc.) trigger penalty
+                    if (n.is_monster())
+                    {
+                        crusade_->on_npc_kill(killer_pid, n.sprite_id);
+                    }
+                    else if (n.is_friendly())
+                    {
+                        crusade_->on_friendly_npc_kill(killer_pid);
+                    }
+                }
+            }
         });
         npc_->set_on_attack_callback([this](const npc::npc& n, entity::entity target, int32_t damage) {
             broadcast_npc_attack(n, target, damage);  // Copies data immediately
+        });
+        npc_->set_on_damage_callback([this](const npc::npc& n, int32_t damage, entity::entity /*source*/) {
+            // GMG damage tracking for crusade mana system
+            if (n.sprite_id == 41 && crusade_ && crusade_->is_active())
+            {
+                crusade_->on_gmg_damage(n.entity_id, damage);
+            }
         });
         npc_->set_on_despawn_callback([this](const npc::npc& n) {
             handle_npc_despawn_drop(n);  // Generate despawn loot (body parts, rares, boss multi-drops)
@@ -497,6 +529,23 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             break;
         case network::json_message_type::fish_catch_request:
             handle_fish_catch_request(conn_id, msg);
+            break;
+
+        // Crusade
+        case network::json_message_type::select_duty_request:
+            handle_select_duty(conn_id, msg);
+            break;
+        case network::json_message_type::summon_war_unit_request:
+            handle_summon_war_unit(conn_id, msg);
+            break;
+        case network::json_message_type::crusade_map_status:
+            handle_crusade_map_status(conn_id, msg);
+            break;
+        case network::json_message_type::crusade_set_guild_teleport_request:
+            handle_set_guild_teleport(conn_id, msg);
+            break;
+        case network::json_message_type::crusade_guild_teleport_request:
+            handle_guild_teleport(conn_id, msg);
             break;
 
         // Friends
@@ -3234,6 +3283,16 @@ void game_handlers::handle_player_death(player_id pid, const combat::death_event
             LOG_INFO(bridge, "Player {} earned {} gold bounty for killing PKer {}",
                 killer_pid.value, gold_reward, pid.value);
         }
+
+        // Crusade PvP kill rewards (construction points + contribution)
+        if (crusade_ && crusade_->is_active())
+        {
+            // Base exp reward approximation for contribution calculation
+            int32_t pvp_exp_reward = static_cast<int32_t>(player->experience.level)
+                                   * static_cast<int32_t>(player->experience.level) / 2;
+            crusade_->on_player_kill(killer_pid, pid,
+                static_cast<int32_t>(player->experience.level), pvp_exp_reward);
+        }
     }
 
     // 3. Determine respawn location
@@ -4945,6 +5004,200 @@ void game_handlers::handle_fish_catch_request(connection_id conn_id,
     // attempt_catch handles all validation and fires callbacks
     fishing_->attempt_catch(entity_id(pid.value));
     // Response sent via catch_complete_callback
+}
+
+// ========== Crusade Handlers ==========
+
+void game_handlers::handle_select_duty(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!crusade_ || !crusade_->is_active()) {
+        conn->send(network::make_select_duty_response(msg.seq, false, 0, 0, "no_active_crusade"));
+        return;
+    }
+
+    auto duty_val = msg.data.value("duty", 0);
+    if (duty_val < 1 || duty_val > 3) {
+        conn->send(network::make_select_duty_response(msg.seq, false, 0, 0, "invalid_duty"));
+        return;
+    }
+
+    auto duty = static_cast<war::crusade_duty>(duty_val);
+    auto pid = conn->player();
+
+    // Auto-join the crusade if not already in it
+    if (!crusade_->is_in_crusade(pid)) {
+        if (auto* plr = players_->get_player(pid)) {
+            auto faction = war::war_faction::neutral;
+            if (plr->faction == hb::faction::aresden) faction = war::war_faction::aresden;
+            else if (plr->faction == hb::faction::elvine) faction = war::war_faction::elvine;
+
+            auto join_result = crusade_->join_crusade(pid, faction);
+            if (join_result != war::crusade_result::success) {
+                conn->send(network::make_select_duty_response(msg.seq, false, 0, 0, "cannot_join"));
+                return;
+            }
+        }
+    }
+
+    auto result = crusade_->select_duty(pid, duty);
+    if (result != war::crusade_result::success) {
+        std::string_view err = "unknown_error";
+        switch (result) {
+            case war::crusade_result::already_has_duty: err = "already_has_duty"; break;
+            case war::crusade_result::not_in_crusade: err = "not_in_crusade"; break;
+            default: break;
+        }
+        conn->send(network::make_select_duty_response(msg.seq, false, 0, 0, err));
+        return;
+    }
+
+    auto* data = crusade_->get_player_data(pid);
+    conn->send(network::make_select_duty_response(msg.seq, true,
+        static_cast<uint8_t>(duty), data ? data->construction_points : 0));
+}
+
+void game_handlers::handle_summon_war_unit(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!crusade_ || !crusade_->is_active()) {
+        conn->send(network::make_summon_war_unit_response(msg.seq, false, 0, 0, "no_active_crusade"));
+        return;
+    }
+
+    auto unit_val = msg.data.value("unit_type", 0);
+    if (unit_val < 1 || unit_val > 11) {
+        conn->send(network::make_summon_war_unit_response(msg.seq, false, 0, 0, "invalid_unit_type"));
+        return;
+    }
+
+    auto unit_type = static_cast<war::war_unit_type>(unit_val);
+    auto pid = conn->player();
+
+    auto map_name = msg.data.value("map", std::string{});
+    auto x = msg.data.value("x", int16_t{0});
+    auto y = msg.data.value("y", int16_t{0});
+
+    auto result = crusade_->summon_war_unit(pid, unit_type, map_name, x, y);
+    if (result != war::crusade_result::success) {
+        std::string_view err = "unknown_error";
+        switch (result) {
+            case war::crusade_result::not_constructor: err = "not_constructor"; break;
+            case war::crusade_result::insufficient_points: err = "insufficient_points"; break;
+            case war::crusade_result::not_in_crusade: err = "not_in_crusade"; break;
+            case war::crusade_result::invalid_unit: err = "invalid_unit"; break;
+            case war::crusade_result::restricted_map: err = "restricted_map"; break;
+            case war::crusade_result::no_construct_location: err = "no_construct_location"; break;
+            case war::crusade_result::too_far_from_construct_location: err = "too_far_from_construct_location"; break;
+            case war::crusade_result::guild_build_limit: err = "guild_build_limit"; break;
+            case war::crusade_result::too_close_to_tower: err = "too_close_to_tower"; break;
+            case war::crusade_result::invalid_position: err = "invalid_position"; break;
+            case war::crusade_result::wrong_map: err = "wrong_map"; break;
+            default: break;
+        }
+        conn->send(network::make_summon_war_unit_response(msg.seq, false, 0, 0, err));
+        return;
+    }
+
+    auto* data = crusade_->get_player_data(pid);
+    conn->send(network::make_summon_war_unit_response(msg.seq, true,
+        static_cast<uint8_t>(unit_type), data ? data->construction_points : 0));
+}
+
+void game_handlers::handle_crusade_map_status(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!crusade_ || !crusade_->is_active()) return;
+
+    auto pid = conn->player();
+    auto* data = crusade_->get_player_data(pid);
+    if (!data || data->duty != war::crusade_duty::commander) return;
+
+    // Build structure list
+    nlohmann::json structures = nlohmann::json::array();
+    for (const auto& ws : crusade_->get_war_structures()) {
+        structures.push_back({
+            {"type", static_cast<int>(ws.type)},
+            {"faction", static_cast<int>(ws.faction)},
+            {"map", ws.map_name},
+            {"x", ws.x},
+            {"y", ws.y}
+        });
+    }
+
+    network::json_message response;
+    response.type = network::json_message_type::crusade_map_status;
+    response.seq = msg.seq;
+    response.data = {{"structures", std::move(structures)}};
+
+    conn->send(response);
+}
+
+void game_handlers::handle_set_guild_teleport(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!crusade_ || !crusade_->is_active()) {
+        conn->send(network::make_set_guild_teleport_response(msg.seq, false, "no_active_crusade"));
+        return;
+    }
+
+    auto map_name = msg.data.value("map", std::string{});
+    auto x = msg.data.value("x", int16_t{0});
+    auto y = msg.data.value("y", int16_t{0});
+
+    auto result = crusade_->set_guild_teleport_location(conn->player(), map_name, x, y);
+    if (result != war::crusade_result::success) {
+        std::string_view err = "unknown_error";
+        switch (result) {
+            case war::crusade_result::not_in_crusade: err = "not_in_crusade"; break;
+            case war::crusade_result::not_guild_master: err = "not_guild_master"; break;
+            case war::crusade_result::invalid_position: err = "invalid_position"; break;
+            default: break;
+        }
+        conn->send(network::make_set_guild_teleport_response(msg.seq, false, err));
+        return;
+    }
+
+    conn->send(network::make_set_guild_teleport_response(msg.seq, true));
+}
+
+void game_handlers::handle_guild_teleport(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!crusade_ || !crusade_->is_active()) {
+        conn->send(network::make_guild_teleport_response(msg.seq, false, {}, 0, 0, "no_active_crusade"));
+        return;
+    }
+
+    auto pid = conn->player();
+    auto result = crusade_->use_guild_teleport(pid);
+    if (result != war::crusade_result::success) {
+        std::string_view err = "unknown_error";
+        switch (result) {
+            case war::crusade_result::not_in_crusade: err = "not_in_crusade"; break;
+            case war::crusade_result::no_construct_location: err = "no_teleport_set"; break;
+            default: break;
+        }
+        conn->send(network::make_guild_teleport_response(msg.seq, false, {}, 0, 0, err));
+        return;
+    }
+
+    auto* dest = crusade_->get_guild_teleport_dest(pid);
+    if (!dest) {
+        conn->send(network::make_guild_teleport_response(msg.seq, false, {}, 0, 0, "no_teleport_set"));
+        return;
+    }
+
+    conn->send(network::make_guild_teleport_response(msg.seq, true, dest->map_name, dest->x, dest->y));
+
+    // Execute the teleport
+    execute_player_teleport(pid, conn_id, msg.seq, dest->map_name,
+        {dest->x, dest->y}, world::direction::south);
 }
 
 // ========== Friend System Handlers ==========

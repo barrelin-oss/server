@@ -1271,6 +1271,10 @@ void application::load_game_configs() {
         crusade_sys->set_social(subsystems().get<social::social_system>());
         crusade_sys->set_effects(subsystems().get<effect::effect_system>());
         crusade_sys->set_persistence(war_persistence_.get());
+        auto* recall_for_crusade = subsystems().get<war::force_recall_system>();
+        if (recall_for_crusade) {
+            crusade_sys->set_force_recall(recall_for_crusade);
+        }
 
         // Load crusade config
         auto crusade_yaml = config_dir / "crusade.yaml";
@@ -1290,6 +1294,10 @@ void application::load_game_configs() {
             subsystems().get<npc::npc_system>(),
             subsystems().get<scheduler>()
         );
+        if (war_persistence_)
+        {
+            heldenian_sys->set_persistence(war_persistence_.get());
+        }
     }
 
     // Wire apocalypse system dependencies
@@ -1376,6 +1384,11 @@ void application::load_game_configs() {
             .enabled = true,
             .raid_times = war::get_default_raid_times(),
         });
+
+        // Crusade awareness — pause timer during active crusade
+        if (crusade_sys) {
+            recall_sys->set_crusade_check([crusade_sys]() { return crusade_sys->is_active(); });
+        }
     }
 
     // Load skill progression config

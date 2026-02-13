@@ -28,6 +28,7 @@
 #include "registry/item_template.h"
 #include "war/war_system.h"
 #include "war/war_types.h"
+#include "war/war_persistence.h"
 #include "effect/effect_system.h"
 #include "effect/active_effect.h"
 #include "config/config_system.h"
@@ -158,6 +159,10 @@ void admin_web_handlers::handle_message(connection_id conn_id, const network::js
         case mt::admin_delete_character_request_admin: handle_delete_character_admin(conn_id, msg); break;
         case mt::admin_manage_ip_bans_request:       handle_manage_ip_bans(conn_id, msg); break;
         case mt::admin_perf_stats_request:           handle_perf_stats(conn_id, msg); break;
+        case mt::admin_start_war_request:            handle_start_war(conn_id, msg); break;
+        case mt::admin_end_war_request:              handle_end_war(conn_id, msg); break;
+        case mt::admin_war_history_request:           handle_war_history(conn_id, msg); break;
+        case mt::admin_war_participants_request:      handle_war_participants(conn_id, msg); break;
         default:
             send_error(conn_id, msg.seq, "unknown_admin_message", "Unknown admin message type");
             break;
@@ -3858,6 +3863,195 @@ void admin_web_handlers::handle_perf_stats(connection_id conn_id, const network:
 
     ws_server_->send(conn_id, network::make_admin_response(
         network::json_message_type::admin_perf_stats_response,
+        msg.seq, true, data));
+}
+
+// ========== War Management (Phase 6) ==========
+
+void admin_web_handlers::handle_start_war(connection_id conn_id, const network::json_message& msg)
+{
+    if (!require_admin(conn_id, msg.seq, 15)) return;
+
+    if (!war_)
+    {
+        send_error(conn_id, msg.seq, "no_war_system", "War system not available");
+        return;
+    }
+
+    auto war_type_int = msg.data.value("war_type", -1);
+    if (war_type_int < 0 || war_type_int > 4)
+    {
+        send_error(conn_id, msg.seq, "invalid_war_type", "Invalid war type (0=crusade, 1=heldenian, 2=apocalypse)");
+        return;
+    }
+
+    auto wtype = static_cast<war::war_type>(war_type_int);
+    auto result = war_->start_war(wtype);
+
+    nlohmann::json data;
+    if (result.is_ok())
+    {
+        data["war_id"] = result.value().value;
+        data["war_type"] = war_type_int;
+        ws_server_->send(conn_id, network::make_admin_response(
+            network::json_message_type::admin_start_war_response,
+            msg.seq, true, data));
+        audit_log(conn_id, "start_war", true, "type=" + std::to_string(war_type_int));
+    }
+    else
+    {
+        data["error_code"] = static_cast<int>(result.error());
+        ws_server_->send(conn_id, network::make_admin_response(
+            network::json_message_type::admin_start_war_response,
+            msg.seq, false, data, "Failed to start war"));
+    }
+}
+
+void admin_web_handlers::handle_end_war(connection_id conn_id, const network::json_message& msg)
+{
+    if (!require_admin(conn_id, msg.seq, 15)) return;
+
+    if (!war_)
+    {
+        send_error(conn_id, msg.seq, "no_war_system", "War system not available");
+        return;
+    }
+
+    auto war_id_val = msg.data.value("war_id", 0u);
+    if (war_id_val == 0)
+    {
+        send_error(conn_id, msg.seq, "missing_war_id", "War ID required");
+        return;
+    }
+
+    auto wid = war::war_id(static_cast<uint32_t>(war_id_val));
+    auto result = war_->end_war(wid);
+
+    nlohmann::json data;
+    data["war_id"] = war_id_val;
+
+    if (result == war::war_result_code::success)
+    {
+        ws_server_->send(conn_id, network::make_admin_response(
+            network::json_message_type::admin_end_war_response,
+            msg.seq, true, data));
+        audit_log(conn_id, "end_war", true, "war_id=" + std::to_string(war_id_val));
+    }
+    else
+    {
+        data["error_code"] = static_cast<int>(result);
+        ws_server_->send(conn_id, network::make_admin_response(
+            network::json_message_type::admin_end_war_response,
+            msg.seq, false, data, "Failed to end war"));
+    }
+}
+
+void admin_web_handlers::handle_war_history(connection_id conn_id, const network::json_message& msg)
+{
+    if (!require_admin(conn_id, msg.seq)) return;
+
+    if (!war_persistence_)
+    {
+        send_error(conn_id, msg.seq, "no_war_persistence", "War persistence not available");
+        return;
+    }
+
+    auto limit = msg.data.value("limit", 20);
+    auto offset = msg.data.value("offset", 0);
+    auto type_filter = msg.data.value("war_type", -1);
+
+    hb::result<std::vector<war::war_history_row>, std::string> history_result =
+        (type_filter >= 0)
+            ? war_persistence_->load_war_history_by_type(
+                static_cast<war::war_type>(type_filter), limit, offset)
+            : war_persistence_->load_war_history(limit, offset);
+
+    if (history_result.is_err())
+    {
+        send_error(conn_id, msg.seq, "db_error", history_result.error());
+        return;
+    }
+
+    nlohmann::json wars_arr = nlohmann::json::array();
+    for (const auto& row : history_result.value())
+    {
+        nlohmann::json wj;
+        wj["id"] = row.id;
+        wj["war_type"] = static_cast<int>(row.type);
+        wj["started_at"] = row.started_at;
+        wj["ended_at"] = row.ended_at;
+        wj["duration_seconds"] = row.duration_seconds;
+        wj["winner_faction"] = static_cast<int>(row.winner);
+        wj["aresden_score"] = row.aresden_score;
+        wj["elvine_score"] = row.elvine_score;
+        wars_arr.push_back(std::move(wj));
+    }
+
+    // Get total count
+    auto count_result = (type_filter >= 0)
+        ? war_persistence_->count_wars_by_type(static_cast<war::war_type>(type_filter))
+        : war_persistence_->count_wars();
+
+    nlohmann::json data;
+    data["wars"] = wars_arr;
+    data["count"] = wars_arr.size();
+    data["total"] = count_result.is_ok() ? count_result.value() : 0;
+
+    ws_server_->send(conn_id, network::make_admin_response(
+        network::json_message_type::admin_war_history_response,
+        msg.seq, true, data));
+}
+
+void admin_web_handlers::handle_war_participants(connection_id conn_id, const network::json_message& msg)
+{
+    if (!require_admin(conn_id, msg.seq)) return;
+
+    if (!war_persistence_)
+    {
+        send_error(conn_id, msg.seq, "no_war_persistence", "War persistence not available");
+        return;
+    }
+
+    auto war_db_id = msg.data.value("war_id", 0);
+    if (war_db_id <= 0)
+    {
+        send_error(conn_id, msg.seq, "missing_war_id", "War ID required");
+        return;
+    }
+
+    auto result = war_persistence_->load_war_participants(war_db_id);
+    if (result.is_err())
+    {
+        send_error(conn_id, msg.seq, "db_error", result.error());
+        return;
+    }
+
+    nlohmann::json participants_arr = nlohmann::json::array();
+    for (const auto& row : result.value())
+    {
+        nlohmann::json pj;
+        pj["character_id"] = row.character_id;
+        pj["faction"] = static_cast<int>(row.faction);
+        pj["duty"] = row.duty;
+        pj["kills"] = row.kills;
+        pj["deaths"] = row.deaths;
+        pj["assists"] = row.assists;
+        pj["damage_dealt"] = row.damage_dealt;
+        pj["healing_done"] = row.healing_done;
+        pj["contribution"] = row.contribution;
+        pj["reward_exp"] = row.reward_exp;
+        pj["reward_gold"] = row.reward_gold;
+        pj["reward_contribution"] = row.reward_contribution;
+        participants_arr.push_back(std::move(pj));
+    }
+
+    nlohmann::json data;
+    data["war_id"] = war_db_id;
+    data["participants"] = participants_arr;
+    data["count"] = participants_arr.size();
+
+    ws_server_->send(conn_id, network::make_admin_response(
+        network::json_message_type::admin_war_participants_response,
         msg.seq, true, data));
 }
 

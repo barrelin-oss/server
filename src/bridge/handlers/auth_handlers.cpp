@@ -25,6 +25,7 @@
 #include "core/logger.h"
 #include "core/subsystem.h"
 #include "perf/perf_stats.h"
+#include "war/war_persistence.h"
 
 namespace hb::bridge {
 
@@ -40,7 +41,8 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
                                 npc::npc_system* npc,
                                 item::item_system* item,
                                 social::social_system* social,
-                                scheduler* sched) {
+                                scheduler* sched,
+                                war::war_persistence* war_persistence) {
     ws_server_ = ws_server;
     auth_ = auth;
     players_ = players;
@@ -51,6 +53,7 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
     item_ = item;
     social_ = social;
     scheduler_ = sched;
+    war_persistence_ = war_persistence;
     LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {}, item: {}, social: {})",
         players_ != nullptr ? "yes" : "no",
         world_ != nullptr ? "yes" : "no",
@@ -1175,6 +1178,41 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
             LOG_DEBUG(bridge, "Notified {} nearby players of spawn for {}",
                 nearby.size() > 0 ? nearby.size() - 1 : 0, player->name);
+        }
+    }
+
+    // Check for unclaimed war rewards (deferred from crusade end while offline)
+    if (war_persistence_ && players_)
+    {
+        auto* player = players_->get_player(live_player_id);
+        if (player)
+        {
+            int32_t db_char_id = static_cast<int32_t>(player->character_id.value);
+            auto unclaimed_result = war_persistence_->get_unclaimed_rewards(db_char_id);
+            if (unclaimed_result.is_ok())
+            {
+                for (const auto& row : unclaimed_result.value())
+                {
+                    // Apply deferred EXP reward
+                    if (row.reward_exp > 0)
+                    {
+                        players_->add_experience(live_player_id, row.reward_exp);
+                    }
+
+                    // Send reward summary to client
+                    auto reward_msg = network::make_crusade_reward_summary(
+                        0, static_cast<uint8_t>(row.faction),
+                        row.contribution, row.reward_exp,
+                        row.reward_gold, row.reward_contribution);
+                    conn->send(reward_msg);
+
+                    // Mark as claimed
+                    war_persistence_->mark_rewards_claimed(row.id);
+
+                    LOG_INFO(bridge, "Applied deferred war reward to player {} (char_id={}): {} exp",
+                        live_player_id.value, db_char_id, row.reward_exp);
+                }
+            }
         }
     }
 }

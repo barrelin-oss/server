@@ -46,6 +46,11 @@
 #include "quest/quest_system.h"
 #include "social/social_system.h"
 #include "war/war_system.h"
+#include "war/crusade/crusade_system.h"
+#include "war/heldenian/heldenian_system.h"
+#include "war/apocalypse/apocalypse_system.h"
+#include "war/force_recall/force_recall_system.h"
+#include "war/war_persistence.h"
 #include "persistence/persistence_system.h"
 #include "admin/admin_system.h"
 #include "admin/gm_commands.h"
@@ -219,6 +224,9 @@ void application::initialize() {
     subsystems().create_subsystem<social::social_system>();
     subsystems().create_subsystem<war::war_system>();
     subsystems().create_subsystem<war::crusade_system>();
+    subsystems().create_subsystem<war::heldenian_system>();
+    subsystems().create_subsystem<war::apocalypse_system>();
+    subsystems().create_subsystem<war::force_recall_system>();
     subsystems().create_subsystem<persistence::persistence_system>();
     subsystems().create_subsystem<admin::admin_system>();
     subsystems().create_subsystem<crafting::manufacturing_system>();
@@ -359,6 +367,9 @@ void application::initialize() {
         };
         ws_server_->set_config(ws_config);
 
+        // Create war persistence (needed by auth handlers for deferred reward delivery)
+        war_persistence_ = std::make_unique<war::war_persistence>(&db_sys);
+
         // Create and initialize auth handlers with all dependencies
         auth_handlers_ = std::make_unique<bridge::auth_handlers>();
         auth_handlers_->initialize(
@@ -371,7 +382,8 @@ void application::initialize() {
             subsystems().get<npc::npc_system>(),
             subsystems().get<item::item_system>(),
             subsystems().get<social::social_system>(),
-            subsystems().get<scheduler>()
+            subsystems().get<scheduler>(),
+            war_persistence_.get()
         );
 
         // Create and initialize game handlers
@@ -396,8 +408,57 @@ void application::initialize() {
             subsystems().get<skill::skill_system>(),
             subsystems().get<quest::quest_system>(),
             subsystems().get<crafting::mining_system>(),
-            subsystems().get<crafting::fishing_system>()
+            subsystems().get<crafting::fishing_system>(),
+            subsystems().get<war::crusade_system>()
         );
+
+        // Wire crusade system broadcast callbacks
+        if (auto* crusade = subsystems().get<war::crusade_system>()) {
+            auto* player_sys = subsystems().get<player::player_system>();
+            auto* ws = ws_server_.get();
+            crusade->set_broadcast_fn([player_sys, ws](player_id pid, const network::json_message& msg) {
+                if (!player_sys || !ws) return;
+                auto* plr = player_sys->get_player(pid);
+                if (!plr || plr->connection.value == 0) return;
+                auto* conn = ws->get_connection(plr->connection);
+                if (!conn || !conn->is_open()) return;
+                conn->send(msg);
+            });
+            crusade->set_broadcast_all_fn([player_sys, ws](const network::json_message& msg) {
+                if (!player_sys || !ws) return;
+                player_sys->for_each_player([&](player_id, player::player& plr) {
+                    if (plr.connection.value == 0) return;
+                    auto* conn = ws->get_connection(plr.connection);
+                    if (conn && conn->is_open()) {
+                        conn->send(msg);
+                    }
+                });
+            });
+        }
+
+        // Wire heldenian system broadcast callbacks
+        if (auto* heldenian = subsystems().get<war::heldenian_system>()) {
+            auto* player_sys = subsystems().get<player::player_system>();
+            auto* ws = ws_server_.get();
+            heldenian->set_broadcast_fn([player_sys, ws](player_id pid, const network::json_message& msg) {
+                if (!player_sys || !ws) return;
+                auto* plr = player_sys->get_player(pid);
+                if (!plr || plr->connection.value == 0) return;
+                auto* conn = ws->get_connection(plr->connection);
+                if (!conn || !conn->is_open()) return;
+                conn->send(msg);
+            });
+            heldenian->set_broadcast_all_fn([player_sys, ws](const network::json_message& msg) {
+                if (!player_sys || !ws) return;
+                player_sys->for_each_player([&](player_id, player::player& plr) {
+                    if (plr.connection.value == 0) return;
+                    auto* conn = ws->get_connection(plr.connection);
+                    if (conn && conn->is_open()) {
+                        conn->send(msg);
+                    }
+                });
+            });
+        }
 
         // Create and initialize admin web handlers
         admin_web_handlers_ = std::make_unique<bridge::admin_web_handlers>();
@@ -424,6 +485,9 @@ void application::initialize() {
             subsystems().get<skill::skill_system>(),
             subsystems().get<perf::perf_stats_system>()
         );
+
+        // Wire war persistence to admin handlers
+        admin_web_handlers_->set_war_persistence(war_persistence_.get());
 
         // Set save callback for death penalty persistence
         game_handlers_->set_save_callback([this](player_id pid) {
@@ -549,6 +613,10 @@ void application::initialize() {
                 // Fishing
                 case network::json_message_type::fish_skill_request:
                 case network::json_message_type::fish_catch_request:
+                // Crusade
+                case network::json_message_type::select_duty_request:
+                case network::json_message_type::summon_war_unit_request:
+                case network::json_message_type::crusade_map_status:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -1188,6 +1256,126 @@ void application::load_game_configs() {
             subsystems().get<world::world_subsystem>()
         );
         fishing->start_generation();
+    }
+
+    // Wire crusade system dependencies
+    auto* crusade_sys = subsystems().get<war::crusade_system>();
+    if (crusade_sys) {
+        crusade_sys->set_dependencies(
+            subsystems().get<war::war_system>(),
+            subsystems().get<player::player_system>(),
+            subsystems().get<world::world_subsystem>(),
+            subsystems().get<npc::npc_system>(),
+            subsystems().get<scheduler>()
+        );
+        crusade_sys->set_social(subsystems().get<social::social_system>());
+        crusade_sys->set_effects(subsystems().get<effect::effect_system>());
+        crusade_sys->set_persistence(war_persistence_.get());
+
+        // Load crusade config
+        auto crusade_yaml = config_dir / "crusade.yaml";
+        if (std::filesystem::exists(crusade_yaml)) {
+            // Config loading will be added when crusade_config_loader is implemented
+            LOG_INFO(general, "Crusade config file found: {}", crusade_yaml.string());
+        }
+    }
+
+    // Wire heldenian system dependencies
+    auto* heldenian_sys = subsystems().get<war::heldenian_system>();
+    if (heldenian_sys) {
+        heldenian_sys->set_dependencies(
+            subsystems().get<war::war_system>(),
+            subsystems().get<player::player_system>(),
+            subsystems().get<world::world_subsystem>(),
+            subsystems().get<npc::npc_system>(),
+            subsystems().get<scheduler>()
+        );
+    }
+
+    // Wire apocalypse system dependencies
+    auto* apocalypse_sys = subsystems().get<war::apocalypse_system>();
+    if (apocalypse_sys) {
+        auto* player_sys_a = subsystems().get<player::player_system>();
+        auto* world_sys_a = subsystems().get<world::world_subsystem>();
+        auto* ws_a = ws_server_.get();
+
+        apocalypse_sys->set_broadcast_all_fn([player_sys_a, ws_a](const network::json_message& msg) {
+            if (!player_sys_a || !ws_a) return;
+            player_sys_a->for_each_player([&](player_id, player::player& plr) {
+                if (plr.connection.value == 0) return;
+                auto* conn = ws_a->get_connection(plr.connection);
+                if (conn && conn->is_open()) {
+                    conn->send(msg);
+                }
+            });
+        });
+
+        apocalypse_sys->set_broadcast_player_fn([player_sys_a, ws_a](player_id pid, const network::json_message& msg) {
+            if (!player_sys_a || !ws_a) return;
+            auto* plr = player_sys_a->get_player(pid);
+            if (!plr || plr->connection.value == 0) return;
+            auto* conn = ws_a->get_connection(plr->connection);
+            if (!conn || !conn->is_open()) return;
+            conn->send(msg);
+        });
+
+        apocalypse_sys->set_teleport_home_fn([player_sys_a](player_id pid) {
+            if (!player_sys_a) return;
+            auto* plr = player_sys_a->get_player(pid);
+            if (!plr) return;
+            std::string town = (plr->faction == hb::faction::elvine) ? "elvine" : "aresden";
+            player_sys_a->execute_teleport(pid, town, {30, 30}, world::direction::south);
+        });
+
+        apocalypse_sys->set_teleport_to_fn([player_sys_a](player_id pid, const std::string& dest_map, world::position dest_pos) {
+            if (!player_sys_a) return;
+            player_sys_a->execute_teleport(pid, dest_map, dest_pos, world::direction::south);
+        });
+
+        apocalypse_sys->set_get_players_on_map_fn([player_sys_a, world_sys_a](const std::string& map_name) -> std::vector<std::pair<player_id, world::position>> {
+            std::vector<std::pair<player_id, world::position>> result;
+            if (!player_sys_a || !world_sys_a) return result;
+            auto* m = world_sys_a->get_map_by_name(map_name);
+            if (!m) return result;
+            auto mid = m->id();
+            player_sys_a->for_each_player([&](player_id pid, player::player& plr) {
+                if (plr.current_map == mid) {
+                    result.emplace_back(pid, plr.pos);
+                }
+            });
+            return result;
+        });
+
+        // Default apocalypse config with legacy gate definitions
+        war::apocalypse_config apoc_cfg;
+        apoc_cfg.gates = {
+            {
+                .map_name = "abaddon",
+                .gate_x = 167,
+                .gate_y = 169,
+            },
+            {
+                .map_name = "icebound",
+                .gate_x = 89,
+                .gate_y = 31,
+                .destination_map = "druncncity",
+                .destination_pos = {18, 18},
+                .teleport_tiles = {{89, 31}},
+            },
+        };
+        apoc_cfg.apocalypse_maps = {"druncncity"};
+        apocalypse_sys->set_config(apoc_cfg);
+    }
+
+    // Wire force recall system dependencies
+    auto* recall_sys = subsystems().get<war::force_recall_system>();
+    if (recall_sys) {
+        recall_sys->set_players(subsystems().get<player::player_system>());
+        recall_sys->set_world(subsystems().get<world::world_subsystem>());
+        recall_sys->set_config(war::force_recall_config{
+            .enabled = true,
+            .raid_times = war::get_default_raid_times(),
+        });
     }
 
     // Load skill progression config

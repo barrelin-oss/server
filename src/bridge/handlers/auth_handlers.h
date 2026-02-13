@@ -47,6 +47,10 @@ namespace hb {
     class scheduler;
 }
 
+namespace hb::war {
+    class war_persistence;
+}
+
 namespace hb::bridge {
 
 // Authentication message handler
@@ -66,7 +70,8 @@ public:
                     npc::npc_system* npc = nullptr,
                     item::item_system* item = nullptr,
                     social::social_system* social = nullptr,
-                    scheduler* sched = nullptr);
+                    scheduler* sched = nullptr,
+                    war::war_persistence* war_persistence = nullptr);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -126,6 +131,7 @@ private:
     item::item_system* item_{nullptr};
     social::social_system* social_{nullptr};
     scheduler* scheduler_{nullptr};
+    war::war_persistence* war_persistence_{nullptr};
     enter_game_callback enter_game_callback_;
 };
 

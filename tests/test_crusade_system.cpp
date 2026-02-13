@@ -2131,6 +2131,77 @@ TEST_F(meteor_protection_test, meteor_damage_breaks_hold_effects) {
     EXPECT_FALSE(effect_sys_.has_effect_in_group(plr->ecs_entity, hb::magic_type::hold_paralyze));
 }
 
+// ========== End Crusade Reward Integration Tests ==========
+
+TEST_F(crusade_system_test, end_crusade_sends_legacy_reward) {
+    hb::player::player_system player_sys;
+    player_sys.initialize();
+    crusade_.set_dependencies(&war_sys_, &player_sys, nullptr, nullptr, nullptr);
+
+    auto result = crusade_.start_crusade();
+    ASSERT_TRUE(result.is_ok());
+
+    hb::player::player_create_info info;
+    info.name = "TestPlayer";
+    info.account_name = "test_acct";
+    auto pid = player_sys.create_player(info).value();
+    auto* plr = player_sys.get_player(pid);
+    ASSERT_NE(plr, nullptr);
+    plr->experience.level = 50;
+
+    crusade_.join_crusade(pid, war_faction::aresden);
+    crusade_.award_contribution(pid, 1000);
+
+    hb::network::json_message captured_msg{};
+    bool got_reward = false;
+    crusade_.set_broadcast_fn([&](player_id, const hb::network::json_message& msg) {
+        if (msg.type == hb::network::json_message_type::crusade_reward_summary) {
+            captured_msg = msg;
+            got_reward = true;
+        }
+    });
+
+    crusade_.end_crusade(war_faction::aresden);
+
+    ASSERT_TRUE(got_reward);
+    EXPECT_EQ(captured_msg.data["reward_exp"].get<int64_t>(), 6000);
+    EXPECT_EQ(captured_msg.data["reward_gold"].get<int64_t>(), 0);
+    EXPECT_EQ(captured_msg.data["contribution"].get<int32_t>(), 1000);
+
+    player_sys.shutdown();
+}
+
+TEST_F(crusade_system_test, end_crusade_applies_exp_to_online_player) {
+    hb::player::player_system player_sys;
+    player_sys.initialize();
+    crusade_.set_dependencies(&war_sys_, &player_sys, nullptr, nullptr, nullptr);
+
+    auto result = crusade_.start_crusade();
+    ASSERT_TRUE(result.is_ok());
+
+    hb::player::player_create_info info;
+    info.name = "TestPlayer";
+    info.account_name = "test_acct";
+    auto pid = player_sys.create_player(info).value();
+    auto* plr = player_sys.get_player(pid);
+    ASSERT_NE(plr, nullptr);
+    plr->experience.level = 50;
+
+    int64_t exp_before = plr->experience.experience;
+
+    crusade_.join_crusade(pid, war_faction::aresden);
+    crusade_.award_contribution(pid, 1000);
+
+    crusade_.set_broadcast_fn([](player_id, const hb::network::json_message&) {});
+
+    crusade_.end_crusade(war_faction::aresden);
+
+    // Level 50 winner with 1000 contribution: exp = 1000 + 5000 = 6000
+    EXPECT_EQ(plr->experience.experience, exp_before + 6000);
+
+    player_sys.shutdown();
+}
+
 // ========== Crusade Reward Formula Tests ==========
 
 TEST(crusade_reward_test, winner_level_50_full_contribution) {

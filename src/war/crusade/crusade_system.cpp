@@ -652,9 +652,17 @@ void crusade_system::persist_war_result(war_faction winner)
         rewards.gold = 0;
         rewards.contribution_points = pdata.war_contribution;
 
-        persistence_->save_participant(
+        // Online players already received their reward in end_crusade
+        bool is_online = false;
+        if (players_)
+        {
+            auto* plr = players_->get_player(pid);
+            is_online = (plr != nullptr);
+        }
+
+        persistence_->save_participant_with_claimed(
             war_db_id, char_id, *participant,
-            static_cast<uint8_t>(pdata.duty), rewards);
+            static_cast<uint8_t>(pdata.duty), rewards, is_online);
     }
 
     LOG_INFO(general, "Persisted crusade result (db_id={}, participants={})",

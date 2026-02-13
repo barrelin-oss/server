@@ -245,6 +245,8 @@ enum class json_message_type {
     admin_unsubscribe_request,
     admin_unsubscribe_response,
     admin_spectator_init,
+    admin_get_map_data_request,
+    admin_get_map_data_response,
     admin_player_connected,
     admin_player_disconnected,
     admin_chat_log,
@@ -571,6 +573,8 @@ enum class json_message_type {
         case json_message_type::admin_unban_player_response: return "admin_unban_player_response";
         case json_message_type::admin_subscribe_map_request: return "admin_subscribe_map_request";
         case json_message_type::admin_subscribe_map_response: return "admin_subscribe_map_response";
+        case json_message_type::admin_get_map_data_request: return "admin_get_map_data_request";
+        case json_message_type::admin_get_map_data_response: return "admin_get_map_data_response";
         case json_message_type::admin_subscribe_player_request: return "admin_subscribe_player_request";
         case json_message_type::admin_subscribe_player_response: return "admin_subscribe_player_response";
         case json_message_type::admin_unsubscribe_request: return "admin_unsubscribe_request";
@@ -2099,6 +2103,14 @@ struct admin_subscribe_map_request_data {
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j)
         -> result<admin_subscribe_map_request_data, std::string>;
+};
+
+// Admin get map data (raw AMD binary as base64)
+struct admin_get_map_data_request_data {
+    std::string map_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_get_map_data_request_data, std::string>;
 };
 
 // Admin subscribe to player (follow mode)

@@ -156,6 +156,7 @@ private:
     void handle_subscribe_map(connection_id conn_id, const network::json_message& msg);
     void handle_subscribe_player(connection_id conn_id, const network::json_message& msg);
     void handle_unsubscribe(connection_id conn_id, const network::json_message& msg);
+    void handle_get_map_data(connection_id conn_id, const network::json_message& msg);
     void send_spectator_init(connection_id conn_id, map_id map);
 
     // New admin endpoints

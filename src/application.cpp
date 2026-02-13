@@ -683,6 +683,11 @@ void application::initialize() {
                 case network::json_message_type::admin_delete_character_request_admin:
                 case network::json_message_type::admin_manage_ip_bans_request:
                 case network::json_message_type::admin_perf_stats_request:
+                case network::json_message_type::admin_get_map_data_request:
+                case network::json_message_type::admin_start_war_request:
+                case network::json_message_type::admin_end_war_request:
+                case network::json_message_type::admin_war_history_request:
+                case network::json_message_type::admin_war_participants_request:
                     admin_web_handlers_->handle_message(conn_id, msg);
                     break;
 

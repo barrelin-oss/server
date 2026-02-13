@@ -5,6 +5,8 @@
 #include "core/logger.h"
 #include <algorithm>
 #include <cctype>
+#include <fstream>
+#include <filesystem>
 #include "network/websocket_server.h"
 #include "auth/auth_system.h"
 #include "player/player_system.h"
@@ -43,6 +45,33 @@
 #include "application.h"
 
 namespace hb::bridge {
+
+namespace {
+
+// Standard base64 encoding for binary data transfer
+auto base64_encode_standard(const uint8_t* data, size_t len) -> std::string
+{
+    static constexpr char table[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string result;
+    result.reserve((len + 2) / 3 * 4);
+
+    for (size_t i = 0; i < len; i += 3)
+    {
+        uint32_t n = static_cast<uint32_t>(data[i]) << 16;
+        if (i + 1 < len) n |= static_cast<uint32_t>(data[i + 1]) << 8;
+        if (i + 2 < len) n |= static_cast<uint32_t>(data[i + 2]);
+
+        result.push_back(table[(n >> 18) & 0x3F]);
+        result.push_back(table[(n >> 12) & 0x3F]);
+        result.push_back((i + 1 < len) ? table[(n >> 6) & 0x3F] : '=');
+        result.push_back((i + 2 < len) ? table[n & 0x3F] : '=');
+    }
+
+    return result;
+}
+
+} // anonymous namespace
 
 admin_web_handlers::admin_web_handlers() = default;
 admin_web_handlers::~admin_web_handlers() = default;
@@ -118,6 +147,7 @@ void admin_web_handlers::handle_message(connection_id conn_id, const network::js
         case mt::admin_subscribe_map_request:   handle_subscribe_map(conn_id, msg); break;
         case mt::admin_subscribe_player_request: handle_subscribe_player(conn_id, msg); break;
         case mt::admin_unsubscribe_request:     handle_unsubscribe(conn_id, msg); break;
+        case mt::admin_get_map_data_request:    handle_get_map_data(conn_id, msg); break;
         case mt::admin_broadcast_request:       handle_broadcast(conn_id, msg); break;
         case mt::admin_mute_player_request:     handle_mute_player(conn_id, msg); break;
         case mt::admin_unmute_player_request:    handle_unmute_player(conn_id, msg); break;
@@ -1430,6 +1460,61 @@ void admin_web_handlers::handle_unsubscribe(connection_id conn_id, const network
     ws_server_->send(conn_id, network::make_admin_response(
         network::json_message_type::admin_unsubscribe_response,
         msg.seq, true));
+}
+
+void admin_web_handlers::handle_get_map_data(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_admin(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto parse = network::admin_get_map_data_request_data::from_json(msg.data);
+    if (parse.is_err())
+    {
+        send_error(conn_id, msg.seq, "parse_error", parse.error());
+        return;
+    }
+
+    auto* m = world_->get_map_by_name(parse.value().map_name);
+    if (!m)
+    {
+        ws_server_->send(conn_id, network::make_admin_response(
+            network::json_message_type::admin_get_map_data_response,
+            msg.seq, false, {}, "Map not found"));
+        return;
+    }
+
+    auto& path = m->source_path();
+    if (path.empty() || !std::filesystem::exists(path))
+    {
+        ws_server_->send(conn_id, network::make_admin_response(
+            network::json_message_type::admin_get_map_data_response,
+            msg.seq, false, {}, "Map file not available"));
+        return;
+    }
+
+    std::ifstream file(path, std::ios::binary);
+    if (!file)
+    {
+        ws_server_->send(conn_id, network::make_admin_response(
+            network::json_message_type::admin_get_map_data_response,
+            msg.seq, false, {}, "Failed to read map file"));
+        return;
+    }
+
+    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)),
+                               std::istreambuf_iterator<char>());
+
+    auto encoded = base64_encode_standard(data.data(), data.size());
+
+    nlohmann::json resp_data;
+    resp_data["map_name"] = std::string(m->name());
+    resp_data["width"] = m->width();
+    resp_data["height"] = m->height();
+    resp_data["data"] = std::move(encoded);
+
+    ws_server_->send(conn_id, network::make_admin_response(
+        network::json_message_type::admin_get_map_data_response,
+        msg.seq, true, resp_data));
 }
 
 void admin_web_handlers::send_spectator_init(connection_id conn_id, map_id map)

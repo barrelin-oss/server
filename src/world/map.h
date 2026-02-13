@@ -252,6 +252,9 @@ public:
     [[nodiscard]] auto get_entities_in_range(const position& center, int radius) const -> std::vector<entity_id>;
     [[nodiscard]] auto get_entities_in_rect(const rect& area) const -> std::vector<entity_id>;
 
+    // Source file path (AMD file loaded from)
+    [[nodiscard]] auto source_path() const -> const std::filesystem::path& { return source_path_; }
+
     // Map disabled state (legacy: m_bIsDisabled — set during crusade when strike point destroyed)
     [[nodiscard]] auto is_disabled() const -> bool { return disabled_; }
     void set_disabled(bool disabled) { disabled_ = disabled; }
@@ -329,6 +332,9 @@ private:
 
     // Disabled state (crusade: no spawning, no entry, no combat)
     bool disabled_{false};
+
+    // Path to the source AMD file (stored on load)
+    std::filesystem::path source_path_;
 };
 
 }  // namespace hb::world

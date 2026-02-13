@@ -33,6 +33,8 @@ auto map::load_from_file(const std::filesystem::path& path) -> result<void, std:
         return result<void, std::string>::err("Map file not found: " + path.string());
     }
 
+    source_path_ = path;
+
     std::ifstream file(path, std::ios::binary);
     if (!file) {
         return result<void, std::string>::err("Failed to open map file: " + path.string());

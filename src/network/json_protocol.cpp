@@ -198,6 +198,8 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"admin_unban_player_response", json_message_type::admin_unban_player_response},
     {"admin_subscribe_map_request", json_message_type::admin_subscribe_map_request},
     {"admin_subscribe_map_response", json_message_type::admin_subscribe_map_response},
+    {"admin_get_map_data_request", json_message_type::admin_get_map_data_request},
+    {"admin_get_map_data_response", json_message_type::admin_get_map_data_response},
     {"admin_subscribe_player_request", json_message_type::admin_subscribe_player_request},
     {"admin_subscribe_player_response", json_message_type::admin_subscribe_player_response},
     {"admin_unsubscribe_request", json_message_type::admin_unsubscribe_request},
@@ -3193,6 +3195,17 @@ auto admin_subscribe_map_request_data::from_json(const nlohmann::json& j)
     }
     data.map_name = j["map_name"].get<std::string>();
     return result<admin_subscribe_map_request_data, std::string>::ok(std::move(data));
+}
+
+auto admin_get_map_data_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_get_map_data_request_data, std::string>
+{
+    admin_get_map_data_request_data data;
+    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+        return result<admin_get_map_data_request_data, std::string>::err("map_name required");
+    }
+    data.map_name = j["map_name"].get<std::string>();
+    return result<admin_get_map_data_request_data, std::string>::ok(std::move(data));
 }
 
 auto admin_subscribe_player_request_data::from_json(const nlohmann::json& j)

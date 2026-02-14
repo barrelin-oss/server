@@ -100,6 +100,9 @@ void npc_system::shutdown() {
 }
 
 void npc_system::update(float delta_time) {
+    // Safety: flush any deferred deaths that weren't flushed by their caller
+    flush_pending_deaths();
+
     update_spawns(delta_time);
     update_corpses(delta_time);
     if (config_.enable_ai) {
@@ -407,13 +410,19 @@ void npc_system::despawn_npc(entity::entity id) {
     // Stop scripts
     script_executor_.stop(id);
 
-    // Remove from spatial index and clear occupant
+    // Remove from spatial index and clear tile slots
     auto* world = subsystems().get<world::world_subsystem>();
     if (world) {
         auto* m = world->get_map(npc_ref.current_map);
         if (m) {
             m->spatial().remove(hb::entity_id{id.index()});
             m->clear_occupant(npc_ref.pos);
+
+            // Clear dead slot only if it still belongs to this NPC
+            auto dead_eid = m->get_dead_entity(npc_ref.pos);
+            if (dead_eid && dead_eid->value == id.index()) {
+                m->clear_dead_entity(npc_ref.pos);
+            }
         }
     }
 
@@ -438,6 +447,16 @@ void npc_system::kill_npc(entity::entity id, entity::entity killer) {
     npc_ptr->ai_state.set_state(ai_state::dead);
     npc_ptr->ai_state.death_time = std::chrono::steady_clock::now();
 
+    // Move from live occupant slot to dead slot on tile
+    auto* world = subsystems().get<world::world_subsystem>();
+    if (world) {
+        auto* m = world->get_map(npc_ptr->current_map);
+        if (m) {
+            m->clear_occupant(npc_ptr->pos);
+            m->set_dead_entity(npc_ptr->pos, hb::entity_id{id.index()}, world::owner_type::npc);
+        }
+    }
+
     // Unregister boss (runs on_death_script)
     if (boss_controller_.is_boss(id))
     {
@@ -447,13 +466,8 @@ void npc_system::kill_npc(entity::entity id, entity::entity killer) {
     // Stop any running scripts
     script_executor_.stop(id);
 
-    // Invoke death callback
-    if (on_death_callback_) {
-        on_death_callback_(*npc_ptr, killer);
-    }
-
-    // Loot generation would happen here
-    // Experience award would happen here
+    // Queue death for deferred processing (so caller can send broadcasts first)
+    pending_npc_deaths_.push_back({*npc_ptr, killer, npc_ptr->max_hp});  // kill_npc = instant kill, use max_hp as damage
 }
 
 auto npc_system::get_npc(entity::entity id) -> npc* {
@@ -550,6 +564,16 @@ void npc_system::apply_damage(entity::entity id, int32_t damage, entity::entity 
     // Note: kill_npc guards against is_dead(), so we need to handle the death
     // callback and cleanup directly here since damage() already set the dead state
     if (was_alive && npc_ptr->is_dead()) {
+        // Move from live occupant slot to dead slot on tile
+        auto* world = subsystems().get<world::world_subsystem>();
+        if (world) {
+            auto* m = world->get_map(npc_ptr->current_map);
+            if (m) {
+                m->clear_occupant(npc_ptr->pos);
+                m->set_dead_entity(npc_ptr->pos, hb::entity_id{id.index()}, world::owner_type::npc);
+            }
+        }
+
         // Unregister boss (runs on_death_script)
         if (boss_controller_.is_boss(id))
         {
@@ -559,9 +583,22 @@ void npc_system::apply_damage(entity::entity id, int32_t damage, entity::entity 
         // Stop any running scripts
         script_executor_.stop(id);
 
-        // Invoke death callback
+        // Queue death for deferred processing (so caller can send broadcasts first)
+        pending_npc_deaths_.push_back({*npc_ptr, source, damage});
+    }
+}
+
+void npc_system::flush_pending_deaths()
+{
+    if (pending_npc_deaths_.empty()) return;
+
+    // Move to local to allow re-entrancy
+    auto deaths = std::move(pending_npc_deaths_);
+    pending_npc_deaths_.clear();
+
+    for (auto& death : deaths) {
         if (on_death_callback_) {
-            on_death_callback_(*npc_ptr, source);
+            on_death_callback_(death.snapshot, death.killer, death.damage);
         }
     }
 }
@@ -582,6 +619,15 @@ void npc_system::clear_target(entity::entity id) {
 
     npc_ptr->ai_state.clear_target();
     npc_ptr->ai_state.set_state(ai_state::return_home);
+}
+
+void npc_system::disengage_all_from(entity::entity target) {
+    for (auto& [id, npc_ptr] : npcs_) {
+        if (npc_ptr->ai_state.target == target) {
+            npc_ptr->ai_state.clear_target();
+            npc_ptr->ai_state.set_state(ai_state::return_home);
+        }
+    }
 }
 
 void npc_system::update_ai(entity::entity id) {
@@ -1105,13 +1151,15 @@ auto npc_system::get_entity_position(entity::entity e) const -> std::optional<hb
     // Check if it's a player
     auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys) {
-        if (auto* p = player_sys->get_player(player_id{e.id})) {
+        if (auto* p = player_sys->get_player_by_entity(e)) {
+            if (p->is_dead()) return std::nullopt;
             return p->pos;
         }
     }
 
     // Check if it's an NPC
     if (auto* n = get_npc(e)) {
+        if (n->is_dead()) return std::nullopt;
         return n->pos;
     }
 
@@ -1121,7 +1169,7 @@ auto npc_system::get_entity_position(entity::entity e) const -> std::optional<hb
 auto npc_system::get_entity_map(entity::entity e) const -> std::optional<map_id> {
     auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys) {
-        if (auto* p = player_sys->get_player(player_id{e.id})) {
+        if (auto* p = player_sys->get_player_by_entity(e)) {
             return p->current_map;
         }
     }
@@ -1211,6 +1259,11 @@ void npc_system::perform_npc_attack(npc& npc_ref, entity::entity target) {
     // Invoke attack callback
     if (on_attack_callback_) {
         on_attack_callback_(npc_ref, target, result.hit.final_damage);
+    }
+
+    // Flush deferred deaths (NPC-vs-NPC or NPC-vs-player kills)
+    if (result.target_killed) {
+        flush_pending_deaths();
     }
 }
 

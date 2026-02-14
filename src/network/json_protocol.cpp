@@ -105,7 +105,6 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"npc_despawn", json_message_type::npc_despawn},
     {"npc_move", json_message_type::npc_move},
     {"npc_attack", json_message_type::npc_attack},
-    {"npc_death", json_message_type::npc_death},
     {"ground_item_spawn", json_message_type::ground_item_spawn},
     {"ground_item_removed", json_message_type::ground_item_removed},
     {"player_death_info", json_message_type::player_death_info},
@@ -1194,6 +1193,10 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
         j["hostility"] = hostility;
     }
 
+    if (is_dead) {
+        j["is_dead"] = true;
+    }
+
     return j;
 }
 
@@ -1297,17 +1300,11 @@ auto teleporter_update_msg::to_json() const -> nlohmann::json {
 }
 
 auto player_teleport_msg::to_json() const -> nlohmann::json {
-    nlohmann::json entities_json = nlohmann::json::array();
-    for (const auto& entity : entities) {
-        entities_json.push_back(entity.to_json());
-    }
-
     return nlohmann::json{
         {"dest_map", dest_map},
         {"dest_x", dest_x},
         {"dest_y", dest_y},
-        {"dest_dir", dest_dir},
-        {"entities", std::move(entities_json)}
+        {"dest_dir", dest_dir}
     };
 }
 
@@ -1377,11 +1374,6 @@ auto game_state_msg::to_json() const -> nlohmann::json {
         completed_json.push_back(qid);
     }
 
-    nlohmann::json entities_json = nlohmann::json::array();
-    for (const auto& entity : entities) {
-        entities_json.push_back(entity.to_json());
-    }
-
     return nlohmann::json{
         {"character", character.to_json()},
         {"inventory", {{"items", std::move(inv_json)}, {"gold", gold}}},
@@ -1390,7 +1382,6 @@ auto game_state_msg::to_json() const -> nlohmann::json {
         {"spells", std::move(spells_json)},
         {"quests", {{"active", std::move(quests_json)}, {"completed", std::move(completed_json)}}},
         {"world", {
-            {"entities", std::move(entities_json)},
             {"environment", {
                 {"hour", time_hour},
                 {"minute", time_minute},
@@ -1916,6 +1907,7 @@ auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json
 auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
                                    int16_t attacker_x, int16_t attacker_y,
                                    int16_t target_x, int16_t target_y,
+                                   int16_t direction,
                                    bool hit, bool critical, int32_t damage,
                                    projectile_type projectile) -> json_message
 {
@@ -1926,6 +1918,7 @@ auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
         {"attacker_y", attacker_y},
         {"target_x", target_x},
         {"target_y", target_y},
+        {"direction", direction},
         {"hit", hit},
         {"critical", critical},
         {"damage", damage}
@@ -1964,17 +1957,22 @@ auto make_entity_hp_update(uint32_t entity_id, int32_t hp, int32_t hp_max) -> js
 }
 
 auto make_entity_death(uint32_t victim_id, uint32_t killer_id,
-                        int16_t x, int16_t y) -> json_message
+                        int16_t x, int16_t y,
+                        int32_t damage) -> json_message
 {
+    auto j = nlohmann::json{
+        {"victim_id", victim_id},
+        {"killer_id", killer_id},
+        {"x", x},
+        {"y", y}
+    };
+    if (damage > 0) {
+        j["damage"] = damage;
+    }
     return json_message{
         .type = json_message_type::entity_death,
         .seq = 0,  // Broadcasts don't need seq
-        .data = nlohmann::json{
-            {"victim_id", victim_id},
-            {"killer_id", killer_id},
-            {"x", x},
-            {"y", y}
-        }
+        .data = std::move(j)
     };
 }
 
@@ -2055,15 +2053,6 @@ auto npc_attack_data::to_json() const -> nlohmann::json {
     return j;
 }
 
-auto npc_death_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"entity_id", entity_id},
-        {"killer_id", killer_id},
-        {"x", x},
-        {"y", y}
-    };
-}
-
 // NPC message builders
 
 auto make_npc_spawn_message(const npc_spawn_data& data) -> json_message {
@@ -2098,14 +2087,6 @@ auto make_npc_attack_message(const npc_attack_data& data) -> json_message {
     };
 }
 
-auto make_npc_death_message(const npc_death_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::npc_death,
-        .seq = 0,
-        .data = data.to_json()
-    };
-}
-
 // Ground item spawn data to_json implementation
 
 auto ground_item_spawn_data::to_json() const -> nlohmann::json {
@@ -2115,7 +2096,8 @@ auto ground_item_spawn_data::to_json() const -> nlohmann::json {
         {"item_name", item_name},
         {"count", count},
         {"x", x},
-        {"y", y}
+        {"y", y},
+        {"reason", reason}
     };
     if (!attribute.is_empty()) {
         j["attribute"] = attribute.to_json();
@@ -2258,6 +2240,9 @@ auto entity_info_response_data::to_json() const -> nlohmann::json {
     }
     if (npc_type.has_value()) {
         j["npc_type"] = *npc_type;
+    }
+    if (hostility.has_value()) {
+        j["hostility"] = *hostility;
     }
 
     return j;
@@ -2705,7 +2690,7 @@ auto equipment_change_broadcast_data::to_json() const -> nlohmann::json {
 }
 
 auto stat_update_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
+    auto j = nlohmann::json{
         {"max_hp", max_hp},
         {"max_mp", max_mp},
         {"max_sp", max_sp},
@@ -2717,6 +2702,19 @@ auto stat_update_data::to_json() const -> nlohmann::json {
         {"dodge_rate", dodge_rate},
         {"critical_rate", critical_rate}
     };
+
+    if (hp) j["hp"] = *hp;
+    if (mp) j["mp"] = *mp;
+    if (sp) j["sp"] = *sp;
+    if (experience) j["experience"] = *experience;
+    if (gold) j["gold"] = *gold;
+    if (level) j["level"] = *level;
+    if (pk_count) j["pk_count"] = *pk_count;
+    if (hunger_level) j["hunger_level"] = *hunger_level;
+    if (contribution) j["contribution"] = *contribution;
+    if (enemy_kill_count) j["enemy_kill_count"] = *enemy_kill_count;
+
+    return j;
 }
 
 auto make_player_equip_response(uint32_t seq, const equip_result_msg& result) -> json_message {

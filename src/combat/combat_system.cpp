@@ -85,7 +85,7 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
         auto* player_sys2 = subsystems().get<player::player_system>();
         if (ctx.weapon_enchantment != item::enchantment_type::none) {
             if (player_sys2) {
-                if (auto* atk_p = player_sys2->get_player(player_id{attack.attacker.id})) {
+                if (auto* atk_p = player_sys2->get_player_by_entity(attack.attacker)) {
                     auto effect = process_weapon_effect(
                         ctx.weapon_enchantment, ctx.weapon_enchantment_value,
                         result.hit.final_damage, atk_p->mp, atk_p->computed.max_mp);
@@ -98,7 +98,7 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
                     }
                     if (effect.apply_poison) {
                         // Apply poison to defender (if player)
-                        if (auto* def_p = player_sys2->get_player(player_id{attack.defender.id})) {
+                        if (auto* def_p = player_sys2->get_player_by_entity(attack.defender)) {
                             if (!def_p->has_status(player::player_status::poisoned)) {
                                 def_p->add_status(player::player_status::poisoned);
                             }
@@ -110,7 +110,7 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
 
         // Process special ability on-hit (consumes ability on successful hit)
         if (player_sys2) {
-            if (auto* atk_p = player_sys2->get_player(player_id{attack.attacker.id})) {
+            if (auto* atk_p = player_sys2->get_player_by_entity(attack.attacker)) {
                 auto& ability = atk_p->special_ability;
                 if (ability.is_active() && item::is_attack_ability(ability.type)) {
                     auto now = std::chrono::steady_clock::now();
@@ -121,7 +121,7 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
                     switch (ability_type) {
                     case item::special_ability_type::hp_halve: {
                         // Halve target's current HP
-                        if (auto* def_p = player_sys2->get_player(player_id{attack.defender.id})) {
+                        if (auto* def_p = player_sys2->get_player_by_entity(attack.defender)) {
                             int32_t halved = def_p->hp / 2;
                             if (halved > 0) def_p->damage_hp(halved);
                         } else {
@@ -136,13 +136,13 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
                         break;
                     }
                     case item::special_ability_type::poison: {
-                        if (auto* def_p = player_sys2->get_player(player_id{attack.defender.id})) {
+                        if (auto* def_p = player_sys2->get_player_by_entity(attack.defender)) {
                             def_p->add_status(player::player_status::poisoned);
                         }
                         break;
                     }
                     case item::special_ability_type::paralyze: {
-                        if (auto* def_p = player_sys2->get_player(player_id{attack.defender.id})) {
+                        if (auto* def_p = player_sys2->get_player_by_entity(attack.defender)) {
                             def_p->add_status(player::player_status::frozen);
                         }
                         break;
@@ -171,6 +171,15 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
             death.victim = attack.defender;
             death.killer = attack.attacker;
             death.is_pvp = is_player_entity(attack.attacker) && is_player_entity(attack.defender);
+            death.killing_damage = result.hit.final_damage;
+            if (attack.is_ranged)
+                death.method = kill_method::bow;
+            else if (attack.type == damage_type::magic)
+                death.method = kill_method::magic;
+            else if (attack.is_dash)
+                death.method = kill_method::dash;
+            else
+                death.method = kill_method::melee;
             pending_deaths_.push_back(death);
 
             // Calculate rewards from NPC kills
@@ -201,7 +210,7 @@ auto combat_system::build_combat_context(hb::entity::entity attacker, hb::entity
 
     // Get attacker stats
     if (player_sys) {
-        if (auto* p = player_sys->get_player(player_id{attacker.id})) {
+        if (auto* p = player_sys->get_player_by_entity(attacker)) {
             attacker_is_player = true;
             ctx.attack_power = p->computed.attack_power;
             ctx.magic_power = p->computed.magic_power;
@@ -243,7 +252,7 @@ auto combat_system::build_combat_context(hb::entity::entity attacker, hb::entity
 
     // Get defender stats
     if (player_sys) {
-        if (auto* p = player_sys->get_player(player_id{defender.id})) {
+        if (auto* p = player_sys->get_player_by_entity(defender)) {
             defender_is_player = true;
             ctx.defense = p->computed.defense;
             ctx.magic_defense = p->computed.magic_defense;
@@ -281,7 +290,7 @@ auto combat_system::build_combat_context(hb::entity::entity attacker, hb::entity
 
 auto combat_system::is_player_entity(hb::entity::entity e) const -> bool {
     auto* player_sys = subsystems().get<player::player_system>();
-    return player_sys && player_sys->player_exists(player_id{e.id});
+    return player_sys && player_sys->get_player_by_entity(e) != nullptr;
 }
 
 auto combat_system::check_entity_dead(hb::entity::entity e) const -> bool {
@@ -289,7 +298,7 @@ auto combat_system::check_entity_dead(hb::entity::entity e) const -> bool {
     auto* npc_sys = subsystems().get<npc::npc_system>();
 
     if (player_sys) {
-        if (auto* p = player_sys->get_player(player_id{e.id})) {
+        if (auto* p = player_sys->get_player_by_entity(e)) {
             return p->is_dead();
         }
     }
@@ -339,9 +348,9 @@ void combat_system::apply_damage(hb::entity::entity target, const hit_result& re
     // Apply HP reduction to players
     auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys) {
-        player_id target_pid{target.id};
-        if (player_sys->player_exists(target_pid)) {
-            player_sys->apply_damage(target_pid, result.final_damage);
+        auto target_pid = player_sys->get_player_id_by_entity(target);
+        if (target_pid) {
+            player_sys->apply_damage(*target_pid, result.final_damage);
         }
     }
 
@@ -385,6 +394,11 @@ auto combat_system::can_attack(hb::entity::entity attacker, hb::entity::entity d
     }
 
     if (attacker == defender) {
+        return false;
+    }
+
+    // Dead entities cannot be attacked
+    if (check_entity_dead(defender)) {
         return false;
     }
 
@@ -497,8 +511,8 @@ auto combat_system::is_pvp_safe_zone_blocked(hb::entity::entity attacker, hb::en
         return false;
     }
 
-    auto* attacker_p = player_sys->get_player(player_id{attacker.id});
-    auto* defender_p = player_sys->get_player(player_id{defender.id});
+    auto* attacker_p = player_sys->get_player_by_entity(attacker);
+    auto* defender_p = player_sys->get_player_by_entity(defender);
     if (!attacker_p || !defender_p) {
         return false;
     }

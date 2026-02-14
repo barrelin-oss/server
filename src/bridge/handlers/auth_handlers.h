@@ -125,9 +125,8 @@ private:
     [[nodiscard]] auto require_authenticated(connection_id conn_id, uint32_t seq)
         -> network::ws_connection*;
 
-    // Build visible entity list for enter_game_response
-    [[nodiscard]] auto build_visible_entities(player_id player_id)
-        -> std::vector<network::visible_entity_msg>;
+    // Send individual entity_spawn and npc_spawn messages for visible entities
+    void send_visible_entity_spawns(network::ws_connection* conn, player_id player_id);
 
     // Save player state to database
     void save_player_state(player_id player_id);

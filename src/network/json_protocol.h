@@ -122,7 +122,6 @@ enum class json_message_type {
     npc_despawn,            // NPC leaves view
     npc_move,               // NPC moved
     npc_attack,             // NPC attacked something
-    npc_death,              // NPC died
 
     // Ground item messages (server -> client)
     ground_item_spawn,      // Item appeared on ground
@@ -534,7 +533,6 @@ enum class json_message_type {
         case json_message_type::npc_despawn: return "npc_despawn";
         case json_message_type::npc_move: return "npc_move";
         case json_message_type::npc_attack: return "npc_attack";
-        case json_message_type::npc_death: return "npc_death";
         case json_message_type::ground_item_spawn: return "ground_item_spawn";
         case json_message_type::ground_item_removed: return "ground_item_removed";
         case json_message_type::player_death_info: return "player_death_info";
@@ -1164,6 +1162,8 @@ struct visible_entity_msg {
     int16_t level{0};
     std::string category;        // "monster", "guard", "merchant", etc.
 
+    bool is_dead{false};         // Entity is a corpse
+
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -1276,8 +1276,6 @@ struct player_teleport_msg {
     int16_t dest_x{0};
     int16_t dest_y{0};
     int16_t dest_dir{0};
-    std::vector<visible_entity_msg> entities;  // Visible at destination
-
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -1344,7 +1342,6 @@ struct game_state_msg {
     std::vector<known_spell_msg> spells;
     std::vector<active_quest_msg> quests;
     std::vector<uint16_t> completed_quests;
-    std::vector<visible_entity_msg> entities;
     int32_t gold{0};
 
     // Environment state
@@ -1398,13 +1395,15 @@ struct game_state_msg {
 [[nodiscard]] auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
                                                  int16_t attacker_x, int16_t attacker_y,
                                                  int16_t target_x, int16_t target_y,
+                                                 int16_t direction,
                                                  bool hit, bool critical, int32_t damage,
                                                  projectile_type projectile = projectile_type::none) -> json_message;
 
 [[nodiscard]] auto make_entity_hp_update(uint32_t entity_id, int32_t hp, int32_t hp_max) -> json_message;
 
 [[nodiscard]] auto make_entity_death(uint32_t victim_id, uint32_t killer_id,
-                                      int16_t x, int16_t y) -> json_message;
+                                      int16_t x, int16_t y,
+                                      int32_t damage = 0) -> json_message;
 
 // Combat effect broadcast data (unified visual feedback for all combat/spell events)
 struct combat_effect_data {
@@ -1512,22 +1511,11 @@ struct npc_attack_data {
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
-// NPC death data
-struct npc_death_data {
-    uint32_t entity_id{0};
-    uint32_t killer_id{0};  // 0 if unknown/environmental
-    int16_t x{0};
-    int16_t y{0};
-
-    [[nodiscard]] auto to_json() const -> nlohmann::json;
-};
-
 // NPC message builders
 [[nodiscard]] auto make_npc_spawn_message(const npc_spawn_data& data) -> json_message;
 [[nodiscard]] auto make_npc_despawn_message(uint32_t entity_id) -> json_message;
 [[nodiscard]] auto make_npc_move_message(const npc_move_data& data) -> json_message;
 [[nodiscard]] auto make_npc_attack_message(const npc_attack_data& data) -> json_message;
-[[nodiscard]] auto make_npc_death_message(const npc_death_data& data) -> json_message;
 
 // Ground item spawn data (broadcast when item appears on ground)
 struct ground_item_spawn_data {
@@ -1538,6 +1526,7 @@ struct ground_item_spawn_data {
     int16_t x{0};                // Position
     int16_t y{0};
     item::item_attribute attribute{};  // Per-instance attribute data
+    std::string reason{"existing"};    // "drop" = live drop (play SFX), "existing" = already on ground
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1633,6 +1622,9 @@ struct entity_info_response_data {
     std::optional<int16_t> sprite_id;         // Legacy sprite type for client rendering
     std::optional<std::string> npc_type;      // "monster", "vendor", "guard", etc.
 
+    // Hostility (both player and NPC)
+    std::optional<std::string> hostility;     // "friendly", "hostile", "neutral"
+
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -1711,6 +1703,18 @@ struct stat_update_data {
     int32_t hit_rate{0};
     int32_t dodge_rate{0};
     int32_t critical_rate{0};
+
+    // Optional current vitals — included on teleport/respawn so client can resync
+    std::optional<int32_t> hp;
+    std::optional<int32_t> mp;
+    std::optional<int32_t> sp;
+    std::optional<int64_t> experience;
+    std::optional<int32_t> gold;
+    std::optional<uint8_t> level;
+    std::optional<int32_t> pk_count;
+    std::optional<uint8_t> hunger_level;
+    std::optional<int32_t> contribution;
+    std::optional<int32_t> enemy_kill_count;
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };

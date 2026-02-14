@@ -283,6 +283,7 @@ private:
     void handle_player_unequip(connection_id conn_id, const network::json_message& msg);
     void broadcast_equipment_change(player_id pid, player::equip_slot slot, item_id itm);
     void send_stat_update(connection_id conn_id, const player::player& plr);
+    void send_full_stat_update(connection_id conn_id, const player::player& plr);
 
     // Chat
     void handle_chat_message(connection_id conn_id, const network::json_message& msg);
@@ -343,6 +344,10 @@ private:
                                                   int visibility_radius_y)
         -> std::vector<network::visible_entity_msg>;
 
+    // Send individual entity_spawn / npc_spawn messages for all visible entities at a position
+    void send_visible_entity_spawns_at(network::ws_connection* conn, player_id viewer,
+                                        map_id map, const world::position& pos);
+
     // Combat event callbacks
     void on_damage_dealt(const combat::damage_event& event);
     void on_entity_death(const combat::death_event& event);
@@ -362,7 +367,7 @@ private:
 
     // Combat broadcast helpers
     void broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max);
-    void broadcast_entity_death(player_id victim, player_id killer);
+    void broadcast_entity_death(player_id victim, player_id killer, int32_t killing_damage = 0);
     void broadcast_combat_effect(map_id map, const world::position& pos,
                                  const network::combat_effect_data& data);
     void broadcast_combat_effect_to_faction(map_id map, const world::position& pos,
@@ -377,7 +382,7 @@ private:
     void broadcast_npc_spawn(const npc::npc& n);
     void broadcast_npc_move(const npc::npc& n);
     void broadcast_npc_attack(const npc::npc& n, entity::entity target, int32_t damage);
-    void broadcast_npc_death(const npc::npc& n, entity::entity killer);
+    void broadcast_npc_death(const npc::npc& n, entity::entity killer, int32_t killing_damage);
     void broadcast_npc_hp_update(const npc::npc& n);
 
     // Item broadcast helpers

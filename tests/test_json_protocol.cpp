@@ -21,7 +21,7 @@ TEST(json_message_type_test, to_string_conversions) {
     EXPECT_EQ(to_string(json_message_type::chat_message), "chat_message");
     EXPECT_EQ(to_string(json_message_type::command_request), "command_request");
     EXPECT_EQ(to_string(json_message_type::npc_spawn), "npc_spawn");
-    EXPECT_EQ(to_string(json_message_type::npc_death), "npc_death");
+    EXPECT_EQ(to_string(json_message_type::entity_death), "entity_death");
     EXPECT_EQ(to_string(json_message_type::unknown), "unknown");
 }
 
@@ -623,19 +623,14 @@ TEST(npc_attack_data_test, to_json) {
     EXPECT_TRUE(j["is_critical"]);
 }
 
-TEST(npc_death_data_test, to_json) {
-    npc_death_data data;
-    data.entity_id = 500;
-    data.killer_id = 42;
-    data.x = 100;
-    data.y = 200;
+TEST(entity_death_test, npc_death_uses_entity_death) {
+    auto msg = make_entity_death(500, 42, 100, 200);
 
-    auto j = data.to_json();
-
-    EXPECT_EQ(j["entity_id"], 500);
-    EXPECT_EQ(j["killer_id"], 42);
-    EXPECT_EQ(j["x"], 100);
-    EXPECT_EQ(j["y"], 200);
+    EXPECT_EQ(msg.type, json_message_type::entity_death);
+    EXPECT_EQ(msg.data["victim_id"], 500);
+    EXPECT_EQ(msg.data["killer_id"], 42);
+    EXPECT_EQ(msg.data["x"], 100);
+    EXPECT_EQ(msg.data["y"], 200);
 }
 
 TEST(npc_message_builders_test, make_npc_spawn_message) {

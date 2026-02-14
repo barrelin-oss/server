@@ -75,6 +75,7 @@ public:
     void apply_damage(entity::entity id, int32_t damage, entity::entity source);
     void set_target(entity::entity id, entity::entity target);
     void clear_target(entity::entity id);
+    void disengage_all_from(entity::entity target);
 
     // AI
     void update_ai(entity::entity id);
@@ -113,7 +114,7 @@ public:
     // Copy any needed data immediately at the start of the callback.
     using on_npc_spawn_callback = std::function<void(const npc&)>;
     using on_npc_move_callback = std::function<void(const npc&)>;
-    using on_npc_death_callback = std::function<void(const npc&, entity::entity killer)>;
+    using on_npc_death_callback = std::function<void(const npc&, entity::entity killer, int32_t killing_damage)>;
     using on_npc_attack_callback = std::function<void(const npc&, entity::entity target, int32_t damage)>;
     using on_npc_despawn_callback = std::function<void(const npc&)>;
     using on_npc_damage_callback = std::function<void(const npc&, int32_t damage, entity::entity source)>;
@@ -125,6 +126,11 @@ public:
     void set_on_attack_callback(on_npc_attack_callback cb) { on_attack_callback_ = std::move(cb); }
     void set_on_despawn_callback(on_npc_despawn_callback cb) { on_despawn_callback_ = std::move(cb); }
     void set_on_damage_callback(on_npc_damage_callback cb) { on_damage_callback_ = std::move(cb); }
+
+    // Deferred death processing — deaths are queued during apply_damage() and
+    // flushed explicitly so callers can send their own messages first
+    void flush_pending_deaths();
+    [[nodiscard]] auto has_pending_deaths() const -> bool { return !pending_npc_deaths_.empty(); }
 
     // Iteration
     template<typename Func>
@@ -212,6 +218,14 @@ private:
     on_npc_attack_callback on_attack_callback_;
     on_npc_despawn_callback on_despawn_callback_;
     on_npc_damage_callback on_damage_callback_;
+
+    // Deferred NPC death queue — stores snapshots so callbacks fire after caller finishes
+    struct pending_npc_death {
+        npc snapshot;
+        entity::entity killer;
+        int32_t damage{0};
+    };
+    std::vector<pending_npc_death> pending_npc_deaths_;
 };
 
 }  // namespace hb::npc

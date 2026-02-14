@@ -1047,6 +1047,7 @@ void application::wire_effect_system() {
 
     auto* combat_sys = subsystems().get<combat::combat_system>();
     auto* player_sys = subsystems().get<player::player_system>();
+    auto* npc_sys = subsystems().get<npc::npc_system>();
 
     // Wire death cleanup: remove all effects when an entity dies
     if (combat_sys) {
@@ -1055,8 +1056,15 @@ void application::wire_effect_system() {
         });
     }
 
+    // Wire death cleanup: NPCs disengage from dead entities
+    if (combat_sys && npc_sys) {
+        combat_sys->on_death([npc_sys](const combat::death_event& event) {
+            npc_sys->disengage_all_from(event.victim);
+        });
+    }
+
     // Wire periodic tick effects (poison/burn damage, heal/mana ticks)
-    effect_sys->on_effect_tick([combat_sys, player_sys](entity::entity target, const effect::active_effect& eff) {
+    effect_sys->on_effect_tick([combat_sys, player_sys, npc_sys](entity::entity target, const effect::active_effect& eff) {
         switch (eff.type) {
             case spell_effect_type::poison:
                 if (combat_sys) {
@@ -1089,6 +1097,10 @@ void application::wire_effect_system() {
                 break;
             default:
                 break;
+        }
+        // Flush deferred NPC deaths from DoT kills
+        if (npc_sys && npc_sys->has_pending_deaths()) {
+            npc_sys->flush_pending_deaths();
         }
     });
 

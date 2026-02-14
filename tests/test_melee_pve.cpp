@@ -180,7 +180,7 @@ TEST_F(combat_npc_damage_test, death_fires_callback)
 {
     bool death_fired = false;
     uint32_t killer_id = 0;
-    npc_sys_->set_on_death_callback([&](const hb::npc::npc& n, hb::entity::entity killer) {
+    npc_sys_->set_on_death_callback([&](const hb::npc::npc& n, hb::entity::entity killer, int32_t /*damage*/) {
         death_fired = true;
         killer_id = killer.id;
     });
@@ -198,6 +198,7 @@ TEST_F(combat_npc_damage_test, death_fires_callback)
     hr.final_damage = n->hp + 100;
 
     combat_->apply_damage(npc_eid, hr, hb::entity::entity(55));
+    npc_sys_->flush_pending_deaths();
 
     EXPECT_TRUE(death_fired);
     EXPECT_EQ(killer_id, 55u);
@@ -303,7 +304,11 @@ TEST_F(melee_pve_combat_test, npc_death_yields_rewards)
     attack.type = hb::combat::damage_type::physical;
     attack.base_damage = 10000;
 
-    auto result = combat_->process_attack(attack);
+    // Hit chance is capped at 95%, so retry on miss (up to 20 attempts)
+    hb::combat::combat_result result;
+    for (int i = 0; i < 20 && !result.target_killed; ++i) {
+        result = combat_->process_attack(attack);
+    }
 
     EXPECT_TRUE(result.target_killed);
     EXPECT_TRUE(n->is_dead());

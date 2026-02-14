@@ -234,7 +234,8 @@ auto build_player_spawn(
 
 auto build_npc_spawn(
     const npc::npc& n,
-    std::string_view hostility
+    std::string_view hostility,
+    bool is_dead
 ) -> network::visible_entity_msg
 {
     network::visible_entity_msg msg;
@@ -253,6 +254,7 @@ auto build_npc_spawn(
     msg.sprite_id = n.sprite_id;
     msg.level = n.level;
     msg.category = std::string(npc::npc_category_to_string(n.category));
+    msg.is_dead = is_dead;
 
     return msg;
 }

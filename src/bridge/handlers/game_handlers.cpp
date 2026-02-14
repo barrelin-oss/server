@@ -148,8 +148,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         npc_->set_on_move_callback([this](const npc::npc& n) {
             broadcast_npc_move(n);  // Copies data immediately
         });
-        npc_->set_on_death_callback([this](const npc::npc& n, entity::entity killer) {
-            broadcast_npc_death(n, killer);  // Copies data immediately
+        npc_->set_on_death_callback([this](const npc::npc& n, entity::entity killer, int32_t killing_damage) {
+            broadcast_npc_death(n, killer, killing_damage);  // Copies data immediately
             handle_npc_loot_drop(n, killer); // Generate and drop loot
             distribute_npc_kill_exp(killer, n.exp_reward); // Award XP
 
@@ -179,6 +179,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
             broadcast_npc_attack(n, target, damage);  // Copies data immediately
         });
         npc_->set_on_damage_callback([this](const npc::npc& n, int32_t damage, entity::entity /*source*/) {
+            // Skip HP update for killing blows — entity_death subsumes it
+            if (n.is_dead()) return;
+
             // Broadcast NPC HP update to nearby players
             broadcast_npc_hp_update(n);
 
@@ -190,6 +193,18 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         });
         npc_->set_on_despawn_callback([this](const npc::npc& n) {
             handle_npc_despawn_drop(n);  // Generate despawn loot (body parts, rares, boss multi-drops)
+
+            // Broadcast entity_despawn so clients remove the corpse
+            if (players_ && ws_server_) {
+                auto msg = network::make_entity_despawn(0, n.entity_id.id);
+                auto players = players_->get_players_who_can_see(n.current_map, n.pos);
+                for (auto pid : players) {
+                    auto* p = players_->get_player(pid);
+                    if (!p || p->connection.value == 0) continue;
+                    auto* conn = ws_server_->get_connection(p->connection);
+                    if (conn && conn->is_open()) conn->send(msg);
+                }
+            }
         });
     }
 
@@ -926,6 +941,27 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         return;
     }
 
+    // Peace mode — broadcast the attack action (client renders bow animation) but no damage
+    if (!attacker->combat_mode) {
+        attacker->last_attack_time = now;
+
+        broadcast_player_action(*attacker, {
+            .entity_id = attacker->ecs_entity.id,
+            .action = "attack",
+            .direction = static_cast<int16_t>(attacker->facing),
+            .target_id = data.target_id
+        });
+
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, true, &result));
+        return;
+    }
+
     // Validate target type
     if (data.tgt_type != network::target_type::player && data.tgt_type != network::target_type::npc) {
         network::attack_result_msg result{
@@ -960,14 +996,22 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
             return;
         }
         target_npc = npc_->get_npc(target_entity);
-        if (!target_npc) {
+        if (!target_npc || target_npc->is_dead()) {
+            // Dead or despawned NPC — allow the swing but deal 0 damage
+            attacker->last_attack_time = now;
             network::attack_result_msg result{
                 .hit = false,
                 .target_id = data.target_id,
                 .attacker_x = attacker->pos.x,
                 .attacker_y = attacker->pos.y
             };
-            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_found"));
+            conn->send(network::make_player_attack_response(msg.seq, true, &result));
+            broadcast_player_action(*attacker, {
+                .entity_id = attacker->ecs_entity.id,
+                .action = "attack",
+                .direction = static_cast<int16_t>(attacker->facing),
+                .target_id = data.target_id
+            });
             return;
         }
 
@@ -980,17 +1024,6 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
                 .attacker_y = attacker->pos.y
             };
             conn->send(network::make_player_attack_response(msg.seq, false, &result, "cannot_attack_friendly"));
-            return;
-        }
-
-        if (target_npc->is_dead()) {
-            network::attack_result_msg result{
-                .hit = false,
-                .target_id = data.target_id,
-                .attacker_x = attacker->pos.x,
-                .attacker_y = attacker->pos.y
-            };
-            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_dead"));
             return;
         }
 
@@ -1026,13 +1059,21 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         }
 
         if (target_player->is_dead()) {
+            // Dead player — allow the swing but deal 0 damage
+            attacker->last_attack_time = now;
             network::attack_result_msg result{
                 .hit = false,
                 .target_id = data.target_id,
                 .attacker_x = attacker->pos.x,
                 .attacker_y = attacker->pos.y
             };
-            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_dead"));
+            conn->send(network::make_player_attack_response(msg.seq, true, &result));
+            broadcast_player_action(*attacker, {
+                .entity_id = attacker->ecs_entity.id,
+                .action = "attack",
+                .direction = static_cast<int16_t>(attacker->facing),
+                .target_id = data.target_id
+            });
             return;
         }
 
@@ -1053,6 +1094,9 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         target_hp = static_cast<int16_t>(target_player->hp);
         target_hp_max = static_cast<int16_t>(target_player->computed.max_hp);
     }
+
+    // Update facing direction from client request
+    attacker->facing = static_cast<world::direction>(data.direction);
 
     // Determine if this is a ranged attack (bow equipped)
     bool is_ranged = false;
@@ -1145,12 +1189,13 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
 
     // Build attack event - defender entity depends on target type
     combat::attack_event attack;
-    attack.attacker = entity::entity{pid.value};
-    attack.defender = target_is_npc ? target_entity : entity::entity{target_pid_opt->value};
+    attack.attacker = attacker->ecs_entity;
+    attack.defender = target_is_npc ? target_entity : target_player->ecs_entity;
     attack.type = combat::damage_type::physical;
     attack.base_damage = 0;  // Let combat_system calculate from stats
     attack.is_skill = false;
     attack.is_ranged = is_ranged;
+    attack.is_dash = (data.type == network::attack_type::dash);
     attack.distance = distance;
 
     // Process the attack through combat system
@@ -1204,6 +1249,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         target_broadcast_eid,
         attacker->pos.x, attacker->pos.y,
         target_pos.x, target_pos.y,
+        static_cast<int16_t>(attacker->facing),
         combat_result.hit.is_hit(),
         combat_result.hit.is_critical(),
         combat_result.hit.final_damage,
@@ -1211,8 +1257,6 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     );
 
     for (auto other_id : nearby) {
-        if (other_id == pid) continue;  // Attacker already got response
-
         auto* other = players_->get_player(other_id);
         if (!other || other->connection.value == 0) continue;
 
@@ -1248,6 +1292,12 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
             }
         }
         skills_->record_skill_use(pid, weapon_skill);
+    }
+
+    // Flush deferred NPC deaths now that attack broadcasts have been sent
+    // This ensures clients receive: attack_broadcast → entity_death → loot
+    if (npc_ && combat_result.target_killed) {
+        npc_->flush_pending_deaths();
     }
 
     LOG_DEBUG(bridge, "Player {} {} {} {} (hit={}, crit={}, dmg={}, target_hp={}, ranged={})",
@@ -1367,6 +1417,11 @@ void game_handlers::handle_player_magic(connection_id conn_id, const network::js
         .target_id = data.target_id,
         .spell_id = data.spell_id
     });
+
+    // Flush deferred NPC deaths now that spell broadcasts have been sent
+    if (npc_ && npc_->has_pending_deaths()) {
+        npc_->flush_pending_deaths();
+    }
 
     LOG_DEBUG(bridge, "Player {} magic request (spell={}, target={})",
         pid.value, data.spell_id, data.target_id);
@@ -1515,6 +1570,41 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
 
     // Broadcast item removal to nearby players
     broadcast_ground_item_removed(pid, player->current_map, player->pos, picked_item_id);
+
+    // If there's another item underneath, send the new top item to nearby players
+    if (world_->has_ground_items(player->current_map, player->pos)) {
+        auto remaining = world_->get_ground_items(player->current_map, player->pos);
+        if (!remaining.empty() && item_) {
+            auto next_id = remaining.back();
+            auto* next_itm = item_->get_item(next_id);
+            if (next_itm) {
+                std::string display_name = next_itm->name;
+                if (item_registry_) {
+                    if (auto* tmpl = item_registry_->get(next_itm->template_id)) {
+                        display_name = network::get_display_name(tmpl->name, next_itm->attribute);
+                    }
+                }
+                network::ground_item_spawn_data spawn_data{
+                    .item_id = next_id.value,
+                    .template_id = next_itm->template_id.value,
+                    .item_name = std::move(display_name),
+                    .count = next_itm->count,
+                    .x = player->pos.x,
+                    .y = player->pos.y,
+                    .attribute = next_itm->attribute,
+                    .reason = "existing"
+                };
+                auto spawn_msg = network::make_ground_item_spawn(spawn_data);
+                auto viewers = players_->get_players_who_can_see(player->current_map, player->pos);
+                for (auto vid : viewers) {
+                    auto* vp = players_->get_player(vid);
+                    if (!vp || vp->connection.value == 0) continue;
+                    auto* vc = ws_server_->get_connection(vp->connection);
+                    if (vc && vc->is_open()) vc->send(spawn_msg);
+                }
+            }
+        }
+    }
 
     // Audit item pickup
     if (audit_ && item_) {
@@ -3451,23 +3541,23 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         ws_server_->send(admin_conn, despawn_msg);
     }
 
-    // Build visible entities at destination using teleporting player's visibility
-    auto visible_entities = build_visible_entities_at(teleport_result.new_map, resolved_pos,
-                                                       player->visibility_radius_x,
-                                                       player->visibility_radius_y);
-
     // Build and send player_teleport message
     network::player_teleport_msg teleport_msg{
         .dest_map = dest_map,
         .dest_x = resolved_pos.x,
         .dest_y = resolved_pos.y,
-        .dest_dir = static_cast<int16_t>(dest_dir),
-        .entities = visible_entities
+        .dest_dir = static_cast<int16_t>(dest_dir)
     };
 
     auto* conn = ws_server_->get_connection(conn_id);
     if (conn && conn->is_open()) {
         conn->send(network::make_player_teleport(seq, teleport_msg));
+
+        // Send full stat update so client resyncs HP/MP/SP/XP/gold after teleport
+        send_full_stat_update(conn_id, *player);
+
+        // Send individual entity_spawn / npc_spawn for visible entities at destination
+        send_visible_entity_spawns_at(conn, pid, teleport_result.new_map, resolved_pos);
 
         // If cross-map, also send map_teleporters for the new map
         if (is_cross_map) {
@@ -3529,8 +3619,8 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         ws_server_->send(admin_conn, admin_spawn_msg);
     }
 
-    LOG_INFO(bridge, "Player {} teleported to {} ({}, {}), {} entities visible",
-        pid.value, dest_map, resolved_pos.x, resolved_pos.y, visible_entities.size());
+    LOG_INFO(bridge, "Player {} teleported to {} ({}, {})",
+        pid.value, dest_map, resolved_pos.x, resolved_pos.y);
 }
 
 void game_handlers::send_map_teleporters(connection_id conn_id, const world::map& map) {
@@ -3639,15 +3729,85 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
     // Include NPCs from npc_system
     if (npc_) {
         npc_->for_each_npc_on_map(map, [&](auto /*id*/, const hb::npc::npc& n) {
+            if (n.is_dead()) return;  // Dead NPCs handled separately below
+
             // Rect-filter: skip NPCs outside the rectangular viewport
             if (std::abs(n.pos.x - pos.x) > visibility_radius_x
                 || std::abs(n.pos.y - pos.y) > visibility_radius_y) return;
 
             entities.push_back(build_npc_spawn(n, "neutral"));
         });
+
+        // Include dead NPCs (corpses visible within range)
+        npc_->for_each_npc_on_map(map, [&](auto /*id*/, const hb::npc::npc& n) {
+            if (!n.is_dead()) return;  // Only dead NPCs in this pass
+
+            // Rect-filter: skip NPCs outside the rectangular viewport
+            if (std::abs(n.pos.x - pos.x) > visibility_radius_x
+                || std::abs(n.pos.y - pos.y) > visibility_radius_y) return;
+
+            entities.push_back(build_npc_spawn(n, "neutral", true));
+        });
     }
 
     return entities;
+}
+
+void game_handlers::send_visible_entity_spawns_at(network::ws_connection* conn, player_id viewer,
+                                                    map_id map, const world::position& pos)
+{
+    if (!conn || !conn->is_open() || !players_ || !world_) return;
+
+    auto* player = players_->get_player(viewer);
+    if (!player) return;
+
+    int rx = player->visibility_radius_x;
+    int ry = player->visibility_radius_y;
+
+    auto* m = world_->get_map(map);
+    if (!m) return;
+
+    // Send individual entity_spawn for nearby players
+    auto coarse_radius = std::max(rx, ry);
+    auto nearby_entities = m->get_entities_in_range(pos, coarse_radius);
+
+    for (auto eid : nearby_entities) {
+        auto* p = players_->get_player_by_entity(entity::entity{eid.value});
+        if (!p) continue;
+        if (p == player) continue;  // Skip self
+
+        if (std::abs(p->pos.x - pos.x) > rx || std::abs(p->pos.y - pos.y) > ry) continue;
+
+        conn->send(network::make_entity_spawn(0, build_player_spawn(
+            *p, player_hostility(player->faction, p->faction),
+            item_, item_registry_, effects_)));
+    }
+
+    // Send individual npc_spawn for nearby NPCs
+    if (npc_) {
+        npc_->for_each_npc_on_map(map, [&](auto /*id*/, const hb::npc::npc& n) {
+            if (n.is_dead()) return;
+
+            if (std::abs(n.pos.x - pos.x) > rx || std::abs(n.pos.y - pos.y) > ry) return;
+
+            network::npc_spawn_data data{
+                .entity_id = n.entity_id.id,
+                .template_id = n.template_id.value,
+                .sprite_id = n.sprite_id,
+                .name = n.name,
+                .x = n.pos.x,
+                .y = n.pos.y,
+                .direction = static_cast<uint8_t>(n.facing),
+                .hp = n.hp,
+                .max_hp = n.max_hp,
+                .level = n.level,
+                .category = std::string(npc::npc_category_to_string(n.category)),
+                .hostility = std::string(npc::npc_hostility_for_player(
+                    n, player->faction, player->pk.is_criminal(), player->pk.is_murderer()))
+            };
+            conn->send(network::make_npc_spawn_message(data));
+        });
+    }
 }
 
 // ========== Combat Event Callbacks ==========
@@ -3704,17 +3864,13 @@ void game_handlers::on_damage_dealt(const combat::damage_event& event) {
         return;  // No visual effect for this result
     }
 
-    // Resolve source entity_id for client
+    // Source entity_id is already an ecs_entity — use directly
     uint32_t source_eid = event.source.id;
-    if (auto* src = players_->get_player(player_id{event.source.id})) {
-        source_eid = src->ecs_entity.id;
-    }
 
     // Try player target first
-    player_id target_pid{event.target.id};
-    auto* target = players_->get_player(target_pid);
+    auto* target = players_->get_player_by_entity(event.target);
     if (target) {
-        // Player target: interrupt movement and broadcast HP
+        // Player target: interrupt movement
         if (target->connection.value != 0) {
             auto* conn = ws_server_->get_connection(target->connection);
             if (conn) {
@@ -3722,7 +3878,11 @@ void game_handlers::on_damage_dealt(const combat::damage_event& event) {
             }
         }
 
-        broadcast_hp_update(target_pid, target->hp, target->computed.max_hp);
+        // Skip HP update and combat_effect for killing blows — entity_death carries the damage
+        if (target->is_dead()) return;
+
+        auto target_pid = players_->get_player_id_by_entity(event.target);
+        if (target_pid) broadcast_hp_update(*target_pid, target->hp, target->computed.max_hp);
 
         network::combat_effect_data effect{
             .source_id = source_eid,
@@ -3742,9 +3902,10 @@ void game_handlers::on_damage_dealt(const combat::damage_event& event) {
 
     // Try NPC target — HP update is handled by on_damage_callback, but combat_effect
     // (floating damage numbers) needs to be broadcast here
+    // Skip for killing blows — entity_death carries the damage info
     if (npc_) {
         auto* target_npc = npc_->get_npc(event.target);
-        if (target_npc) {
+        if (target_npc && !target_npc->is_dead()) {
             network::combat_effect_data effect{
                 .source_id = source_eid,
                 .target_id = target_npc->entity_id.id,
@@ -3765,15 +3926,76 @@ void game_handlers::on_damage_dealt(const combat::damage_event& event) {
 void game_handlers::on_entity_death(const combat::death_event& event) {
     if (!players_ || !ws_server_) return;
 
-    // Only handle player deaths for now
-    player_id victim_pid{event.victim.id};
+    // Debug log for every entity death
+    {
+        // Identify victim
+        std::string victim_name = "unknown";
+        world::position victim_pos{};
+        auto v_pid = players_->get_player_id_by_entity(event.victim);
+        if (v_pid) {
+            if (auto* p = players_->get_player(*v_pid)) {
+                victim_name = "player:" + p->name;
+                victim_pos = p->pos;
+            }
+        } else if (npc_) {
+            if (auto* n = npc_->get_npc(event.victim)) {
+                victim_name = "npc:" + n->name;
+                victim_pos = n->pos;
+            }
+        }
+
+        // Identify killer
+        std::string killer_name = "unknown";
+        world::position killer_pos{};
+        auto k_pid = players_->get_player_id_by_entity(event.killer);
+        if (k_pid) {
+            if (auto* p = players_->get_player(*k_pid)) {
+                killer_name = "player:" + p->name;
+                killer_pos = p->pos;
+            }
+        } else if (npc_) {
+            if (auto* n = npc_->get_npc(event.killer)) {
+                killer_name = "npc:" + n->name;
+                killer_pos = n->pos;
+            }
+        }
+
+        const char* method_str = "misc";
+        switch (event.method) {
+            case combat::kill_method::melee: method_str = "melee"; break;
+            case combat::kill_method::dash: method_str = "dash"; break;
+            case combat::kill_method::bow: method_str = "bow"; break;
+            case combat::kill_method::magic: method_str = "magic"; break;
+            case combat::kill_method::misc: method_str = "misc"; break;
+        }
+
+        LOG_DEBUG(bridge, "ENTITY_DEATH: victim={} at ({},{}) killed_by={} at ({},{}) damage={} method={}",
+            victim_name, victim_pos.x, victim_pos.y,
+            killer_name, killer_pos.x, killer_pos.y,
+            event.killing_damage, method_str);
+    }
+
+    // Only handle player deaths beyond this point
+    auto victim_pid_opt = players_->get_player_id_by_entity(event.victim);
+    if (!victim_pid_opt) return;
+    auto victim_pid = *victim_pid_opt;
     auto* victim = players_->get_player(victim_pid);
     if (!victim) return;
 
-    player_id killer_pid{event.killer.id};
+    // Move from live occupant slot to dead slot on tile
+    if (world_) {
+        auto* m = world_->get_map(victim->current_map);
+        if (m) {
+            m->clear_occupant(victim->pos);
+            m->set_dead_entity(victim->pos, hb::entity_id{victim->ecs_entity.index()}, world::owner_type::player);
+        }
+    }
+
+    auto killer_pid_opt = players_->get_player_id_by_entity(event.killer);
+    player_id killer_pid = killer_pid_opt.value_or(player_id{0});
 
     // Broadcast death to nearby players
-    broadcast_entity_death(victim_pid, killer_pid);
+    broadcast_entity_death(victim_pid, killer_pid, event.killing_damage);
 
     // Handle death penalties and respawn
     handle_player_death(victim_pid, event);
@@ -3888,6 +4110,17 @@ void game_handlers::execute_respawn(player_id pid, const std::string& map_name,
 
     auto* player = players_->get_player(pid);
     if (!player) return;  // Player disconnected during respawn delay
+
+    // Clear dead slot at death position (if still ours)
+    if (world_) {
+        auto* m = world_->get_map(player->current_map);
+        if (m) {
+            auto dead_eid = m->get_dead_entity(player->pos);
+            if (dead_eid && dead_eid->value == pid.value) {
+                m->clear_dead_entity(player->pos);
+            }
+        }
+    }
 
     // Restore HP/MP to 50%
     player->hp = player->computed.max_hp / 2;
@@ -4467,7 +4700,7 @@ void game_handlers::broadcast_hp_update(player_id target, int32_t hp, int32_t hp
     }
 }
 
-void game_handlers::broadcast_entity_death(player_id victim, player_id killer) {
+void game_handlers::broadcast_entity_death(player_id victim, player_id killer, int32_t killing_damage) {
     if (!players_ || !ws_server_) return;
 
     auto* victim_player = players_->get_player(victim);
@@ -4482,7 +4715,8 @@ void game_handlers::broadcast_entity_death(player_id victim, player_id killer) {
 
     auto death_msg = network::make_entity_death(
         victim_player->ecs_entity.id, killer_entity_id,
-        victim_player->pos.x, victim_player->pos.y
+        victim_player->pos.x, victim_player->pos.y,
+        killing_damage
     );
 
     // Broadcast to players who can see the victim's position
@@ -4821,20 +5055,13 @@ void game_handlers::broadcast_npc_attack(const npc::npc& n, entity::entity targe
     }
 }
 
-void game_handlers::broadcast_npc_death(const npc::npc& n, entity::entity killer) {
+void game_handlers::broadcast_npc_death(const npc::npc& n, entity::entity killer, int32_t killing_damage) {
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::broadcast);
 
     if (!players_ || !ws_server_) return;
 
-    network::npc_death_data data{
-        .entity_id = n.entity_id.id,
-        .killer_id = killer.id,
-        .x = n.pos.x,
-        .y = n.pos.y
-    };
-
-    auto msg = network::make_npc_death_message(data);
+    auto msg = network::make_entity_death(n.entity_id.id, killer.id, n.pos.x, n.pos.y, killing_damage);
 
     auto players = players_->get_players_who_can_see(n.current_map, n.pos);
     for (auto pid : players) {
@@ -4906,12 +5133,10 @@ void game_handlers::broadcast_ground_item_removed(player_id picker, map_id map,
 
     auto msg = network::make_ground_item_removed(data);
 
-    // Broadcast to all players who can see this position, EXCEPT the picker
+    // Broadcast to all players who can see this position (including the picker)
     auto nearby = players_->get_players_who_can_see(picker_player->current_map, pos);
 
     for (auto other_id : nearby) {
-        if (other_id == picker) continue;  // Don't send to the picker (they got the response)
-
         auto* other = players_->get_player(other_id);
         if (!other || other->connection.value == 0) continue;
 
@@ -4951,7 +5176,8 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
         .count = itm->count,
         .x = pos.x,
         .y = pos.y,
-        .attribute = itm->attribute
+        .attribute = itm->attribute,
+        .reason = "drop"
     };
 
     auto msg = network::make_ground_item_spawn(data);
@@ -5098,29 +5324,31 @@ void game_handlers::send_visible_ground_items(connection_id conn_id, map_id map,
             };
 
             auto items = world_->get_ground_items(map, tile_pos);
-            for (auto item : items) {
-                auto* itm = item_->get_item(item);
-                if (!itm) continue;
+            if (items.empty()) continue;
 
-                std::string display_name = itm->name;
-                if (item_registry_) {
-                    if (auto* tmpl = item_registry_->get(itm->template_id)) {
-                        display_name = network::get_display_name(tmpl->name, itm->attribute);
-                    }
+            // Only send the top-most item (last in FILO stack)
+            auto top_item = items.back();
+            auto* itm = item_->get_item(top_item);
+            if (!itm) continue;
+
+            std::string display_name = itm->name;
+            if (item_registry_) {
+                if (auto* tmpl = item_registry_->get(itm->template_id)) {
+                    display_name = network::get_display_name(tmpl->name, itm->attribute);
                 }
-
-                network::ground_item_spawn_data data{
-                    .item_id = item.value,
-                    .template_id = itm->template_id.value,
-                    .item_name = std::move(display_name),
-                    .count = itm->count,
-                    .x = tile_pos.x,
-                    .y = tile_pos.y,
-                    .attribute = itm->attribute
-                };
-
-                conn->send(network::make_ground_item_spawn(data));
             }
+
+            network::ground_item_spawn_data data{
+                .item_id = top_item.value,
+                .template_id = itm->template_id.value,
+                .item_name = std::move(display_name),
+                .count = itm->count,
+                .x = tile_pos.x,
+                .y = tile_pos.y,
+                .attribute = itm->attribute
+            };
+
+            conn->send(network::make_ground_item_spawn(data));
         }
     }
 }
@@ -5180,6 +5408,11 @@ void game_handlers::handle_entity_info_request(connection_id conn_id, const netw
         response.class_type = static_cast<int16_t>(target_player->profession);
         response.pk_count = target_player->pk.count;
 
+        // Hostility relative to the requester
+        if (auto* requester = players_->get_player(requester_pid)) {
+            response.hostility = std::string(player_hostility(requester->faction, target_player->faction));
+        }
+
         // Guild name if player has one
         if (social_) {
             auto guild_id = social_->get_player_guild(*target_pid_opt);
@@ -5218,6 +5451,13 @@ void game_handlers::handle_entity_info_request(connection_id conn_id, const netw
             response.template_id = target_npc->template_id.value;
             response.sprite_id = target_npc->sprite_id;
             response.npc_type = std::string(npc::npc_category_to_string(target_npc->category));
+
+            // Hostility relative to the requester
+            if (auto* requester = players_->get_player(requester_pid)) {
+                response.hostility = std::string(npc::npc_hostility_for_player(
+                    *target_npc, requester->faction,
+                    requester->pk.is_criminal(), requester->pk.is_murderer()));
+            }
 
             conn->send(network::make_entity_info_response(msg.seq, true, &response));
             LOG_DEBUG(bridge, "Player {} requested info about NPC {} ({})",
@@ -5715,6 +5955,42 @@ void game_handlers::send_stat_update(connection_id conn_id, const player::player
         .hit_rate = plr.computed.hit_rate,
         .dodge_rate = plr.computed.dodge_rate,
         .critical_rate = plr.computed.critical_rate
+    };
+    conn->send(network::make_stat_update(data));
+}
+
+void game_handlers::send_full_stat_update(connection_id conn_id, const player::player& plr) {
+    if (!ws_server_) return;
+
+    auto* conn = ws_server_->get_connection(conn_id);
+    if (!conn || !conn->is_open()) return;
+
+    int32_t gold = 0;
+    if (inventory_) {
+        gold = static_cast<int32_t>(inventory_->get_gold(entity_id(plr.ecs_entity.id)));
+    }
+
+    network::stat_update_data data{
+        .max_hp = plr.computed.max_hp,
+        .max_mp = plr.computed.max_mp,
+        .max_sp = plr.computed.max_sp,
+        .attack_power = plr.computed.attack_power,
+        .magic_power = plr.computed.magic_power,
+        .defense = plr.computed.defense,
+        .magic_defense = plr.computed.magic_defense,
+        .hit_rate = plr.computed.hit_rate,
+        .dodge_rate = plr.computed.dodge_rate,
+        .critical_rate = plr.computed.critical_rate,
+        .hp = plr.hp,
+        .mp = plr.mp,
+        .sp = plr.sp,
+        .experience = plr.experience.experience,
+        .gold = gold,
+        .level = plr.experience.level,
+        .pk_count = plr.pk.count,
+        .hunger_level = static_cast<uint8_t>(plr.hunger.level),
+        .contribution = plr.experience.contribution,
+        .enemy_kill_count = plr.experience.enemy_kill_count
     };
     conn->send(network::make_stat_update(data));
 }

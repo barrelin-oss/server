@@ -40,7 +40,8 @@ auto build_player_spawn(
 // Build a visible_entity_msg for an NPC entity.
 auto build_npc_spawn(
     const npc::npc& n,
-    std::string_view hostility
+    std::string_view hostility,
+    bool is_dead = false
 ) -> network::visible_entity_msg;
 
 }  // namespace hb::bridge

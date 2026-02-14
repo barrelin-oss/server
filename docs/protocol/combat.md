@@ -140,6 +140,7 @@ Broadcast to nearby players when an attack occurs. For ranged attacks (bow/cross
     "attacker_y": 150,
     "target_x": 101,
     "target_y": 150,
+    "direction": 2,
     "hit": true,
     "critical": false,
     "damage": 45
@@ -159,6 +160,7 @@ Broadcast to nearby players when an attack occurs. For ranged attacks (bow/cross
     "attacker_y": 150,
     "target_x": 106,
     "target_y": 150,
+    "direction": 2,
     "hit": true,
     "critical": false,
     "damage": 38,
@@ -176,6 +178,7 @@ Broadcast to nearby players when an attack occurs. For ranged attacks (bow/cross
 | `attacker_y` | int16 | Yes | Attacker Y position |
 | `target_x` | int16 | Yes | Target X position |
 | `target_y` | int16 | Yes | Target Y position |
+| `direction` | int16 | Yes | Attacker's facing direction (0-7) |
 | `hit` | bool | Yes | Whether attack connected |
 | `critical` | bool | Yes | Whether it was a critical hit |
 | `damage` | int32 | Yes | Damage dealt |
@@ -222,7 +225,8 @@ Broadcast when an entity dies.
     "victim_id": 5001,
     "killer_id": 1001,
     "x": 101,
-    "y": 150
+    "y": 150,
+    "damage": 45
   }
 }
 ```
@@ -233,6 +237,14 @@ Broadcast when an entity dies.
 | `killer_id` | uint32 | Entity that killed (0 if environmental/unknown) |
 | `x` | int16 | Death location X |
 | `y` | int16 | Death location Y |
+| `damage` | int32 | Killing blow damage (omitted if 0) |
+
+**Notes:**
+- Used for **both player and NPC deaths** — there is no separate `npc_death` message at the protocol level
+- The `damage` field carries the killing blow amount, so the client can display it as a final damage number (no separate `combat_effect` is sent for killing blows)
+- For NPC deaths: the corpse lingers on the client for a configurable duration, then the server sends `entity_despawn` to remove it
+- Dead entities cannot be attacked — the server rejects attacks against dead targets
+- Message ordering for kills: `combat_attack_broadcast` → `entity_death` → `ground_item_spawn` (loot)
 
 ---
 

@@ -142,6 +142,7 @@ Broadcast to nearby players when an item appears on the ground (NPC loot drop, o
     "count": 1,
     "x": 100,
     "y": 150,
+    "reason": "drop",
     "attribute": {"upgrade": 3, "sub_type": 1, "sub_value": 5}
   }
 }
@@ -155,11 +156,14 @@ Broadcast to nearby players when an item appears on the ground (NPC loot drop, o
 | `count` | int16 | Stack count |
 | `x` | int16 | X coordinate on map |
 | `y` | int16 | Y coordinate on map |
+| `reason` | string | Why the item appeared: `"drop"` (live loot drop, play SFX) or `"existing"` (already on ground, silent). Defaults to `"existing"`. |
 | `attribute` | object? | Item attributes (see Item Attribute Object above) |
 
 **Notes:**
-- Sent to all players within visibility radius when an NPC drops loot
-- Also sent individually to players on enter game and teleport for pre-existing ground items
+- Only the **top item per tile** is sent (FILO stacking — items underneath are hidden)
+- Sent to all players within visibility radius when an NPC drops loot (`reason: "drop"`)
+- Also sent individually to players on enter game and teleport for pre-existing ground items (`reason: "existing"`)
+- After a pickup, if another item remains on the same tile, the server sends a `ground_item_spawn` with `reason: "existing"` to reveal the next item
 - Items despawn automatically after 3 minutes (server sends `ground_item_removed` with `picker_id: 0`)
 
 ---
@@ -194,10 +198,11 @@ Broadcast to nearby players when an item is removed from the ground (picked up o
 | `y` | int16 | Y coordinate where item was |
 
 **Notes:**
-- Sent only to players within visibility radius
-- When `picker_id` is non-zero: a player picked up the item (they get the pickup response instead of this broadcast)
+- Sent to all players within visibility radius, **including the picker**
+- When `picker_id` is non-zero: a player picked up the item (the picker also receives `player_pickup_response`)
 - When `picker_id` is 0: the item despawned (3-minute ground lifetime expired)
 - Clients should remove the item from their ground item cache
+- If another item was stacked underneath, the server follows with a `ground_item_spawn` (`reason: "existing"`) for the revealed item
 
 ---
 

@@ -1000,6 +1000,7 @@ void admin_web_handlers::handle_kill_npc(connection_id conn_id, const network::j
 
     std::string npc_name = n->name;
     npc_->kill_npc(eid, entity::entity{});
+    npc_->flush_pending_deaths();
 
     LOG_INFO(admin, "Admin killed NPC '{}' (entity {})", npc_name, eid.id);
     audit_log(conn_id, "kill_npc " + npc_name);

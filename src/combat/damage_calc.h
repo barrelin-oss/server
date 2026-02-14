@@ -44,7 +44,7 @@ inline auto calc_physical_damage(int32_t attack_power, int32_t defense) -> int32
     float variance = random_float(0.9f, 1.1f);
     damage = static_cast<int32_t>(static_cast<float>(damage) * variance);
 
-    return std::max(1, damage);  // Minimum 1 damage
+    return std::max(0, damage);
 }
 
 // Calculate magic damage
@@ -58,7 +58,7 @@ inline auto calc_magic_damage(int32_t magic_power, int32_t magic_defense) -> int
     float variance = random_float(0.95f, 1.05f);
     damage = static_cast<int32_t>(static_cast<float>(damage) * variance);
 
-    return std::max(1, damage);
+    return std::max(0, damage);
 }
 
 // Calculate hit chance
@@ -88,7 +88,7 @@ inline auto apply_damage_reduction(int32_t damage, int32_t reduction_percent) ->
     reduction_percent = std::clamp(reduction_percent, 0, 80);  // Max 80% reduction
     // Use integer math to avoid floating-point precision issues
     int32_t reduced = damage * (100 - reduction_percent) / 100;
-    return std::max(1, reduced);
+    return std::max(0, reduced);
 }
 
 // Apply critical damage multiplier
@@ -162,7 +162,7 @@ inline auto calculate_final_damage(const combat_context& ctx) -> hit_result {
     // Apply final multiplier
     damage = static_cast<int32_t>(static_cast<float>(damage) * ctx.damage_multiplier);
 
-    result.final_damage = std::max(1, damage);
+    result.final_damage = std::max(0, damage);
     return result;
 }
 

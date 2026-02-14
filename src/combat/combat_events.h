@@ -90,6 +90,7 @@ struct attack_event {
     bool is_skill{false};
     uint16_t skill_id{0};
     bool is_ranged{false};
+    bool is_dash{false};
     int32_t distance{0};  // Attacker-defender distance at time of attack
 };
 
@@ -101,12 +102,23 @@ struct damage_event {
     hb::world::position location{};
 };
 
+// How an entity was killed
+enum class kill_method : uint8_t {
+    melee = 0,
+    dash,
+    bow,
+    magic,
+    misc  // poison, dynamic object, etc.
+};
+
 // Death event - published when an entity dies
 struct death_event {
     hb::entity::entity victim{};
     hb::entity::entity killer{};
     hb::world::position location{};
     bool is_pvp{false};
+    int32_t killing_damage{0};
+    kill_method method{kill_method::melee};
 };
 
 // Combat context for damage calculations

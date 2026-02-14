@@ -1072,23 +1072,27 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         }
     }
 
-    // Fetch guild info for enter_game_response (player pointer may be out of scope)
+    // Fetch guild info and ECS entity ID for enter_game_response (player pointer may be out of scope)
     std::string enter_guild_name;
     std::string enter_guild_tag;
     uint8_t enter_guild_rank = 0;
+    uint32_t enter_entity_id = live_player_id.value;
     if (players_) {
         auto* plr = players_->get_player(live_player_id);
         if (plr) {
             enter_guild_name = plr->guild_name;
             enter_guild_tag = plr->guild_tag;
             enter_guild_rank = plr->guild_rank;
+            // Use ECS entity ID so client entity ID matches all subsequent messages
+            // (entity_hp_update, combat broadcasts, entity_spawn, etc.)
+            enter_entity_id = plr->ecs_entity.id;
         }
     }
 
     // Build full game state message
     network::game_state_msg game_state{
         .character = network::character_data_msg{
-            .id = live_player_id.value,
+            .id = enter_entity_id,
             .name = char_data.name,
             .level = char_data.level,
             .class_type = char_data.class_type,
@@ -1126,7 +1130,6 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         .spells = spells_list,
         .quests = quests_list,
         .completed_quests = completed_quest_ids,
-        .entities = build_visible_entities(live_player_id),
         .gold = player_gold,
         .time_hour = env_hour,
         .time_minute = env_minute,
@@ -1138,8 +1141,10 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     auto response = network::make_enter_game_response(msg.seq, true, &game_state);
     conn->send(response);
 
-    LOG_DEBUG(bridge, "Sent game state to player {}: {} visible entities",
-        live_player_id.value, game_state.entities.size());
+    // Send individual entity_spawn / npc_spawn messages for visible entities
+    send_visible_entity_spawns(conn, live_player_id);
+
+    LOG_DEBUG(bridge, "Sent game state to player {}", live_player_id.value);
 
     // Player was dead on login: already auto-respawned at faction town with 50% HP/MP
     // (see above). No death notification sent — client receives alive game state.
@@ -1288,48 +1293,54 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     }
 }
 
-auto auth_handlers::build_visible_entities(player_id player_id)
-    -> std::vector<network::visible_entity_msg>
+void auth_handlers::send_visible_entity_spawns(network::ws_connection* conn, player_id pid)
 {
-    std::vector<network::visible_entity_msg> entities;
+    if (!players_ || !conn || !conn->is_open()) return;
 
-    if (!players_) return entities;
+    auto* player = players_->get_player(pid);
+    if (!player) return;
 
-    auto* player = players_->get_player(player_id);
-    if (!player) return entities;
-
-    // Get players within this player's visibility radius
-    auto nearby_players = players_->get_players_in_range(player_id,
+    // Send individual entity_spawn for each nearby player
+    auto nearby_players = players_->get_players_in_range(pid,
         std::max(player->visibility_radius_x, player->visibility_radius_y));
 
     for (auto other_id : nearby_players) {
-        if (other_id == player_id) continue;  // Skip self
+        if (other_id == pid) continue;
 
         auto* other = players_->get_player(other_id);
         if (!other) continue;
 
-        entities.push_back(build_player_spawn(
+        conn->send(network::make_entity_spawn(0, build_player_spawn(
             *other, player_hostility(player->faction, other->faction),
-            item_, item_registry_, effects_));
+            item_, item_registry_, effects_)));
     }
 
-    // Add nearby NPCs from npc_system
+    // Send individual npc_spawn for each nearby NPC
     if (npc_) {
-        npc_->for_each_npc_on_map(player->current_map, [&](entity::entity id, const npc::npc& n) {
-            // Skip dead NPCs
+        npc_->for_each_npc_on_map(player->current_map, [&](entity::entity /*id*/, const npc::npc& n) {
             if (n.ai_state.state == npc::ai_state::dead) return;
 
-            // Check if NPC is within rectangular visibility
             if (std::abs(player->pos.x - n.pos.x) > player->visibility_radius_x
                 || std::abs(player->pos.y - n.pos.y) > player->visibility_radius_y) return;
 
-            entities.push_back(build_npc_spawn(
-                n, npc::npc_hostility_for_player(
-                    n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())));
+            network::npc_spawn_data data{
+                .entity_id = n.entity_id.id,
+                .template_id = n.template_id.value,
+                .sprite_id = n.sprite_id,
+                .name = n.name,
+                .x = n.pos.x,
+                .y = n.pos.y,
+                .direction = static_cast<uint8_t>(n.facing),
+                .hp = n.hp,
+                .max_hp = n.max_hp,
+                .level = n.level,
+                .category = std::string(npc::npc_category_to_string(n.category)),
+                .hostility = std::string(npc::npc_hostility_for_player(
+                    n, player->faction, player->pk.is_criminal(), player->pk.is_murderer()))
+            };
+            conn->send(network::make_npc_spawn_message(data));
         });
     }
-
-    return entities;
 }
 
 void auth_handlers::handle_ping(connection_id conn_id, const network::json_message& msg) {

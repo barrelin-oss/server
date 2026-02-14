@@ -860,6 +860,9 @@ void crusade_system::cleanup_crusade()
     }
     war_structures_.clear();
 
+    // Flush deferred NPC deaths from war unit kills
+    if (npcs_) npcs_->flush_pending_deaths();
+
     // Clean up mana and meteor state
     mana_system_.reset();
     meteor_handler_.cancel_all();

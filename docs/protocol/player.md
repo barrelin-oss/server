@@ -375,7 +375,7 @@ A new entity entered visibility range. Player entities include full appearance d
 
 ### `entity_despawn`
 
-An entity left visibility range or disconnected.
+An entity left visibility range, disconnected, or was removed from the world (e.g., NPC corpse cleanup after death animation).
 
 **Server Broadcast:**
 ```json
@@ -387,6 +387,10 @@ An entity left visibility range or disconnected.
   }
 }
 ```
+
+**Notes:**
+- For NPC corpse cleanup: sent after the corpse linger period following an `entity_death` broadcast
+- Clients should remove the entity from their local entity cache when received
 
 ---
 

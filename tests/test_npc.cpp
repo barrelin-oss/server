@@ -4,12 +4,14 @@
 #include <gtest/gtest.h>
 #include "core/types.h"
 #include "entity/entity.h"
+#include "network/json_protocol.h"
 #include "npc/ai_behavior.h"
 #include "npc/spawn_point.h"
 #include "npc/loot_config.h"
 #include "npc/loot_generator.h"
 #include "npc/npc.h"
 #include "npc/npc_system.h"
+#include "world/tile.h"
 
 using hb::item_id;
 using hb::npc_id;
@@ -325,7 +327,7 @@ TEST_F(npc_system_test, death_callback) {
     bool callback_fired = false;
     uint32_t killer_id = 0;
 
-    system_.set_on_death_callback([&](const npc&, hb::entity::entity killer) {
+    system_.set_on_death_callback([&](const npc&, hb::entity::entity killer, int32_t /*damage*/) {
         callback_fired = true;
         killer_id = killer.id;
     });
@@ -334,6 +336,7 @@ TEST_F(npc_system_test, death_callback) {
     auto eid = result.value();
 
     system_.kill_npc(eid, entity{999});
+    system_.flush_pending_deaths();
     EXPECT_TRUE(callback_fired);
     EXPECT_EQ(killer_id, 999);
 }
@@ -343,15 +346,17 @@ TEST_F(npc_system_test, kill_already_dead_npc) {
     auto eid = result.value();
 
     system_.kill_npc(eid, entity{1});
+    system_.flush_pending_deaths();
     EXPECT_TRUE(system_.get_npc(eid)->is_dead());
 
     // Killing again should be a no-op
     int death_count = 0;
-    system_.set_on_death_callback([&](const npc&, hb::entity::entity) {
+    system_.set_on_death_callback([&](const npc&, hb::entity::entity, int32_t) {
         ++death_count;
     });
 
     system_.kill_npc(eid, entity{2});
+    system_.flush_pending_deaths();
     EXPECT_EQ(death_count, 0);  // Already dead, callback not fired
 }
 
@@ -377,11 +382,12 @@ TEST_F(npc_system_test, kill_npc_fires_death_callback) {
     auto eid = result.value();
 
     bool death_fired = false;
-    system_.set_on_death_callback([&](const npc&, hb::entity::entity) {
+    system_.set_on_death_callback([&](const npc&, hb::entity::entity, int32_t) {
         death_fired = true;
     });
 
     system_.kill_npc(eid, entity{50});
+    system_.flush_pending_deaths();
     EXPECT_TRUE(death_fired);
 }
 
@@ -574,4 +580,139 @@ TEST_F(npc_system_test, spawn_applies_defaults_without_registry) {
     EXPECT_EQ(n->name, "Unknown");
     EXPECT_EQ(n->max_hp, 100);
     EXPECT_EQ(n->level, 1);
+}
+
+TEST_F(npc_system_test, disengage_all_from) {
+    // Spawn 3 NPCs targeting the same entity
+    auto r1 = system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
+    auto r2 = system_.spawn_npc(npc_id{2}, map_id{1}, position{5, 5});
+    auto r3 = system_.spawn_npc(npc_id{3}, map_id{1}, position{10, 10});
+    ASSERT_TRUE(r1.is_ok());
+    ASSERT_TRUE(r2.is_ok());
+    ASSERT_TRUE(r3.is_ok());
+
+    auto player_entity = entity{999};
+
+    // Set NPCs 1 and 2 to target the player, NPC 3 targets something else
+    system_.set_target(r1.value(), player_entity);
+    system_.set_target(r2.value(), player_entity);
+    system_.set_target(r3.value(), entity{888});
+
+    EXPECT_EQ(system_.get_npc(r1.value())->ai_state.target, player_entity);
+    EXPECT_EQ(system_.get_npc(r2.value())->ai_state.target, player_entity);
+    EXPECT_EQ(system_.get_npc(r3.value())->ai_state.target, entity{888});
+
+    // Player dies — all NPCs targeting them should disengage
+    system_.disengage_all_from(player_entity);
+
+    EXPECT_FALSE(system_.get_npc(r1.value())->ai_state.target.is_valid());
+    EXPECT_FALSE(system_.get_npc(r2.value())->ai_state.target.is_valid());
+    EXPECT_EQ(system_.get_npc(r1.value())->ai_state.state, ai_state::return_home);
+    EXPECT_EQ(system_.get_npc(r2.value())->ai_state.state, ai_state::return_home);
+
+    // NPC 3 should be unaffected
+    EXPECT_EQ(system_.get_npc(r3.value())->ai_state.target, entity{888});
+}
+
+// ========== Tile Dead Occupant Tests ==========
+
+TEST(tile_dead_occupant_test, set_and_clear_dead_entity) {
+    hb::world::dynamic_tile tile;
+
+    EXPECT_FALSE(tile.has_dead_entity());
+    EXPECT_FALSE(tile.has_occupant());
+
+    // Simulate entity alive on tile
+    tile.set_occupant(hb::entity_id{42}, hb::world::owner_type::npc);
+    EXPECT_TRUE(tile.has_occupant());
+
+    // Simulate death: clear live, set dead
+    tile.clear_occupant();
+    tile.set_dead_entity(hb::entity_id{42}, hb::world::owner_type::npc);
+
+    EXPECT_FALSE(tile.has_occupant());
+    EXPECT_TRUE(tile.has_dead_entity());
+    EXPECT_EQ(tile.dead_entity.value, 42u);
+    EXPECT_EQ(tile.dead_type, hb::world::owner_type::npc);
+}
+
+TEST(tile_dead_occupant_test, dead_slot_is_last_write_wins) {
+    hb::world::dynamic_tile tile;
+
+    tile.set_dead_entity(hb::entity_id{1}, hb::world::owner_type::npc);
+    EXPECT_EQ(tile.dead_entity.value, 1u);
+
+    // Second death overwrites
+    tile.set_dead_entity(hb::entity_id{2}, hb::world::owner_type::npc);
+    EXPECT_EQ(tile.dead_entity.value, 2u);
+}
+
+TEST(tile_dead_occupant_test, dead_entity_does_not_block_movement) {
+    hb::world::dynamic_tile tile;
+    tile.set_dead_entity(hb::entity_id{42}, hb::world::owner_type::npc);
+
+    // Dead entity should not count as occupant
+    EXPECT_FALSE(tile.has_occupant());
+    EXPECT_FALSE(tile.is_temp_blocked());
+}
+
+TEST(tile_dead_occupant_test, clear_dead_entity_removes_corpse_flag) {
+    hb::world::dynamic_tile tile;
+    tile.set_dead_entity(hb::entity_id{42}, hb::world::owner_type::npc);
+    EXPECT_TRUE(hb::world::has_flag(tile.flags, hb::world::dynamic_tile_flags::has_corpse));
+
+    tile.clear_dead_entity();
+    EXPECT_FALSE(tile.has_dead_entity());
+    EXPECT_FALSE(hb::world::has_flag(tile.flags, hb::world::dynamic_tile_flags::has_corpse));
+}
+
+// ========== Visible Entity Msg is_dead Tests ==========
+
+TEST(visible_entity_msg_test, is_dead_serialized_when_true) {
+    hb::network::visible_entity_msg msg;
+    msg.entity_id = 42;
+    msg.type = "npc";
+    msg.name = "Slime";
+    msg.x = 10;
+    msg.y = 20;
+    msg.hp_percent = 0;
+    msg.direction = 0;
+    msg.template_id = 1;
+    msg.sprite_id = 10;
+    msg.level = 1;
+    msg.category = "monster";
+    msg.hostility = "neutral";
+    msg.faction = {};
+    msg.pk_status = {};
+    msg.guild_name = {};
+    msg.guild_tag = {};
+    msg.is_dead = true;
+
+    auto j = msg.to_json();
+    EXPECT_TRUE(j.contains("is_dead"));
+    EXPECT_TRUE(j["is_dead"].get<bool>());
+}
+
+TEST(visible_entity_msg_test, is_dead_omitted_when_false) {
+    hb::network::visible_entity_msg msg;
+    msg.entity_id = 42;
+    msg.type = "npc";
+    msg.name = "Slime";
+    msg.x = 10;
+    msg.y = 20;
+    msg.hp_percent = 100;
+    msg.direction = 0;
+    msg.template_id = 1;
+    msg.sprite_id = 10;
+    msg.level = 1;
+    msg.category = "monster";
+    msg.hostility = "neutral";
+    msg.faction = {};
+    msg.pk_status = {};
+    msg.guild_name = {};
+    msg.guild_tag = {};
+    msg.is_dead = false;
+
+    auto j = msg.to_json();
+    EXPECT_FALSE(j.contains("is_dead"));
 }

@@ -152,30 +152,17 @@ An NPC attacked something. Includes positions for client-side rendering of the a
 
 ---
 
-### `npc_death`
+### NPC Death
 
-An NPC died.
+NPC deaths use the generic [`entity_death`](combat.md#entity_death) message (not a separate `npc_death` type). The death flow is:
 
-**Server Broadcast:**
-```json
-{
-  "type": "npc_death",
-  "seq": 0,
-  "data": {
-    "entity_id": 5001,
-    "killer_id": 1001,
-    "x": 106,
-    "y": 151
-  }
-}
-```
+1. **`entity_death`** — broadcast to nearby players when the NPC dies (contains `victim_id`, `killer_id`, death position)
+2. **Corpse linger** — the client shows the death animation and corpse for a configurable duration
+3. **`entity_despawn`** — broadcast when the server despawns the corpse after the linger period
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `entity_id` | uint32 | NPC that died |
-| `killer_id` | uint32 | Entity that killed (0 if environmental/unknown) |
-| `x` | int16 | Death location X |
-| `y` | int16 | Death location Y |
+**Notes:**
+- Dead NPCs are excluded from AI targeting — `get_entity_position()` returns nullopt for dead entities, causing attackers to automatically disengage
+- Loot drops (if any) arrive as `ground_item_spawn` messages with `reason: "drop"`
 
 ---
 
@@ -224,6 +211,7 @@ Server responds with detailed entity information.
       "y": 256,
       "direction": 4,
       "faction": "aresden",
+      "hostility": "hostile",
       "class_type": 0,
       "pk_count": 12,
       "guild_name": "BloodGuard"
@@ -249,6 +237,7 @@ Server responds with detailed entity information.
       "x": 95,
       "y": 142,
       "direction": 2,
+      "hostility": "hostile",
       "template_id": 10
     }
   }
@@ -288,6 +277,7 @@ Server responds with detailed entity information.
 | Field | Type | Description |
 |-------|------|-------------|
 | `faction` | string | `"aresden"`, `"elvine"`, or `"neutral"` |
+| `hostility` | string | Hostility relative to requesting player: `"friendly"`, `"hostile"`, `"neutral"` |
 | `class_type` | int16 | Class (0=Warrior, 1=Mage, 2=Archer) |
 | `pk_count` | int32 | Total player kill count |
 | `guild_name` | string | Guild name (only if player is in a guild) |
@@ -298,6 +288,7 @@ Server responds with detailed entity information.
 |-------|------|-------------|
 | `template_id` | uint32 | NPC template ID |
 | `npc_type` | string | NPC type (e.g., `"monster"`, `"vendor"`, `"guard"`) |
+| `hostility` | string | Hostility relative to requesting player: `"friendly"`, `"hostile"`, `"neutral"` |
 
 **Possible Errors:**
 

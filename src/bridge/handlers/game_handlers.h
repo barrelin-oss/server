@@ -254,6 +254,12 @@ private:
     // Combat mode
     void handle_combat_mode_change(connection_id conn_id, const network::json_message& msg);
 
+    // Item upgrade
+    void handle_item_upgrade(connection_id conn_id, const network::json_message& msg);
+
+    // Special ability
+    void handle_activate_ability(connection_id conn_id, const network::json_message& msg);
+
     // Death/Respawn
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
 

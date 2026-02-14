@@ -130,10 +130,13 @@ set(NPC_SOURCES
 
 set(ITEM_SOURCES
     src/item/item_system.cpp
+    src/item/item_attribute.cpp
+    src/item/item_upgrade.cpp
 )
 
 set(COMBAT_SOURCES
     src/combat/combat_system.cpp
+    src/combat/weapon_effect.cpp
 )
 
 set(EFFECT_SOURCES
@@ -370,6 +373,14 @@ add_executable(hgserver_tests
     tests/test_use_item.cpp
     tests/combat_mode_test.cpp
     tests/entity_appearance_test.cpp
+    tests/item_attribute_test.cpp
+    tests/item_attribute_stats_test.cpp
+    tests/weapon_effect_test.cpp
+    tests/item_persistence_test.cpp
+    tests/item_upgrade_test.cpp
+    tests/crafting_attribute_test.cpp
+    tests/special_ability_test.cpp
+    tests/loot_attribute_test.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

@@ -6,6 +6,7 @@
 #include "core/types.h"
 #include "core/result.h"
 #include "auth/account.h"
+#include "item/item_attribute.h"
 
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -457,6 +458,15 @@ enum class json_message_type {
     // Action broadcast (replaces legacy MSGID_EVENT_MOTION)
     player_action_broadcast,        // S->C: Player performed an action (nearby see animation)
 
+    // Item upgrade
+    item_upgrade_request,           // C->S: Upgrade item with Xelima/Merien stone
+    item_upgrade_response,          // S->C: Upgrade result
+
+    // Special ability
+    activate_ability_request,       // C->S: Activate special weapon ability
+    activate_ability_response,      // S->C: Activation result
+    special_ability_status,         // S->C: Ability status update (ready/active/cooldown/disabled)
+
     // Unknown/invalid
     unknown
 };
@@ -791,6 +801,11 @@ enum class json_message_type {
         case json_message_type::combat_mode_change_response: return "combat_mode_change_response";
         case json_message_type::combat_mode_change_broadcast: return "combat_mode_change_broadcast";
         case json_message_type::player_action_broadcast: return "player_action_broadcast";
+        case json_message_type::item_upgrade_request: return "item_upgrade_request";
+        case json_message_type::item_upgrade_response: return "item_upgrade_response";
+        case json_message_type::activate_ability_request: return "activate_ability_request";
+        case json_message_type::activate_ability_response: return "activate_ability_response";
+        case json_message_type::special_ability_status: return "special_ability_status";
         default: return "unknown";
     }
 }
@@ -1060,6 +1075,7 @@ struct inventory_item_msg {
     int16_t count;
     int16_t durability;
     int16_t max_durability;
+    item::item_attribute attribute{};  // Per-instance attribute data
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1071,6 +1087,7 @@ struct equipment_item_msg {
     std::string name;
     int16_t durability;
     int16_t max_durability;
+    item::item_attribute attribute{};  // Per-instance attribute data
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1202,6 +1219,7 @@ struct pickup_result_msg {
     std::string item_name;
     int16_t quantity{0};
     uint8_t inventory_slot{0};   // Where it was placed
+    item::item_attribute attribute{};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1513,6 +1531,7 @@ struct ground_item_spawn_data {
     int16_t count{1};            // Stack count
     int16_t x{0};                // Position
     int16_t y{0};
+    item::item_attribute attribute{};  // Per-instance attribute data
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1645,6 +1664,7 @@ struct equip_result_msg {
     std::optional<uint8_t> swapped_to_inv_slot;     // Where old item went
     std::optional<uint32_t> unequipped_shield_id;   // If 2H forced shield removal
     std::optional<uint8_t> shield_to_inv_slot;
+    item::item_attribute attribute{};
     std::string error;
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
@@ -1657,6 +1677,7 @@ struct unequip_result_msg {
     uint32_t item_id{0};
     std::string item_name;
     uint8_t inventory_slot{0};   // Where it was placed
+    item::item_attribute attribute{};
     std::string error;
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
@@ -2266,6 +2287,7 @@ struct admin_give_item_request_data {
     std::string player_name;
     uint32_t item_template_id{0};
     int16_t count{1};
+    std::optional<item::item_attribute> attribute;  // Optional pre-set attribute
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j)
         -> result<admin_give_item_request_data, std::string>;
@@ -2716,5 +2738,40 @@ struct player_action_broadcast_data {
 
 [[nodiscard]] auto make_player_action_broadcast(
     const player_action_broadcast_data& data) -> json_message;
+
+// === Item upgrade ===
+
+struct item_upgrade_request_data
+{
+    int16_t item_slot{0};   // Inventory slot of item to upgrade
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<item_upgrade_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_item_upgrade_response(uint32_t seq, bool success,
+    int16_t item_slot, uint8_t new_level, std::string_view error = {}) -> json_message;
+
+// === Special ability ===
+
+[[nodiscard]] auto make_activate_ability_response(uint32_t seq, bool success,
+    uint8_t ability_type = 0, int32_t cooldown_sec = 0,
+    std::string_view error = {}) -> json_message;
+
+// status: "disabled", "ready", "active", "cooldown"
+[[nodiscard]] auto make_special_ability_status(std::string_view status,
+    uint8_t ability_type = 0, int32_t cooldown_remaining_sec = 0) -> json_message;
+
+// === Display name helper ===
+
+// Format item display name with upgrade suffix: "Excalibur" → "Excalibur +7"
+[[nodiscard]] inline auto get_display_name(std::string_view base_name,
+    const item::item_attribute& attr) -> std::string
+{
+    if (attr.upgrade_level > 0) {
+        return std::string(base_name) + " +" + std::to_string(attr.upgrade_level);
+    }
+    return std::string(base_name);
+}
 
 }  // namespace hb::network

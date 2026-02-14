@@ -340,6 +340,10 @@ void player_system::recalculate_equipment_modifiers(player_id id) {
         return;
     }
 
+    // Also scan for special ability items
+    auto* item_reg = subsystems().get<item_registry>();
+    item::special_ability_type found_ability = item::special_ability_type::none;
+
     // Iterate through all equipment slots and apply their effects
     for (size_t i = 0; i < equip_slot_count; ++i) {
         const auto& equipped = p->equipment.slots[i];
@@ -354,6 +358,22 @@ void player_system::recalculate_equipment_modifiers(player_id id) {
 
         // Apply item base stats and effects to equipment modifiers only
         item::apply_item_base_stats(*equipped_item, p->equipment_modifiers);
+
+        // Apply per-instance attribute bonuses (upgrade level, enchantments)
+        item::apply_item_attribute(*equipped_item, p->equipment_modifiers);
+
+        // Check for special ability (first one found wins)
+        if (found_ability == item::special_ability_type::none && item_reg) {
+            auto* tmpl = item_reg->get(equipped_item->template_id);
+            if (tmpl && tmpl->special_ability != item::special_ability_type::none) {
+                found_ability = tmpl->special_ability;
+            }
+        }
+    }
+
+    // Update special ability state
+    if (found_ability != p->special_ability.type) {
+        p->special_ability.set_ability(found_ability);
     }
 
     LOG_DEBUG(general, "Recalculated equipment modifiers for player '{}'", p->name);

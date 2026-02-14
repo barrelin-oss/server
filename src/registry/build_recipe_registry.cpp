@@ -68,6 +68,10 @@ auto build_recipe_registry::load_from_file(const std::filesystem::path& path,
         {
             recipe.success_rate = node["success_rate"].as<int>();
         }
+        if (node["attribute"])
+        {
+            recipe.result_attribute = static_cast<uint16_t>(node["attribute"].as<int>());
+        }
 
         // Resolve result name to template ID
         auto* tmpl = items.find_by_name(recipe.result);

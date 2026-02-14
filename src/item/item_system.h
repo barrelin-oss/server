@@ -7,7 +7,9 @@
 #include "core/result.h"
 #include "core/subsystem.h"
 #include "item/item.h"
+#include "item/item_attribute.h"
 
+#include <optional>
 #include <unordered_map>
 #include <memory>
 #include <vector>
@@ -28,6 +30,7 @@ struct item_create_info {
     int16_t count{1};
     entity_id owner{};
     bool full_durability{true};
+    std::optional<item_attribute> attribute;  // Pre-set attribute (from persistence/crafting)
 };
 
 // Item system - manages all item instances

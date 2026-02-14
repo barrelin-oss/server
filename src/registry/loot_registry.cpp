@@ -115,6 +115,16 @@ auto loot_registry::load_from_file(const std::filesystem::path& path)
                         {
                             entry.chance = static_cast<int16_t>(drop["chance"].as<int>());
                         }
+                        if (drop["attribute"] && drop["attribute"].IsMap())
+                        {
+                            npc::loot_attribute_config attr_cfg;
+                            auto& an = drop["attribute"];
+                            if (an["max_upgrade"]) attr_cfg.max_upgrade_level = static_cast<uint8_t>(an["max_upgrade"].as<int>());
+                            if (an["enchant_chance"]) attr_cfg.enchantment_chance = static_cast<uint8_t>(an["enchant_chance"].as<int>());
+                            if (an["sub_enchant_chance"]) attr_cfg.sub_enchantment_chance = static_cast<uint8_t>(an["sub_enchant_chance"].as<int>());
+                            if (an["max_value"]) attr_cfg.max_enchantment_value = static_cast<uint8_t>(an["max_value"].as<int>());
+                            entry.attribute = attr_cfg;
+                        }
                         phase.drops.push_back(std::move(entry));
                     }
                 }

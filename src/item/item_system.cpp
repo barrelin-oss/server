@@ -59,6 +59,11 @@ auto item_system::create_item(const item_create_info& info) -> result<item_id, s
         new_item->durability = new_item->max_durability;
     }
 
+    // Apply pre-set attribute if provided (from persistence, crafting, loot generation)
+    if (info.attribute.has_value()) {
+        new_item->attribute = info.attribute.value();
+    }
+
     items_[id] = std::move(new_item);
 
     LOG_DEBUG(general, "Created item {} (template: {}, count: {})",

@@ -191,7 +191,7 @@ This document tracks implementation progress for the modernized Helbreath server
 
 ---
 
-## Phase 10: Item System 🔄
+## Phase 10: Item System ✅
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -204,6 +204,12 @@ This document tracks implementation progress for the modernized Helbreath server
 | Ground items | ✅ | Items on map, pickup, despawn timer |
 | Loot drops | ✅ | YAML-driven loot_tables.yaml, flat percentages, on_kill + on_despawn phases |
 | Use item handler | ✅ | HP/MP/SP potions, food, recall scrolls, potion speed anti-cheat |
+| Item attributes | ✅ | Per-instance upgrade level, enchantments, custom-made flag (m_dwAttribute) |
+| Item upgrades | ✅ | Xelima/Merien stones with legacy probability table |
+| Weapon effects | ✅ | On-hit enchantments: poison, mana conversion, spell trigger, charge critical |
+| Special abilities | ✅ | SPECABLTY weapon abilities: hp_halve, poison, paralyze, warrior_boost, life_drain |
+| Crafting attributes | ✅ | Custom-made flag, quality, recipe enchantments on manufactured items |
+| Loot attributes | ✅ | Generated enchantments on NPC loot drops, admin item creation with attributes |
 
 ---
 
@@ -437,6 +443,24 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-14: Item Attribute System (m_dwAttribute)
+- Modernized legacy 32-bit `m_dwAttribute` bitfield into clean `item_attribute` struct
+- Per-instance upgrade level (0-15), main/sub enchantments, custom-made flag with quality
+- 13 main enchantment types (poison, sharp, ancient, mana_conversion, etc.) and 12 sub enchantment types (physical_resist, exp_bonus, etc.)
+- Stat modifiers extended: physical/magic absorption, exp/gold bonus, weapon dice, charge critical, mana conversion
+- `apply_item_attribute()` wired into `recalculate_equipment_modifiers()` pipeline
+- Weapon on-hit effects: poison, spell trigger, mana drain, super attack charge via `process_weapon_effect()`
+- Item persistence: attributes serialized to/from JSONB in equipment/inventory columns
+- Upgrade system: Xelima (weapons) / Merien (armor) stones with legacy probability table (30% at +0, 1% at +10)
+- Crafting integration: manufactured items get custom_made flag, quality from skill, recipe enchantments
+- Special weapon abilities: SPECABLTY items grant activatable abilities (hp_halve, poison, paralyze, warrior_boost, life_drain) with 20-minute cooldown
+- Loot attribute generation: per-drop-entry config with upgrade/enchantment chance in loot_tables.yaml
+- Admin item creation: optional attribute parameter for giving enchanted items
+- Protocol: attribute data included in inventory, equipment, ground item, pickup, equip, and unequip messages
+- Display names: "+N" suffix for upgraded items (e.g., "Iron Sword +3")
+- 9 new protocol messages (upgrade, special ability, protocol sync)
+- ~150 new tests across 8 test files (2147 total)
 
 ### 2026-02-14: Entity Appearance Data Expansion
 - Expanded `visible_entity_msg` with full player appearance: gender, skin, hair, underwear, level

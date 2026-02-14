@@ -2,10 +2,13 @@
 // Combat management implementation
 
 #include "combat/combat_system.h"
+#include "combat/weapon_effect.h"
 #include "core/logger.h"
 #include "core/subsystem.h"
 #include "player/player_system.h"
 #include "npc/npc_system.h"
+#include "item/item_system.h"
+#include "item/special_ability.h"
 #include "effect/effect_system.h"
 #include "world/world_subsystem.h"
 #include "perf/perf_stats.h"
@@ -78,6 +81,85 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result 
     if (result.hit.is_hit()) {
         apply_damage(attack.defender, result.hit, attack.attacker);
 
+        // Process weapon on-hit effects (poison, mana conversion, etc.)
+        auto* player_sys2 = subsystems().get<player::player_system>();
+        if (ctx.weapon_enchantment != item::enchantment_type::none) {
+            if (player_sys2) {
+                if (auto* atk_p = player_sys2->get_player(player_id{attack.attacker.id})) {
+                    auto effect = process_weapon_effect(
+                        ctx.weapon_enchantment, ctx.weapon_enchantment_value,
+                        result.hit.final_damage, atk_p->mp, atk_p->computed.max_mp);
+
+                    if (effect.mana_gained > 0) {
+                        atk_p->heal_mp(effect.mana_gained);
+                    }
+                    if (effect.gained_super_charge) {
+                        atk_p->super_attack_charges++;
+                    }
+                    if (effect.apply_poison) {
+                        // Apply poison to defender (if player)
+                        if (auto* def_p = player_sys2->get_player(player_id{attack.defender.id})) {
+                            if (!def_p->has_status(player::player_status::poisoned)) {
+                                def_p->add_status(player::player_status::poisoned);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Process special ability on-hit (consumes ability on successful hit)
+        if (player_sys2) {
+            if (auto* atk_p = player_sys2->get_player(player_id{attack.attacker.id})) {
+                auto& ability = atk_p->special_ability;
+                if (ability.is_active() && item::is_attack_ability(ability.type)) {
+                    auto now = std::chrono::steady_clock::now();
+                    auto ability_type = ability.type;
+                    ability.consume(now);
+
+                    // Apply ability effect to target
+                    switch (ability_type) {
+                    case item::special_ability_type::hp_halve: {
+                        // Halve target's current HP
+                        if (auto* def_p = player_sys2->get_player(player_id{attack.defender.id})) {
+                            int32_t halved = def_p->hp / 2;
+                            if (halved > 0) def_p->damage_hp(halved);
+                        } else {
+                            auto* npc_sys = subsystems().get<npc::npc_system>();
+                            if (npc_sys) {
+                                if (auto* target_npc = npc_sys->get_npc(attack.defender)) {
+                                    int32_t halved = target_npc->hp / 2;
+                                    if (halved > 0) target_npc->hp -= halved;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    case item::special_ability_type::poison: {
+                        if (auto* def_p = player_sys2->get_player(player_id{attack.defender.id})) {
+                            def_p->add_status(player::player_status::poisoned);
+                        }
+                        break;
+                    }
+                    case item::special_ability_type::paralyze: {
+                        if (auto* def_p = player_sys2->get_player(player_id{attack.defender.id})) {
+                            def_p->add_status(player::player_status::frozen);
+                        }
+                        break;
+                    }
+                    case item::special_ability_type::life_drain: {
+                        // Drain 15% of target HP as healing
+                        int32_t drain = result.hit.final_damage * 15 / 100;
+                        if (drain > 0) atk_p->heal_hp(drain);
+                        break;
+                    }
+                    default:
+                        break;
+                    }
+                }
+            }
+        }
+
         // Check if target died
         bool target_killed = check_entity_dead(attack.defender);
         if (target_killed) {
@@ -126,6 +208,16 @@ auto combat_system::build_combat_context(hb::entity::entity attacker, hb::entity
             ctx.hit_rate = p->computed.hit_rate;
             ctx.critical_rate = p->computed.critical_rate;
             ctx.critical_damage = p->computed.critical_damage;
+
+            // Read weapon enchantment from equipped weapon
+            auto* item_sys = subsystems().get<item::item_system>();
+            if (item_sys && p->equipment.has_equipped(player::equip_slot::weapon)) {
+                auto* wpn = item_sys->get_item(p->equipment.weapon().id);
+                if (wpn) {
+                    ctx.weapon_enchantment = wpn->attribute.main_type;
+                    ctx.weapon_enchantment_value = wpn->attribute.main_value;
+                }
+            }
         }
     }
 

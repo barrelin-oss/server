@@ -4,6 +4,7 @@
 // Data structures for YAML-driven loot system
 
 #include "core/types.h"
+#include "item/item_attribute.h"
 
 #include <cstdint>
 #include <optional>
@@ -27,11 +28,21 @@ struct item_pool
     int32_t total_weight{0};
 };
 
+// Attribute generation config for loot drops
+struct loot_attribute_config
+{
+    uint8_t max_upgrade_level{0};           // Random upgrade 0..N
+    uint8_t enchantment_chance{0};          // % chance for main enchantment (0-100)
+    uint8_t sub_enchantment_chance{0};      // % chance for sub enchantment (0-100)
+    uint8_t max_enchantment_value{15};      // Max value for enchantments (0-15)
+};
+
 // A reference to a named pool with a drop chance
 struct loot_drop_entry
 {
     std::string pool_name;
     int16_t chance{0};  // per 10000
+    std::optional<loot_attribute_config> attribute;
 };
 
 // Multi-drop config for bosses

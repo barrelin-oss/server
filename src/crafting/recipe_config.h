@@ -28,6 +28,7 @@ struct build_recipe
     int16_t skill_req{};             // min manufacturing skill to attempt
     int16_t skill_limit{};           // max skill for XP gain (0 = always)
     int32_t success_rate{};          // base % (0-100)
+    uint16_t result_attribute{0};    // legacy attribute bits (shifted left 16 → main+sub enchantments)
     std::vector<recipe_ingredient> ingredients;
 };
 

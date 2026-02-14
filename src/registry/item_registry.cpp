@@ -216,6 +216,10 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path)
                 if (node["color_b2"]) item.use_effect.v5 = static_cast<int16_t>(node["color_b2"].as<int>());
             }
 
+            // Special ability type (SPECABLTY items)
+            if (node["special_ability"])
+                item.special_ability = static_cast<item::special_ability_type>(node["special_ability"].as<int>());
+
             // Mark consumable types
             if (item.type == item_type::eat || item.type == item_type::use_deplete) {
                 item.is_consumable = true;

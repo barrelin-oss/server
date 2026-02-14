@@ -24,6 +24,8 @@
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
 #include "item/item_effect.h"
+#include "item/item_upgrade.h"
+#include "item/special_ability.h"
 #include "player/equip_mapping.h"
 #include "magic/magic_system.h"
 #include "magic/spell.h"
@@ -623,6 +625,16 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
         // Combat mode
         case network::json_message_type::combat_mode_change_request:
             handle_combat_mode_change(conn_id, msg);
+            break;
+
+        // Item upgrade
+        case network::json_message_type::item_upgrade_request:
+            handle_item_upgrade(conn_id, msg);
+            break;
+
+        // Special ability
+        case network::json_message_type::activate_ability_request:
+            handle_activate_ability(conn_id, msg);
             break;
 
         // Death/Respawn
@@ -1464,11 +1476,18 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     // Get item details for response
     std::string item_name = "Unknown";
     int16_t quantity = 1;
+    item::item_attribute attr{};
     if (item_) {
         auto* itm = item_->get_item(picked_item_id);
         if (itm) {
             item_name = itm->name;
             quantity = itm->count;
+            attr = itm->attribute;
+            if (item_registry_) {
+                if (auto* tmpl = item_registry_->get(itm->template_id)) {
+                    item_name = network::get_display_name(tmpl->name, attr);
+                }
+            }
         }
     }
 
@@ -1478,7 +1497,8 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
         .item_id = picked_item_id.value,
         .item_name = item_name,
         .quantity = quantity,
-        .inventory_slot = 0  // TODO: Get actual slot from inventory system
+        .inventory_slot = 0,  // TODO: Get actual slot from inventory system
+        .attribute = attr,
     };
 
     conn->send(network::make_player_pickup_response(msg.seq, true, &result, std::nullopt));
@@ -4089,6 +4109,186 @@ void game_handlers::handle_combat_mode_change(connection_id conn_id, const netwo
     }
 }
 
+void game_handlers::handle_item_upgrade(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_ || !inventory_ || !item_ || !ws_server_) {
+        send_error(conn_id, msg.seq, "internal_error", "Required subsystems unavailable");
+        return;
+    }
+
+    auto data_result = network::item_upgrade_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    const auto& data = data_result.value();
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    if (plr->is_dead()) {
+        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot, 0, "dead"));
+        return;
+    }
+
+    // Get inventory
+    auto owner_id = entity_id(plr->id.value);
+    auto* inv = inventory_->get_inventory(owner_id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "internal_error", "Inventory unavailable");
+        return;
+    }
+
+    // Validate target item slot
+    auto* target_slot = inv->get_slot(data.item_slot);
+    if (!target_slot || target_slot->is_empty()) {
+        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot, 0, "empty_slot"));
+        return;
+    }
+
+    auto* target_item = item_->get_item(target_slot->item);
+    if (!target_item) {
+        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot, 0, "invalid_item"));
+        return;
+    }
+
+    // Item must be equipment
+    if (!target_item->is_equipment()) {
+        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot, 0, "not_equipment"));
+        return;
+    }
+
+    // Already at max level
+    if (target_item->attribute.upgrade_level >= item::max_upgrade_level) {
+        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot,
+            target_item->attribute.upgrade_level, "max_level"));
+        return;
+    }
+
+    // Find appropriate upgrade stone in inventory
+    int16_t stone_slot = -1;
+    item_id stone_item_id{};
+    uint32_t stone_template = 0;
+
+    for (int16_t i = 0; i < inv->capacity(); ++i) {
+        auto* slot = inv->get_slot(i);
+        if (!slot || slot->is_empty()) continue;
+
+        auto* itm = item_->get_item(slot->item);
+        if (!itm) continue;
+
+        // Check for Xelima (weapons) or Merien (armor/accessories)
+        if (itm->template_id.value == item::xelima_stone_id ||
+            itm->template_id.value == item::merien_stone_id)
+        {
+            if (item::is_valid_upgrade_stone(*target_item, itm->template_id.value)) {
+                stone_slot = i;
+                stone_item_id = slot->item;
+                stone_template = itm->template_id.value;
+                break;
+            }
+        }
+    }
+
+    if (stone_slot < 0) {
+        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot,
+            target_item->attribute.upgrade_level, "no_stone"));
+        return;
+    }
+
+    // Attempt the upgrade
+    auto result = item::attempt_upgrade(*target_item);
+
+    // Consume stone (always consumed)
+    auto* s_slot = inv->get_slot(stone_slot);
+    if (s_slot) {
+        if (s_slot->count <= 1) {
+            s_slot->clear();
+            item_->destroy_item(stone_item_id);
+        } else {
+            s_slot->count -= 1;
+        }
+    }
+
+    // If successful, recalculate equipment modifiers
+    if (result.success) {
+        players_->recalculate_equipment_modifiers(pid);
+    }
+
+    conn->send(network::make_item_upgrade_response(msg.seq, result.success,
+        data.item_slot, result.new_level));
+}
+
+void game_handlers::handle_activate_ability(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_ || !ws_server_) {
+        send_error(conn_id, msg.seq, "internal_error", "Required subsystems unavailable");
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    if (plr->is_dead()) {
+        conn->send(network::make_activate_ability_response(msg.seq, false, 0, 0, "dead"));
+        return;
+    }
+
+    auto& ability = plr->special_ability;
+
+    // No ability equipped
+    if (ability.type == item::special_ability_type::none) {
+        conn->send(network::make_activate_ability_response(msg.seq, false, 0, 0, "no_ability"));
+        return;
+    }
+
+    auto now = std::chrono::steady_clock::now();
+
+    // Check if on cooldown (and possibly transition to ready)
+    ability.check_cooldown(now);
+
+    if (ability.is_on_cooldown(now)) {
+        auto remaining = ability.cooldown_remaining(now);
+        conn->send(network::make_activate_ability_response(msg.seq, false,
+            static_cast<uint8_t>(ability.type), remaining, "on_cooldown"));
+        return;
+    }
+
+    if (ability.is_active()) {
+        conn->send(network::make_activate_ability_response(msg.seq, false,
+            static_cast<uint8_t>(ability.type), 0, "already_active"));
+        return;
+    }
+
+    if (!ability.is_ready()) {
+        conn->send(network::make_activate_ability_response(msg.seq, false,
+            static_cast<uint8_t>(ability.type), 0, "not_ready"));
+        return;
+    }
+
+    // Activate
+    ability.activate(now);
+
+    conn->send(network::make_activate_ability_response(msg.seq, true,
+        static_cast<uint8_t>(ability.type), item::ability_cooldown_seconds));
+
+    // Broadcast status update to the player
+    conn->send(network::make_special_ability_status("active",
+        static_cast<uint8_t>(ability.type), 0));
+}
+
 void game_handlers::handle_respawn_request(connection_id conn_id, const network::json_message& msg) {
     auto* conn = require_in_game(conn_id, msg.seq);
     if (!conn) return;
@@ -4640,13 +4840,22 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
     auto* itm = item_->get_item(item);
     if (!itm) return;
 
+    // Build display name with upgrade suffix
+    std::string display_name = itm->name;
+    if (item_registry_) {
+        if (auto* tmpl = item_registry_->get(itm->template_id)) {
+            display_name = network::get_display_name(tmpl->name, itm->attribute);
+        }
+    }
+
     network::ground_item_spawn_data data{
         .item_id = item.value,
         .template_id = itm->template_id.value,
-        .item_name = itm->name,
+        .item_name = std::move(display_name),
         .count = itm->count,
         .x = pos.x,
-        .y = pos.y
+        .y = pos.y,
+        .attribute = itm->attribute
     };
 
     auto msg = network::make_ground_item_spawn(data);
@@ -4691,20 +4900,28 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
     }
 
     // Place item drops on ground
-    for (auto tmpl_id : drop.items) {
-        auto create_result = item_->create_from_template(tmpl_id, 1);
+    for (const auto& loot_item : drop.items) {
+        auto create_result = item_->create_from_template(loot_item.template_id, 1);
         if (create_result.is_err()) {
             LOG_WARN(bridge, "Failed to create drop item from template {}: {}",
-                tmpl_id.value, create_result.error());
+                loot_item.template_id.value, create_result.error());
             continue;
         }
 
-        auto dropped_item = create_result.value();
-        world_->add_ground_item(npc_map, npc_pos, dropped_item);
-        broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item);
+        auto dropped_item_id = create_result.value();
+
+        // Apply loot-generated attributes if present
+        if (!loot_item.attribute.is_empty()) {
+            if (auto* itm = item_->get_item(dropped_item_id)) {
+                itm->attribute = loot_item.attribute;
+            }
+        }
+
+        world_->add_ground_item(npc_map, npc_pos, dropped_item_id);
+        broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item_id);
 
         LOG_DEBUG(bridge, "NPC '{}' dropped item {} (template {}) at ({}, {})",
-            npc_name, dropped_item.value, tmpl_id.value, npc_pos.x, npc_pos.y);
+            npc_name, dropped_item_id.value, loot_item.template_id.value, npc_pos.x, npc_pos.y);
     }
 }
 
@@ -4723,20 +4940,28 @@ void game_handlers::handle_npc_despawn_drop(const npc::npc& n) {
     auto drop = npc::generate_despawn_loot(*loot_registry_, n.sprite_id);
 
     // Place item drops on ground
-    for (auto tmpl_id : drop.items) {
-        auto create_result = item_->create_from_template(tmpl_id, 1);
+    for (const auto& loot_item : drop.items) {
+        auto create_result = item_->create_from_template(loot_item.template_id, 1);
         if (create_result.is_err()) {
             LOG_WARN(bridge, "Failed to create despawn drop item from template {}: {}",
-                tmpl_id.value, create_result.error());
+                loot_item.template_id.value, create_result.error());
             continue;
         }
 
-        auto dropped_item = create_result.value();
-        world_->add_ground_item(npc_map, npc_pos, dropped_item);
-        broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item);
+        auto dropped_item_id = create_result.value();
+
+        // Apply loot-generated attributes if present
+        if (!loot_item.attribute.is_empty()) {
+            if (auto* itm = item_->get_item(dropped_item_id)) {
+                itm->attribute = loot_item.attribute;
+            }
+        }
+
+        world_->add_ground_item(npc_map, npc_pos, dropped_item_id);
+        broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item_id);
 
         LOG_DEBUG(bridge, "NPC '{}' despawn dropped item {} (template {}) at ({}, {})",
-            npc_name, dropped_item.value, tmpl_id.value, npc_pos.x, npc_pos.y);
+            npc_name, dropped_item_id.value, loot_item.template_id.value, npc_pos.x, npc_pos.y);
     }
 
     if (!drop.items.empty()) {
@@ -4769,13 +4994,21 @@ void game_handlers::send_visible_ground_items(connection_id conn_id, map_id map,
                 auto* itm = item_->get_item(item);
                 if (!itm) continue;
 
+                std::string display_name = itm->name;
+                if (item_registry_) {
+                    if (auto* tmpl = item_registry_->get(itm->template_id)) {
+                        display_name = network::get_display_name(tmpl->name, itm->attribute);
+                    }
+                }
+
                 network::ground_item_spawn_data data{
                     .item_id = item.value,
                     .template_id = itm->template_id.value,
-                    .item_name = itm->name,
+                    .item_name = std::move(display_name),
                     .count = itm->count,
                     .x = tile_pos.x,
-                    .y = tile_pos.y
+                    .y = tile_pos.y,
+                    .attribute = itm->attribute
                 };
 
                 conn->send(network::make_ground_item_spawn(data));
@@ -5175,7 +5408,16 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     // Build success response
     result.success = true;
     result.item_id = itm->id.value;
-    result.item_name = itm->name;
+    result.attribute = itm->attribute;
+    if (item_registry_) {
+        if (auto* tmpl = item_registry_->get(itm->template_id)) {
+            result.item_name = network::get_display_name(tmpl->name, itm->attribute);
+        } else {
+            result.item_name = itm->name;
+        }
+    } else {
+        result.item_name = itm->name;
+    }
     result.durability = itm->durability;
     result.max_durability = itm->max_durability;
 
@@ -5272,9 +5514,18 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
     // Recalculate stats
     players_->recalculate_equipment_modifiers(pid);
 
-    // Get item name for response
+    // Get item details for response
     auto* itm = item_->get_item(equipped.id);
     std::string item_name = itm ? itm->name : "Unknown";
+    item::item_attribute attr{};
+    if (itm) {
+        attr = itm->attribute;
+        if (item_registry_) {
+            if (auto* tmpl = item_registry_->get(itm->template_id)) {
+                item_name = network::get_display_name(tmpl->name, attr);
+            }
+        }
+    }
 
     // Build response
     network::unequip_result_msg result;
@@ -5283,6 +5534,7 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
     result.item_id = equipped.id.value;
     result.item_name = item_name;
     result.inventory_slot = static_cast<uint8_t>(*inv_slot);
+    result.attribute = attr;
 
     conn->send(network::make_player_unequip_response(msg.seq, result));
 

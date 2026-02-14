@@ -88,6 +88,15 @@ struct stat_modifiers {
     int16_t mp_regen{0};
     int16_t sp_regen{0};
 
+    // Attribute-derived bonuses (from item enchantments)
+    int16_t physical_absorption{0};   // % physical damage absorbed (cap 80)
+    int16_t magic_absorption{0};      // % magic damage absorbed (cap 80)
+    int16_t exp_bonus_percent{0};     // % bonus experience
+    int16_t gold_bonus_percent{0};    // % bonus gold
+    int16_t weapon_dice_bonus{0};     // +N weapon dice range (sharp/ancient)
+    int16_t charge_critical{0};       // Charge critical % (cap 20)
+    int16_t mana_conversion{0};       // Damage-to-mana % (cap 20)
+
     // Combine two modifier sets
     auto operator+(const stat_modifiers& other) const -> stat_modifiers {
         stat_modifiers result;
@@ -118,6 +127,13 @@ struct stat_modifiers {
         result.hp_regen = hp_regen + other.hp_regen;
         result.mp_regen = mp_regen + other.mp_regen;
         result.sp_regen = sp_regen + other.sp_regen;
+        result.physical_absorption = physical_absorption + other.physical_absorption;
+        result.magic_absorption = magic_absorption + other.magic_absorption;
+        result.exp_bonus_percent = exp_bonus_percent + other.exp_bonus_percent;
+        result.gold_bonus_percent = gold_bonus_percent + other.gold_bonus_percent;
+        result.weapon_dice_bonus = weapon_dice_bonus + other.weapon_dice_bonus;
+        result.charge_critical = charge_critical + other.charge_critical;
+        result.mana_conversion = mana_conversion + other.mana_conversion;
         return result;
     }
 
@@ -170,6 +186,15 @@ struct computed_stats {
     int32_t mp_regen{0};
     int32_t sp_regen{0};
 
+    // Attribute-derived stats
+    int32_t physical_absorption{0};   // % physical damage absorbed (cap 80)
+    int32_t magic_absorption{0};      // % magic damage absorbed (cap 80)
+    int32_t exp_bonus_percent{0};     // % bonus experience
+    int32_t gold_bonus_percent{0};    // % bonus gold
+    int32_t weapon_dice_bonus{0};     // +N weapon dice range
+    int32_t charge_critical{0};       // % chance (cap 20)
+    int32_t mana_conversion{0};       // % (cap 20)
+
     // Compute from base + modifiers
     void compute(const base_stats& base, const stat_modifiers& mods) {
         strength = base.strength + mods.strength;
@@ -212,6 +237,14 @@ struct computed_stats {
         hp_regen = 1 + vitality / 10 + mods.hp_regen;
         mp_regen = 1 + magic / 10 + mods.mp_regen;
         sp_regen = 1 + dexterity / 10 + mods.sp_regen;
+
+        physical_absorption = std::clamp<int32_t>(mods.physical_absorption, 0, 80);
+        magic_absorption = std::clamp<int32_t>(mods.magic_absorption, 0, 80);
+        exp_bonus_percent = mods.exp_bonus_percent;
+        gold_bonus_percent = mods.gold_bonus_percent;
+        weapon_dice_bonus = mods.weapon_dice_bonus;
+        charge_critical = std::clamp<int32_t>(mods.charge_critical, 0, 20);
+        mana_conversion = std::clamp<int32_t>(mods.mana_conversion, 0, 20);
     }
 };
 

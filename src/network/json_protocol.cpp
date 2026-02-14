@@ -376,7 +376,12 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"combat_mode_change_request", json_message_type::combat_mode_change_request},
     {"combat_mode_change_response", json_message_type::combat_mode_change_response},
     {"combat_mode_change_broadcast", json_message_type::combat_mode_change_broadcast},
-    {"player_action_broadcast", json_message_type::player_action_broadcast}
+    {"player_action_broadcast", json_message_type::player_action_broadcast},
+    {"item_upgrade_request", json_message_type::item_upgrade_request},
+    {"item_upgrade_response", json_message_type::item_upgrade_response},
+    {"activate_ability_request", json_message_type::activate_ability_request},
+    {"activate_ability_response", json_message_type::activate_ability_response},
+    {"special_ability_status", json_message_type::special_ability_status}
 };
 
 }  // namespace
@@ -1079,7 +1084,7 @@ auto character_data_msg::to_json() const -> nlohmann::json {
 }
 
 auto inventory_item_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
+    auto j = nlohmann::json{
         {"slot", slot},
         {"item_id", item_id},
         {"name", name},
@@ -1087,16 +1092,24 @@ auto inventory_item_msg::to_json() const -> nlohmann::json {
         {"durability", durability},
         {"max_durability", max_durability}
     };
+    if (!attribute.is_empty()) {
+        j["attribute"] = attribute.to_json();
+    }
+    return j;
 }
 
 auto equipment_item_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
+    auto j = nlohmann::json{
         {"slot", slot},
         {"item_id", item_id},
         {"name", name},
         {"durability", durability},
         {"max_durability", max_durability}
     };
+    if (!attribute.is_empty()) {
+        j["attribute"] = attribute.to_json();
+    }
+    return j;
 }
 
 auto visible_entity_msg::to_json() const -> nlohmann::json {
@@ -1227,13 +1240,17 @@ auto skill_result_msg::to_json() const -> nlohmann::json {
 }
 
 auto pickup_result_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
+    nlohmann::json j{
         {"success", success},
         {"item_id", item_id},
         {"item_name", item_name},
         {"quantity", quantity},
         {"inventory_slot", inventory_slot}
     };
+    if (!attribute.is_empty()) {
+        j["attribute"] = attribute.to_json();
+    }
+    return j;
 }
 
 auto interact_result_msg::to_json() const -> nlohmann::json {
@@ -2090,7 +2107,7 @@ auto make_npc_death_message(const npc_death_data& data) -> json_message {
 // Ground item spawn data to_json implementation
 
 auto ground_item_spawn_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
+    auto j = nlohmann::json{
         {"item_id", item_id},
         {"template_id", template_id},
         {"item_name", item_name},
@@ -2098,6 +2115,10 @@ auto ground_item_spawn_data::to_json() const -> nlohmann::json {
         {"x", x},
         {"y", y}
     };
+    if (!attribute.is_empty()) {
+        j["attribute"] = attribute.to_json();
+    }
+    return j;
 }
 
 // Ground item spawn message builder
@@ -2632,6 +2653,9 @@ auto equip_result_msg::to_json() const -> nlohmann::json {
         j["item_name"] = item_name;
         j["durability"] = durability;
         j["max_durability"] = max_durability;
+        if (!attribute.is_empty()) {
+            j["attribute"] = attribute.to_json();
+        }
         if (swapped_item_id.has_value()) {
             j["swapped_item_id"] = *swapped_item_id;
             if (swapped_to_inv_slot.has_value()) {
@@ -2659,6 +2683,9 @@ auto unequip_result_msg::to_json() const -> nlohmann::json {
         j["item_id"] = item_id;
         j["item_name"] = item_name;
         j["inventory_slot"] = inventory_slot;
+        if (!attribute.is_empty()) {
+            j["attribute"] = attribute.to_json();
+        }
     }
     if (!success && !error.empty()) {
         j["error"] = error;
@@ -3235,6 +3262,9 @@ auto admin_give_item_request_data::from_json(const nlohmann::json& j)
     }
     data.item_template_id = j["item_template_id"].get<uint32_t>();
     data.count = safe_int16(j, "count", 1);
+    if (j.contains("attribute") && j["attribute"].is_object()) {
+        data.attribute = item::item_attribute::from_json(j["attribute"]);
+    }
     return result<admin_give_item_request_data, std::string>::ok(std::move(data));
 }
 
@@ -4269,6 +4299,68 @@ auto make_player_action_broadcast(const player_action_broadcast_data& data) -> j
         .seq = 0,
         .data = data.to_json()
     };
+}
+
+// === Item upgrade ===
+
+auto item_upgrade_request_data::from_json(const nlohmann::json& j)
+    -> result<item_upgrade_request_data, std::string>
+{
+    item_upgrade_request_data data;
+    auto slot = safe_int16_required(j, "item_slot");
+    if (!slot.has_value())
+        return result<item_upgrade_request_data, std::string>::err("Missing 'item_slot'");
+    data.item_slot = *slot;
+    return result<item_upgrade_request_data, std::string>::ok(std::move(data));
+}
+
+auto make_item_upgrade_response(uint32_t seq, bool success,
+    int16_t item_slot, uint8_t new_level, std::string_view error) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::item_upgrade_response;
+    msg.seq = seq;
+    msg.data = {
+        {"success", success},
+        {"item_slot", item_slot},
+        {"new_level", new_level}
+    };
+    if (!error.empty())
+        msg.data["error"] = error;
+    return msg;
+}
+
+// === Special ability ===
+
+auto make_activate_ability_response(uint32_t seq, bool success,
+    uint8_t ability_type, int32_t cooldown_sec,
+    std::string_view error) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::activate_ability_response;
+    msg.seq = seq;
+    msg.data = {{"success", success}};
+    if (success) {
+        msg.data["ability_type"] = ability_type;
+        msg.data["cooldown_sec"] = cooldown_sec;
+    }
+    if (!error.empty())
+        msg.data["error"] = error;
+    return msg;
+}
+
+auto make_special_ability_status(std::string_view status,
+    uint8_t ability_type, int32_t cooldown_remaining_sec) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::special_ability_status;
+    msg.seq = 0;
+    msg.data = {
+        {"status", status},
+        {"ability_type", ability_type},
+        {"cooldown_remaining_sec", cooldown_remaining_sec}
+    };
+    return msg;
 }
 
 }  // namespace hb::network

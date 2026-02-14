@@ -909,11 +909,30 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             for (int16_t i = 0; i < inv->capacity(); ++i) {
                 const auto* slot = inv->get_slot(i);
                 if (slot && !slot->is_empty()) {
+                    // Look up item instance for attribute and name
+                    std::string item_name;
+                    item::item_attribute attr;
+                    int16_t dur = 0, max_dur = 0;
+                    if (item_) {
+                        if (auto* itm = item_->get_item(slot->item)) {
+                            attr = itm->attribute;
+                            dur = static_cast<int16_t>(itm->durability);
+                            max_dur = static_cast<int16_t>(itm->max_durability);
+                            if (item_registry_) {
+                                if (auto* tmpl = item_registry_->get(itm->template_id)) {
+                                    item_name = network::get_display_name(tmpl->name, attr);
+                                }
+                            }
+                        }
+                    }
                     inventory_list.push_back({
                         .slot = static_cast<uint8_t>(i),
                         .item_id = slot->item.value,
-                        .name = "",  // TODO: Get from item registry
-                        .count = slot->count
+                        .name = std::move(item_name),
+                        .count = slot->count,
+                        .durability = dur,
+                        .max_durability = max_dur,
+                        .attribute = attr
                     });
                 }
             }
@@ -927,14 +946,28 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         auto* player = players_->get_player(live_player_id);
         if (player) {
             for (size_t i = 0; i < player::equip_slot_count; ++i) {
-                const auto& item = player->equipment.slots[i];
-                if (!item.is_empty()) {
+                const auto& eq = player->equipment.slots[i];
+                if (!eq.is_empty()) {
+                    // Look up item instance for attribute and name
+                    std::string item_name;
+                    item::item_attribute attr;
+                    if (item_) {
+                        if (auto* itm = item_->get_item(eq.id)) {
+                            attr = itm->attribute;
+                            if (item_registry_) {
+                                if (auto* tmpl = item_registry_->get(itm->template_id)) {
+                                    item_name = network::get_display_name(tmpl->name, attr);
+                                }
+                            }
+                        }
+                    }
                     equipment_list.push_back({
                         .slot = static_cast<uint8_t>(i),
-                        .item_id = item.id.value,
-                        .name = "",  // TODO: Get from item registry
-                        .durability = static_cast<int16_t>(item.durability),
-                        .max_durability = static_cast<int16_t>(item.max_durability)
+                        .item_id = eq.id.value,
+                        .name = std::move(item_name),
+                        .durability = static_cast<int16_t>(eq.durability),
+                        .max_durability = static_cast<int16_t>(eq.max_durability),
+                        .attribute = attr
                     });
                 }
             }

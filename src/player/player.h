@@ -12,6 +12,7 @@
 #include "player/equipment.h"
 #include "skill/skill.h"
 #include "crafting/fishing_config.h"
+#include "item/special_ability.h"
 
 #include <string>
 #include <array>
@@ -238,6 +239,10 @@ struct player {
     entity::entity target{};
     std::chrono::steady_clock::time_point last_attack_time{};
     std::chrono::steady_clock::time_point last_hit_time{};
+    int32_t super_attack_charges{0};  // From charge_critical enchantment
+
+    // Special ability (SPECABLTY items)
+    item::special_ability_state special_ability{};
 
     // Potion anti-cheat
     potion_speed_tracker potion_tracker;

@@ -131,6 +131,88 @@ auto deserialize_equipment(const std::string& json_str) -> player::equipment_sta
     return equipment;
 }
 
+auto serialize_equipment_with_attributes(
+    const player::equipment_state& equipment,
+    const std::vector<equipment_slot_attribute>& attributes) -> std::string
+{
+    nlohmann::json j = nlohmann::json::array();
+
+    for (size_t i = 0; i < player::equip_slot_count; ++i) {
+        const auto& item = equipment.slots[i];
+        if (!item.is_empty()) {
+            nlohmann::json slot_obj = {
+                {"slot", static_cast<int>(i)},
+                {"item_id", item.id.value},
+                {"durability", item.durability},
+                {"max_durability", item.max_durability}
+            };
+
+            // Find attribute for this slot
+            for (const auto& attr : attributes) {
+                if (attr.slot == i && !attr.attribute.is_empty()) {
+                    slot_obj["attribute"] = attr.attribute.to_json();
+                    break;
+                }
+            }
+
+            j.push_back(slot_obj);
+        }
+    }
+
+    return j.dump();
+}
+
+auto deserialize_equipment_with_attributes(const std::string& json_str) -> equipment_with_attributes
+{
+    equipment_with_attributes result;
+
+    if (json_str.empty()) {
+        return result;
+    }
+
+    if (json_str[0] != '[' && json_str[0] != '{') {
+        LOG_DEBUG(auth, "Equipment data is not valid JSON (starts with '{}')", json_str[0]);
+        return result;
+    }
+
+    try {
+        auto j = nlohmann::json::parse(json_str);
+
+        if (!j.is_array()) {
+            LOG_WARN(auth, "Invalid equipment data format: not an array");
+            return result;
+        }
+
+        for (const auto& item_obj : j) {
+            if (!item_obj.contains("slot") || !item_obj.contains("item_id")) {
+                continue;
+            }
+
+            auto slot_idx = item_obj["slot"].get<int>();
+            if (slot_idx < 0 || slot_idx >= static_cast<int>(player::equip_slot_count)) {
+                continue;
+            }
+
+            auto& slot = result.equipment.slots[static_cast<size_t>(slot_idx)];
+            slot.id = item_id{item_obj["item_id"].get<uint32_t>()};
+            slot.durability = item_obj.value("durability", static_cast<uint16_t>(100));
+            slot.max_durability = item_obj.value("max_durability", static_cast<uint16_t>(100));
+
+            // Parse optional attribute
+            if (item_obj.contains("attribute") && item_obj["attribute"].is_object()) {
+                equipment_slot_attribute attr;
+                attr.slot = static_cast<size_t>(slot_idx);
+                attr.attribute = item::item_attribute::from_json(item_obj["attribute"]);
+                result.attributes.push_back(attr);
+            }
+        }
+    } catch (const nlohmann::json::exception& e) {
+        LOG_WARN(auth, "Failed to parse equipment data: {}", e.what());
+    }
+
+    return result;
+}
+
 auto serialize_inventory(const inventory::inventory& inv) -> std::string {
     nlohmann::json j = nlohmann::json::array();
 
@@ -204,6 +286,87 @@ auto get_inventory_data(const inventory::inventory& inv) -> std::vector<inventor
     }
 
     return data;
+}
+
+auto serialize_inventory_with_attributes(
+    const inventory::inventory& inv,
+    const std::vector<inventory_slot_attribute>& attributes) -> std::string
+{
+    nlohmann::json j = nlohmann::json::array();
+
+    for (int16_t i = 0; i < inv.capacity(); ++i) {
+        const auto* slot = inv.get_slot(i);
+        if (slot && !slot->is_empty()) {
+            nlohmann::json slot_obj = {
+                {"slot", i},
+                {"item_id", slot->item.value},
+                {"count", slot->count}
+            };
+
+            // Find attribute for this slot
+            for (const auto& attr : attributes) {
+                if (attr.slot == i && !attr.attribute.is_empty()) {
+                    slot_obj["attribute"] = attr.attribute.to_json();
+                    break;
+                }
+            }
+
+            j.push_back(slot_obj);
+        }
+    }
+
+    return j.dump();
+}
+
+void deserialize_inventory_with_attributes(const std::string& json_str,
+    inventory::inventory& inv,
+    std::vector<inventory_slot_attribute>& attributes)
+{
+    inv.clear_all();
+    attributes.clear();
+
+    if (json_str.empty()) {
+        return;
+    }
+
+    if (json_str[0] != '[' && json_str[0] != '{') {
+        LOG_DEBUG(auth, "Inventory data is not valid JSON (starts with '{}')", json_str[0]);
+        return;
+    }
+
+    try {
+        auto j = nlohmann::json::parse(json_str);
+
+        if (!j.is_array()) {
+            LOG_WARN(auth, "Invalid inventory data format: not an array");
+            return;
+        }
+
+        for (const auto& item_obj : j) {
+            if (!item_obj.contains("slot") || !item_obj.contains("item_id")) {
+                continue;
+            }
+
+            auto slot_idx = item_obj["slot"].get<int16_t>();
+            auto* slot = inv.get_slot(slot_idx);
+            if (!slot) {
+                continue;
+            }
+
+            slot->item = item_id{item_obj["item_id"].get<uint32_t>()};
+            slot->count = item_obj.value("count", static_cast<int16_t>(1));
+
+            // Parse optional attribute
+            if (item_obj.contains("attribute") && item_obj["attribute"].is_object()) {
+                inventory_slot_attribute attr;
+                attr.slot = slot_idx;
+                attr.attribute = item::item_attribute::from_json(item_obj["attribute"]);
+                attributes.push_back(attr);
+            }
+        }
+    } catch (const nlohmann::json::exception& e) {
+        LOG_WARN(auth, "Failed to parse inventory data: {}", e.what());
+    }
 }
 
 auto serialize_magic(const std::vector<magic::spell_knowledge>& spells) -> std::string {

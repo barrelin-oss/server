@@ -4,6 +4,7 @@
 // Item instance and properties
 
 #include "core/types.h"
+#include "item/item_attribute.h"
 
 #include <string>
 #include <array>
@@ -146,6 +147,9 @@ struct item {
 
     // Effects
     std::array<item_effect, max_item_effects> effects{};
+
+    // Per-instance attribute (upgrade level, enchantments, custom-made)
+    item_attribute attribute{};
 
     // Flags
     bool bound{false};           // Soulbound

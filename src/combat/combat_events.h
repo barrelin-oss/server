@@ -4,6 +4,7 @@
 // Combat system events
 
 #include "entity/entity.h"
+#include "item/item_attribute.h"
 #include "world/position.h"
 
 #include <cstdint>
@@ -137,6 +138,10 @@ struct combat_context {
     bool ignore_defense{false};
     bool guaranteed_hit{false};
     bool guaranteed_critical{false};
+
+    // Weapon enchantment (from attacker's equipped weapon attribute)
+    hb::item::enchantment_type weapon_enchantment{hb::item::enchantment_type::none};
+    uint8_t weapon_enchantment_value{0};
 };
 
 }  // namespace hb::combat

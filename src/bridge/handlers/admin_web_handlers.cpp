@@ -1128,6 +1128,7 @@ void admin_web_handlers::handle_give_item(connection_id conn_id, const network::
     create_info.template_id = item_id{req.item_template_id};
     create_info.count = req.count;
     create_info.owner = entity_id(plr->id.value);
+    create_info.attribute = req.attribute;
 
     auto create_result = item_->create_item(create_info);
     if (create_result.is_err()) {

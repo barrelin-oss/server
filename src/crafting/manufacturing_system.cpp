@@ -7,6 +7,7 @@
 #include "skill/skill_system.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
+#include "item/item_attribute.h"
 #include "core/logger.h"
 #include "perf/perf_stats.h"
 
@@ -161,6 +162,32 @@ auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index)
             if (item_result.is_ok())
             {
                 auto created_id = item_result.value();
+
+                // Apply crafting attributes to equipment items
+                auto* created_item = items_->get_item(created_id);
+                if (created_item && created_item->is_equipment())
+                {
+                    created_item->attribute.custom_made = true;
+
+                    // Quality based on skill surplus over requirement
+                    int quality_base = skill_level - recipe->skill_req;
+                    std::uniform_int_distribution<int> variance(-20, 20);
+                    int quality = quality_base + variance(rng);
+                    created_item->attribute.custom_quality =
+                        static_cast<int8_t>(std::clamp(quality, -100, 100));
+
+                    // Apply recipe enchantment if specified
+                    if (recipe->result_attribute != 0)
+                    {
+                        auto recipe_attr = item::item_attribute::from_legacy_dword(
+                            static_cast<uint32_t>(recipe->result_attribute) << 16);
+                        created_item->attribute.main_type = recipe_attr.main_type;
+                        created_item->attribute.main_value = recipe_attr.main_value;
+                        created_item->attribute.sub_type = recipe_attr.sub_type;
+                        created_item->attribute.sub_value = recipe_attr.sub_value;
+                    }
+                }
+
                 inventory_->add_item(player, created_id);
                 result.created_item = created_id;
                 result.success = true;

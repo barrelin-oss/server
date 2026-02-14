@@ -9,6 +9,7 @@
 
 #include "core/types.h"
 #include "npc/loot_config.h"
+#include "item/item_attribute.h"
 #include "registry/loot_registry.h"
 
 #include <cstdint>
@@ -52,13 +53,50 @@ inline auto pick_from_pool(const item_pool& pool) -> item_id
     return pool.items.back().item;
 }
 
+// Generate random item attribute from config
+inline auto generate_attribute(const loot_attribute_config& cfg) -> item::item_attribute
+{
+    item::item_attribute attr;
+
+    // Random upgrade level
+    if (cfg.max_upgrade_level > 0)
+    {
+        attr.upgrade_level = static_cast<uint8_t>(roll(0, cfg.max_upgrade_level));
+    }
+
+    // Main enchantment
+    if (cfg.enchantment_chance > 0 && roll(1, 100) <= cfg.enchantment_chance)
+    {
+        // Pick a random enchantment type (1-12)
+        attr.main_type = static_cast<item::enchantment_type>(roll(1, 12));
+        attr.main_value = static_cast<uint8_t>(roll(1, std::max<int>(1, cfg.max_enchantment_value)));
+    }
+
+    // Sub enchantment
+    if (cfg.sub_enchantment_chance > 0 && roll(1, 100) <= cfg.sub_enchantment_chance)
+    {
+        // Pick a random sub enchantment type (1-12)
+        attr.sub_type = static_cast<item::sub_enchantment_type>(roll(1, 12));
+        attr.sub_value = static_cast<uint8_t>(roll(1, std::max<int>(1, cfg.max_enchantment_value)));
+    }
+
+    return attr;
+}
+
 }  // namespace detail
+
+// A single dropped item with optional attribute
+struct loot_item_result
+{
+    item_id template_id{};
+    item::item_attribute attribute{};  // Empty unless attribute config was present
+};
 
 // Result of loot generation
 struct loot_result
 {
     int32_t gold{0};
-    std::vector<item_id> items;
+    std::vector<loot_item_result> items;
 };
 
 // NPC info needed for loot generation
@@ -108,10 +146,16 @@ inline auto generate_kill_loot(const loot_registry& reg,
             auto* pool = reg.get_pool(drop.pool_name);
             if (pool)
             {
-                auto item = detail::pick_from_pool(*pool);
-                if (item.is_valid())
+                auto tmpl_id = detail::pick_from_pool(*pool);
+                if (tmpl_id.is_valid())
                 {
-                    result.items.push_back(item);
+                    loot_item_result item_result;
+                    item_result.template_id = tmpl_id;
+                    if (drop.attribute.has_value())
+                    {
+                        item_result.attribute = detail::generate_attribute(*drop.attribute);
+                    }
+                    result.items.push_back(std::move(item_result));
                 }
             }
         }
@@ -147,10 +191,16 @@ inline auto generate_despawn_loot(const loot_registry& reg,
                 auto* pool = reg.get_pool(drop.pool_name);
                 if (pool)
                 {
-                    auto item = detail::pick_from_pool(*pool);
-                    if (item.is_valid())
+                    auto tmpl_id = detail::pick_from_pool(*pool);
+                    if (tmpl_id.is_valid())
                     {
-                        result.items.push_back(item);
+                        loot_item_result item_result;
+                        item_result.template_id = tmpl_id;
+                        if (drop.attribute.has_value())
+                        {
+                            item_result.attribute = detail::generate_attribute(*drop.attribute);
+                        }
+                        result.items.push_back(std::move(item_result));
                     }
                 }
             }

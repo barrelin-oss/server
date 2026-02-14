@@ -92,9 +92,10 @@ Result of an equip attempt.
     "success": true,
     "slot": 5,
     "item_id": 1234,
-    "item_name": "Iron Sword",
+    "item_name": "Iron Sword +3",
     "durability": 100,
     "max_durability": 100,
+    "attribute": {"upgrade": 3, "main_type": 7, "main_value": 1},
     "swapped_item_id": 1200,
     "swapped_to_inv_slot": 3
   }
@@ -106,9 +107,10 @@ Result of an equip attempt.
 | `success` | bool | Whether equip succeeded |
 | `slot` | uint8 | Equipment slot |
 | `item_id` | uint32 | Equipped item ID |
-| `item_name` | string | Item display name |
+| `item_name` | string | Item display name (includes "+N" for upgraded items) |
 | `durability` | int16 | Current durability |
 | `max_durability` | int16 | Maximum durability |
+| `attribute` | object? | Item attributes (see [Item Attribute Object](items.md#item-attribute-object)) |
 | `swapped_item_id` | uint32? | Old item ID if slot was occupied |
 | `swapped_to_inv_slot` | uint8? | Inventory slot where old item went |
 | `unequipped_shield_id` | uint32? | Shield ID if 2H weapon forced removal |
@@ -149,11 +151,22 @@ Result of an unequip attempt.
     "success": true,
     "slot": 5,
     "item_id": 1234,
-    "item_name": "Iron Sword",
-    "inventory_slot": 3
+    "item_name": "Iron Sword +3",
+    "inventory_slot": 3,
+    "attribute": {"upgrade": 3, "main_type": 7, "main_value": 1}
   }
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether unequip succeeded |
+| `slot` | uint8 | Equipment slot |
+| `item_id` | uint32 | Unequipped item ID |
+| `item_name` | string | Item display name (includes "+N" for upgraded items) |
+| `inventory_slot` | uint8 | Inventory slot where item was placed |
+| `attribute` | object? | Item attributes (see [Item Attribute Object](items.md#item-attribute-object)) |
+| `error` | string? | Error code on failure |
 
 **Error codes:** `invalid_slot`, `slot_empty`, `inventory_full`, `player_dead`, `player_busy`
 

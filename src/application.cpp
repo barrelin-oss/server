@@ -659,6 +659,10 @@ void application::initialize() {
                 case network::json_message_type::player_use_item_request:
                 // Combat mode
                 case network::json_message_type::combat_mode_change_request:
+                // Item upgrade
+                case network::json_message_type::item_upgrade_request:
+                // Special ability
+                case network::json_message_type::activate_ability_request:
                 // Respawn
                 case network::json_message_type::respawn_request:
                     game_handlers_->handle_message(conn_id, msg);

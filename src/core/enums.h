@@ -274,7 +274,25 @@ enum class item_log_type : uint8_t {
     poisoned = 15,
     magic_learn = 16,
     repair = 17,
-    use = 32
+    use = 32,
+
+    // Gold-specific types
+    quest_reward = 40,
+    gold_loot = 41,
+    gold_trade_send = 42,
+    gold_trade_receive = 43,
+    gold_shop_spend = 44,
+    gold_shop_earn = 45,
+
+    // Future: guild bank + mail
+    guild_bank_deposit = 50,
+    guild_bank_withdraw = 51,
+    mail_send = 60,
+    mail_receive = 61,
+
+    // Admin actions
+    admin_spawn = 70,
+    admin_remove = 71,
 };
 
 // Motion confirmation states

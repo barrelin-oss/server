@@ -10,6 +10,7 @@
 #include <string>
 #include <array>
 #include <cstdint>
+#include <optional>
 
 namespace hb {
 
@@ -128,6 +129,9 @@ struct item_template {
 
     // Special ability (SPECABLTY items - legacy effect types 24/25)
     item::special_ability_type special_ability{item::special_ability_type::none};
+
+    // Audit override: if set, overrides category-based audit default
+    std::optional<bool> audit_override;
 
     // Helper methods
     [[nodiscard]] auto is_weapon() const -> bool {

@@ -213,9 +213,17 @@ CREATE TABLE IF NOT EXISTS item_log (
     action_type     SMALLINT NOT NULL,
     quantity        INTEGER DEFAULT 1,
     other_char_id   INTEGER,
+    gold_amount     INTEGER DEFAULT 0,
+    map_name        VARCHAR(32),
+    pos_x           SMALLINT,
+    pos_y           SMALLINT,
     timestamp       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     details         JSONB
 );
+CREATE INDEX IF NOT EXISTS idx_item_log_action ON item_log(action_type);
+CREATE INDEX IF NOT EXISTS idx_item_log_item_name ON item_log(item_name);
+CREATE INDEX IF NOT EXISTS idx_item_log_character ON item_log(character_id);
+CREATE INDEX IF NOT EXISTS idx_item_log_timestamp ON item_log(timestamp);
 
 -- Chat log for moderation
 CREATE TABLE IF NOT EXISTS chat_log (

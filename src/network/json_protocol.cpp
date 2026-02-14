@@ -342,6 +342,8 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"admin_war_history_response", json_message_type::admin_war_history_response},
     {"admin_war_participants_request", json_message_type::admin_war_participants_request},
     {"admin_war_participants_response", json_message_type::admin_war_participants_response},
+    {"admin_item_log_request", json_message_type::admin_item_log_request},
+    {"admin_item_log_response", json_message_type::admin_item_log_response},
     {"crusade_mp_restore", json_message_type::crusade_mp_restore},
     {"crusade_set_guild_teleport_request", json_message_type::crusade_set_guild_teleport_request},
     {"crusade_set_guild_teleport_response", json_message_type::crusade_set_guild_teleport_response},
@@ -4207,6 +4209,45 @@ auto admin_perf_stats_request_data::from_json(const nlohmann::json& j)
     if (j.contains("include_gauges") && j["include_gauges"].is_boolean())
         data.include_gauges = j["include_gauges"].get<bool>();
     return result<admin_perf_stats_request_data, std::string>::ok(std::move(data));
+}
+
+// === Item audit log ===
+
+auto admin_item_log_request_data::from_json(const nlohmann::json& j)
+    -> result<admin_item_log_request_data, std::string>
+{
+    admin_item_log_request_data data;
+    if (j.contains("player_name") && j["player_name"].is_string())
+        data.player_name = j["player_name"].get<std::string>();
+    if (j.contains("item_name") && j["item_name"].is_string())
+        data.item_name = j["item_name"].get<std::string>();
+    if (j.contains("action_type") && j["action_type"].is_number())
+        data.action_type = j["action_type"].get<int32_t>();
+    if (j.contains("limit") && j["limit"].is_number())
+        data.limit = j["limit"].get<int32_t>();
+    if (j.contains("offset") && j["offset"].is_number())
+        data.offset = j["offset"].get<int32_t>();
+    return result<admin_item_log_request_data, std::string>::ok(std::move(data));
+}
+
+auto make_admin_item_log_response(uint32_t seq, bool success,
+    const nlohmann::json& entries, int32_t total,
+    const std::string& error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+    if (success) {
+        data["entries"] = entries;
+        data["total"] = total;
+    } else {
+        data["error"] = error;
+    }
+
+    return json_message{
+        .type = json_message_type::admin_item_log_response,
+        .seq = seq,
+        .data = std::move(data)
+    };
 }
 
 // === Command list ===

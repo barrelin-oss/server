@@ -48,6 +48,7 @@
 #include "war/crusade/crusade_system.h"
 #include "bridge/handlers/entity_builders.h"
 #include "effect/effect_system.h"
+#include "audit/item_audit_system.h"
 
 #include <chrono>
 #include <random>
@@ -85,7 +86,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 crafting::fishing_system* fishing,
                                 war::crusade_system* crusade,
                                 effect::effect_system* effects,
-                                item_registry* item_reg) {
+                                item_registry* item_reg,
+                                audit::item_audit_system* audit) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -109,6 +111,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     crusade_ = crusade;
     effects_ = effects;
     item_registry_ = item_reg;
+    audit_ = audit;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -1513,6 +1516,20 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     // Broadcast item removal to nearby players
     broadcast_ground_item_removed(pid, player->current_map, player->pos, picked_item_id);
 
+    // Audit item pickup
+    if (audit_ && item_) {
+        auto* itm = item_->get_item(picked_item_id);
+        if (itm && itm->audited) {
+            std::string map_name;
+            if (auto* map = world_->get_map(player->current_map)) {
+                map_name = map->name();
+            }
+            audit_->log_item(player->character_id.value, itm->name,
+                picked_item_id.value, item_log_type::get,
+                itm->count, 0, map_name, player->pos.x, player->pos.y);
+        }
+    }
+
     LOG_INFO(bridge, "Player {} picked up item {} ({}) at ({}, {})",
         pid.value, picked_item_id.value, item_name, player->pos.x, player->pos.y);
 }
@@ -1832,6 +1849,18 @@ void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_m
             tmpl->name, count, total_price, inventory_->get_gold(owner_id)));
     }
 
+    // Audit shop buy
+    if (audit_) {
+        auto* bought = item_->get_item(new_item_id);
+        if (bought && bought->audited) {
+            audit_->log_item(check.plr->character_id.value, tmpl->name,
+                new_item_id.value, item_log_type::buy, count);
+        }
+        audit_->log_gold(check.plr->character_id.value, item_log_type::gold_shop_spend,
+            -total_price, 0, {}, 0, 0,
+            {{"item", tmpl->name}, {"count", count}});
+    }
+
     LOG_DEBUG(bridge, "Player {} bought {}x '{}' for {} gold",
         check.plr->id.value, count, tmpl->name, total_price);
 }
@@ -1977,6 +2006,11 @@ void game_handlers::handle_shop_sell_confirm(connection_id conn_id, const networ
         return;
     }
 
+    // Save audit data before destroying item
+    std::string sold_item_name = itm->name;
+    int16_t sold_count = itm->count;
+    bool sold_audited = itm->audited;
+
     // Remove item from inventory
     inv->clear_slot(data.inventory_slot);
     item_->destroy_item(sell_item_id);
@@ -1988,6 +2022,17 @@ void game_handlers::handle_shop_sell_confirm(connection_id conn_id, const networ
     if (conn) {
         conn->send(network::make_shop_sell_confirm_response(msg.seq, true,
             sell_price, inventory_->get_gold(owner_id)));
+    }
+
+    // Audit shop sell
+    if (audit_) {
+        if (sold_audited) {
+            audit_->log_item(check.plr->character_id.value, sold_item_name,
+                sell_item_id.value, item_log_type::sell, sold_count);
+        }
+        audit_->log_gold(check.plr->character_id.value, item_log_type::gold_shop_earn,
+            sell_price, 0, {}, 0, 0,
+            {{"item", sold_item_name}});
     }
 
     LOG_DEBUG(bridge, "Player {} sold item for {} gold", check.plr->id.value, sell_price);
@@ -2124,6 +2169,17 @@ void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const netw
             new_dur, repair_cost, inventory_->get_gold(owner_id)));
     }
 
+    // Audit repair gold spend
+    if (audit_) {
+        if (itm && itm->audited) {
+            audit_->log_item(check.plr->character_id.value, itm->name,
+                slot->item.value, item_log_type::repair, 1);
+        }
+        audit_->log_gold(check.plr->character_id.value, item_log_type::gold_shop_spend,
+            -repair_cost, 0, {}, 0, 0,
+            {{"action", "repair"}, {"item", itm ? itm->name : "unknown"}});
+    }
+
     LOG_DEBUG(bridge, "Player {} repaired item for {} gold", check.plr->id.value, repair_cost);
 }
 
@@ -2165,8 +2221,13 @@ void game_handlers::handle_bank_deposit(connection_id conn_id, const network::js
     }
 
     std::string item_name;
-    if (auto* itm = item_->get_item(slot->item)) {
+    auto deposit_item_id = slot->item;
+    bool deposit_audited = false;
+    int16_t deposit_count = 1;
+    if (auto* itm = item_->get_item(deposit_item_id)) {
         item_name = itm->name;
+        deposit_audited = itm->audited;
+        deposit_count = itm->count;
     }
 
     auto result = inventory_->deposit_item(owner_id, data.inventory_slot);
@@ -2178,6 +2239,12 @@ void game_handlers::handle_bank_deposit(connection_id conn_id, const network::js
     auto* conn = ws_server_->get_connection(conn_id);
     if (conn) {
         conn->send(network::make_bank_deposit_response(msg.seq, true, item_name));
+    }
+
+    // Audit bank deposit
+    if (audit_ && deposit_audited) {
+        audit_->log_item(check.plr->character_id.value, item_name,
+            deposit_item_id.value, item_log_type::deposit, deposit_count);
     }
 
     LOG_DEBUG(bridge, "Player {} deposited '{}'", check.plr->id.value, item_name);
@@ -2221,8 +2288,13 @@ void game_handlers::handle_bank_withdraw(connection_id conn_id, const network::j
     }
 
     std::string item_name;
-    if (auto* itm = item_->get_item(slot->item)) {
+    auto withdraw_item_id = slot->item;
+    bool withdraw_audited = false;
+    int16_t withdraw_count = 1;
+    if (auto* itm = item_->get_item(withdraw_item_id)) {
         item_name = itm->name;
+        withdraw_audited = itm->audited;
+        withdraw_count = itm->count;
     }
 
     auto result = inventory_->withdraw_item(owner_id, data.bank_slot);
@@ -2238,6 +2310,12 @@ void game_handlers::handle_bank_withdraw(connection_id conn_id, const network::j
     auto* conn = ws_server_->get_connection(conn_id);
     if (conn) {
         conn->send(network::make_bank_withdraw_response(msg.seq, true, item_name));
+    }
+
+    // Audit bank withdraw
+    if (audit_ && withdraw_audited) {
+        audit_->log_item(check.plr->character_id.value, item_name,
+            withdraw_item_id.value, item_log_type::retrieve, withdraw_count);
     }
 
     LOG_DEBUG(bridge, "Player {} withdrew '{}'", check.plr->id.value, item_name);
@@ -3944,6 +4022,14 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
 
     const auto& eff = tmpl->use_effect;
 
+    // Save pre-use state for audit
+    auto use_item_id = slot->item;
+    int16_t pre_use_count = slot->count;
+    bool use_audited = false;
+    if (auto* use_itm = item_ ? item_->get_item(use_item_id) : nullptr) {
+        use_audited = use_itm->audited;
+    }
+
     // Get current map for restriction checks
     auto* current_map = world_ ? world_->get_map(plr->current_map) : nullptr;
 
@@ -4063,6 +4149,16 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
         default:
             conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "unsupported_item_type"));
             break;
+    }
+
+    // Audit item use (check if count changed = item was consumed)
+    if (audit_ && use_audited) {
+        int16_t post_count = slot->is_empty() ? 0 : slot->count;
+        if (post_count < pre_use_count) {
+            audit_->log_item(plr->character_id.value, tmpl->name,
+                use_item_id.value, item_log_type::use,
+                pre_use_count - post_count);
+        }
     }
 }
 
@@ -4896,6 +4992,18 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
     if (drop.gold > 0 && inventory_) {
         auto killer_entity = entity_id{killer.id};
         inventory_->add_gold(killer_entity, drop.gold);
+
+        // Audit gold loot
+        if (audit_) {
+            if (auto* plr = players_ ? players_->get_player(player_id{killer.id}) : nullptr) {
+                std::string map_str;
+                if (auto* map = world_->get_map(npc_map)) map_str = map->name();
+                audit_->log_gold(plr->character_id.value, item_log_type::gold_loot,
+                    drop.gold, 0, map_str, npc_pos.x, npc_pos.y,
+                    {{"npc", npc_name}});
+            }
+        }
+
         LOG_DEBUG(bridge, "NPC '{}' dropped {} gold to killer {}", npc_name, drop.gold, killer.id);
     }
 
@@ -5759,6 +5867,17 @@ void game_handlers::handle_manufacture_request(connection_id conn_id,
     conn->send(network::make_manufacture_response(
         msg.seq, result.success, item_name));
 
+    // Audit crafted item
+    if (result.success && audit_ && result.created_item.is_valid()) {
+        if (auto* crafted = item_ ? item_->get_item(result.created_item) : nullptr) {
+            if (crafted->audited) {
+                audit_->log_item(players_->get_player(pid)->character_id.value,
+                    item_name.empty() ? crafted->name : item_name,
+                    result.created_item.value, item_log_type::make, 1);
+            }
+        }
+    }
+
     // Fire quest event on success
     if (result.success && quests_ && result.created_item.is_valid()) {
         quests_->on_item_crafted({
@@ -5847,6 +5966,17 @@ void game_handlers::handle_alchemy_request(connection_id conn_id,
 
     conn->send(network::make_alchemy_response(
         msg.seq, result.success, item_name));
+
+    // Audit crafted item
+    if (result.success && audit_ && result.created_item.is_valid()) {
+        if (auto* crafted = item_ ? item_->get_item(result.created_item) : nullptr) {
+            if (crafted->audited) {
+                audit_->log_item(players_->get_player(pid)->character_id.value,
+                    item_name.empty() ? crafted->name : item_name,
+                    result.created_item.value, item_log_type::make, 1);
+            }
+        }
+    }
 
     // Fire quest event on success
     if (result.success && quests_ && result.created_item.is_valid()) {

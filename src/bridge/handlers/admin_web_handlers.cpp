@@ -42,6 +42,7 @@
 #include "skill/skill_system.h"
 #include "skill/skill.h"
 #include "perf/perf_stats.h"
+#include "audit/item_audit_system.h"
 #include "application.h"
 
 namespace hb::bridge {
@@ -97,7 +98,8 @@ void admin_web_handlers::initialize(
     magic::magic_system* magic,
     quest::quest_system* quest,
     skill::skill_system* skill,
-    perf::perf_stats_system* perf_stats)
+    perf::perf_stats_system* perf_stats,
+    audit::item_audit_system* audit)
 {
     ws_server_ = ws_server;
     auth_ = auth;
@@ -120,6 +122,7 @@ void admin_web_handlers::initialize(
     quest_ = quest;
     skill_ = skill;
     perf_stats_ = perf_stats;
+    audit_ = audit;
 }
 
 void admin_web_handlers::handle_message(connection_id conn_id, const network::json_message& msg)
@@ -188,6 +191,7 @@ void admin_web_handlers::handle_message(connection_id conn_id, const network::js
         case mt::admin_create_character_request_admin: handle_create_character_admin(conn_id, msg); break;
         case mt::admin_delete_character_request_admin: handle_delete_character_admin(conn_id, msg); break;
         case mt::admin_manage_ip_bans_request:       handle_manage_ip_bans(conn_id, msg); break;
+        case mt::admin_item_log_request:             handle_item_log(conn_id, msg); break;
         case mt::admin_perf_stats_request:           handle_perf_stats(conn_id, msg); break;
         case mt::admin_start_war_request:            handle_start_war(conn_id, msg); break;
         case mt::admin_end_war_request:              handle_end_war(conn_id, msg); break;
@@ -1153,6 +1157,12 @@ void admin_web_handlers::handle_give_item(connection_id conn_id, const network::
         if (tmpl) item_name = tmpl->name;
     }
 
+    // Audit admin give (always log, ignore audit flag)
+    if (audit_) {
+        audit_->log_item(plr->character_id.value, item_name,
+            new_item_id.value, item_log_type::admin_spawn, req.count);
+    }
+
     LOG_INFO(admin, "Admin gave '{}' x{} to '{}'", item_name, req.count, req.player_name);
     audit_log(conn_id, "give_item " + item_name + " x" + std::to_string(req.count) + " to " + req.player_name);
 
@@ -1201,16 +1211,25 @@ void admin_web_handlers::handle_remove_item(connection_id conn_id, const network
         return;
     }
 
-    std::string item_name = "Item#" + std::to_string(slot->item.value);
+    auto removed_item_id = slot->item;
+    std::string item_name = "Item#" + std::to_string(removed_item_id.value);
     if (item_registry_) {
-        auto* tmpl = item_registry_->get(slot->item);
+        auto* tmpl = item_registry_->get(removed_item_id);
         if (tmpl) item_name = tmpl->name;
     }
+
+    int32_t removed_count = (req.count <= 0 || req.count >= slot->count) ? slot->count : req.count;
 
     if (req.count <= 0 || req.count >= slot->count) {
         slot->clear();
     } else {
         slot->count -= req.count;
+    }
+
+    // Audit admin remove (always log, ignore audit flag)
+    if (audit_) {
+        audit_->log_item(plr->character_id.value, item_name,
+            removed_item_id.value, item_log_type::admin_remove, removed_count);
     }
 
     LOG_INFO(admin, "Admin removed '{}' from '{}' slot {}",
@@ -3866,6 +3885,85 @@ void admin_web_handlers::handle_manage_ip_bans(connection_id conn_id, const netw
     ws_server_->send(conn_id, network::make_admin_response(
         network::json_message_type::admin_manage_ip_bans_response,
         msg.seq, true, data));
+}
+
+// === Item Audit Log ===
+
+void admin_web_handlers::handle_item_log(connection_id conn_id, const network::json_message& msg)
+{
+    if (!require_admin(conn_id, msg.seq)) return;
+
+    if (!audit_) {
+        ws_server_->send(conn_id, network::make_admin_item_log_response(
+            msg.seq, false, {}, 0, "Audit system not available"));
+        return;
+    }
+
+    auto parse = network::admin_item_log_request_data::from_json(msg.data);
+    if (parse.is_err()) {
+        ws_server_->send(conn_id, network::make_admin_item_log_response(
+            msg.seq, false, {}, 0, parse.error()));
+        return;
+    }
+
+    auto& req = parse.value();
+
+    // Resolve player name to character_id
+    audit::item_log_query query;
+    if (!req.player_name.empty() && players_) {
+        auto* plr = players_->get_player_by_name(req.player_name);
+        if (plr) {
+            query.character_id = plr->character_id.value;
+        } else {
+            // Try DB lookup if player is offline
+            if (db_) {
+                auto result = db_->execute_params(
+                    "SELECT id FROM characters WHERE name = $1",
+                    req.player_name);
+                if (result.is_ok() && !result.value().empty()) {
+                    query.character_id = result.value().get<int32_t>(0, 0);
+                }
+            }
+            if (query.character_id == 0) {
+                ws_server_->send(conn_id, network::make_admin_item_log_response(
+                    msg.seq, false, {}, 0, "Player not found"));
+                return;
+            }
+        }
+    }
+
+    query.item_name = req.item_name;
+    query.action_type = req.action_type;
+    query.limit = req.limit;
+    query.offset = req.offset;
+
+    auto logs = audit_->query_logs(query);
+
+    nlohmann::json entries = nlohmann::json::array();
+    for (const auto& log : logs) {
+        entries.push_back({
+            {"id", log.id},
+            {"character_id", log.character_id},
+            {"character_name", log.character_name},
+            {"item_name", log.item_name},
+            {"item_id", log.item_id},
+            {"action_type", log.action_type},
+            {"quantity", log.quantity},
+            {"gold_amount", log.gold_amount},
+            {"other_char_id", log.other_char_id},
+            {"other_char_name", log.other_char_name},
+            {"map_name", log.map_name},
+            {"pos_x", log.pos_x},
+            {"pos_y", log.pos_y},
+            {"timestamp", log.timestamp},
+            {"details", log.details}
+        });
+    }
+
+    ws_server_->send(conn_id, network::make_admin_item_log_response(
+        msg.seq, true, entries, static_cast<int32_t>(entries.size())));
+
+    audit_log(conn_id, "query_item_log");
 }
 
 // === Performance Stats ===

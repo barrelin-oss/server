@@ -207,6 +207,10 @@ set(AUTH_SOURCES
     src/auth/character_serialization.cpp
 )
 
+set(AUDIT_SOURCES
+    src/audit/item_audit_system.cpp
+)
+
 set(BRIDGE_SOURCES
     src/bridge/message_router.cpp
     src/bridge/handler_registry.cpp
@@ -255,6 +259,7 @@ add_library(hgserver_core STATIC
     ${ADMIN_SOURCES}
     ${DATABASE_SOURCES}
     ${AUTH_SOURCES}
+    ${AUDIT_SOURCES}
     ${BRIDGE_SOURCES}
 )
 
@@ -381,6 +386,7 @@ add_executable(hgserver_tests
     tests/crafting_attribute_test.cpp
     tests/special_ability_test.cpp
     tests/loot_attribute_test.cpp
+    tests/item_audit_test.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

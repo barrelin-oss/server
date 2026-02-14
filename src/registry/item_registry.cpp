@@ -220,6 +220,9 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path)
             if (node["special_ability"])
                 item.special_ability = static_cast<item::special_ability_type>(node["special_ability"].as<int>());
 
+            // Audit override (per-template)
+            if (node["audited"]) item.audit_override = node["audited"].as<bool>();
+
             // Mark consumable types
             if (item.type == item_type::eat || item.type == item_type::use_deplete) {
                 item.is_consumable = true;

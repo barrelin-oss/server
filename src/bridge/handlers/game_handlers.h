@@ -103,6 +103,10 @@ namespace hb::war {
     class crusade_system;
 }
 
+namespace hb::audit {
+    class item_audit_system;
+}
+
 namespace hb::bridge {
 
 // Game message handler
@@ -141,7 +145,8 @@ public:
                     crafting::fishing_system* fishing = nullptr,
                     war::crusade_system* crusade = nullptr,
                     effect::effect_system* effects = nullptr,
-                    item_registry* item_reg = nullptr);
+                    item_registry* item_reg = nullptr,
+                    audit::item_audit_system* audit = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -425,6 +430,7 @@ private:
     war::crusade_system* crusade_{nullptr};
     effect::effect_system* effects_{nullptr};
     item_registry* item_registry_{nullptr};
+    audit::item_audit_system* audit_{nullptr};
     save_player_callback save_callback_;
 };
 

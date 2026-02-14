@@ -409,6 +409,10 @@ enum class json_message_type {
     admin_war_participants_request, // C->S: Get participants for a specific war
     admin_war_participants_response,// S->C: Participant list
 
+    // Item audit log
+    admin_item_log_request,        // C->S: Query item/gold audit logs
+    admin_item_log_response,       // S->C: Paginated log results
+
     // Crusade guild teleport
     crusade_set_guild_teleport_request,  // C->S: Commander sets guild teleport location
     crusade_set_guild_teleport_response, // S->C: Result
@@ -766,6 +770,8 @@ enum class json_message_type {
         case json_message_type::admin_war_history_response: return "admin_war_history_response";
         case json_message_type::admin_war_participants_request: return "admin_war_participants_request";
         case json_message_type::admin_war_participants_response: return "admin_war_participants_response";
+        case json_message_type::admin_item_log_request: return "admin_item_log_request";
+        case json_message_type::admin_item_log_response: return "admin_item_log_response";
         case json_message_type::crusade_set_guild_teleport_request: return "crusade_set_guild_teleport_request";
         case json_message_type::crusade_set_guild_teleport_response: return "crusade_set_guild_teleport_response";
         case json_message_type::crusade_guild_teleport_request: return "crusade_guild_teleport_request";
@@ -2674,6 +2680,24 @@ struct admin_perf_stats_request_data {
     [[nodiscard]] static auto from_json(const nlohmann::json& j)
         -> result<admin_perf_stats_request_data, std::string>;
 };
+
+// === Item audit log data structures ===
+
+struct admin_item_log_request_data
+{
+    std::string player_name;     // optional filter
+    std::string item_name;       // optional filter
+    int32_t action_type{0};      // optional filter (0 = any)
+    int32_t limit{50};
+    int32_t offset{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<admin_item_log_request_data, std::string>;
+};
+
+auto make_admin_item_log_response(uint32_t seq, bool success,
+    const nlohmann::json& entries, int32_t total = 0,
+    const std::string& error = {}) -> json_message;
 
 // === Command list data structures and builders ===
 

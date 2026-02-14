@@ -156,6 +156,7 @@ struct item {
     bool tradeable{true};        // Can be traded
     bool droppable{true};        // Can be dropped
     bool two_handed{false};      // Two-handed weapon
+    bool audited{false};         // Transaction logging enabled for this instance
 
     // Owner
     entity_id owner{};           // Current owner entity

@@ -21,6 +21,7 @@
 #include "crafting/mining_system.h"
 #include "crafting/fishing_system.h"
 #include "perf/perf_stats.h"
+#include "audit/item_audit_system.h"
 #include "registry/mining_registry.h"
 #include "registry/fishing_registry.h"
 #include "platform/clock.h"
@@ -236,6 +237,7 @@ void application::initialize() {
     subsystems().create_subsystem<fishing_registry>();
     subsystems().create_subsystem<crafting::fishing_system>();
     subsystems().create_subsystem<perf::perf_stats_system>();
+    subsystems().create_subsystem<audit::item_audit_system>();
 
     // Load configuration BEFORE initializing subsystems
     auto config_path = std::filesystem::path(config_.config_file);
@@ -356,6 +358,11 @@ void application::initialize() {
             }
         }
 
+        // Wire audit system
+        if (auto* audit_sys = subsystems().get<audit::item_audit_system>()) {
+            audit_sys->set_database(&db_sys);
+        }
+
         // Create and configure WebSocket server
         ws_server_ = std::make_unique<network::websocket_server>();
         network::websocket_config ws_config{
@@ -413,7 +420,8 @@ void application::initialize() {
             subsystems().get<crafting::fishing_system>(),
             subsystems().get<war::crusade_system>(),
             subsystems().get<effect::effect_system>(),
-            subsystems().get<item_registry>()
+            subsystems().get<item_registry>(),
+            subsystems().get<audit::item_audit_system>()
         );
 
         // Wire crusade system broadcast callbacks
@@ -487,7 +495,8 @@ void application::initialize() {
             subsystems().get<magic::magic_system>(),
             subsystems().get<quest::quest_system>(),
             subsystems().get<skill::skill_system>(),
-            subsystems().get<perf::perf_stats_system>()
+            subsystems().get<perf::perf_stats_system>(),
+            subsystems().get<audit::item_audit_system>()
         );
 
         // Wire war persistence to admin handlers
@@ -736,6 +745,7 @@ void application::initialize() {
                 case network::json_message_type::admin_end_war_request:
                 case network::json_message_type::admin_war_history_request:
                 case network::json_message_type::admin_war_participants_request:
+                case network::json_message_type::admin_item_log_request:
                     admin_web_handlers_->handle_message(conn_id, msg);
                     break;
 
@@ -777,6 +787,23 @@ void application::initialize() {
                 ws_config.bind_address, ws_config.port);
         } else {
             LOG_ERROR(general, "Failed to start WebSocket server: {}", ws_result.error());
+        }
+    }
+
+    // Register and start periodic audit flush
+    if (auto* audit_sys = subsystems().get<audit::item_audit_system>()) {
+        auto* sched = subsystems().get<scheduler>();
+        if (sched) {
+            sched->register_task("item_audit_flush",
+                "Periodic item audit log flush to database",
+                duration_ms{10000}, true,
+                [audit_sys]() -> task_callback {
+                    return [audit_sys]() {
+                        audit_sys->flush();
+                    };
+                });
+            sched->start_task("item_audit_flush");
+            LOG_INFO(general, "Item audit flush scheduled every 10 seconds");
         }
     }
 
@@ -872,6 +899,12 @@ void application::shutdown() {
         LOG_INFO(general, "Saving all players before shutdown...");
         auto saved = auth_handlers_->save_all_players();
         LOG_INFO(general, "Saved {} players", saved);
+    }
+
+    // Flush audit logs before shutdown
+    if (auto* audit_sys = subsystems().get<audit::item_audit_system>()) {
+        LOG_INFO(general, "Flushing item audit logs...");
+        audit_sys->flush();
     }
 
     // Stop WebSocket server if running

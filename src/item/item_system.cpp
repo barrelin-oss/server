@@ -310,6 +310,16 @@ void item_system::populate_from_template(item& itm, item_id template_id) {
     itm.droppable = tmpl->is_droppable;
     itm.two_handed = (itm.equip_position == equip_pos::twohand);
 
+    // Audit flag: equipment audited by default, override per-template
+    if (tmpl->audit_override.has_value())
+    {
+        itm.audited = *tmpl->audit_override;
+    }
+    else
+    {
+        itm.audited = itm.is_equipment();
+    }
+
     // Apply stat bonuses from template as effects
     size_t effect_idx = 0;
     auto add_effect = [&](item_effect_type type, int16_t value) {

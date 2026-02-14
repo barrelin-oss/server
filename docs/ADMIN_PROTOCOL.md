@@ -1578,3 +1578,79 @@ All filter fields default to `true` if omitted.
 **Counter categories:** `messages_received`, `messages_sent`, `bytes_received`, `bytes_sent`, `db_queries`
 
 Arrays only include categories with non-zero sample counts/totals. Gauges are updated once per tick.
+
+---
+
+### Item Audit Log
+
+**Request**: `admin_item_log_request` (admin level 10+)
+
+```json
+{
+  "type": "admin_item_log_request",
+  "seq": 42,
+  "data": {
+    "player_name": "PlayerOne",
+    "item_name": "Sword",
+    "action_type": 3,
+    "limit": 50,
+    "offset": 0
+  }
+}
+```
+
+All filter fields are optional. `action_type` values match the `item_log_type` enum (e.g., 3=get, 7=buy, 8=sell, 41=gold_loot, 70=admin_spawn).
+
+**Response**: `admin_item_log_response`
+
+```json
+{
+  "type": "admin_item_log_response",
+  "seq": 42,
+  "success": true,
+  "entries": [
+    {
+      "id": 1,
+      "character_id": 42,
+      "character_name": "PlayerOne",
+      "item_name": "Iron Sword +3",
+      "item_id": 100,
+      "action_type": 3,
+      "quantity": 1,
+      "gold_amount": 0,
+      "other_char_id": 0,
+      "other_char_name": "",
+      "map_name": "elvine",
+      "pos_x": 150,
+      "pos_y": 200,
+      "timestamp": "2026-02-14T12:00:00Z",
+      "details": {}
+    }
+  ],
+  "total": 1
+}
+```
+
+**Action type values:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 1 | give | Admin give (legacy) |
+| 2 | drop | Player dropped item |
+| 3 | get | Player picked up item |
+| 7 | buy | Bought from shop |
+| 8 | sell | Sold to shop |
+| 9 | retrieve | Withdrawn from bank |
+| 10 | deposit | Deposited to bank |
+| 11 | exchange | Player-to-player trade |
+| 13 | make | Crafted item |
+| 17 | repair | Repaired at shop |
+| 32 | use | Consumed item |
+| 40 | quest_reward | Quest reward (item or gold) |
+| 41 | gold_loot | Gold from NPC kill |
+| 42 | gold_trade_send | Gold sent in trade |
+| 43 | gold_trade_receive | Gold received in trade |
+| 44 | gold_shop_spend | Gold spent at shop |
+| 45 | gold_shop_earn | Gold earned from selling |
+| 70 | admin_spawn | Admin spawned item |
+| 71 | admin_remove | Admin removed item |

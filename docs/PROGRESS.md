@@ -337,6 +337,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Admin API phase 3 | ✅ | Audit log, config management, scheduler control, DB queries, NPC/ground item inspection, guild mutations, messaging, environment, shutdown |
 | Admin API phase 4 | ✅ | Skills/spells/quests/effects management, account/character CRUD, spawn/spell template browsing, maintenance mode, IP bans, enriched player/inventory/search |
 | Performance profiling | ✅ | Timing/counter/gauge metrics via `admin_perf_stats_request`, scoped timers on hot paths |
+| Item audit logging | ✅ | Buffered item/gold transaction logging with per-instance audit flag, admin query API |
 
 ---
 
@@ -461,6 +462,18 @@ Priority order for remaining work toward a playable game:
 - Display names: "+N" suffix for upgraded items (e.g., "Iron Sword +3")
 - 9 new protocol messages (upgrade, special ability, protocol sync)
 - ~150 new tests across 8 test files (2147 total)
+
+### 2026-02-14: Item Transaction Audit Logging
+- New `item_audit_system` subsystem with buffered, batched writes to `item_log` table
+- Extended `item_log` table with `gold_amount`, `map_name`, `pos_x`, `pos_y` columns + indexes
+- Extended `item_log_type` enum with gold-specific (40-45), guild bank (50-51), mail (60-61), admin (70-71) action types
+- Per-instance `audited` flag on items: equipment audited by default, consumables not, per-template YAML override
+- Instrumented 12 handler sites: pickup, shop buy/sell/repair, bank deposit/withdraw, crafting, alchemy, item use, NPC gold loot, admin give/remove
+- Gold transactions always logged unconditionally (no audit flag check)
+- Auto-flush every 10 seconds via scheduler + flush at 50 entries + flush on shutdown
+- Admin API: `admin_item_log_request/response` with player/item/action filters and pagination
+- DB migration `20260214_120000_add_item_audit_columns.sql`
+- 2 new protocol messages, 27 new tests (2174 total)
 
 ### 2026-02-14: Entity Appearance Data Expansion
 - Expanded `visible_entity_msg` with full player appearance: gender, skin, hair, underwear, level

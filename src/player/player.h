@@ -209,6 +209,7 @@ struct player {
     admin_level admin{admin_level::player};
 
     // Combat state
+    bool combat_mode{false};  // true = attack stance, false = peace mode
     entity::entity target{};
     std::chrono::steady_clock::time_point last_attack_time{};
     std::chrono::steady_clock::time_point last_hit_time{};

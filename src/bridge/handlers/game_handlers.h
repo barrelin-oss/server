@@ -13,6 +13,8 @@
 
 #include <optional>
 #include <functional>
+#include <vector>
+#include <string>
 
 namespace hb {
     class scheduler;
@@ -105,6 +107,9 @@ public:
     game_handlers();
     ~game_handlers();
 
+    // Command category for grouping
+    enum class command_category : uint8_t { general, guild, social, gm, admin };
+
     // Save player callback type
     using save_player_callback = std::function<void(player_id)>;
 
@@ -133,6 +138,29 @@ public:
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
+
+    // Command visibility predicate: returns true if command should be enabled
+    using command_visibility = std::function<bool(const player::player&, const social::social_system*)>;
+
+    struct command_descriptor {
+        std::string name;
+        std::string description;
+        std::string usage;
+        command_category category;
+        command_visibility enabled_check; // nullptr = always enabled
+    };
+
+    // Static command registry (built once on first use)
+    static auto get_player_commands() -> const std::vector<command_descriptor>&;
+
+    // Evaluate guild commands for a player, returns {name, enabled} pairs
+    auto evaluate_guild_commands(player_id pid) -> std::vector<std::pair<std::string, bool>>;
+
+    // Send full command list to a player (called on enter_game)
+    void send_available_commands(player_id pid, connection_id conn_id);
+
+    // Send guild command availability update to a player
+    void send_guild_command_update(player_id pid);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -215,6 +243,9 @@ private:
 
     // Item usage
     void handle_player_use_item(connection_id conn_id, const network::json_message& msg);
+
+    // Combat mode
+    void handle_combat_mode_change(connection_id conn_id, const network::json_message& msg);
 
     // Death/Respawn
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
@@ -306,6 +337,10 @@ private:
     auto get_respawn_position(const std::string& map_name) -> world::position;
     void execute_respawn(player_id pid, const std::string& map_name,
                          const world::position& pos);
+
+    // Player action broadcast (animation trigger for nearby clients)
+    void broadcast_player_action(const player::player& plr,
+                                 const network::player_action_broadcast_data& data);
 
     // Combat broadcast helpers
     void broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max);

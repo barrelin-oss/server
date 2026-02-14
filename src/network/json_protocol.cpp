@@ -370,7 +370,13 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"guild_info_response", json_message_type::guild_info_response},
     {"guild_update", json_message_type::guild_update},
     {"player_use_item_request", json_message_type::player_use_item_request},
-    {"player_use_item_response", json_message_type::player_use_item_response}
+    {"player_use_item_response", json_message_type::player_use_item_response},
+    {"available_commands", json_message_type::available_commands},
+    {"command_availability_update", json_message_type::command_availability_update},
+    {"combat_mode_change_request", json_message_type::combat_mode_change_request},
+    {"combat_mode_change_response", json_message_type::combat_mode_change_response},
+    {"combat_mode_change_broadcast", json_message_type::combat_mode_change_broadcast},
+    {"player_action_broadcast", json_message_type::player_action_broadcast}
 };
 
 }  // namespace
@@ -1108,6 +1114,7 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
         j["faction"] = faction;
         j["hostility"] = hostility;
         j["pk_status"] = pk_status;
+        j["combat_mode"] = combat_mode;
         if (!guild_name.empty()) {
             j["guild_name"] = guild_name;
             j["guild_tag"] = guild_tag;
@@ -4118,6 +4125,98 @@ auto admin_perf_stats_request_data::from_json(const nlohmann::json& j)
     if (j.contains("include_gauges") && j["include_gauges"].is_boolean())
         data.include_gauges = j["include_gauges"].get<bool>();
     return result<admin_perf_stats_request_data, std::string>::ok(std::move(data));
+}
+
+// === Command list ===
+
+auto command_entry_msg::to_json() const -> nlohmann::json
+{
+    return {
+        {"name", name},
+        {"description", description},
+        {"usage", usage},
+        {"category", category},
+        {"enabled", enabled}
+    };
+}
+
+auto make_available_commands(const std::vector<command_entry_msg>& commands) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::available_commands;
+    msg.seq = 0;
+    auto arr = nlohmann::json::array();
+    for (const auto& cmd : commands) {
+        arr.push_back(cmd.to_json());
+    }
+    msg.data = {{"commands", std::move(arr)}};
+    return msg;
+}
+
+auto make_command_availability_update(
+    const std::vector<std::pair<std::string, bool>>& changes) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::command_availability_update;
+    msg.seq = 0;
+    auto arr = nlohmann::json::array();
+    for (const auto& [name, enabled] : changes) {
+        arr.push_back({{"name", name}, {"enabled", enabled}});
+    }
+    msg.data = {{"commands", std::move(arr)}};
+    return msg;
+}
+
+// === Combat mode messages ===
+
+auto make_combat_mode_change_response(uint32_t seq, bool combat_mode) -> json_message {
+    return json_message{
+        .type = json_message_type::combat_mode_change_response,
+        .seq = seq,
+        .data = {{"combat_mode", combat_mode}}
+    };
+}
+
+auto combat_mode_change_broadcast_data::to_json() const -> nlohmann::json {
+    return nlohmann::json{
+        {"entity_id", entity_id},
+        {"combat_mode", combat_mode}
+    };
+}
+
+auto make_combat_mode_change_broadcast(const combat_mode_change_broadcast_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::combat_mode_change_broadcast,
+        .seq = 0,
+        .data = data.to_json()
+    };
+}
+
+// === Player action broadcast ===
+
+auto player_action_broadcast_data::to_json() const -> nlohmann::json {
+    auto j = nlohmann::json{
+        {"entity_id", entity_id},
+        {"action", action},
+        {"direction", direction}
+    };
+
+    if (target_id != 0) {
+        j["target_id"] = target_id;
+    }
+    if (spell_id != 0) {
+        j["spell_id"] = spell_id;
+    }
+
+    return j;
+}
+
+auto make_player_action_broadcast(const player_action_broadcast_data& data) -> json_message {
+    return json_message{
+        .type = json_message_type::player_action_broadcast,
+        .seq = 0,
+        .data = data.to_json()
+    };
 }
 
 }  // namespace hb::network

@@ -90,6 +90,10 @@ public:
     using enter_game_callback = std::function<void(const std::string&, int16_t, const std::string&)>;
     void set_enter_game_callback(enter_game_callback cb);
 
+    // Callback for post-enter-game actions (player_id, connection_id)
+    using post_enter_game_callback = std::function<void(player_id, connection_id)>;
+    void set_post_enter_game_callback(post_enter_game_callback cb);
+
 private:
     // Individual message handlers
     void handle_login(connection_id conn_id, const network::json_message& msg);
@@ -133,6 +137,7 @@ private:
     scheduler* scheduler_{nullptr};
     war::war_persistence* war_persistence_{nullptr};
     enter_game_callback enter_game_callback_;
+    post_enter_game_callback post_enter_game_callback_;
 };
 
 }  // namespace hb::bridge

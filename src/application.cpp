@@ -530,6 +530,20 @@ void application::initialize() {
                     }
                 }
             );
+        }
+
+        // Wire post-enter-game callback for command list
+        if (game_handlers_) {
+            auth_handlers_->set_post_enter_game_callback(
+                [this](player_id pid, connection_id conn_id) {
+                    if (game_handlers_) {
+                        game_handlers_->send_available_commands(pid, conn_id);
+                    }
+                }
+            );
+        }
+
+        if (admin_web_handlers_) {
             // Chat logging — register a second callback on social_system
             if (auto* social_sys = subsystems().get<social::social_system>()) {
                 social_sys->on_chat_message([this](const social::chat_message_event& event) {
@@ -617,6 +631,32 @@ void application::initialize() {
                 case network::json_message_type::select_duty_request:
                 case network::json_message_type::summon_war_unit_request:
                 case network::json_message_type::crusade_map_status:
+                // Friends
+                case network::json_message_type::friend_request_send_request:
+                case network::json_message_type::friend_request_accept_request:
+                case network::json_message_type::friend_request_decline_request:
+                case network::json_message_type::friend_request_cancel_request:
+                case network::json_message_type::friend_remove_request:
+                case network::json_message_type::friend_block_request:
+                case network::json_message_type::friend_unblock_request:
+                case network::json_message_type::friend_list_request:
+                // Guild
+                case network::json_message_type::guild_create_request:
+                case network::json_message_type::guild_disband_request:
+                case network::json_message_type::guild_leave_request:
+                case network::json_message_type::guild_kick_request:
+                case network::json_message_type::guild_invite_request:
+                case network::json_message_type::guild_invite_respond_request:
+                case network::json_message_type::guild_promote_request:
+                case network::json_message_type::guild_demote_request:
+                case network::json_message_type::guild_set_motd_request:
+                case network::json_message_type::guild_info_request:
+                // Items
+                case network::json_message_type::player_use_item_request:
+                // Combat mode
+                case network::json_message_type::combat_mode_change_request:
+                // Respawn
+                case network::json_message_type::respawn_request:
                     game_handlers_->handle_message(conn_id, msg);
                     break;
 

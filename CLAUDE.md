@@ -291,9 +291,17 @@ When working on the server:
 
 1. **Ask questions frequently** - Use AskUserQuestion liberally to clarify requirements, validate assumptions, and confirm implementation approaches before writing code. When in doubt, ask.
 2. **Check PROGRESS.md first** - Know what's implemented before starting. Don't rebuild what already exists.
-3. **Update PROGRESS.md when done** - After completing a feature or significant component, update `docs/PROGRESS.md`: mark the relevant items as ✅, update the phase status, and add a dated entry under Recent Changes. Keep the "Immediate Next Steps" list current.
-4. **Protocol compatibility** - Legacy binary protocol must match original
-5. **Database transactions** - Use connection pool properly
-6. **Thread safety** - WebSocket callbacks run on separate threads
-7. **Update JSON_PROTOCOL.md** - Any changes to WebSocket message structures must be documented in `docs/JSON_PROTOCOL.md` so the client stays in sync
-8. **Create migrations for DB changes** - Any change to the PostgreSQL schema (new tables, columns, indexes, constraints, functions) must include a migration file. Run `cd tools/migrate && npx tsx migrate.ts create <description>` to scaffold one, then fill in the `-- up` and `-- down` SQL. Also update `src/database/schema.sql` to match so fresh installs get the current schema. Never modify existing migration files — including the baseline schema. Always create a new migration instead.
+3. **Update PROGRESS.md when done** - After completing a feature or significant component, update `docs/PROGRESS.md`: mark the relevant items as ✅, update the phase status, and add a dated entry under `## Recent Changes` using the format:
+   ```
+   ### YYYY-MM-DD: Summary
+   - Individual items
+   - Individual items
+   ...
+   ```
+   Keep the "Immediate Next Steps" list current. Every major feature MUST be checked off here.
+4. **Document all protocol changes** - Any change to client/server WebSocket message structures MUST be documented in both `docs/JSON_PROTOCOL.md` and the `docs/protocol/` directory so the client stays in sync. This is non-negotiable — undocumented protocol changes break the client.
+5. **Message routing requires two switches** - Every new client→server message type must be added in **two** places: the handler's `handle_message()` switch (e.g., `game_handlers.cpp`) **and** the top-level routing switch in `application.cpp`. Missing the `application.cpp` entry causes "Unknown message type" at runtime — the message is silently dropped.
+6. **Protocol compatibility** - Legacy binary protocol must match original
+7. **Database transactions** - Use connection pool properly
+8. **Thread safety** - WebSocket callbacks run on separate threads
+9. **Create migrations for DB changes** - Any change to the PostgreSQL schema (new tables, columns, indexes, constraints, functions) must include a migration file. Run `cd tools/migrate && npx tsx migrate.ts create <description>` to scaffold one, then fill in the `-- up` and `-- down` SQL. Also update `src/database/schema.sql` to match so fresh installs get the current schema. Never modify existing migration files — including the baseline schema. Always create a new migration instead.

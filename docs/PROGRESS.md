@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-13
+**Last Updated:** 2026-02-14
 
 ---
 
@@ -113,6 +113,8 @@ This document tracks implementation progress for the modernized Helbreath server
 | Kill rewards | ✅ | Experience and gold on kill |
 | Death detection | ✅ | Death events, kill/death counters |
 | Combat broadcasts | ✅ | Unified `combat_effect` broadcast for melee damage, spell effects, buffs/debuffs |
+| Combat mode | ✅ | Toggle attack/peace stance, broadcast to nearby, included in entity spawns |
+| Action broadcasts | ✅ | Unified `player_action_broadcast` for attack, dash, magic, pickup animations |
 | Ranged combat | ✅ | Bow/crossbow with arrow consumption, 2-10 tile range, projectile broadcasts |
 | PK system | ✅ | PK point gain on innocent kill, bounty rewards, criminal/murderer status |
 | Safe zone enforcement | ✅ | Blocks PvP attacks and offensive spells in town safe zones |
@@ -250,6 +252,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Channel settings | ✅ | Per-player enable/disable |
 | Player blocking | ✅ | Block player messages |
 | Command system | ✅ | Separate command_request packet, built-in commands |
+| Command list | ✅ | Server pushes available commands with enabled state, auto-updates on guild changes |
 
 ---
 
@@ -434,6 +437,25 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-14: Combat Mode & Player Action Broadcasts
+- Added combat mode toggle: `combat_mode_change_request/response/broadcast` (3 protocol messages)
+- Player `combat_mode` field included in `visible_entity_msg` for entity spawns
+- Added unified `player_action_broadcast` message replacing legacy `SendEventToNearClient_TypeA` / `MSGID_EVENT_MOTION`
+- Broadcasts attack, dash_attack, magic, and pickup animations to nearby players
+- Optional `target_id` and `spell_id` fields conditionally included based on action type
+- Fixed entity_id mismatch bugs in auth_handlers: spawn and despawn were using `player_id` instead of `ecs_entity.id`
+- 19 new tests (1977 total)
+
+### 2026-02-13: Chat Command List
+- Server pushes available commands to client on enter_game for autocomplete/UI display
+- 2 new protocol messages: `available_commands` (full list), `command_availability_update` (partial delta)
+- Static command registry with visibility predicates: 3 general (online, time, pos), 7 guild commands
+- Guild commands enable/disable based on guild membership, rank permissions, and pending invites
+- Admin commands included for GM+ players via `admin_system::get_commands_for_level()`
+- Auto-updates sent on guild state changes: create, disband, leave, kick, invite, accept, decline, promote, demote
+- Post-enter-game callback wired through `auth_handlers` → `game_handlers`
+- 36 new tests (1958 total)
 
 ### 2026-02-13: Use Item Handler
 - Implemented consumable item usage: HP/MP/SP potions, food (hunger), recall scrolls

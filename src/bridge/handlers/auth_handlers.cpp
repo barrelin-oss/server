@@ -873,6 +873,15 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         }
 
         admin_->register_admin(live_player_id, char_data.name, cmd_level);
+
+        // Set player struct admin level so is_gm() works
+        if (auto* plr = players_->get_player(live_player_id)) {
+            if (auth_admin_level >= auth::admin_level::senior_gm) {
+                plr->admin = player::admin_level::admin;
+            } else if (auth_admin_level >= auth::admin_level::helper) {
+                plr->admin = player::admin_level::gamemaster;
+            }
+        }
     }
 
     LOG_INFO(bridge, "Player {} (character '{}') entering game from account {}",
@@ -1180,7 +1189,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 if (!other_conn || !other_conn->is_open()) continue;
 
                 auto spawn_entity = network::visible_entity_msg{
-                    .entity_id = live_player_id.value,
+                    .entity_id = player->ecs_entity.id,
                     .type = "player",
                     .name = player->name,
                     .x = player->pos.x,
@@ -1191,7 +1200,8 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     .hostility = std::string(player_hostility(other->faction, player->faction)),
                     .pk_status = std::string(player->pk.status_string()),
                     .guild_name = player->guild_name,
-                    .guild_tag = player->guild_tag
+                    .guild_tag = player->guild_tag,
+                    .combat_mode = player->combat_mode
                 };
                 other_conn->send(network::make_entity_spawn(0, spawn_entity));
             }
@@ -1201,7 +1211,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
             // Forward to admin spectators (neutral perspective)
             auto admin_spawn = network::visible_entity_msg{
-                .entity_id = live_player_id.value,
+                .entity_id = player->ecs_entity.id,
                 .type = "player",
                 .name = player->name,
                 .x = player->pos.x,
@@ -1212,7 +1222,8 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 .hostility = "neutral",
                 .pk_status = std::string(player->pk.status_string()),
                 .guild_name = player->guild_name,
-                .guild_tag = player->guild_tag
+                .guild_tag = player->guild_tag,
+                .combat_mode = player->combat_mode
             };
             auto admin_msg = network::make_entity_spawn(0, admin_spawn);
             for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map)) {
@@ -1255,6 +1266,11 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             }
         }
     }
+
+    // Notify game handlers of enter_game completion (for command list, etc.)
+    if (post_enter_game_callback_) {
+        post_enter_game_callback_(live_player_id, conn_id);
+    }
 }
 
 auto auth_handlers::build_visible_entities(player_id player_id)
@@ -1289,7 +1305,8 @@ auto auth_handlers::build_visible_entities(player_id player_id)
             .hostility = std::string(player_hostility(player->faction, other->faction)),
             .pk_status = std::string(other->pk.status_string()),
             .guild_name = other->guild_name,
-            .guild_tag = other->guild_tag
+            .guild_tag = other->guild_tag,
+            .combat_mode = other->combat_mode
         });
     }
 
@@ -1608,7 +1625,7 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
         if (player) {
             auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
-            auto despawn_msg = network::make_entity_despawn(0, pid.value);
+            auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
 
             for (auto other_id : nearby) {
                 if (other_id == pid) continue;
@@ -1659,6 +1676,10 @@ void auth_handlers::save_player(player_id pid) {
 
 void auth_handlers::set_enter_game_callback(enter_game_callback cb) {
     enter_game_callback_ = std::move(cb);
+}
+
+void auth_handlers::set_post_enter_game_callback(post_enter_game_callback cb) {
+    post_enter_game_callback_ = std::move(cb);
 }
 
 auto auth_handlers::save_all_players() -> size_t {

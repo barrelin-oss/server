@@ -359,6 +359,7 @@ add_executable(hgserver_tests
     tests/test_admin_web.cpp
     tests/test_friend_system.cpp
     tests/test_guild_handlers.cpp
+    tests/command_list_test.cpp
     tests/test_perf_stats.cpp
     tests/test_crusade_system.cpp
     tests/test_heldenian_system.cpp
@@ -366,6 +367,7 @@ add_executable(hgserver_tests
     tests/test_war_persistence.cpp
     tests/test_melee_pve.cpp
     tests/test_use_item.cpp
+    tests/combat_mode_test.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

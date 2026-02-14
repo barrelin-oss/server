@@ -445,6 +445,18 @@ enum class json_message_type {
     player_use_item_request,        // C->S: Use a consumable item
     player_use_item_response,       // S->C: Use item result
 
+    // Command list (server -> client push)
+    available_commands,             // S->C: Full command list on enter_game
+    command_availability_update,    // S->C: Partial update when state changes
+
+    // Combat mode
+    combat_mode_change_request,     // C->S: Toggle combat mode
+    combat_mode_change_response,    // S->C: Confirm combat mode change
+    combat_mode_change_broadcast,   // S->C: Broadcast combat mode change to nearby
+
+    // Action broadcast (replaces legacy MSGID_EVENT_MOTION)
+    player_action_broadcast,        // S->C: Player performed an action (nearby see animation)
+
     // Unknown/invalid
     unknown
 };
@@ -773,6 +785,12 @@ enum class json_message_type {
         case json_message_type::guild_update: return "guild_update";
         case json_message_type::player_use_item_request: return "player_use_item_request";
         case json_message_type::player_use_item_response: return "player_use_item_response";
+        case json_message_type::available_commands: return "available_commands";
+        case json_message_type::command_availability_update: return "command_availability_update";
+        case json_message_type::combat_mode_change_request: return "combat_mode_change_request";
+        case json_message_type::combat_mode_change_response: return "combat_mode_change_response";
+        case json_message_type::combat_mode_change_broadcast: return "combat_mode_change_broadcast";
+        case json_message_type::player_action_broadcast: return "player_action_broadcast";
         default: return "unknown";
     }
 }
@@ -1073,6 +1091,7 @@ struct visible_entity_msg {
     std::string pk_status;       // "innocent", "criminal", "murderer"
     std::string guild_name;      // Player's guild name (empty if no guild)
     std::string guild_tag;       // Player's guild tag (empty if no guild)
+    bool combat_mode{false};     // true = attack stance, false = peace mode
 
     // NPC-specific fields (optional, only used when type == "npc")
     uint32_t template_id{0};
@@ -2591,5 +2610,69 @@ struct admin_perf_stats_request_data {
     [[nodiscard]] static auto from_json(const nlohmann::json& j)
         -> result<admin_perf_stats_request_data, std::string>;
 };
+
+// === Command list data structures and builders ===
+
+// Single command descriptor for the client
+struct command_entry_msg
+{
+    std::string name;
+    std::string description;
+    std::string usage;
+    std::string category;
+    bool enabled{true};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Build full available_commands push message (sent on enter_game)
+[[nodiscard]] auto make_available_commands(
+    const std::vector<command_entry_msg>& commands) -> json_message;
+
+// Build partial command_availability_update push message (sent on state changes)
+[[nodiscard]] auto make_command_availability_update(
+    const std::vector<std::pair<std::string, bool>>& changes) -> json_message;
+
+// === Combat mode messages ===
+
+// Combat mode change response to the toggling player
+[[nodiscard]] auto make_combat_mode_change_response(uint32_t seq, bool combat_mode) -> json_message;
+
+// Combat mode change broadcast to nearby players
+struct combat_mode_change_broadcast_data {
+    uint32_t entity_id{0};
+    bool combat_mode{false};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+[[nodiscard]] auto make_combat_mode_change_broadcast(
+    const combat_mode_change_broadcast_data& data) -> json_message;
+
+// === Player action broadcast (legacy MSGID_EVENT_MOTION equivalent) ===
+// Tells nearby clients what animation to play for an entity.
+
+// Action types matching legacy motion types:
+//   "attack"      (DEF_OBJECTATTACK = 3)
+//   "magic"       (DEF_OBJECTMAGIC = 4)
+//   "pickup"      (DEF_OBJECTGETITEM = 5)
+//   "damage"      (DEF_OBJECTDAMAGE = 6)
+//   "dash_attack" (DEF_OBJECTATTACKMOVE = 8)
+//   "dying"       (DEF_OBJECTDYING = 10)
+
+struct player_action_broadcast_data {
+    uint32_t entity_id{0};
+    std::string action;         // Action type string (see above)
+    int16_t direction{0};       // Facing direction during action
+
+    // Optional fields — included only when relevant to the action type
+    uint32_t target_id{0};      // Target entity (attack, magic, dash_attack)
+    uint32_t spell_id{0};       // Spell being cast (magic)
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+[[nodiscard]] auto make_player_action_broadcast(
+    const player_action_broadcast_data& data) -> json_message;
 
 }  // namespace hb::network

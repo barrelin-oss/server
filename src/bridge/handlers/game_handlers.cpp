@@ -614,6 +614,11 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             handle_player_use_item(conn_id, msg);
             break;
 
+        // Combat mode
+        case network::json_message_type::combat_mode_change_request:
+            handle_combat_mode_change(conn_id, msg);
+            break;
+
         // Death/Respawn
         case network::json_message_type::respawn_request:
             handle_respawn_request(conn_id, msg);
@@ -1160,6 +1165,15 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     // Send response to attacker
     conn->send(network::make_player_attack_response(msg.seq, true, &result));
 
+    // Broadcast action animation to nearby players
+    std::string action_type = (data.type == network::attack_type::dash) ? "dash_attack" : "attack";
+    broadcast_player_action(*attacker, {
+        .entity_id = attacker->ecs_entity.id,
+        .action = std::move(action_type),
+        .direction = static_cast<int16_t>(attacker->facing),
+        .target_id = target_broadcast_eid
+    });
+
     // Broadcast attack to players who can see the attacker
     auto nearby = players_->get_players_who_can_see(attacker->current_map, attacker->pos);
 
@@ -1324,6 +1338,15 @@ void game_handlers::handle_player_magic(connection_id conn_id, const network::js
             effect.success ? std::optional<std::string_view>{} : std::optional<std::string_view>{"cast_failed"}));
     }
 
+    // Broadcast cast animation to nearby players
+    broadcast_player_action(*player, {
+        .entity_id = player->ecs_entity.id,
+        .action = "magic",
+        .direction = static_cast<int16_t>(player->facing),
+        .target_id = data.target_id,
+        .spell_id = data.spell_id
+    });
+
     LOG_DEBUG(bridge, "Player {} magic request (spell={}, target={})",
         pid.value, data.spell_id, data.target_id);
 }
@@ -1453,6 +1476,13 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     };
 
     conn->send(network::make_player_pickup_response(msg.seq, true, &result, std::nullopt));
+
+    // Broadcast pickup animation to nearby players
+    broadcast_player_action(*player, {
+        .entity_id = player->ecs_entity.id,
+        .action = "pickup",
+        .direction = static_cast<int16_t>(player->facing)
+    });
 
     // Broadcast item removal to nearby players
     broadcast_ground_item_removed(pid, player->current_map, player->pos, picked_item_id);
@@ -2422,7 +2452,8 @@ void game_handlers::update_entity_visibility(player_id moved_player,
                 .hostility = std::string(player_hostility(other->faction, player->faction)),
                 .pk_status = std::string(player->pk.status_string()),
                 .guild_name = player->guild_name,
-                .guild_tag = player->guild_tag
+                .guild_tag = player->guild_tag,
+                .combat_mode = player->combat_mode
             }));
 
             // Also send the other player info to the moving player
@@ -2440,7 +2471,8 @@ void game_handlers::update_entity_visibility(player_id moved_player,
                     .hostility = std::string(player_hostility(player->faction, other->faction)),
                     .pk_status = std::string(other->pk.status_string()),
                     .guild_name = other->guild_name,
-                    .guild_tag = other->guild_tag
+                    .guild_tag = other->guild_tag,
+                    .combat_mode = other->combat_mode
                 }));
             }
         }
@@ -3418,6 +3450,7 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
             .pk_status = std::string(player->pk.status_string()),
             .guild_name = player->guild_name,
             .guild_tag = player->guild_tag,
+            .combat_mode = player->combat_mode,
             .template_id = {},
             .sprite_id = {},
             .level = {},
@@ -3439,6 +3472,7 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         .pk_status = std::string(player->pk.status_string()),
         .guild_name = player->guild_name,
         .guild_tag = player->guild_tag,
+        .combat_mode = player->combat_mode,
         .template_id = {},
         .sprite_id = {},
         .level = {},
@@ -3563,6 +3597,7 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
                 .pk_status = {},
                 .guild_name = p->guild_name,
                 .guild_tag = p->guild_tag,
+                .combat_mode = p->combat_mode,
                 .template_id = {},
                 .sprite_id = {},
                 .level = {},
@@ -4096,6 +4131,49 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
     }
 }
 
+void game_handlers::handle_combat_mode_change(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) return;
+
+    if (plr->is_dead()) {
+        send_error(conn_id, msg.seq, "dead", "Cannot change combat mode while dead");
+        return;
+    }
+
+    // Toggle combat mode
+    plr->combat_mode = !plr->combat_mode;
+
+    // Confirm to the toggling player
+    conn->send(network::make_combat_mode_change_response(msg.seq, plr->combat_mode));
+
+    // Broadcast to nearby players
+    network::combat_mode_change_broadcast_data data{
+        .entity_id = plr->ecs_entity.id,
+        .combat_mode = plr->combat_mode
+    };
+    auto broadcast_msg = network::make_combat_mode_change_broadcast(data);
+
+    auto nearby = players_->get_players_who_can_see(plr->current_map, plr->pos);
+    for (auto nearby_pid : nearby) {
+        if (nearby_pid == pid) continue;
+        auto* np = players_->get_player(nearby_pid);
+        if (!np || np->connection.value == 0) continue;
+        auto* nc = ws_server_->get_connection(np->connection);
+        if (nc && nc->is_open()) {
+            nc->send(broadcast_msg);
+        }
+    }
+
+    // Forward to admin spectators
+    for (auto admin_conn : ws_server_->get_admin_subscribers(plr->current_map)) {
+        ws_server_->send(admin_conn, broadcast_msg);
+    }
+}
+
 void game_handlers::handle_respawn_request(connection_id conn_id, const network::json_message& msg) {
     auto* conn = require_in_game(conn_id, msg.seq);
     if (!conn) return;
@@ -4126,6 +4204,29 @@ void game_handlers::handle_respawn_request(connection_id conn_id, const network:
 
     LOG_INFO(bridge, "Player {} respawned at {} ({}, {}) via client request",
         pid.value, spawn_map, spawn_pos.x, spawn_pos.y);
+}
+
+void game_handlers::broadcast_player_action(const player::player& plr,
+                                             const network::player_action_broadcast_data& data)
+{
+    if (!players_ || !ws_server_) return;
+
+    auto msg = network::make_player_action_broadcast(data);
+
+    auto nearby = players_->get_players_who_can_see(plr.current_map, plr.pos);
+    for (auto other_id : nearby) {
+        if (other_id == plr.id) continue;
+        auto* other = players_->get_player(other_id);
+        if (!other || other->connection.value == 0) continue;
+        auto* conn = ws_server_->get_connection(other->connection);
+        if (conn && conn->is_open()) {
+            conn->send(msg);
+        }
+    }
+
+    for (auto admin_conn : ws_server_->get_admin_subscribers(plr.current_map)) {
+        ws_server_->send(admin_conn, msg);
+    }
 }
 
 void game_handlers::broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max) {
@@ -6280,6 +6381,8 @@ void game_handlers::handle_guild_create(connection_id conn_id, const network::js
     conn->send(network::make_guild_response(msg.seq,
         network::json_message_type::guild_create_response,
         true, {}, {{"guild_name", data.name}, {"tag", data.tag}}));
+
+    send_guild_command_update(conn->player());
 }
 
 void game_handlers::handle_guild_disband(connection_id conn_id, const network::json_message& msg) {
@@ -6342,6 +6445,7 @@ void game_handlers::handle_guild_disband(connection_id conn_id, const network::j
         if (member_conn) {
             member_conn->send(update_msg);
         }
+        send_guild_command_update(mid);
     }
 
     conn->send(network::make_guild_response(msg.seq,
@@ -6384,6 +6488,8 @@ void game_handlers::handle_guild_leave(connection_id conn_id, const network::jso
 
     conn->send(network::make_guild_response(msg.seq,
         network::json_message_type::guild_leave_response, true));
+
+    send_guild_command_update(conn->player());
 
     // Broadcast to remaining members
     broadcast_guild_update(gid, "member_left", guild_name, player_name);
@@ -6449,6 +6555,7 @@ void game_handlers::handle_guild_kick(connection_id conn_id, const network::json
     if (target_conn) {
         target_conn->send(network::make_guild_update("you_were_kicked", guild_name));
     }
+    send_guild_command_update(target->id);
 }
 
 void game_handlers::handle_guild_invite(connection_id conn_id, const network::json_message& msg) {
@@ -6509,6 +6616,7 @@ void game_handlers::handle_guild_invite(connection_id conn_id, const network::js
     if (target_conn) {
         target_conn->send(network::make_guild_invite_received(g->name, g->tag, plr->name));
     }
+    send_guild_command_update(target->id);
 }
 
 void game_handlers::handle_guild_invite_respond(connection_id conn_id, const network::json_message& msg) {
@@ -6533,6 +6641,7 @@ void game_handlers::handle_guild_invite_respond(connection_id conn_id, const net
         conn->send(network::make_guild_response(msg.seq,
             network::json_message_type::guild_invite_respond_response, true,
             {}, nlohmann::json{{"accepted", false}}));
+        send_guild_command_update(conn->player());
         return;
     }
 
@@ -6566,6 +6675,8 @@ void game_handlers::handle_guild_invite_respond(connection_id conn_id, const net
             network::json_message_type::guild_invite_respond_response, true,
             {}, nlohmann::json{{"accepted", true}}));
     }
+
+    send_guild_command_update(conn->player());
 }
 
 void game_handlers::handle_guild_promote(connection_id conn_id, const network::json_message& msg) {
@@ -6615,6 +6726,8 @@ void game_handlers::handle_guild_promote(connection_id conn_id, const network::j
     conn->send(network::make_guild_response(msg.seq,
         network::json_message_type::guild_promote_response, true));
 
+    send_guild_command_update(target->id);
+
     broadcast_guild_update(gid, "member_promoted", guild_name, target->name);
 }
 
@@ -6663,6 +6776,8 @@ void game_handlers::handle_guild_demote(connection_id conn_id, const network::js
 
     conn->send(network::make_guild_response(msg.seq,
         network::json_message_type::guild_demote_response, true));
+
+    send_guild_command_update(target->id);
 
     broadcast_guild_update(gid, "member_demoted", guild_name, target->name);
 }
@@ -6756,6 +6871,144 @@ void game_handlers::handle_guild_info(connection_id conn_id, const network::json
 
     conn->send(network::make_guild_info_response(msg.seq, true,
         g->name, g->tag, g->motd, g->member_count(), master_name, members));
+}
+
+// === Command list registry and helpers ===
+
+auto game_handlers::get_player_commands() -> const std::vector<command_descriptor>&
+{
+    static const std::vector<command_descriptor> commands = []() {
+        std::vector<command_descriptor> cmds;
+
+        // General commands (always enabled)
+        cmds.push_back({"online", "Show online player count", "/online", command_category::general, nullptr});
+        cmds.push_back({"time", "Show server time", "/time", command_category::general, nullptr});
+        cmds.push_back({"pos", "Show your position", "/pos", command_category::general, nullptr});
+
+        // Guild commands
+        cmds.push_back({"gcreate", "Create a new guild", "/gcreate <name> [tag]", command_category::guild,
+            [](const player::player& plr, const social::social_system* social) -> bool {
+                if (!social) return false;
+                return !social->get_player_guild(plr.id).is_valid();
+            }});
+
+        cmds.push_back({"gdisband", "Disband your guild", "/gdisband", command_category::guild,
+            [](const player::player& plr, const social::social_system* social) -> bool {
+                if (!social) return false;
+                auto gid = social->get_player_guild(plr.id);
+                if (!gid.is_valid()) return false;
+                auto* g = social->get_guild(gid);
+                return g && g->has_permission(plr.id, social::guild_permission::disband);
+            }});
+
+        cmds.push_back({"ginvite", "Invite a player to your guild", "/ginvite <player>", command_category::guild,
+            [](const player::player& plr, const social::social_system* social) -> bool {
+                if (!social) return false;
+                auto gid = social->get_player_guild(plr.id);
+                if (!gid.is_valid()) return false;
+                auto* g = social->get_guild(gid);
+                return g && g->has_permission(plr.id, social::guild_permission::invite);
+            }});
+
+        cmds.push_back({"gkick", "Kick a member from your guild", "/gkick <player>", command_category::guild,
+            [](const player::player& plr, const social::social_system* social) -> bool {
+                if (!social) return false;
+                auto gid = social->get_player_guild(plr.id);
+                if (!gid.is_valid()) return false;
+                auto* g = social->get_guild(gid);
+                return g && g->has_permission(plr.id, social::guild_permission::kick);
+            }});
+
+        cmds.push_back({"gaccept", "Accept a guild invite", "/gaccept", command_category::guild, nullptr});
+
+        cmds.push_back({"gdecline", "Decline a guild invite", "/gdecline", command_category::guild, nullptr});
+
+        cmds.push_back({"gquit", "Leave your guild", "/gquit", command_category::guild,
+            [](const player::player& plr, const social::social_system* social) -> bool {
+                if (!social) return false;
+                auto gid = social->get_player_guild(plr.id);
+                if (!gid.is_valid()) return false;
+                auto* g = social->get_guild(gid);
+                // Guild master cannot /gquit — must /gdisband
+                return g && g->master != plr.id;
+            }});
+
+        return cmds;
+    }();
+
+    return commands;
+}
+
+auto game_handlers::evaluate_guild_commands(player_id pid)
+    -> std::vector<std::pair<std::string, bool>>
+{
+    std::vector<std::pair<std::string, bool>> result;
+    auto* plr = players_ ? players_->get_player(pid) : nullptr;
+    if (!plr) return result;
+
+    for (const auto& cmd : get_player_commands()) {
+        if (cmd.category != command_category::guild) continue;
+        bool enabled = cmd.enabled_check ? cmd.enabled_check(*plr, social_) : true;
+        result.emplace_back(cmd.name, enabled);
+    }
+    return result;
+}
+
+void game_handlers::send_available_commands(player_id pid, connection_id conn_id)
+{
+    auto* conn = get_connection(conn_id);
+    if (!conn) return;
+    auto* plr = players_ ? players_->get_player(pid) : nullptr;
+    if (!plr) return;
+
+    auto category_str = [](command_category cat) -> std::string {
+        switch (cat) {
+            case command_category::general: return "general";
+            case command_category::guild: return "guild";
+            case command_category::social: return "social";
+            case command_category::gm: return "gm";
+            case command_category::admin: return "admin";
+        }
+        return "general";
+    };
+
+    std::vector<network::command_entry_msg> entries;
+
+    // Add player commands
+    for (const auto& cmd : get_player_commands()) {
+        bool enabled = cmd.enabled_check ? cmd.enabled_check(*plr, social_) : true;
+        entries.push_back({cmd.name, cmd.description, cmd.usage,
+            category_str(cmd.category), enabled});
+    }
+
+    // Add admin commands for GM+ players
+    if (plr->is_gm() && admin_) {
+        auto admin_lvl = admin_->get_admin_level(pid);
+        auto admin_cmds = admin_->get_commands_for_level(admin_lvl);
+        for (const auto* info : admin_cmds) {
+            if (info->hidden) continue;
+            std::string cat = (info->required_level >= admin::admin_level::admin) ? "admin" : "gm";
+            entries.push_back({info->name, info->description, info->usage, cat, true});
+            for (const auto& alias : info->aliases) {
+                entries.push_back({alias, info->description, info->usage, cat, true});
+            }
+        }
+    }
+
+    conn->send(network::make_available_commands(entries));
+}
+
+void game_handlers::send_guild_command_update(player_id pid)
+{
+    auto* plr = players_ ? players_->get_player(pid) : nullptr;
+    if (!plr || plr->connection.value == 0) return;
+    auto* conn = ws_server_ ? ws_server_->get_connection(plr->connection) : nullptr;
+    if (!conn || !conn->is_open()) return;
+
+    auto changes = evaluate_guild_commands(pid);
+    if (!changes.empty()) {
+        conn->send(network::make_command_availability_update(changes));
+    }
 }
 
 }  // namespace hb::bridge

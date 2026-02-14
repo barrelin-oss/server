@@ -264,6 +264,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Guild ranks | ✅ | Master, officer, veteran, member, recruit |
 | Guild permissions | ✅ | Invite, kick, promote, demote, etc. |
 | Guild MOTD | ✅ | Message of the day |
+| Guild JSON protocol | ✅ | 19 message types, entity spawn guild data, guild update broadcasts |
 | Party XP share | ✅ | Party exp sharing with original bonus table, equal split + level-weighted modes |
 | Guild warehouse | ❌ | Shared storage |
 | Friend list | ✅ | Add, remove, block/unblock, online status, DB persistence |
@@ -432,6 +433,14 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-13: Guild JSON Protocol
+- Added 19 guild message types: create, disband, leave, kick, invite, promote, demote, set_motd, info (request/response pairs), plus guild_update broadcast
+- Guild handlers in game_handlers dispatch guild operations through social_system and update player struct fields
+- Entity spawn messages now include `guild_name` and `guild_tag` for players in a guild
+- Set `guild_tag` on player struct during enter_game alongside existing `guild_name`
+- Added `broadcast_guild_update()` helper to notify online guild members of state changes
+- 41 new tests (protocol parsing, builders, social operations, entity spawn guild data)
 
 ### 2026-02-13: Mana System Legacy Fixes
 - Fixed GMG to require 10 charges (configurable) before firing meteor (was 1)

@@ -758,6 +758,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     auto* g = social_->get_guild(guild);
                     if (g) {
                         player->guild_name = g->name;
+                        player->guild_tag = g->tag;
                         auto* member = g->get_member(live_player_id);
                         if (member)
                             player->guild_rank = static_cast<uint8_t>(member->rank);
@@ -1022,6 +1023,19 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         }
     }
 
+    // Fetch guild info for enter_game_response (player pointer may be out of scope)
+    std::string enter_guild_name;
+    std::string enter_guild_tag;
+    uint8_t enter_guild_rank = 0;
+    if (players_) {
+        auto* plr = players_->get_player(live_player_id);
+        if (plr) {
+            enter_guild_name = plr->guild_name;
+            enter_guild_tag = plr->guild_tag;
+            enter_guild_rank = plr->guild_rank;
+        }
+    }
+
     // Build full game state message
     network::game_state_msg game_state{
         .character = network::character_data_msg{
@@ -1052,7 +1066,10 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             .skin_color = char_data.skin_color,
             .experience = char_data.experience,
             .pk_count = char_data.pk_count,
-            .hunger_level = char_data.hunger_level
+            .hunger_level = char_data.hunger_level,
+            .guild_name = enter_guild_name,
+            .guild_tag = enter_guild_tag,
+            .guild_rank = enter_guild_rank
         },
         .inventory = inventory_list,
         .equipment = equipment_list,
@@ -1172,13 +1189,35 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     .direction = static_cast<int16_t>(player->facing),
                     .faction = std::string(faction_to_string(player->faction)),
                     .hostility = std::string(player_hostility(other->faction, player->faction)),
-                    .pk_status = std::string(player->pk.status_string())
+                    .pk_status = std::string(player->pk.status_string()),
+                    .guild_name = player->guild_name,
+                    .guild_tag = player->guild_tag
                 };
                 other_conn->send(network::make_entity_spawn(0, spawn_entity));
             }
 
             LOG_DEBUG(bridge, "Notified {} nearby players of spawn for {}",
                 nearby.size() > 0 ? nearby.size() - 1 : 0, player->name);
+
+            // Forward to admin spectators (neutral perspective)
+            auto admin_spawn = network::visible_entity_msg{
+                .entity_id = live_player_id.value,
+                .type = "player",
+                .name = player->name,
+                .x = player->pos.x,
+                .y = player->pos.y,
+                .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
+                .direction = static_cast<int16_t>(player->facing),
+                .faction = std::string(faction_to_string(player->faction)),
+                .hostility = "neutral",
+                .pk_status = std::string(player->pk.status_string()),
+                .guild_name = player->guild_name,
+                .guild_tag = player->guild_tag
+            };
+            auto admin_msg = network::make_entity_spawn(0, admin_spawn);
+            for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map)) {
+                ws_server_->send(admin_conn, admin_msg);
+            }
         }
     }
 
@@ -1248,7 +1287,9 @@ auto auth_handlers::build_visible_entities(player_id player_id)
             .direction = static_cast<int16_t>(other->facing),
             .faction = std::string(faction_to_string(other->faction)),
             .hostility = std::string(player_hostility(player->faction, other->faction)),
-            .pk_status = std::string(other->pk.status_string())
+            .pk_status = std::string(other->pk.status_string()),
+            .guild_name = other->guild_name,
+            .guild_tag = other->guild_tag
         });
     }
 
@@ -1270,8 +1311,12 @@ auto auth_handlers::build_visible_entities(player_id player_id)
                 .y = n.pos.y,
                 .hp_percent = n.max_hp > 0 ? static_cast<int16_t>((n.hp * 100) / n.max_hp) : static_cast<int16_t>(100),
                 .direction = static_cast<int16_t>(n.facing),
+                .faction = {},
                 .hostility = std::string(npc::npc_hostility_for_player(
                     n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
+                .pk_status = {},
+                .guild_name = {},
+                .guild_tag = {},
                 .template_id = n.template_id.value,
                 .sprite_id = n.sprite_id,
                 .level = n.level,
@@ -1575,6 +1620,11 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
                 if (other_conn && other_conn->is_open()) {
                     other_conn->send(despawn_msg);
                 }
+            }
+
+            // Forward to admin spectators
+            for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map)) {
+                ws_server_->send(admin_conn, despawn_msg);
             }
         }
 

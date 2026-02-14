@@ -245,4 +245,20 @@ struct guild {
     }
 };
 
+// Pending guild invite
+struct pending_guild_invite {
+    guild_id guild{};
+    player_id inviter{};
+    std::string guild_name;
+    std::string guild_tag;
+    std::string inviter_name;
+    std::chrono::steady_clock::time_point expires_at{};
+
+    static constexpr auto invite_duration = std::chrono::seconds(60);
+
+    [[nodiscard]] auto is_expired() const -> bool {
+        return std::chrono::steady_clock::now() >= expires_at;
+    }
+};
+
 }  // namespace hb::social

@@ -197,6 +197,22 @@ private:
     void handle_friend_unblock(connection_id conn_id, const network::json_message& msg);
     void handle_friend_list(connection_id conn_id, const network::json_message& msg);
 
+    // Guilds
+    void handle_guild_create(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_disband(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_leave(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_kick(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_invite(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_invite_respond(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_promote(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_demote(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_set_motd(connection_id conn_id, const network::json_message& msg);
+    void handle_guild_info(connection_id conn_id, const network::json_message& msg);
+    void broadcast_guild_update(guild_id gid, const std::string& action,
+                                const std::string& guild_name,
+                                const std::string& player_name = {},
+                                const nlohmann::json& extra = {});
+
     // Death/Respawn
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
 

@@ -346,7 +346,29 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"crusade_set_guild_teleport_request", json_message_type::crusade_set_guild_teleport_request},
     {"crusade_set_guild_teleport_response", json_message_type::crusade_set_guild_teleport_response},
     {"crusade_guild_teleport_request", json_message_type::crusade_guild_teleport_request},
-    {"crusade_guild_teleport_response", json_message_type::crusade_guild_teleport_response}
+    {"crusade_guild_teleport_response", json_message_type::crusade_guild_teleport_response},
+    {"guild_create_request", json_message_type::guild_create_request},
+    {"guild_create_response", json_message_type::guild_create_response},
+    {"guild_disband_request", json_message_type::guild_disband_request},
+    {"guild_disband_response", json_message_type::guild_disband_response},
+    {"guild_leave_request", json_message_type::guild_leave_request},
+    {"guild_leave_response", json_message_type::guild_leave_response},
+    {"guild_kick_request", json_message_type::guild_kick_request},
+    {"guild_kick_response", json_message_type::guild_kick_response},
+    {"guild_invite_request", json_message_type::guild_invite_request},
+    {"guild_invite_response", json_message_type::guild_invite_response},
+    {"guild_invite_received", json_message_type::guild_invite_received},
+    {"guild_invite_respond_request", json_message_type::guild_invite_respond_request},
+    {"guild_invite_respond_response", json_message_type::guild_invite_respond_response},
+    {"guild_promote_request", json_message_type::guild_promote_request},
+    {"guild_promote_response", json_message_type::guild_promote_response},
+    {"guild_demote_request", json_message_type::guild_demote_request},
+    {"guild_demote_response", json_message_type::guild_demote_response},
+    {"guild_set_motd_request", json_message_type::guild_set_motd_request},
+    {"guild_set_motd_response", json_message_type::guild_set_motd_response},
+    {"guild_info_request", json_message_type::guild_info_request},
+    {"guild_info_response", json_message_type::guild_info_response},
+    {"guild_update", json_message_type::guild_update}
 };
 
 }  // namespace
@@ -1041,7 +1063,10 @@ auto character_data_msg::to_json() const -> nlohmann::json {
         {"skin_color", skin_color},
         {"experience", experience},
         {"pk_count", pk_count},
-        {"hunger_level", hunger_level}
+        {"hunger_level", hunger_level},
+        {"guild_name", guild_name},
+        {"guild_tag", guild_tag},
+        {"guild_rank", guild_rank}
     };
 }
 
@@ -1081,6 +1106,10 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
         j["faction"] = faction;
         j["hostility"] = hostility;
         j["pk_status"] = pk_status;
+        if (!guild_name.empty()) {
+            j["guild_name"] = guild_name;
+            j["guild_tag"] = guild_tag;
+        }
     } else if (type == "npc") {
         j["template_id"] = template_id;
         j["sprite_id"] = sprite_id;
@@ -3790,6 +3819,148 @@ auto make_friend_offline_notification(std::string_view friend_name) -> json_mess
     json_message msg;
     msg.type = json_message_type::friend_offline_notification;
     msg.data = {{"friend_name", std::string(friend_name)}};
+    return msg;
+}
+
+// === Guild system ===
+
+auto guild_create_request_data::from_json(const nlohmann::json& j)
+    -> result<guild_create_request_data, std::string>
+{
+    guild_create_request_data data;
+    if (!j.contains("name") || !j["name"].is_string())
+        return result<guild_create_request_data, std::string>::err("Missing 'name'");
+    data.name = j["name"];
+    if (data.name.empty())
+        return result<guild_create_request_data, std::string>::err("Empty 'name'");
+    if (!j.contains("tag") || !j["tag"].is_string())
+        return result<guild_create_request_data, std::string>::err("Missing 'tag'");
+    data.tag = j["tag"];
+    if (data.tag.empty())
+        return result<guild_create_request_data, std::string>::err("Empty 'tag'");
+    return result<guild_create_request_data, std::string>::ok(std::move(data));
+}
+
+auto guild_target_request_data::from_json(const nlohmann::json& j)
+    -> result<guild_target_request_data, std::string>
+{
+    guild_target_request_data data;
+    if (!j.contains("target_name") || !j["target_name"].is_string())
+        return result<guild_target_request_data, std::string>::err("Missing 'target_name'");
+    data.target_name = j["target_name"];
+    if (data.target_name.empty())
+        return result<guild_target_request_data, std::string>::err("Empty 'target_name'");
+    return result<guild_target_request_data, std::string>::ok(std::move(data));
+}
+
+auto guild_set_motd_request_data::from_json(const nlohmann::json& j)
+    -> result<guild_set_motd_request_data, std::string>
+{
+    guild_set_motd_request_data data;
+    if (!j.contains("motd") || !j["motd"].is_string())
+        return result<guild_set_motd_request_data, std::string>::err("Missing 'motd'");
+    data.motd = j["motd"];
+    return result<guild_set_motd_request_data, std::string>::ok(std::move(data));
+}
+
+auto guild_invite_respond_request_data::from_json(const nlohmann::json& j)
+    -> result<guild_invite_respond_request_data, std::string>
+{
+    guild_invite_respond_request_data data;
+    if (j.contains("accept") && j["accept"].is_boolean())
+        data.accept = j["accept"];
+    return result<guild_invite_respond_request_data, std::string>::ok(std::move(data));
+}
+
+auto make_guild_invite_received(const std::string& guild_name,
+    const std::string& guild_tag, const std::string& inviter_name) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::guild_invite_received;
+    msg.seq = 0;
+    msg.data = {
+        {"guild_name", guild_name},
+        {"guild_tag", guild_tag},
+        {"inviter_name", inviter_name}
+    };
+    return msg;
+}
+
+auto guild_member_info_msg::to_json() const -> nlohmann::json {
+    return {
+        {"name", name},
+        {"rank", rank},
+        {"rank_name", rank_name},
+        {"is_online", is_online}
+    };
+}
+
+auto make_guild_response(uint32_t seq, json_message_type type,
+    bool success, std::string_view error,
+    const nlohmann::json& extra) -> json_message
+{
+    json_message msg;
+    msg.type = type;
+    msg.seq = seq;
+    msg.data = {{"success", success}};
+    if (!error.empty()) {
+        msg.data["error"] = std::string(error);
+    }
+    if (!extra.is_null() && extra.is_object()) {
+        msg.data.merge_patch(extra);
+    }
+    return msg;
+}
+
+auto make_guild_info_response(uint32_t seq, bool success,
+    const std::string& guild_name, const std::string& tag,
+    const std::string& motd, size_t member_count,
+    const std::string& master_name,
+    const std::vector<guild_member_info_msg>& members,
+    std::string_view error) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::guild_info_response;
+    msg.seq = seq;
+    msg.data = {{"success", success}};
+
+    if (success) {
+        msg.data["guild_name"] = guild_name;
+        msg.data["tag"] = tag;
+        msg.data["motd"] = motd;
+        msg.data["member_count"] = member_count;
+        msg.data["master_name"] = master_name;
+
+        auto members_arr = nlohmann::json::array();
+        for (const auto& m : members) {
+            members_arr.push_back(m.to_json());
+        }
+        msg.data["members"] = members_arr;
+    }
+
+    if (!error.empty()) {
+        msg.data["error"] = std::string(error);
+    }
+    return msg;
+}
+
+auto make_guild_update(const std::string& action,
+    const std::string& guild_name, const std::string& player_name,
+    const nlohmann::json& extra) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::guild_update;
+    msg.seq = 0;
+    msg.data = {
+        {"action", action},
+        {"guild_name", guild_name}
+    };
+    if (!player_name.empty()) {
+        msg.data["player_name"] = player_name;
+    }
+    if (!extra.is_null() && extra.is_object()) {
+        msg.data.merge_patch(extra);
+    }
     return msg;
 }
 

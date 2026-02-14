@@ -417,6 +417,30 @@ enum class json_message_type {
     // Crusade mana collector MP restoration
     crusade_mp_restore,             // S->C: Mana collector restored MP to nearby allies
 
+    // Guild system (player-facing)
+    guild_create_request,           // C->S: Create a guild
+    guild_create_response,          // S->C: Creation result
+    guild_disband_request,          // C->S: Disband guild
+    guild_disband_response,         // S->C: Disband result
+    guild_leave_request,            // C->S: Leave guild
+    guild_leave_response,           // S->C: Leave result
+    guild_kick_request,             // C->S: Kick member
+    guild_kick_response,            // S->C: Kick result
+    guild_invite_request,           // C->S: Invite player to guild
+    guild_invite_response,          // S->C: Invite result
+    guild_invite_received,          // S->C: Push invite notification to target
+    guild_invite_respond_request,   // C->S: Accept/decline guild invite
+    guild_invite_respond_response,  // S->C: Respond result
+    guild_promote_request,          // C->S: Promote member
+    guild_promote_response,         // S->C: Promote result
+    guild_demote_request,           // C->S: Demote member
+    guild_demote_response,          // S->C: Demote result
+    guild_set_motd_request,         // C->S: Set guild MOTD
+    guild_set_motd_response,        // S->C: MOTD result
+    guild_info_request,             // C->S: Get guild info
+    guild_info_response,            // S->C: Guild info with member list
+    guild_update,                   // S->C: Broadcast guild state change
+
     // Unknown/invalid
     unknown
 };
@@ -721,6 +745,28 @@ enum class json_message_type {
         case json_message_type::crusade_guild_teleport_request: return "crusade_guild_teleport_request";
         case json_message_type::crusade_guild_teleport_response: return "crusade_guild_teleport_response";
         case json_message_type::crusade_mp_restore: return "crusade_mp_restore";
+        case json_message_type::guild_create_request: return "guild_create_request";
+        case json_message_type::guild_create_response: return "guild_create_response";
+        case json_message_type::guild_disband_request: return "guild_disband_request";
+        case json_message_type::guild_disband_response: return "guild_disband_response";
+        case json_message_type::guild_leave_request: return "guild_leave_request";
+        case json_message_type::guild_leave_response: return "guild_leave_response";
+        case json_message_type::guild_kick_request: return "guild_kick_request";
+        case json_message_type::guild_kick_response: return "guild_kick_response";
+        case json_message_type::guild_invite_request: return "guild_invite_request";
+        case json_message_type::guild_invite_response: return "guild_invite_response";
+        case json_message_type::guild_invite_received: return "guild_invite_received";
+        case json_message_type::guild_invite_respond_request: return "guild_invite_respond_request";
+        case json_message_type::guild_invite_respond_response: return "guild_invite_respond_response";
+        case json_message_type::guild_promote_request: return "guild_promote_request";
+        case json_message_type::guild_promote_response: return "guild_promote_response";
+        case json_message_type::guild_demote_request: return "guild_demote_request";
+        case json_message_type::guild_demote_response: return "guild_demote_response";
+        case json_message_type::guild_set_motd_request: return "guild_set_motd_request";
+        case json_message_type::guild_set_motd_response: return "guild_set_motd_response";
+        case json_message_type::guild_info_request: return "guild_info_request";
+        case json_message_type::guild_info_response: return "guild_info_response";
+        case json_message_type::guild_update: return "guild_update";
         default: return "unknown";
     }
 }
@@ -975,6 +1021,9 @@ struct character_data_msg {
     int64_t experience;
     int32_t pk_count;
     int32_t hunger_level;
+    std::string guild_name;
+    std::string guild_tag;
+    uint8_t guild_rank{0};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1016,6 +1065,8 @@ struct visible_entity_msg {
     std::string faction;         // "neutral", "aresden", "elvine"
     std::string hostility;       // "enemy", "friendly", "neutral" (relative to viewing player)
     std::string pk_status;       // "innocent", "criminal", "murderer"
+    std::string guild_name;      // Player's guild name (empty if no guild)
+    std::string guild_tag;       // Player's guild tag (empty if no guild)
 
     // NPC-specific fields (optional, only used when type == "npc")
     uint32_t template_id{0};
@@ -1933,6 +1984,73 @@ struct friend_request_msg
 [[nodiscard]] auto make_friend_accepted_notification(std::string_view friend_name) -> json_message;
 [[nodiscard]] auto make_friend_online_notification(std::string_view friend_name) -> json_message;
 [[nodiscard]] auto make_friend_offline_notification(std::string_view friend_name) -> json_message;
+
+// === Guild system data structures and builders ===
+
+struct guild_create_request_data
+{
+    std::string name;
+    std::string tag;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<guild_create_request_data, std::string>;
+};
+
+struct guild_target_request_data
+{
+    std::string target_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<guild_target_request_data, std::string>;
+};
+
+struct guild_set_motd_request_data
+{
+    std::string motd;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<guild_set_motd_request_data, std::string>;
+};
+
+struct guild_member_info_msg
+{
+    std::string name;
+    uint8_t rank{0};
+    std::string rank_name;
+    bool is_online{false};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+struct guild_invite_respond_request_data
+{
+    bool accept{false};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<guild_invite_respond_request_data, std::string>;
+};
+
+// Guild invite received notification (pushed to target, unsolicited)
+[[nodiscard]] auto make_guild_invite_received(const std::string& guild_name,
+    const std::string& guild_tag, const std::string& inviter_name) -> json_message;
+
+// Generic guild response builder (like make_friend_response)
+[[nodiscard]] auto make_guild_response(uint32_t seq, json_message_type type,
+    bool success, std::string_view error = {},
+    const nlohmann::json& extra = {}) -> json_message;
+
+// Guild info response with full member list
+[[nodiscard]] auto make_guild_info_response(uint32_t seq, bool success,
+    const std::string& guild_name = {}, const std::string& tag = {},
+    const std::string& motd = {}, size_t member_count = 0,
+    const std::string& master_name = {},
+    const std::vector<guild_member_info_msg>& members = {},
+    std::string_view error = {}) -> json_message;
+
+// Guild update broadcast (unsolicited, no seq)
+[[nodiscard]] auto make_guild_update(const std::string& action,
+    const std::string& guild_name, const std::string& player_name = {},
+    const nlohmann::json& extra = {}) -> json_message;
 
 // === Crusade warfare builders ===
 

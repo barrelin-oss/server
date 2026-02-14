@@ -82,6 +82,7 @@ void social_system::shutdown() {
     guilds_.clear();
     player_guilds_.clear();
     character_guild_index_.clear();
+    pending_guild_invites_.clear();
     parties_.clear();
     player_parties_.clear();
     pending_party_invites_.clear();
@@ -503,8 +504,70 @@ auto social_system::invite_to_guild(player_id inviter, guild_id gid, player_id i
         return guild_result::already_in_guild;
     }
 
-    // For simplicity, auto-join the guild (in a full implementation, this would create an invite)
-    return join_guild(invitee, gid);
+    // Get inviter name
+    std::string inviter_name;
+    auto it = player_names_.find(inviter);
+    if (it != player_names_.end()) {
+        inviter_name = it->second;
+    }
+
+    // Store pending invite (replaces any existing invite for this player)
+    pending_guild_invites_[invitee] = pending_guild_invite{
+        .guild = gid,
+        .inviter = inviter,
+        .guild_name = g->name,
+        .guild_tag = g->tag,
+        .inviter_name = inviter_name,
+        .expires_at = std::chrono::steady_clock::now() + pending_guild_invite::invite_duration
+    };
+
+    LOG_DEBUG(general, "Player {} invited player {} to guild {} ({})",
+        inviter.value, invitee.value, g->name, gid.value);
+
+    return guild_result::success;
+}
+
+auto social_system::accept_guild_invite(player_id invitee) -> result<guild_id, guild_result> {
+    auto it = pending_guild_invites_.find(invitee);
+    if (it == pending_guild_invites_.end()) {
+        return result<guild_id, guild_result>::err(guild_result::guild_not_found);
+    }
+
+    if (it->second.is_expired()) {
+        pending_guild_invites_.erase(it);
+        return result<guild_id, guild_result>::err(guild_result::guild_not_found);
+    }
+
+    auto gid = it->second.guild;
+    pending_guild_invites_.erase(it);
+
+    auto join_result = join_guild(invitee, gid);
+    if (join_result != guild_result::success) {
+        return result<guild_id, guild_result>::err(join_result);
+    }
+
+    return result<guild_id, guild_result>::ok(gid);
+}
+
+auto social_system::decline_guild_invite(player_id invitee) -> guild_result {
+    auto it = pending_guild_invites_.find(invitee);
+    if (it == pending_guild_invites_.end()) {
+        return guild_result::guild_not_found;
+    }
+
+    pending_guild_invites_.erase(it);
+    return guild_result::success;
+}
+
+auto social_system::get_guild_invite(player_id invitee) const -> const pending_guild_invite* {
+    auto it = pending_guild_invites_.find(invitee);
+    if (it == pending_guild_invites_.end()) return nullptr;
+    if (it->second.is_expired()) return nullptr;
+    return &it->second;
+}
+
+auto social_system::has_guild_invite(player_id invitee) const -> bool {
+    return get_guild_invite(invitee) != nullptr;
 }
 
 auto social_system::join_guild(player_id player, guild_id gid) -> guild_result {
@@ -1319,6 +1382,15 @@ void social_system::cleanup_expired_invites() {
     // Clean up invites in parties
     for (auto& [id, p] : parties_) {
         p.cleanup_invites();
+    }
+
+    // Clean up guild invites
+    for (auto it = pending_guild_invites_.begin(); it != pending_guild_invites_.end(); ) {
+        if (it->second.is_expired()) {
+            it = pending_guild_invites_.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 

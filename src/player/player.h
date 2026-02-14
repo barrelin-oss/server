@@ -136,6 +136,7 @@ struct player {
     // Faction
     hb::faction faction{hb::faction::neutral};
     std::string guild_name;
+    std::string guild_tag;
     uint8_t guild_rank{0};
 
     // Stats

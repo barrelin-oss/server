@@ -574,6 +574,38 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             handle_friend_list(conn_id, msg);
             break;
 
+        // Guilds
+        case network::json_message_type::guild_create_request:
+            handle_guild_create(conn_id, msg);
+            break;
+        case network::json_message_type::guild_disband_request:
+            handle_guild_disband(conn_id, msg);
+            break;
+        case network::json_message_type::guild_leave_request:
+            handle_guild_leave(conn_id, msg);
+            break;
+        case network::json_message_type::guild_kick_request:
+            handle_guild_kick(conn_id, msg);
+            break;
+        case network::json_message_type::guild_invite_request:
+            handle_guild_invite(conn_id, msg);
+            break;
+        case network::json_message_type::guild_invite_respond_request:
+            handle_guild_invite_respond(conn_id, msg);
+            break;
+        case network::json_message_type::guild_promote_request:
+            handle_guild_promote(conn_id, msg);
+            break;
+        case network::json_message_type::guild_demote_request:
+            handle_guild_demote(conn_id, msg);
+            break;
+        case network::json_message_type::guild_set_motd_request:
+            handle_guild_set_motd(conn_id, msg);
+            break;
+        case network::json_message_type::guild_info_request:
+            handle_guild_info(conn_id, msg);
+            break;
+
         // Death/Respawn
         case network::json_message_type::respawn_request:
             handle_respawn_request(conn_id, msg);
@@ -2259,7 +2291,9 @@ void game_handlers::update_entity_visibility(player_id moved_player,
                 .direction = static_cast<int16_t>(player->facing),
                 .faction = std::string(faction_to_string(player->faction)),
                 .hostility = std::string(player_hostility(other->faction, player->faction)),
-                .pk_status = std::string(player->pk.status_string())
+                .pk_status = std::string(player->pk.status_string()),
+                .guild_name = player->guild_name,
+                .guild_tag = player->guild_tag
             }));
 
             // Also send the other player info to the moving player
@@ -2275,7 +2309,9 @@ void game_handlers::update_entity_visibility(player_id moved_player,
                     .direction = static_cast<int16_t>(other->facing),
                     .faction = std::string(faction_to_string(other->faction)),
                     .hostility = std::string(player_hostility(player->faction, other->faction)),
-                    .pk_status = std::string(other->pk.status_string())
+                    .pk_status = std::string(other->pk.status_string()),
+                    .guild_name = other->guild_name,
+                    .guild_tag = other->guild_tag
                 }));
             }
         }
@@ -2549,6 +2585,29 @@ void game_handlers::handle_chat_message(connection_id conn_id, const network::js
         pid.value, channel_to_string(channel), content.substr(0, 50));
 }
 
+namespace {
+
+auto guild_result_string(social::guild_result r) -> std::string
+{
+    switch (r) {
+        case social::guild_result::success: return "success";
+        case social::guild_result::guild_not_found: return "guild_not_found";
+        case social::guild_result::player_not_member: return "not_member";
+        case social::guild_result::insufficient_permissions: return "insufficient_permissions";
+        case social::guild_result::guild_full: return "guild_full";
+        case social::guild_result::already_in_guild: return "already_in_guild";
+        case social::guild_result::name_taken: return "name_taken";
+        case social::guild_result::invalid_name: return "invalid_name";
+        case social::guild_result::cannot_kick_self: return "cannot_kick_self";
+        case social::guild_result::cannot_kick_higher_rank: return "cannot_kick_higher_rank";
+        case social::guild_result::cannot_promote_higher: return "cannot_promote_higher";
+        case social::guild_result::insufficient_gold: return "insufficient_gold";
+        default: return "unknown_error";
+    }
+}
+
+}  // namespace
+
 void game_handlers::handle_command(connection_id conn_id, const network::json_message& msg) {
     auto* conn = require_in_game(conn_id, msg.seq);
     if (!conn) return;
@@ -2612,6 +2671,255 @@ void game_handlers::handle_command(connection_id conn_id, const network::json_me
                 {"map", player->current_map.value},
                 {"map_name", map_name}
             }));
+        return;
+    }
+
+    // Guild commands (available to all players)
+    if (data.command == "gcreate" && social_) {
+        if (data.args.empty()) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Usage: /gcreate <guild_name>"));
+            return;
+        }
+        std::string guild_name = data.args[0];
+        // Use first 3 chars of name as default tag
+        std::string guild_tag = guild_name.substr(0, std::min(guild_name.size(), size_t{3}));
+        if (data.args.size() > 1) {
+            guild_tag = data.args[1];
+        }
+
+        auto result = social_->create_guild(pid, guild_name, guild_tag);
+        if (result.is_err()) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Failed to create guild: " + guild_result_string(result.error())));
+            return;
+        }
+        auto gid = result.value();
+        auto* g = social_->get_guild(gid);
+        if (g) {
+            player->guild_name = g->name;
+            player->guild_tag = g->tag;
+            player->guild_rank = static_cast<uint8_t>(social::guild_rank::guild_master);
+        }
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            "Guild '" + guild_name + "' [" + guild_tag + "] created!"));
+        return;
+    }
+
+    if (data.command == "gdisband" && social_) {
+        auto gid = social_->get_player_guild(pid);
+        if (!gid.is_valid()) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "You are not in a guild"));
+            return;
+        }
+        auto* g = social_->get_guild(gid);
+        if (!g) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Guild not found"));
+            return;
+        }
+        std::string guild_name = g->name;
+
+        // Collect member PIDs before disband
+        std::vector<player_id> member_pids;
+        for (const auto& m : g->members) {
+            member_pids.push_back(m.player);
+        }
+
+        auto result = social_->disband_guild(pid, gid);
+        if (result != social::guild_result::success) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Failed: " + guild_result_string(result)));
+            return;
+        }
+
+        // Clear guild fields for all members
+        for (auto mid : member_pids) {
+            auto* member_plr = players_->get_player(mid);
+            if (member_plr) {
+                member_plr->guild_name.clear();
+                member_plr->guild_tag.clear();
+                member_plr->guild_rank = 0;
+            }
+        }
+
+        // Notify all online members
+        auto disbanded_msg = network::make_guild_update("guild_disbanded", guild_name);
+        for (auto mid : member_pids) {
+            auto* member_conn = ws_server_->get_connection_by_player(mid);
+            if (member_conn) {
+                member_conn->send(disbanded_msg);
+            }
+        }
+
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            "Guild '" + guild_name + "' has been disbanded"));
+        return;
+    }
+
+    if (data.command == "ginvite" && social_) {
+        if (data.args.empty()) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Usage: /ginvite <player_name>"));
+            return;
+        }
+
+        auto* target = players_->get_player_by_name(data.args[0]);
+        if (!target) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Player not found"));
+            return;
+        }
+
+        auto gid = social_->get_player_guild(pid);
+        if (!gid.is_valid()) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "You are not in a guild"));
+            return;
+        }
+
+        auto result = social_->invite_to_guild(pid, gid, target->id);
+        if (result != social::guild_result::success) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Failed: " + guild_result_string(result)));
+            return;
+        }
+
+        // Push invite notification to target
+        auto* g = social_->get_guild(gid);
+        auto* target_conn = ws_server_->get_connection_by_player(target->id);
+        if (target_conn && g) {
+            target_conn->send(network::make_guild_invite_received(g->name, g->tag, player->name));
+        }
+
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            "Invited " + data.args[0] + " to your guild. They must /gaccept to join."));
+        return;
+    }
+
+    if (data.command == "gkick" && social_) {
+        if (data.args.empty()) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Usage: /gkick <player_name>"));
+            return;
+        }
+
+        auto* target = players_->get_player_by_name(data.args[0]);
+        if (!target) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Player not found"));
+            return;
+        }
+
+        auto gid = social_->get_player_guild(pid);
+        if (!gid.is_valid()) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "You are not in a guild"));
+            return;
+        }
+
+        auto* g = social_->get_guild(gid);
+        std::string guild_name = g ? g->name : "";
+
+        auto result = social_->kick_from_guild(pid, target->id);
+        if (result != social::guild_result::success) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Failed: " + guild_result_string(result)));
+            return;
+        }
+
+        // Clear target's guild fields
+        target->guild_name.clear();
+        target->guild_tag.clear();
+        target->guild_rank = 0;
+
+        // Notify kicked player
+        auto* target_conn = ws_server_->get_connection_by_player(target->id);
+        if (target_conn) {
+            target_conn->send(network::make_guild_update("you_were_kicked", guild_name, player->name));
+        }
+
+        // Broadcast to guild
+        broadcast_guild_update(gid, "member_kicked", guild_name, target->name);
+
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            "Kicked " + data.args[0] + " from the guild"));
+        return;
+    }
+
+    if (data.command == "gaccept" && social_) {
+        auto accept_result = social_->accept_guild_invite(pid);
+        if (accept_result.is_err()) {
+            std::string err = (accept_result.error() == social::guild_result::guild_not_found)
+                ? "No pending guild invite" : guild_result_string(accept_result.error());
+            conn->send(network::make_command_response(msg.seq, false, data.command, err));
+            return;
+        }
+
+        auto gid = accept_result.value();
+        auto* g = social_->get_guild(gid);
+        if (g) {
+            player->guild_name = g->name;
+            player->guild_tag = g->tag;
+            player->guild_rank = static_cast<uint8_t>(social::guild_rank::recruit);
+
+            broadcast_guild_update(gid, "member_joined", g->name, player->name);
+
+            conn->send(network::make_command_response(msg.seq, true, data.command,
+                "You joined guild '" + g->name + "' [" + g->tag + "]!"));
+        } else {
+            conn->send(network::make_command_response(msg.seq, true, data.command,
+                "You joined the guild!"));
+        }
+        return;
+    }
+
+    if (data.command == "gdecline" && social_) {
+        auto result = social_->decline_guild_invite(pid);
+        if (result != social::guild_result::success) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "No pending guild invite"));
+            return;
+        }
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            "Guild invite declined"));
+        return;
+    }
+
+    if (data.command == "gquit" && social_) {
+        auto gid = social_->get_player_guild(pid);
+        if (!gid.is_valid()) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "You are not in a guild"));
+            return;
+        }
+
+        // Check if guild master
+        auto* g = social_->get_guild(gid);
+        if (g && g->master == pid) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Guild masters cannot quit. Use /gdisband or transfer leadership first."));
+            return;
+        }
+
+        std::string guild_name = g ? g->name : "";
+
+        auto result = social_->leave_guild(pid);
+        if (result != social::guild_result::success) {
+            conn->send(network::make_command_response(msg.seq, false, data.command,
+                "Failed: " + guild_result_string(result)));
+            return;
+        }
+
+        player->guild_name.clear();
+        player->guild_tag.clear();
+        player->guild_rank = 0;
+
+        broadcast_guild_update(gid, "member_left", guild_name, player->name);
+
+        conn->send(network::make_command_response(msg.seq, true, data.command,
+            "You left the guild"));
         return;
     }
 
@@ -2897,6 +3205,11 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         }
     }
 
+    // Forward despawn to admin spectators on old map
+    for (auto admin_conn : ws_server_->get_admin_subscribers(old_map_id)) {
+        ws_server_->send(admin_conn, despawn_msg);
+    }
+
     // Build visible entities at destination using teleporting player's visibility
     auto visible_entities = build_visible_entities_at(teleport_result.new_map, resolved_pos,
                                                        player->visibility_radius_x,
@@ -2973,8 +3286,37 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
             .direction = static_cast<int16_t>(dest_dir),
             .faction = std::string(faction_to_string(player->faction)),
             .hostility = std::string(player_hostility(other->faction, player->faction)),
-            .pk_status = std::string(player->pk.status_string())
+            .pk_status = std::string(player->pk.status_string()),
+            .guild_name = player->guild_name,
+            .guild_tag = player->guild_tag,
+            .template_id = {},
+            .sprite_id = {},
+            .level = {},
+            .category = {}
         }));
+    }
+
+    // Forward spawn to admin spectators on new map (neutral perspective)
+    auto admin_spawn_msg = network::make_entity_spawn(0, network::visible_entity_msg{
+        .entity_id = player->ecs_entity.id,
+        .type = "player",
+        .name = player->name,
+        .x = resolved_pos.x,
+        .y = resolved_pos.y,
+        .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
+        .direction = static_cast<int16_t>(dest_dir),
+        .faction = std::string(faction_to_string(player->faction)),
+        .hostility = "neutral",
+        .pk_status = std::string(player->pk.status_string()),
+        .guild_name = player->guild_name,
+        .guild_tag = player->guild_tag,
+        .template_id = {},
+        .sprite_id = {},
+        .level = {},
+        .category = {}
+    });
+    for (auto admin_conn : ws_server_->get_admin_subscribers(teleport_result.new_map)) {
+        ws_server_->send(admin_conn, admin_spawn_msg);
     }
 
     LOG_INFO(bridge, "Player {} teleported to {} ({}, {}), {} entities visible",
@@ -3086,7 +3428,16 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
                 .x = p->pos.x,
                 .y = p->pos.y,
                 .hp_percent = static_cast<int16_t>(p->hp_percent() * 100),
-                .direction = static_cast<int16_t>(p->facing)
+                .direction = static_cast<int16_t>(p->facing),
+                .faction = {},
+                .hostility = {},
+                .pk_status = {},
+                .guild_name = p->guild_name,
+                .guild_tag = p->guild_tag,
+                .template_id = {},
+                .sprite_id = {},
+                .level = {},
+                .category = {}
             });
         }
     }
@@ -3106,9 +3457,15 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
                 .y = n.pos.y,
                 .hp_percent = static_cast<int16_t>(n.hp_percent() * 100),
                 .direction = static_cast<int16_t>(n.facing),
+                .faction = {},
+                .hostility = {},
+                .pk_status = {},
+                .guild_name = {},
+                .guild_tag = {},
                 .template_id = n.template_id.value,
                 .sprite_id = n.sprite_id,
-                .level = n.level
+                .level = n.level,
+                .category = {}
             });
         });
     }
@@ -5515,6 +5872,539 @@ void game_handlers::handle_friend_list(connection_id conn_id, const network::jso
 
     conn->send(network::make_friend_list_response(msg.seq,
         friends_list, incoming, outgoing, blocked));
+}
+
+// ========== Guild Handlers ==========
+
+void game_handlers::broadcast_guild_update(guild_id gid, const std::string& action,
+                                           const std::string& guild_name,
+                                           const std::string& player_name,
+                                           const nlohmann::json& extra)
+{
+    if (!social_ || !ws_server_) return;
+
+    auto* g = social_->get_guild(gid);
+    if (!g) return;
+
+    auto msg = network::make_guild_update(action, guild_name, player_name, extra);
+    for (const auto& member : g->members) {
+        if (member.player.is_valid()) {
+            auto* member_conn = ws_server_->get_connection_by_player(member.player);
+            if (member_conn) {
+                member_conn->send(msg);
+            }
+        }
+    }
+}
+
+void game_handlers::handle_guild_create(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::guild_create_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto result = social_->create_guild(conn->player(), data.name, data.tag);
+    if (result.is_err()) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_create_response,
+            false, guild_result_string(result.error())));
+        return;
+    }
+
+    plr->guild_name = data.name;
+    plr->guild_tag = data.tag;
+    plr->guild_rank = static_cast<uint8_t>(social::guild_rank::guild_master);
+
+    conn->send(network::make_guild_response(msg.seq,
+        network::json_message_type::guild_create_response,
+        true, {}, {{"guild_name", data.name}, {"tag", data.tag}}));
+}
+
+void game_handlers::handle_guild_disband(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto gid = social_->get_player_guild(conn->player());
+    if (!gid.is_valid()) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_disband_response,
+            false, "not_in_guild"));
+        return;
+    }
+
+    auto* g = social_->get_guild(gid);
+    if (!g) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_disband_response,
+            false, "guild_not_found"));
+        return;
+    }
+
+    // Collect member connections BEFORE disband
+    std::string guild_name = g->name;
+    std::vector<player_id> member_pids;
+    for (const auto& member : g->members) {
+        if (member.player.is_valid()) {
+            member_pids.push_back(member.player);
+        }
+    }
+
+    auto result = social_->disband_guild(conn->player(), gid);
+    if (result != social::guild_result::success) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_disband_response,
+            false, guild_result_string(result)));
+        return;
+    }
+
+    // Clear guild fields for all members
+    for (auto mid : member_pids) {
+        auto* member_plr = players_->get_player(mid);
+        if (member_plr) {
+            member_plr->guild_name.clear();
+            member_plr->guild_tag.clear();
+            member_plr->guild_rank = 0;
+        }
+    }
+
+    // Notify all former members
+    auto update_msg = network::make_guild_update("guild_disbanded", guild_name);
+    for (auto mid : member_pids) {
+        auto* member_conn = ws_server_->get_connection_by_player(mid);
+        if (member_conn) {
+            member_conn->send(update_msg);
+        }
+    }
+
+    conn->send(network::make_guild_response(msg.seq,
+        network::json_message_type::guild_disband_response, true));
+}
+
+void game_handlers::handle_guild_leave(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto gid = social_->get_player_guild(conn->player());
+    if (!gid.is_valid()) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_leave_response,
+            false, "not_in_guild"));
+        return;
+    }
+
+    auto* g = social_->get_guild(gid);
+    std::string guild_name = g ? g->name : "";
+
+    auto result = social_->leave_guild(conn->player());
+    if (result != social::guild_result::success) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_leave_response,
+            false, guild_result_string(result)));
+        return;
+    }
+
+    std::string player_name = plr->name;
+    plr->guild_name.clear();
+    plr->guild_tag.clear();
+    plr->guild_rank = 0;
+
+    conn->send(network::make_guild_response(msg.seq,
+        network::json_message_type::guild_leave_response, true));
+
+    // Broadcast to remaining members
+    broadcast_guild_update(gid, "member_left", guild_name, player_name);
+}
+
+void game_handlers::handle_guild_kick(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::guild_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    // Resolve target by name
+    auto* target = players_->get_player_by_name(data_result.value().target_name);
+    if (!target) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_kick_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto gid = social_->get_player_guild(conn->player());
+    if (!gid.is_valid()) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_kick_response,
+            false, "not_in_guild"));
+        return;
+    }
+
+    auto* g = social_->get_guild(gid);
+    std::string guild_name = g ? g->name : "";
+
+    auto result = social_->kick_from_guild(conn->player(), target->id);
+    if (result != social::guild_result::success) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_kick_response,
+            false, guild_result_string(result)));
+        return;
+    }
+
+    std::string target_name = target->name;
+    target->guild_name.clear();
+    target->guild_tag.clear();
+    target->guild_rank = 0;
+
+    conn->send(network::make_guild_response(msg.seq,
+        network::json_message_type::guild_kick_response, true));
+
+    // Broadcast to remaining members
+    broadcast_guild_update(gid, "member_kicked", guild_name, target_name);
+
+    // Notify the kicked player
+    auto* target_conn = ws_server_->get_connection_by_player(target->id);
+    if (target_conn) {
+        target_conn->send(network::make_guild_update("you_were_kicked", guild_name));
+    }
+}
+
+void game_handlers::handle_guild_invite(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::guild_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    // Resolve target by name
+    auto* target = players_->get_player_by_name(data_result.value().target_name);
+    if (!target) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_invite_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto gid = social_->get_player_guild(conn->player());
+    if (!gid.is_valid()) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_invite_response,
+            false, "not_in_guild"));
+        return;
+    }
+
+    auto* g = social_->get_guild(gid);
+    if (!g) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_invite_response,
+            false, "guild_not_found"));
+        return;
+    }
+
+    // Store pending invite (target must /gaccept)
+    auto result = social_->invite_to_guild(conn->player(), gid, target->id);
+    if (result != social::guild_result::success) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_invite_response,
+            false, guild_result_string(result)));
+        return;
+    }
+
+    conn->send(network::make_guild_response(msg.seq,
+        network::json_message_type::guild_invite_response, true));
+
+    // Push invite notification to target
+    auto* target_conn = ws_server_->get_connection_by_player(target->id);
+    if (target_conn) {
+        target_conn->send(network::make_guild_invite_received(g->name, g->tag, plr->name));
+    }
+}
+
+void game_handlers::handle_guild_invite_respond(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::guild_invite_respond_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    if (!data_result.value().accept) {
+        // Decline
+        social_->decline_guild_invite(conn->player());
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_invite_respond_response, true,
+            {}, nlohmann::json{{"accepted", false}}));
+        return;
+    }
+
+    // Accept
+    auto accept_result = social_->accept_guild_invite(conn->player());
+    if (accept_result.is_err()) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_invite_respond_response,
+            false, guild_result_string(accept_result.error())));
+        return;
+    }
+
+    auto gid = accept_result.value();
+    auto* g = social_->get_guild(gid);
+    if (g) {
+        plr->guild_name = g->name;
+        plr->guild_tag = g->tag;
+        plr->guild_rank = static_cast<uint8_t>(social::guild_rank::recruit);
+
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_invite_respond_response, true,
+            {}, nlohmann::json{
+                {"accepted", true},
+                {"guild_name", g->name},
+                {"guild_tag", g->tag}
+            }));
+
+        broadcast_guild_update(gid, "member_joined", g->name, plr->name);
+    } else {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_invite_respond_response, true,
+            {}, nlohmann::json{{"accepted", true}}));
+    }
+}
+
+void game_handlers::handle_guild_promote(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::guild_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto* target = players_->get_player_by_name(data_result.value().target_name);
+    if (!target) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_promote_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto gid = social_->get_player_guild(conn->player());
+    std::string guild_name = plr->guild_name;
+
+    auto result = social_->promote_member(conn->player(), target->id);
+    if (result != social::guild_result::success) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_promote_response,
+            false, guild_result_string(result)));
+        return;
+    }
+
+    // Update target's guild_rank from the actual guild data
+    auto* g = social_->get_guild(gid);
+    if (g) {
+        auto* member = g->get_member(target->id);
+        if (member) {
+            target->guild_rank = static_cast<uint8_t>(member->rank);
+        }
+    }
+
+    conn->send(network::make_guild_response(msg.seq,
+        network::json_message_type::guild_promote_response, true));
+
+    broadcast_guild_update(gid, "member_promoted", guild_name, target->name);
+}
+
+void game_handlers::handle_guild_demote(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::guild_target_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto* target = players_->get_player_by_name(data_result.value().target_name);
+    if (!target) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_demote_response,
+            false, "player_not_found"));
+        return;
+    }
+
+    auto gid = social_->get_player_guild(conn->player());
+    std::string guild_name = plr->guild_name;
+
+    auto result = social_->demote_member(conn->player(), target->id);
+    if (result != social::guild_result::success) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_demote_response,
+            false, guild_result_string(result)));
+        return;
+    }
+
+    auto* g = social_->get_guild(gid);
+    if (g) {
+        auto* member = g->get_member(target->id);
+        if (member) {
+            target->guild_rank = static_cast<uint8_t>(member->rank);
+        }
+    }
+
+    conn->send(network::make_guild_response(msg.seq,
+        network::json_message_type::guild_demote_response, true));
+
+    broadcast_guild_update(gid, "member_demoted", guild_name, target->name);
+}
+
+void game_handlers::handle_guild_set_motd(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto data_result = network::guild_set_motd_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto gid = social_->get_player_guild(conn->player());
+    if (!gid.is_valid()) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_set_motd_response,
+            false, "not_in_guild"));
+        return;
+    }
+
+    auto result = social_->set_guild_motd(conn->player(), data_result.value().motd);
+    if (result != social::guild_result::success) {
+        conn->send(network::make_guild_response(msg.seq,
+            network::json_message_type::guild_set_motd_response,
+            false, guild_result_string(result)));
+        return;
+    }
+
+    conn->send(network::make_guild_response(msg.seq,
+        network::json_message_type::guild_set_motd_response, true));
+
+    broadcast_guild_update(gid, "motd_changed", plr->guild_name, {},
+        {{"motd", data_result.value().motd}});
+}
+
+void game_handlers::handle_guild_info(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    auto* plr = players_->get_player(conn->player());
+    if (!plr) {
+        send_error(conn_id, msg.seq, "internal_error", "Player not found");
+        return;
+    }
+
+    auto gid = social_->get_player_guild(conn->player());
+    if (!gid.is_valid()) {
+        conn->send(network::make_guild_info_response(msg.seq, false,
+            {}, {}, {}, 0, {}, {}, "not_in_guild"));
+        return;
+    }
+
+    auto* g = social_->get_guild(gid);
+    if (!g) {
+        conn->send(network::make_guild_info_response(msg.seq, false,
+            {}, {}, {}, 0, {}, {}, "guild_not_found"));
+        return;
+    }
+
+    // Find master name
+    std::string master_name;
+    for (const auto& member : g->members) {
+        if (member.rank == social::guild_rank::guild_master) {
+            master_name = member.name;
+            break;
+        }
+    }
+
+    // Build member list
+    std::vector<network::guild_member_info_msg> members;
+    for (const auto& member : g->members) {
+        auto rank_idx = static_cast<size_t>(member.rank);
+        std::string rank_name = rank_idx < g->ranks.size()
+            ? g->ranks[rank_idx].name : "Unknown";
+
+        members.push_back(network::guild_member_info_msg{
+            .name = member.name,
+            .rank = static_cast<uint8_t>(member.rank),
+            .rank_name = rank_name,
+            .is_online = member.player.is_valid()
+        });
+    }
+
+    conn->send(network::make_guild_info_response(msg.seq, true,
+        g->name, g->tag, g->motd, g->member_count(), master_name, members));
 }
 
 }  // namespace hb::bridge

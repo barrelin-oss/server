@@ -1,0 +1,92 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Debug
+          - Release
+
+jobs:
+  build-linux:
+    runs-on: [self-hosted, Linux]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -B build
+          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+          -DCMAKE_BUILD_TYPE=${{ inputs.build_type }}
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: helbreath-client-linux-${{ inputs.build_type }}
+          path: bin/helbreath_client
+
+      - name: Install Flatpak
+        if: inputs.build_type == 'Release'
+        run: |
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+
+      - name: Stage Flatpak files
+        if: inputs.build_type == 'Release'
+        run: |
+          mkdir -p flatpak-staging
+          cp bin/helbreath_client flatpak-staging/
+          cp -r /data/hbx/assets flatpak-staging/assets
+          cp /data/hbx/config.json flatpak-staging/config.json
+          cp com.helbreathx.Client.desktop flatpak-staging/
+          cp com.helbreathx.Client.metainfo.xml flatpak-staging/
+          cp hbx.png flatpak-staging/com.helbreathx.Client.png
+
+      - name: Build Flatpak
+        if: inputs.build_type == 'Release'
+        run: |
+          flatpak-builder --user --force-clean --repo=flatpak-repo flatpak-build com.helbreathx.Client.yml
+          flatpak build-bundle flatpak-repo helbreath-client.flatpak com.helbreathx.Client
+
+      - name: Upload Flatpak
+        if: inputs.build_type == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: helbreath-client-flatpak
+          path: helbreath-client.flatpak
+
+  build-windows:
+    runs-on: [self-hosted, Windows]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        shell: cmd
+        run: >
+          cmake -B build
+          -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake
+          -DCMAKE_BUILD_TYPE=${{ inputs.build_type }}
+
+      - name: Build
+        shell: cmd
+        run: cmake --build build --config ${{ inputs.build_type }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helbreath-client-windows-${{ inputs.build_type }}
+          path: |
+            bin/${{ inputs.build_type }}/helbreath_client.exe
+            bin/helbreath_client.exe
+            bin/*.dll

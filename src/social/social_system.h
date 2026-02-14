@@ -177,6 +177,10 @@ public:
     auto disband_guild(player_id player, guild_id gid) -> guild_result;
 
     auto invite_to_guild(player_id inviter, guild_id gid, player_id invitee) -> guild_result;
+    auto accept_guild_invite(player_id invitee) -> result<guild_id, guild_result>;
+    auto decline_guild_invite(player_id invitee) -> guild_result;
+    [[nodiscard]] auto get_guild_invite(player_id invitee) const -> const pending_guild_invite*;
+    [[nodiscard]] auto has_guild_invite(player_id invitee) const -> bool;
     auto join_guild(player_id player, guild_id gid) -> guild_result;
     auto leave_guild(player_id player) -> guild_result;
     auto kick_from_guild(player_id kicker, player_id target) -> guild_result;
@@ -332,6 +336,7 @@ private:
     std::unordered_map<guild_id, guild> guilds_;
     std::unordered_map<player_id, guild_id> player_guilds_;         // runtime_id → guild_id
     std::unordered_map<player_id, guild_id> character_guild_index_;  // character_id → guild_id
+    std::unordered_map<player_id, pending_guild_invite> pending_guild_invites_;  // invitee runtime_id → invite
     uint32_t next_guild_id_{1};
 
     // Parties

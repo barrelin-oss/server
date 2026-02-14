@@ -358,6 +358,7 @@ add_executable(hgserver_tests
     tests/test_safe_zone.cpp
     tests/test_admin_web.cpp
     tests/test_friend_system.cpp
+    tests/test_guild_handlers.cpp
     tests/test_perf_stats.cpp
     tests/test_crusade_system.cpp
     tests/test_heldenian_system.cpp

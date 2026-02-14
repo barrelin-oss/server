@@ -213,6 +213,9 @@ private:
                                 const std::string& player_name = {},
                                 const nlohmann::json& extra = {});
 
+    // Item usage
+    void handle_player_use_item(connection_id conn_id, const network::json_message& msg);
+
     // Death/Respawn
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
 

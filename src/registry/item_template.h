@@ -12,6 +12,29 @@
 
 namespace hb {
 
+// Consumable use-effect type (from legacy color_r1 / m_sItemEffectType)
+enum class consumable_effect_type : uint8_t {
+    none = 0,
+    hp_restore = 4,
+    mp_restore = 5,
+    sp_restore = 6,
+    food = 7,
+    magic_scroll = 11,
+    // Documented but not handled yet:
+    // study_skill = 9, study_magic = 18, dye = 17, warm = 28,
+    // lottery = 23, slates = 31, firm_stamina = 22, crit = 33
+};
+
+// Consumable effect parameters (from legacy color_r1..color_b2)
+struct consumable_effect {
+    consumable_effect_type type{consumable_effect_type::none};
+    int16_t v1{0};  // Dice count (potions) / scroll subtype (scrolls)
+    int16_t v2{0};  // Dice sides
+    int16_t v3{0};  // Flat bonus
+    int16_t v4{0};  // Extra param
+    int16_t v5{0};  // Extra param
+};
+
 // Item effect applied when equipped or used
 struct item_effect {
     item_effect_type type{item_effect_type::none};
@@ -82,6 +105,9 @@ struct item_template {
     // Special effects
     std::array<item_effect, 4> effects{};
 
+    // Consumable use-effect (from color_r1..color_b2 YAML fields)
+    consumable_effect use_effect;
+
     // Visual / classification
     int16_t sprite_id{0};  // Legacy m_sItemEffectType: weapon sprite/animation type (2 = bow)
 
@@ -119,6 +145,10 @@ struct item_template {
 
     [[nodiscard]] auto is_arrow() const -> bool {
         return type == item_type::arrow;
+    }
+
+    [[nodiscard]] auto is_usable() const -> bool {
+        return type == item_type::eat || type == item_type::use_deplete;
     }
 };
 

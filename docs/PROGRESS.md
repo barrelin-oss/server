@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-02-13
 
 ---
 
@@ -201,6 +201,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Item properties | ✅ | Weight, price, level requirements, tradeable/droppable flags |
 | Ground items | ✅ | Items on map, pickup, despawn timer |
 | Loot drops | ✅ | YAML-driven loot_tables.yaml, flat percentages, on_kill + on_despawn phases |
+| Use item handler | ✅ | HP/MP/SP potions, food, recall scrolls, potion speed anti-cheat |
 
 ---
 
@@ -433,6 +434,17 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-13: Use Item Handler
+- Implemented consumable item usage: HP/MP/SP potions, food (hunger), recall scrolls
+- Added `consumable_effect_type` enum and `consumable_effect` struct to `item_template`
+- YAML item loader now parses `color_r1`..`color_b2` fields as consumable effect params
+- Potion speed anti-cheat tracker on player: detects rapid potion use (avg < 180ms), consumes item but skips effect
+- Map restriction flags: `potions_disabled` and `recall_impossible` parsed from map YAML config
+- SP potions also cure poison status (legacy behavior)
+- Recall scrolls consume first then teleport to faction home town
+- 2 new protocol messages: `player_use_item_request/response`
+- 39 new tests (template, registry YAML parsing, anti-cheat, dice rolls, protocol, player/map/inventory)
 
 ### 2026-02-13: Guild JSON Protocol
 - Added 19 guild message types: create, disband, leave, kick, invite, promote, demote, set_motd, info (request/response pairs), plus guild_update broadcast

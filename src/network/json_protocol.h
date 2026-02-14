@@ -441,6 +441,10 @@ enum class json_message_type {
     guild_info_response,            // S->C: Guild info with member list
     guild_update,                   // S->C: Broadcast guild state change
 
+    // Item usage
+    player_use_item_request,        // C->S: Use a consumable item
+    player_use_item_response,       // S->C: Use item result
+
     // Unknown/invalid
     unknown
 };
@@ -767,6 +771,8 @@ enum class json_message_type {
         case json_message_type::guild_info_request: return "guild_info_request";
         case json_message_type::guild_info_response: return "guild_info_response";
         case json_message_type::guild_update: return "guild_update";
+        case json_message_type::player_use_item_request: return "player_use_item_request";
+        case json_message_type::player_use_item_response: return "player_use_item_response";
         default: return "unknown";
     }
 }
@@ -2051,6 +2057,21 @@ struct guild_invite_respond_request_data
 [[nodiscard]] auto make_guild_update(const std::string& action,
     const std::string& guild_name, const std::string& player_name = {},
     const nlohmann::json& extra = {}) -> json_message;
+
+// === Use item data structures and builders ===
+
+struct use_item_request_data
+{
+    int16_t slot{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j)
+        -> result<use_item_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_use_item_response(uint32_t seq, bool success,
+    const std::string& item_name = {}, const std::string& effect = {},
+    int32_t amount = 0, int32_t current = 0, int32_t max = 0,
+    std::string_view error = {}) -> json_message;
 
 // === Crusade warfare builders ===
 

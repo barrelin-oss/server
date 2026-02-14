@@ -201,6 +201,21 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path)
             if (node["is_two_handed"]) item.two_hand_modifier = static_cast<int16_t>(node["is_two_handed"].as<int>());
             if (node["sprite_id"]) item.sprite_id = static_cast<int16_t>(node["sprite_id"].as<int>());
 
+            // Consumable effect fields (legacy color_r1..color_b2)
+            if (node["color_r1"]) {
+                item.use_effect.type = static_cast<consumable_effect_type>(node["color_r1"].as<int>());
+                if (node["color_g1"]) item.use_effect.v1 = static_cast<int16_t>(node["color_g1"].as<int>());
+                if (node["color_b1"]) item.use_effect.v2 = static_cast<int16_t>(node["color_b1"].as<int>());
+                if (node["color_r2"]) item.use_effect.v3 = static_cast<int16_t>(node["color_r2"].as<int>());
+                if (node["color_g2"]) item.use_effect.v4 = static_cast<int16_t>(node["color_g2"].as<int>());
+                if (node["color_b2"]) item.use_effect.v5 = static_cast<int16_t>(node["color_b2"].as<int>());
+            }
+
+            // Mark consumable types
+            if (item.type == item_type::eat || item.type == item_type::use_deplete) {
+                item.is_consumable = true;
+            }
+
             // Store item
             auto index = items_.size();
             id_index_[item.id.value] = index;

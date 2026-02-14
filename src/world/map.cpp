@@ -344,6 +344,12 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
         if (root["attack_enabled"]) {
             config_.is_attack_enabled = root["attack_enabled"].as<bool>();
         }
+        if (root["recall_impossible"]) {
+            config_.is_recall_impossible = root["recall_impossible"].as<bool>();
+        }
+        if (root["potions_disabled"]) {
+            config_.is_potions_disabled = root["potions_disabled"].as<bool>();
+        }
 
         // Random mob generator
         if (root["random_mob_generator"]) {

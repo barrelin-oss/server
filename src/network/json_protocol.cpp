@@ -368,7 +368,9 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"guild_set_motd_response", json_message_type::guild_set_motd_response},
     {"guild_info_request", json_message_type::guild_info_request},
     {"guild_info_response", json_message_type::guild_info_response},
-    {"guild_update", json_message_type::guild_update}
+    {"guild_update", json_message_type::guild_update},
+    {"player_use_item_request", json_message_type::player_use_item_request},
+    {"player_use_item_response", json_message_type::player_use_item_response}
 };
 
 }  // namespace
@@ -3960,6 +3962,41 @@ auto make_guild_update(const std::string& action,
     }
     if (!extra.is_null() && extra.is_object()) {
         msg.data.merge_patch(extra);
+    }
+    return msg;
+}
+
+// === Use item ===
+
+auto use_item_request_data::from_json(const nlohmann::json& j)
+    -> result<use_item_request_data, std::string>
+{
+    use_item_request_data data;
+    auto slot = safe_int16_required(j, "slot");
+    if (!slot.has_value())
+        return result<use_item_request_data, std::string>::err("Missing 'slot'");
+    data.slot = *slot;
+    return result<use_item_request_data, std::string>::ok(std::move(data));
+}
+
+auto make_use_item_response(uint32_t seq, bool success,
+    const std::string& item_name, const std::string& effect,
+    int32_t amount, int32_t current, int32_t max,
+    std::string_view error) -> json_message
+{
+    json_message msg;
+    msg.type = json_message_type::player_use_item_response;
+    msg.seq = seq;
+    msg.data = {{"success", success}};
+    if (success) {
+        msg.data["item_name"] = item_name;
+        msg.data["effect"] = effect;
+        msg.data["amount"] = amount;
+        msg.data["current"] = current;
+        msg.data["max"] = max;
+    }
+    if (!error.empty()) {
+        msg.data["error"] = std::string(error);
     }
     return msg;
 }

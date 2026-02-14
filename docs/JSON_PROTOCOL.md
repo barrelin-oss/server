@@ -1988,6 +1988,95 @@ Broadcast to nearby players when an item is removed from the ground (picked up o
 
 ---
 
+## Item Usage Messages
+
+### `player_use_item_request`
+
+Use a consumable item from inventory (potions, food, recall scrolls).
+
+**Direction:** Client → Server
+
+```json
+{
+  "type": "player_use_item_request",
+  "seq": 1,
+  "data": {
+    "slot": 5
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `slot` | int16 | Inventory slot index (0-49) |
+
+### `player_use_item_response`
+
+Result of using an item.
+
+**Direction:** Server → Client
+
+**Success:**
+```json
+{
+  "type": "player_use_item_response",
+  "seq": 1,
+  "data": {
+    "success": true,
+    "item_name": "RedPotion",
+    "effect": "hp",
+    "amount": 25,
+    "current": 80,
+    "max": 100
+  }
+}
+```
+
+**Error:**
+```json
+{
+  "type": "player_use_item_response",
+  "seq": 1,
+  "data": {
+    "success": false,
+    "error": "potions_disabled"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | bool | Whether the item was used |
+| `item_name` | string | Name of the item used (success only) |
+| `effect` | string | Effect type: `"hp"`, `"mp"`, `"sp"`, `"hunger"`, `"none"` |
+| `amount` | int32 | Amount restored |
+| `current` | int32 | Current value after restoration |
+| `max` | int32 | Maximum value |
+| `error` | string | Error code (failure only) |
+
+**Effect types:**
+- `"hp"` — HP potion restored health
+- `"mp"` — MP potion restored mana
+- `"sp"` — SP potion restored stamina (also cures poison)
+- `"hunger"` — Food restored hunger
+- `"none"` — Item consumed but no effect (speed hack detected)
+
+**Error codes:**
+- `"dead"` — Player is dead
+- `"empty_slot"` — Slot is empty
+- `"not_consumable"` — Item is not a consumable
+- `"unsupported_item_type"` — Consumable type not yet implemented
+- `"potions_disabled"` — Map does not allow potions
+- `"recall_impossible"` — Map does not allow recall scrolls
+
+**Notes:**
+- Recall scrolls do not send a `player_use_item_response`; they trigger `player_teleport` instead
+- Potion speed anti-cheat: rapid potion use (avg interval < 180ms) consumes the item but applies no effect
+- SP potions also cure the poison status effect (legacy behavior)
+- Item stack count decrements by 1; when count reaches 0, slot is cleared
+
+---
+
 ## Interact Messages
 
 ### `player_interact_request`

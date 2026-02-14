@@ -365,6 +365,7 @@ add_executable(hgserver_tests
     tests/test_apocalypse_system.cpp
     tests/test_war_persistence.cpp
     tests/test_melee_pve.cpp
+    tests/test_use_item.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

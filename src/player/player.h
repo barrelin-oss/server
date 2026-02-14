@@ -90,6 +90,47 @@ struct hunger_state {
     }
 };
 
+// Potion speed anti-cheat tracker
+// Tracks average interval between potion uses over a 2-second window.
+// If average gap < 180ms + 10*count, flags as speed hack.
+struct potion_speed_tracker {
+    std::chrono::steady_clock::time_point last_use_time{};
+    int32_t use_count{0};
+    int32_t total_interval_ms{0};
+
+    void record_use(std::chrono::steady_clock::time_point now)
+    {
+        if (use_count == 0) {
+            last_use_time = now;
+            use_count = 1;
+            total_interval_ms = 0;
+            return;
+        }
+
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - last_use_time).count();
+
+        // Reset window after 2s gap or 6+ accumulated uses
+        if (elapsed > 2000 || use_count >= 5) {
+            last_use_time = now;
+            use_count = 1;
+            total_interval_ms = 0;
+            return;
+        }
+
+        total_interval_ms += static_cast<int32_t>(elapsed);
+        ++use_count;
+        last_use_time = now;
+    }
+
+    [[nodiscard]] auto is_speed_hack() const -> bool
+    {
+        if (use_count < 3) return false;
+        int32_t avg = total_interval_ms / (use_count - 1);
+        return avg < (180 + 10 * use_count);
+    }
+};
+
 // PK (player kill) state
 struct pk_state {
     int32_t count{0};      // Total PK count
@@ -171,6 +212,9 @@ struct player {
     entity::entity target{};
     std::chrono::steady_clock::time_point last_attack_time{};
     std::chrono::steady_clock::time_point last_hit_time{};
+
+    // Potion anti-cheat
+    potion_speed_tracker potion_tracker;
 
     // Fishing engagement state
     crafting::fishing_state fishing;

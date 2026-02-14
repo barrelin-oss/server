@@ -609,6 +609,11 @@ void game_handlers::handle_message(connection_id conn_id, const network::json_me
             handle_guild_info(conn_id, msg);
             break;
 
+        // Item usage
+        case network::json_message_type::player_use_item_request:
+            handle_player_use_item(conn_id, msg);
+            break;
+
         // Death/Respawn
         case network::json_message_type::respawn_request:
             handle_respawn_request(conn_id, msg);
@@ -3887,6 +3892,208 @@ auto game_handlers::get_respawn_position(const std::string& map_name) -> world::
 
     // No initial points defined - fallback
     return {18, 18};
+}
+
+// ========== Item Usage ==========
+
+namespace {
+
+auto dice_roll(int count, int sides, int bonus) -> int32_t
+{
+    if (count <= 0 || sides <= 0) return bonus;
+    thread_local std::mt19937 rng{std::random_device{}()};
+    std::uniform_int_distribution<int> dist(1, sides);
+    int32_t total = bonus;
+    for (int i = 0; i < count; ++i) {
+        total += dist(rng);
+    }
+    return total;
+}
+
+}  // namespace
+
+void game_handlers::handle_player_use_item(connection_id conn_id, const network::json_message& msg) {
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn) return;
+
+    if (!players_ || !inventory_ || !ws_server_) {
+        send_error(conn_id, msg.seq, "internal_error", "Required subsystems unavailable");
+        return;
+    }
+
+    auto data_result = network::use_item_request_data::from_json(msg.data);
+    if (data_result.is_err()) {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    const auto& data = data_result.value();
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr) {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    if (plr->is_dead()) {
+        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "dead"));
+        return;
+    }
+
+    // Validate slot
+    auto owner_id = entity_id(plr->id.value);
+    auto* inv = inventory_->get_inventory(owner_id);
+    if (!inv) {
+        send_error(conn_id, msg.seq, "internal_error", "Inventory unavailable");
+        return;
+    }
+
+    auto* slot = inv->get_slot(data.slot);
+    if (!slot || slot->is_empty()) {
+        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "empty_slot"));
+        return;
+    }
+
+    // Look up item template
+    auto* item_reg = subsystems().get<item_registry>();
+    if (!item_reg) {
+        send_error(conn_id, msg.seq, "internal_error", "Item registry unavailable");
+        return;
+    }
+
+    const auto* tmpl = item_reg->get(slot->item);
+    if (!tmpl) {
+        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "unknown_item"));
+        return;
+    }
+
+    if (!tmpl->is_usable()) {
+        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "not_consumable"));
+        return;
+    }
+
+    const auto& eff = tmpl->use_effect;
+
+    // Get current map for restriction checks
+    auto* current_map = world_ ? world_->get_map(plr->current_map) : nullptr;
+
+    switch (eff.type) {
+        case consumable_effect_type::hp_restore:
+        case consumable_effect_type::mp_restore:
+        case consumable_effect_type::sp_restore:
+        {
+            // Map restriction check
+            if (current_map && current_map->config().is_potions_disabled) {
+                conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "potions_disabled"));
+                return;
+            }
+
+            // Anti-cheat check
+            auto now = std::chrono::steady_clock::now();
+            plr->potion_tracker.record_use(now);
+            bool speed_hack = plr->potion_tracker.is_speed_hack();
+
+            // Consume the item regardless of speed hack
+            if (slot->count <= 1) {
+                slot->clear();
+            } else {
+                --slot->count;
+            }
+
+            if (speed_hack) {
+                // Item consumed but no effect applied
+                conn->send(network::make_use_item_response(msg.seq, true, tmpl->name, "none", 0, 0, 0));
+                return;
+            }
+
+            int32_t amount = dice_roll(eff.v1, eff.v2, eff.v3);
+
+            std::string effect_name;
+            int32_t current = 0;
+            int32_t max_val = 0;
+
+            if (eff.type == consumable_effect_type::hp_restore) {
+                plr->heal_hp(amount);
+                effect_name = "hp";
+                current = plr->hp;
+                max_val = plr->computed.max_hp;
+            } else if (eff.type == consumable_effect_type::mp_restore) {
+                plr->heal_mp(amount);
+                effect_name = "mp";
+                current = plr->mp;
+                max_val = plr->computed.max_mp;
+            } else {
+                plr->heal_sp(amount);
+                // SP potions also cure poison (legacy behavior)
+                plr->remove_status(player::player_status::poisoned);
+                effect_name = "sp";
+                current = plr->sp;
+                max_val = plr->computed.max_sp;
+            }
+
+            conn->send(network::make_use_item_response(
+                msg.seq, true, tmpl->name, effect_name, amount, current, max_val));
+            break;
+        }
+
+        case consumable_effect_type::food:
+        {
+            int32_t amount = dice_roll(eff.v1, eff.v2, eff.v3);
+
+            // Consume the item
+            if (slot->count <= 1) {
+                slot->clear();
+            } else {
+                --slot->count;
+            }
+
+            players_->restore_hunger(pid, static_cast<int8_t>(std::min(amount, static_cast<int32_t>(127))));
+
+            conn->send(network::make_use_item_response(
+                msg.seq, true, tmpl->name, "hunger", amount,
+                plr->hunger.level, 100));
+            break;
+        }
+
+        case consumable_effect_type::magic_scroll:
+        {
+            // Recall scroll (v1 == 1)
+            if (eff.v1 == 1) {
+                // Map restriction check
+                if (current_map && current_map->config().is_recall_impossible) {
+                    conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "recall_impossible"));
+                    return;
+                }
+
+                // Consume scroll FIRST (legacy ordering)
+                if (slot->count <= 1) {
+                    slot->clear();
+                } else {
+                    --slot->count;
+                }
+
+                // Teleport to faction home
+                std::string dest_map = get_respawn_map_name(plr->faction);
+                world::position dest_pos = get_respawn_position(dest_map);
+
+                execute_player_teleport(pid, conn_id, msg.seq, dest_map, dest_pos,
+                    world::direction::south);
+
+                // execute_player_teleport sends its own response — no use_item response needed
+                LOG_INFO(bridge, "Player {} used recall scroll -> {} ({}, {})",
+                    pid.value, dest_map, dest_pos.x, dest_pos.y);
+                return;
+            }
+
+            // Other scroll subtypes not yet implemented
+            conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "unsupported_item_type"));
+            break;
+        }
+
+        default:
+            conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "unsupported_item_type"));
+            break;
+    }
 }
 
 void game_handlers::handle_respawn_request(connection_id conn_id, const network::json_message& msg) {

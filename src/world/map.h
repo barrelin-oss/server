@@ -56,6 +56,7 @@ struct map_config {
     bool is_fight_zone{false};          // Arena map
     bool is_snow_enabled{false};        // Snow instead of rain
     bool is_recall_impossible{false};   // Cannot use recall
+    bool is_potions_disabled{false};    // Cannot use potions
     bool is_apocalypse_map{false};      // Special apocalypse map
     bool is_heldenian_map{false};       // Heldenian event map
 

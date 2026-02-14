@@ -168,6 +168,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
             broadcast_npc_attack(n, target, damage);  // Copies data immediately
         });
         npc_->set_on_damage_callback([this](const npc::npc& n, int32_t damage, entity::entity /*source*/) {
+            // Broadcast NPC HP update to nearby players
+            broadcast_npc_hp_update(n);
+
             // GMG damage tracking for crusade mana system
             if (n.sprite_id == 41 && crusade_ && crusade_->is_active())
             {
@@ -878,8 +881,22 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         return;
     }
 
-    // Only PvP for now (target must be a player)
-    if (data.tgt_type != network::target_type::player) {
+    // Enforce attack cooldown (100ms minimum between attacks)
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - attacker->last_attack_time);
+    if (elapsed.count() < 100) {
+        network::attack_result_msg result{
+            .hit = false,
+            .target_id = data.target_id,
+            .attacker_x = attacker->pos.x,
+            .attacker_y = attacker->pos.y
+        };
+        conn->send(network::make_player_attack_response(msg.seq, false, &result, "attack_too_fast"));
+        return;
+    }
+
+    // Validate target type
+    if (data.tgt_type != network::target_type::player && data.tgt_type != network::target_type::npc) {
         network::attack_result_msg result{
             .hit = false,
             .target_id = data.target_id,
@@ -890,42 +907,120 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         return;
     }
 
-    // Get target player - resolve entity_id from client to player_id
-    auto target_pid_opt = players_->get_player_id_by_entity(entity::entity{data.target_id});
-    auto* target = target_pid_opt ? players_->get_player(*target_pid_opt) : nullptr;
-    if (!target) {
-        network::attack_result_msg result{
-            .hit = false,
-            .target_id = data.target_id,
-            .attacker_x = attacker->pos.x,
-            .attacker_y = attacker->pos.y
-        };
-        conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_found"));
-        return;
-    }
+    // Resolve target — either player or NPC
+    bool target_is_npc = (data.tgt_type == network::target_type::npc);
+    entity::entity target_entity{data.target_id};
+    world::position target_pos{};
+    map_id target_map{};
+    uint32_t target_broadcast_eid = data.target_id;  // Entity ID for broadcast messages
+    int16_t target_hp = 0;
+    int16_t target_hp_max = 0;
 
-    // Check target is alive
-    if (target->is_dead()) {
-        network::attack_result_msg result{
-            .hit = false,
-            .target_id = data.target_id,
-            .attacker_x = attacker->pos.x,
-            .attacker_y = attacker->pos.y
-        };
-        conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_dead"));
-        return;
-    }
+    // Player target pointers (only set for PvP)
+    std::optional<player_id> target_pid_opt;
+    player::player* target_player = nullptr;
 
-    // Check same map
-    if (attacker->current_map != target->current_map) {
-        network::attack_result_msg result{
-            .hit = false,
-            .target_id = data.target_id,
-            .attacker_x = attacker->pos.x,
-            .attacker_y = attacker->pos.y
-        };
-        conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_in_range"));
-        return;
+    // NPC target pointer (only set for PvE)
+    npc::npc* target_npc = nullptr;
+
+    if (target_is_npc) {
+        if (!npc_) {
+            send_error(conn_id, msg.seq, "internal_error", "NPC system unavailable");
+            return;
+        }
+        target_npc = npc_->get_npc(target_entity);
+        if (!target_npc) {
+            network::attack_result_msg result{
+                .hit = false,
+                .target_id = data.target_id,
+                .attacker_x = attacker->pos.x,
+                .attacker_y = attacker->pos.y
+            };
+            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_found"));
+            return;
+        }
+
+        // Cannot attack friendly NPCs (merchants, guards, trainers, etc.)
+        if (target_npc->is_friendly()) {
+            network::attack_result_msg result{
+                .hit = false,
+                .target_id = data.target_id,
+                .attacker_x = attacker->pos.x,
+                .attacker_y = attacker->pos.y
+            };
+            conn->send(network::make_player_attack_response(msg.seq, false, &result, "cannot_attack_friendly"));
+            return;
+        }
+
+        if (target_npc->is_dead()) {
+            network::attack_result_msg result{
+                .hit = false,
+                .target_id = data.target_id,
+                .attacker_x = attacker->pos.x,
+                .attacker_y = attacker->pos.y
+            };
+            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_dead"));
+            return;
+        }
+
+        if (attacker->current_map != target_npc->current_map) {
+            network::attack_result_msg result{
+                .hit = false,
+                .target_id = data.target_id,
+                .attacker_x = attacker->pos.x,
+                .attacker_y = attacker->pos.y
+            };
+            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_in_range"));
+            return;
+        }
+
+        target_pos = target_npc->pos;
+        target_map = target_npc->current_map;
+        target_broadcast_eid = target_npc->entity_id.id;
+        target_hp = static_cast<int16_t>(target_npc->hp);
+        target_hp_max = static_cast<int16_t>(target_npc->max_hp);
+    } else {
+        // Player target
+        target_pid_opt = players_->get_player_id_by_entity(target_entity);
+        target_player = target_pid_opt ? players_->get_player(*target_pid_opt) : nullptr;
+        if (!target_player) {
+            network::attack_result_msg result{
+                .hit = false,
+                .target_id = data.target_id,
+                .attacker_x = attacker->pos.x,
+                .attacker_y = attacker->pos.y
+            };
+            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_found"));
+            return;
+        }
+
+        if (target_player->is_dead()) {
+            network::attack_result_msg result{
+                .hit = false,
+                .target_id = data.target_id,
+                .attacker_x = attacker->pos.x,
+                .attacker_y = attacker->pos.y
+            };
+            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_dead"));
+            return;
+        }
+
+        if (attacker->current_map != target_player->current_map) {
+            network::attack_result_msg result{
+                .hit = false,
+                .target_id = data.target_id,
+                .attacker_x = attacker->pos.x,
+                .attacker_y = attacker->pos.y
+            };
+            conn->send(network::make_player_attack_response(msg.seq, false, &result, "target_not_in_range"));
+            return;
+        }
+
+        target_pos = target_player->pos;
+        target_map = target_player->current_map;
+        target_broadcast_eid = target_player->ecs_entity.id;
+        target_hp = static_cast<int16_t>(target_player->hp);
+        target_hp_max = static_cast<int16_t>(target_player->computed.max_hp);
     }
 
     // Determine if this is a ranged attack (bow equipped)
@@ -976,7 +1071,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     }
 
     // Calculate distance
-    int distance = attacker->pos.chebyshev_distance(target->pos);
+    int distance = attacker->pos.chebyshev_distance(target_pos);
 
     // Validate range based on attack type and weapon
     int max_range = 1;  // Melee default
@@ -1017,10 +1112,10 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         ammo_remaining = inventory_->count_item(entity_id{pid.value}, item_id{arrow_template_id});
     }
 
-    // Build attack event
+    // Build attack event - defender entity depends on target type
     combat::attack_event attack;
     attack.attacker = entity::entity{pid.value};
-    attack.defender = entity::entity{target_pid_opt->value};
+    attack.defender = target_is_npc ? target_entity : entity::entity{target_pid_opt->value};
     attack.type = combat::damage_type::physical;
     attack.base_damage = 0;  // Let combat_system calculate from stats
     attack.is_skill = false;
@@ -1030,14 +1125,26 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     // Process the attack through combat system
     auto combat_result = combat_->process_attack(attack);
 
+    // Update last attack time
+    attacker->last_attack_time = now;
+
+    // Re-read NPC HP after damage application (may have changed)
+    if (target_is_npc && target_npc) {
+        target_hp = static_cast<int16_t>(target_npc->hp);
+        target_hp_max = static_cast<int16_t>(target_npc->max_hp);
+    } else if (target_player) {
+        target_hp = static_cast<int16_t>(target_player->hp);
+        target_hp_max = static_cast<int16_t>(target_player->computed.max_hp);
+    }
+
     // Build response
     network::attack_result_msg result{
         .hit = combat_result.hit.is_hit(),
         .critical = combat_result.hit.is_critical(),
         .damage = combat_result.hit.final_damage,
         .target_id = data.target_id,
-        .target_hp = static_cast<int16_t>(target->hp),
-        .target_hp_max = static_cast<int16_t>(target->computed.max_hp),
+        .target_hp = target_hp,
+        .target_hp_max = target_hp_max,
         .attacker_x = attacker->pos.x,
         .attacker_y = attacker->pos.y,
         .is_ranged = is_ranged,
@@ -1054,9 +1161,9 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     // Create broadcast message (includes projectile info for ranged)
     auto broadcast_msg = network::make_combat_attack_broadcast(
         attacker->ecs_entity.id,
-        target->ecs_entity.id,
+        target_broadcast_eid,
         attacker->pos.x, attacker->pos.y,
-        target->pos.x, target->pos.y,
+        target_pos.x, target_pos.y,
         combat_result.hit.is_hit(),
         combat_result.hit.is_critical(),
         combat_result.hit.final_damage,
@@ -1075,6 +1182,22 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         }
     }
 
+    // Weapon durability loss on hit
+    if (combat_result.hit.is_hit() && item_ && attacker->equipment.has_equipped(player::equip_slot::weapon)) {
+        auto weapon_item_id = attacker->equipment.weapon().id;
+        item_->damage_durability(weapon_item_id, 1);
+
+        // Check if weapon broke
+        auto* weapon = item_->get_item(weapon_item_id);
+        if (weapon && weapon->is_broken()) {
+            auto old_equipped = players_->unequip_item(pid, player::equip_slot::weapon);
+            players_->recalculate_equipment_modifiers(pid);
+            broadcast_equipment_change(pid, player::equip_slot::weapon, item_id{});
+            send_stat_update(conn_id, *attacker);
+            LOG_INFO(bridge, "Player {} weapon broke during attack", pid.value);
+        }
+    }
+
     // Grant weapon skill exp on hit
     if (combat_result.hit.is_hit() && skills_) {
         auto weapon_skill = skill::skill_type::hand_attack;
@@ -1087,10 +1210,11 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         skills_->record_skill_use(pid, weapon_skill);
     }
 
-    LOG_DEBUG(bridge, "Player {} {} player {} (hit={}, crit={}, dmg={}, target_hp={}, ranged={})",
-        pid.value, is_ranged ? "shot" : "attacked", target_pid_opt->value,
+    LOG_DEBUG(bridge, "Player {} {} {} {} (hit={}, crit={}, dmg={}, target_hp={}, ranged={})",
+        pid.value, is_ranged ? "shot" : "attacked",
+        target_is_npc ? "npc" : "player", target_entity.id,
         combat_result.hit.is_hit(), combat_result.hit.is_critical(),
-        combat_result.hit.final_damage, target->hp, is_ranged);
+        combat_result.hit.final_damage, target_hp, is_ranged);
 }
 
 void game_handlers::handle_player_magic(connection_id conn_id, const network::json_message& msg) {
@@ -3512,24 +3636,7 @@ auto spell_element_to_damage_type_string(magic::spell_element elem) -> std::stri
 void game_handlers::on_damage_dealt(const combat::damage_event& event) {
     if (!players_ || !ws_server_) return;
 
-    // Only broadcast for player targets for now
-    player_id target_pid{event.target.id};
-    auto* target = players_->get_player(target_pid);
-    if (!target) return;
-
-    // Clear destination - damage interrupts movement (to be fleshed out later)
-    // For now, always interrupt on any damage
-    if (target->connection.value != 0) {
-        auto* conn = ws_server_->get_connection(target->connection);
-        if (conn) {
-            conn->clear_destination();
-        }
-    }
-
-    // Broadcast HP update to players who can see the target
-    broadcast_hp_update(target_pid, target->hp, target->computed.max_hp);
-
-    // Broadcast combat_effect for visual feedback (floating damage numbers, etc.)
+    // Determine hit effect type for visual feedback
     auto& hr = event.result;
     std::string effect_type;
     if (hr.is_miss()) {
@@ -3550,19 +3657,56 @@ void game_handlers::on_damage_dealt(const combat::damage_event& event) {
         source_eid = src->ecs_entity.id;
     }
 
-    network::combat_effect_data effect{
-        .source_id = source_eid,
-        .target_id = target->ecs_entity.id,
-        .effect_type = std::move(effect_type),
-        .value = hr.final_damage,
-        .damage_type = std::string(damage_type_to_string(hr.type)),
-        .spell_id = std::nullopt,
-        .is_critical = hr.is_critical(),
-        .target_x = target->pos.x,
-        .target_y = target->pos.y
-    };
+    // Try player target first
+    player_id target_pid{event.target.id};
+    auto* target = players_->get_player(target_pid);
+    if (target) {
+        // Player target: interrupt movement and broadcast HP
+        if (target->connection.value != 0) {
+            auto* conn = ws_server_->get_connection(target->connection);
+            if (conn) {
+                conn->clear_destination();
+            }
+        }
 
-    broadcast_combat_effect(target->current_map, target->pos, effect);
+        broadcast_hp_update(target_pid, target->hp, target->computed.max_hp);
+
+        network::combat_effect_data effect{
+            .source_id = source_eid,
+            .target_id = target->ecs_entity.id,
+            .effect_type = std::move(effect_type),
+            .value = hr.final_damage,
+            .damage_type = std::string(damage_type_to_string(hr.type)),
+            .spell_id = std::nullopt,
+            .is_critical = hr.is_critical(),
+            .target_x = target->pos.x,
+            .target_y = target->pos.y
+        };
+
+        broadcast_combat_effect(target->current_map, target->pos, effect);
+        return;
+    }
+
+    // Try NPC target — HP update is handled by on_damage_callback, but combat_effect
+    // (floating damage numbers) needs to be broadcast here
+    if (npc_) {
+        auto* target_npc = npc_->get_npc(event.target);
+        if (target_npc) {
+            network::combat_effect_data effect{
+                .source_id = source_eid,
+                .target_id = target_npc->entity_id.id,
+                .effect_type = std::move(effect_type),
+                .value = hr.final_damage,
+                .damage_type = std::string(damage_type_to_string(hr.type)),
+                .spell_id = std::nullopt,
+                .is_critical = hr.is_critical(),
+                .target_x = target_npc->pos.x,
+                .target_y = target_npc->pos.y
+            };
+
+            broadcast_combat_effect(target_npc->current_map, target_npc->pos, effect);
+        }
+    }
 }
 
 void game_handlers::on_entity_death(const combat::death_event& event) {

@@ -501,6 +501,9 @@ void npc_system::apply_damage(entity::entity id, int32_t damage, entity::entity 
     auto* npc_ptr = get_npc(id);
     if (!npc_ptr || npc_ptr->is_dead()) return;
 
+    // Track whether NPC was alive before damage
+    bool was_alive = npc_ptr->is_alive();
+
     // Apply damage through health component if available
     if (entity_manager_) {
         if (auto* health = entity_manager_->get_component<entity::health>(id)) {
@@ -523,7 +526,9 @@ void npc_system::apply_damage(entity::entity id, int32_t damage, entity::entity 
     // Set attacker as target if not already targeting
     if (!npc_ptr->ai_state.target.is_valid()) {
         npc_ptr->ai_state.target = source;
-        npc_ptr->ai_state.set_state(ai_state::chase);
+        if (!npc_ptr->is_dead()) {
+            npc_ptr->ai_state.set_state(ai_state::chase);
+        }
     }
 
     // Increase aggro
@@ -541,8 +546,23 @@ void npc_system::apply_damage(entity::entity id, int32_t damage, entity::entity 
         call_for_help(*npc_ptr, source);
     }
 
-    if (npc_ptr->is_dead()) {
-        kill_npc(id, source);
+    // If NPC just died from this damage, process death
+    // Note: kill_npc guards against is_dead(), so we need to handle the death
+    // callback and cleanup directly here since damage() already set the dead state
+    if (was_alive && npc_ptr->is_dead()) {
+        // Unregister boss (runs on_death_script)
+        if (boss_controller_.is_boss(id))
+        {
+            boss_controller_.unregister_boss(id);
+        }
+
+        // Stop any running scripts
+        script_executor_.stop(id);
+
+        // Invoke death callback
+        if (on_death_callback_) {
+            on_death_callback_(*npc_ptr, source);
+        }
     }
 }
 

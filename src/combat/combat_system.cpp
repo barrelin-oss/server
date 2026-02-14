@@ -253,7 +253,11 @@ void combat_system::apply_damage(hb::entity::entity target, const hit_result& re
         }
     }
 
-    // TODO: Apply HP reduction to NPCs when npc_system has damage method
+    // Apply HP reduction to NPCs
+    auto* npc_sys = subsystems().get<npc::npc_system>();
+    if (npc_sys && npc_sys->npc_exists(target)) {
+        npc_sys->apply_damage(target, result.final_damage, source);
+    }
 
     // Create damage event
     damage_event event;

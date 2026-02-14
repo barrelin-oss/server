@@ -68,6 +68,10 @@ namespace hb::item {
     class item_system;
 }
 
+namespace hb::effect {
+    class effect_system;
+}
+
 namespace hb {
     class loot_registry;
     class shop_registry;
@@ -75,6 +79,7 @@ namespace hb {
     class build_recipe_registry;
     class craft_recipe_registry;
     class fishing_registry;
+    class item_registry;
 }
 
 namespace hb::crafting {
@@ -134,7 +139,9 @@ public:
                     quest::quest_system* quests = nullptr,
                     crafting::mining_system* mining = nullptr,
                     crafting::fishing_system* fishing = nullptr,
-                    war::crusade_system* crusade = nullptr);
+                    war::crusade_system* crusade = nullptr,
+                    effect::effect_system* effects = nullptr,
+                    item_registry* item_reg = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -410,6 +417,8 @@ private:
     crafting::mining_system* mining_{nullptr};
     crafting::fishing_system* fishing_{nullptr};
     war::crusade_system* crusade_{nullptr};
+    effect::effect_system* effects_{nullptr};
+    item_registry* item_registry_{nullptr};
     save_player_callback save_callback_;
 };
 

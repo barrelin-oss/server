@@ -1119,6 +1119,58 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
             j["guild_name"] = guild_name;
             j["guild_tag"] = guild_tag;
         }
+
+        // Base appearance
+        j["gender"] = gender;
+        j["skin_color"] = skin_color;
+        j["hair_style"] = hair_style;
+        j["hair_color"] = hair_color;
+        j["underwear_color"] = underwear_color;
+        j["level"] = player_level;
+
+        // Equipment visuals
+        auto equip_to_json = [](const equip_visual_msg& v) -> nlohmann::json {
+            nlohmann::json ej;
+            ej["appr"] = v.appr;
+            ej["color"] = v.color;
+            if (!v.name.empty()) ej["name"] = v.name;
+            if (!v.rarity.empty()) ej["rarity"] = v.rarity;
+            return ej;
+        };
+
+        j["equipment"] = nlohmann::json{
+            {"weapon", equip_to_json(weapon_visual)},
+            {"shield", equip_to_json(shield_visual)},
+            {"body", equip_to_json(body_visual)},
+            {"pants", equip_to_json(pants_visual)},
+            {"head", equip_to_json(head_visual)},
+            {"arms", equip_to_json(arms_visual)},
+            {"boots", equip_to_json(boots_visual)},
+            {"cape", equip_to_json(cape_visual)}
+        };
+
+        j["weapon_glow"] = weapon_glow;
+        j["shield_glow"] = shield_glow;
+        j["weapon_speed"] = weapon_speed;
+
+        // Status effects
+        if (!status_effects.empty()) {
+            j["status_effects"] = status_effects;
+        }
+
+        // Active buffs
+        if (!active_buffs.empty()) {
+            auto buffs = nlohmann::json::array();
+            for (const auto& b : active_buffs) {
+                buffs.push_back(nlohmann::json{
+                    {"type", b.type},
+                    {"spell_id", b.spell_id},
+                    {"magnitude", b.magnitude},
+                    {"remaining_ms", b.remaining_ms}
+                });
+            }
+            j["active_buffs"] = buffs;
+        }
     } else if (type == "npc") {
         j["template_id"] = template_id;
         j["sprite_id"] = sprite_id;

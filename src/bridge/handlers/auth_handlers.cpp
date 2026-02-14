@@ -26,6 +26,9 @@
 #include "core/subsystem.h"
 #include "perf/perf_stats.h"
 #include "war/war_persistence.h"
+#include "bridge/handlers/entity_builders.h"
+#include "effect/effect_system.h"
+#include "registry/item_registry.h"
 
 namespace hb::bridge {
 
@@ -42,7 +45,9 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
                                 item::item_system* item,
                                 social::social_system* social,
                                 scheduler* sched,
-                                war::war_persistence* war_persistence) {
+                                war::war_persistence* war_persistence,
+                                effect::effect_system* effects,
+                                item_registry* item_reg) {
     ws_server_ = ws_server;
     auth_ = auth;
     players_ = players;
@@ -54,6 +59,8 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
     social_ = social;
     scheduler_ = sched;
     war_persistence_ = war_persistence;
+    effects_ = effects;
+    item_registry_ = item_reg;
     LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {}, item: {}, social: {})",
         players_ != nullptr ? "yes" : "no",
         world_ != nullptr ? "yes" : "no",
@@ -1188,21 +1195,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 auto* other_conn = ws_server_->get_connection(other->connection);
                 if (!other_conn || !other_conn->is_open()) continue;
 
-                auto spawn_entity = network::visible_entity_msg{
-                    .entity_id = player->ecs_entity.id,
-                    .type = "player",
-                    .name = player->name,
-                    .x = player->pos.x,
-                    .y = player->pos.y,
-                    .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
-                    .direction = static_cast<int16_t>(player->facing),
-                    .faction = std::string(faction_to_string(player->faction)),
-                    .hostility = std::string(player_hostility(other->faction, player->faction)),
-                    .pk_status = std::string(player->pk.status_string()),
-                    .guild_name = player->guild_name,
-                    .guild_tag = player->guild_tag,
-                    .combat_mode = player->combat_mode
-                };
+                auto spawn_entity = build_player_spawn(
+                    *player, player_hostility(other->faction, player->faction),
+                    item_, item_registry_, effects_);
                 other_conn->send(network::make_entity_spawn(0, spawn_entity));
             }
 
@@ -1210,21 +1205,8 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 nearby.size() > 0 ? nearby.size() - 1 : 0, player->name);
 
             // Forward to admin spectators (neutral perspective)
-            auto admin_spawn = network::visible_entity_msg{
-                .entity_id = player->ecs_entity.id,
-                .type = "player",
-                .name = player->name,
-                .x = player->pos.x,
-                .y = player->pos.y,
-                .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
-                .direction = static_cast<int16_t>(player->facing),
-                .faction = std::string(faction_to_string(player->faction)),
-                .hostility = "neutral",
-                .pk_status = std::string(player->pk.status_string()),
-                .guild_name = player->guild_name,
-                .guild_tag = player->guild_tag,
-                .combat_mode = player->combat_mode
-            };
+            auto admin_spawn = build_player_spawn(
+                *player, "neutral", item_, item_registry_, effects_);
             auto admin_msg = network::make_entity_spawn(0, admin_spawn);
             for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map)) {
                 ws_server_->send(admin_conn, admin_msg);
@@ -1293,21 +1275,9 @@ auto auth_handlers::build_visible_entities(player_id player_id)
         auto* other = players_->get_player(other_id);
         if (!other) continue;
 
-        entities.push_back(network::visible_entity_msg{
-            .entity_id = other->ecs_entity.id,
-            .type = "player",
-            .name = other->name,
-            .x = other->pos.x,
-            .y = other->pos.y,
-            .hp_percent = static_cast<int16_t>(other->hp_percent() * 100),
-            .direction = static_cast<int16_t>(other->facing),
-            .faction = std::string(faction_to_string(other->faction)),
-            .hostility = std::string(player_hostility(player->faction, other->faction)),
-            .pk_status = std::string(other->pk.status_string()),
-            .guild_name = other->guild_name,
-            .guild_tag = other->guild_tag,
-            .combat_mode = other->combat_mode
-        });
+        entities.push_back(build_player_spawn(
+            *other, player_hostility(player->faction, other->faction),
+            item_, item_registry_, effects_));
     }
 
     // Add nearby NPCs from npc_system
@@ -1320,25 +1290,9 @@ auto auth_handlers::build_visible_entities(player_id player_id)
             if (std::abs(player->pos.x - n.pos.x) > player->visibility_radius_x
                 || std::abs(player->pos.y - n.pos.y) > player->visibility_radius_y) return;
 
-            entities.push_back(network::visible_entity_msg{
-                .entity_id = id.id,
-                .type = "npc",
-                .name = n.name,
-                .x = n.pos.x,
-                .y = n.pos.y,
-                .hp_percent = n.max_hp > 0 ? static_cast<int16_t>((n.hp * 100) / n.max_hp) : static_cast<int16_t>(100),
-                .direction = static_cast<int16_t>(n.facing),
-                .faction = {},
-                .hostility = std::string(npc::npc_hostility_for_player(
-                    n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
-                .pk_status = {},
-                .guild_name = {},
-                .guild_tag = {},
-                .template_id = n.template_id.value,
-                .sprite_id = n.sprite_id,
-                .level = n.level,
-                .category = std::string(npc::npc_category_to_string(n.category))
-            });
+            entities.push_back(build_npc_spawn(
+                n, npc::npc_hostility_for_player(
+                    n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())));
         });
     }
 

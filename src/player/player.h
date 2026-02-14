@@ -156,6 +156,28 @@ struct pk_state {
     }
 };
 
+// Pre-computed visual for a single equipment slot
+struct equipment_visual {
+    int8_t appr{0};   // Sprite variant (from item_template::appr_value)
+    int8_t color{0};  // Color tint (from item_template::item_color)
+};
+
+// Cached equipment appearance (recalculated on equip/unequip)
+struct appearance_state {
+    equipment_visual weapon;
+    equipment_visual shield;
+    equipment_visual body;
+    equipment_visual pants;
+    equipment_visual head;
+    equipment_visual arms;
+    equipment_visual boots;
+    equipment_visual cape;
+
+    int8_t weapon_glow{0};   // 0=none, 1=sparkle, 2=ice, 3=green
+    int8_t shield_glow{0};   // 0=none, 1=GM, 2=green, 3=ice
+    int8_t weapon_speed{0};  // Attack animation speed (0-15)
+};
+
 // Player component - represents a player character
 struct player {
     // Identity
@@ -207,6 +229,9 @@ struct player {
     hunger_state hunger;
     pk_state pk;
     admin_level admin{admin_level::player};
+
+    // Equipment appearance (cached, recalculated on equip/unequip)
+    appearance_state appearance;
 
     // Combat state
     bool combat_mode{false};  // true = attack stance, false = peace mode

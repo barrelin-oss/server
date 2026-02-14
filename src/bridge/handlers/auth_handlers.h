@@ -43,8 +43,13 @@ namespace hb::social {
     class social_system;
 }
 
+namespace hb::effect {
+    class effect_system;
+}
+
 namespace hb {
     class scheduler;
+    class item_registry;
 }
 
 namespace hb::war {
@@ -71,7 +76,9 @@ public:
                     item::item_system* item = nullptr,
                     social::social_system* social = nullptr,
                     scheduler* sched = nullptr,
-                    war::war_persistence* war_persistence = nullptr);
+                    war::war_persistence* war_persistence = nullptr,
+                    effect::effect_system* effects = nullptr,
+                    item_registry* item_reg = nullptr);
 
     // Main message handler - routes to specific handlers
     void handle_message(connection_id conn_id, const network::json_message& msg);
@@ -136,6 +143,8 @@ private:
     social::social_system* social_{nullptr};
     scheduler* scheduler_{nullptr};
     war::war_persistence* war_persistence_{nullptr};
+    effect::effect_system* effects_{nullptr};
+    item_registry* item_registry_{nullptr};
     enter_game_callback enter_game_callback_;
     post_enter_game_callback post_enter_game_callback_;
 };

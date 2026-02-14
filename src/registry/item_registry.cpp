@@ -201,6 +201,11 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path)
             if (node["is_two_handed"]) item.two_hand_modifier = static_cast<int16_t>(node["is_two_handed"].as<int>());
             if (node["sprite_id"]) item.sprite_id = static_cast<int16_t>(node["sprite_id"].as<int>());
 
+            // Appearance data (from legacy color fields, used for equippable items)
+            if (node["color_b1"]) item.appr_value = static_cast<int8_t>(node["color_b1"].as<int>());
+            if (node["color_r2"]) item.item_color = static_cast<int8_t>(node["color_r2"].as<int>());
+            if (node["unk1"]) item.speed = static_cast<int8_t>(node["unk1"].as<int>());
+
             // Consumable effect fields (legacy color_r1..color_b2)
             if (node["color_r1"]) {
                 item.use_effect.type = static_cast<consumable_effect_type>(node["color_r1"].as<int>());

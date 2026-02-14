@@ -44,6 +44,8 @@
 #include "core/logger.h"
 #include "perf/perf_stats.h"
 #include "war/crusade/crusade_system.h"
+#include "bridge/handlers/entity_builders.h"
+#include "effect/effect_system.h"
 
 #include <chrono>
 #include <random>
@@ -79,7 +81,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                 quest::quest_system* quests,
                                 crafting::mining_system* mining,
                                 crafting::fishing_system* fishing,
-                                war::crusade_system* crusade) {
+                                war::crusade_system* crusade,
+                                effect::effect_system* effects,
+                                item_registry* item_reg) {
     ws_server_ = ws_server;
     players_ = players;
     world_ = world;
@@ -101,6 +105,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     mining_ = mining;
     fishing_ = fishing;
     crusade_ = crusade;
+    effects_ = effects;
+    item_registry_ = item_reg;
 
     // Register chat message callback to distribute messages
     if (social_) {
@@ -2440,40 +2446,16 @@ void game_handlers::update_entity_visibility(player_id moved_player,
 
         if (!was_visible && is_visible) {
             // Player just came into view - send entity_spawn to other
-            other_conn->send(network::make_entity_spawn(0, network::visible_entity_msg{
-                .entity_id = player->ecs_entity.id,
-                .type = "player",
-                .name = player->name,
-                .x = new_pos.x,
-                .y = new_pos.y,
-                .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
-                .direction = static_cast<int16_t>(player->facing),
-                .faction = std::string(faction_to_string(player->faction)),
-                .hostility = std::string(player_hostility(other->faction, player->faction)),
-                .pk_status = std::string(player->pk.status_string()),
-                .guild_name = player->guild_name,
-                .guild_tag = player->guild_tag,
-                .combat_mode = player->combat_mode
-            }));
+            other_conn->send(network::make_entity_spawn(0, build_player_spawn(
+                *player, player_hostility(other->faction, player->faction),
+                item_, item_registry_, effects_)));
 
             // Also send the other player info to the moving player
             auto* my_conn = ws_server_->get_connection(player->connection);
             if (my_conn && my_conn->is_open()) {
-                my_conn->send(network::make_entity_spawn(0, network::visible_entity_msg{
-                    .entity_id = other->ecs_entity.id,
-                    .type = "player",
-                    .name = other->name,
-                    .x = other->pos.x,
-                    .y = other->pos.y,
-                    .hp_percent = static_cast<int16_t>(other->hp_percent() * 100),
-                    .direction = static_cast<int16_t>(other->facing),
-                    .faction = std::string(faction_to_string(other->faction)),
-                    .hostility = std::string(player_hostility(player->faction, other->faction)),
-                    .pk_status = std::string(other->pk.status_string()),
-                    .guild_name = other->guild_name,
-                    .guild_tag = other->guild_tag,
-                    .combat_mode = other->combat_mode
-                }));
+                my_conn->send(network::make_entity_spawn(0, build_player_spawn(
+                    *other, player_hostility(player->faction, other->faction),
+                    item_, item_registry_, effects_)));
             }
         }
         else if (was_visible && !is_visible) {
@@ -3437,47 +3419,14 @@ void game_handlers::execute_player_teleport(player_id pid, connection_id conn_id
         auto* other_conn = ws_server_->get_connection(other->connection);
         if (!other_conn || !other_conn->is_open()) continue;
 
-        other_conn->send(network::make_entity_spawn(0, network::visible_entity_msg{
-            .entity_id = player->ecs_entity.id,
-            .type = "player",
-            .name = player->name,
-            .x = resolved_pos.x,
-            .y = resolved_pos.y,
-            .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
-            .direction = static_cast<int16_t>(dest_dir),
-            .faction = std::string(faction_to_string(player->faction)),
-            .hostility = std::string(player_hostility(other->faction, player->faction)),
-            .pk_status = std::string(player->pk.status_string()),
-            .guild_name = player->guild_name,
-            .guild_tag = player->guild_tag,
-            .combat_mode = player->combat_mode,
-            .template_id = {},
-            .sprite_id = {},
-            .level = {},
-            .category = {}
-        }));
+        other_conn->send(network::make_entity_spawn(0, build_player_spawn(
+            *player, player_hostility(other->faction, player->faction),
+            item_, item_registry_, effects_)));
     }
 
     // Forward spawn to admin spectators on new map (neutral perspective)
-    auto admin_spawn_msg = network::make_entity_spawn(0, network::visible_entity_msg{
-        .entity_id = player->ecs_entity.id,
-        .type = "player",
-        .name = player->name,
-        .x = resolved_pos.x,
-        .y = resolved_pos.y,
-        .hp_percent = static_cast<int16_t>(player->hp_percent() * 100),
-        .direction = static_cast<int16_t>(dest_dir),
-        .faction = std::string(faction_to_string(player->faction)),
-        .hostility = "neutral",
-        .pk_status = std::string(player->pk.status_string()),
-        .guild_name = player->guild_name,
-        .guild_tag = player->guild_tag,
-        .combat_mode = player->combat_mode,
-        .template_id = {},
-        .sprite_id = {},
-        .level = {},
-        .category = {}
-    });
+    auto admin_spawn_msg = network::make_entity_spawn(0, build_player_spawn(
+        *player, "neutral", item_, item_registry_, effects_));
     for (auto admin_conn : ws_server_->get_admin_subscribers(teleport_result.new_map)) {
         ws_server_->send(admin_conn, admin_spawn_msg);
     }
@@ -3584,25 +3533,8 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
             if (std::abs(p->pos.x - pos.x) > visibility_radius_x
                 || std::abs(p->pos.y - pos.y) > visibility_radius_y) continue;
 
-            entities.push_back(network::visible_entity_msg{
-                .entity_id = p->ecs_entity.id,
-                .type = "player",
-                .name = p->name,
-                .x = p->pos.x,
-                .y = p->pos.y,
-                .hp_percent = static_cast<int16_t>(p->hp_percent() * 100),
-                .direction = static_cast<int16_t>(p->facing),
-                .faction = {},
-                .hostility = {},
-                .pk_status = {},
-                .guild_name = p->guild_name,
-                .guild_tag = p->guild_tag,
-                .combat_mode = p->combat_mode,
-                .template_id = {},
-                .sprite_id = {},
-                .level = {},
-                .category = {}
-            });
+            entities.push_back(build_player_spawn(
+                *p, "neutral", item_, item_registry_, effects_));
         }
     }
 
@@ -3613,24 +3545,7 @@ auto game_handlers::build_visible_entities_at(map_id map, const world::position&
             if (std::abs(n.pos.x - pos.x) > visibility_radius_x
                 || std::abs(n.pos.y - pos.y) > visibility_radius_y) return;
 
-            entities.push_back(network::visible_entity_msg{
-                .entity_id = n.entity_id.id,
-                .type = "npc",
-                .name = n.name,
-                .x = n.pos.x,
-                .y = n.pos.y,
-                .hp_percent = static_cast<int16_t>(n.hp_percent() * 100),
-                .direction = static_cast<int16_t>(n.facing),
-                .faction = {},
-                .hostility = {},
-                .pk_status = {},
-                .guild_name = {},
-                .guild_tag = {},
-                .template_id = n.template_id.value,
-                .sprite_id = n.sprite_id,
-                .level = n.level,
-                .category = {}
-            });
+            entities.push_back(build_npc_spawn(n, "neutral"));
         });
     }
 

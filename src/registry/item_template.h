@@ -111,6 +111,11 @@ struct item_template {
     // Visual / classification
     int16_t sprite_id{0};  // Legacy m_sItemEffectType: weapon sprite/animation type (2 = bow)
 
+    // Appearance data (from legacy color fields, used for equippable items)
+    int8_t appr_value{0};   // Legacy m_cApprValue (from color_b1): selects equipment sprite variant
+    int8_t item_color{0};   // Legacy m_cItemColor (from color_r2): color tint index (0-15)
+    int8_t speed{0};        // Legacy m_cSpeed (from unk1): weapon attack speed (0-15)
+
     // Flags
     bool is_stackable{false};
     bool is_tradeable{true};

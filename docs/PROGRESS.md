@@ -438,6 +438,18 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-02-14: Entity Appearance Data Expansion
+- Expanded `visible_entity_msg` with full player appearance: gender, skin, hair, underwear, level
+- Equipment visuals (per-slot `appr`, `color`, `name`, `rarity`) pre-cached on `appearance_state`
+- Added `appr_value`, `item_color`, `speed` fields to `item_template` (loaded from YAML `color_b1`, `color_r2`, `unk1`)
+- `recalculate_appearance()` on `player_system` updates cached appearance on equip/unequip
+- Status effects serialized as string array, active buffs with type/spell_id/magnitude/remaining_ms
+- Created `entity_builders.h/.cpp` with `build_player_spawn()` and `build_npc_spawn()` helpers
+- Replaced 10 inline `visible_entity_msg{...}` construction sites across auth/game handlers
+- Wired `effect_system` and `item_registry` to both handler classes
+- Updated protocol docs with new entity_spawn fields
+- 18 new tests (1995 total)
+
 ### 2026-02-14: Combat Mode & Player Action Broadcasts
 - Added combat mode toggle: `combat_mode_change_request/response/broadcast` (3 protocol messages)
 - Player `combat_mode` field included in `visible_entity_msg` for entity spawns

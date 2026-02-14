@@ -1076,6 +1076,22 @@ struct equipment_item_msg {
 };
 
 // Visible entity for enter_game_response and entity_spawn messages
+// Equipment visual data for a single slot in entity spawns
+struct equip_visual_msg {
+    int8_t appr{0};
+    int8_t color{0};
+    std::string name;       // Item name for tooltips
+    std::string rarity;     // "common".."ancient"
+};
+
+// Active buff info for entity spawns
+struct buff_info_msg {
+    std::string type;           // spell_effect_type as string
+    uint32_t spell_id{0};
+    int32_t magnitude{0};
+    int64_t remaining_ms{0};
+};
+
 struct visible_entity_msg {
     uint32_t entity_id;
     std::string type;  // "player" or "npc"
@@ -1092,6 +1108,32 @@ struct visible_entity_msg {
     std::string guild_name;      // Player's guild name (empty if no guild)
     std::string guild_tag;       // Player's guild tag (empty if no guild)
     bool combat_mode{false};     // true = attack stance, false = peace mode
+
+    // Player base appearance
+    int8_t gender{0};           // 1=male, 2=female
+    int8_t skin_color{0};       // 1-3
+    int8_t hair_style{0};       // 0-7
+    int8_t hair_color{0};       // 0-15
+    int8_t underwear_color{0};  // 0-15
+    int16_t player_level{0};    // Player level
+
+    // Player equipment visuals (pre-computed)
+    equip_visual_msg weapon_visual;
+    equip_visual_msg shield_visual;
+    equip_visual_msg body_visual;
+    equip_visual_msg pants_visual;
+    equip_visual_msg head_visual;
+    equip_visual_msg arms_visual;
+    equip_visual_msg boots_visual;
+    equip_visual_msg cape_visual;
+
+    int8_t weapon_glow{0};
+    int8_t shield_glow{0};
+    int8_t weapon_speed{0};
+
+    // Status effects and buffs
+    std::vector<std::string> status_effects;
+    std::vector<buff_info_msg> active_buffs;
 
     // NPC-specific fields (optional, only used when type == "npc")
     uint32_t template_id{0};

@@ -383,7 +383,9 @@ void application::initialize() {
             subsystems().get<item::item_system>(),
             subsystems().get<social::social_system>(),
             subsystems().get<scheduler>(),
-            war_persistence_.get()
+            war_persistence_.get(),
+            subsystems().get<effect::effect_system>(),
+            subsystems().get<item_registry>()
         );
 
         // Create and initialize game handlers
@@ -409,7 +411,9 @@ void application::initialize() {
             subsystems().get<quest::quest_system>(),
             subsystems().get<crafting::mining_system>(),
             subsystems().get<crafting::fishing_system>(),
-            subsystems().get<war::crusade_system>()
+            subsystems().get<war::crusade_system>(),
+            subsystems().get<effect::effect_system>(),
+            subsystems().get<item_registry>()
         );
 
         // Wire crusade system broadcast callbacks

@@ -6,6 +6,7 @@
 #include "core/subsystem.h"
 #include "item/item_system.h"
 #include "item/item_effect.h"
+#include "registry/item_registry.h"
 #include "effect/effect_system.h"
 #include "world/world_subsystem.h"
 #include "entity/entity_manager.h"
@@ -312,6 +313,7 @@ void player_system::equip_item(player_id id, equip_slot slot, item_id item, uint
 
     p->equipment.equip(slot, item, dur, max_dur);
     recalculate_equipment_modifiers(id);
+    recalculate_appearance(id);
 }
 
 auto player_system::unequip_item(player_id id, equip_slot slot) -> equipped_item {
@@ -320,6 +322,7 @@ auto player_system::unequip_item(player_id id, equip_slot slot) -> equipped_item
 
     auto item = p->equipment.unequip(slot);
     recalculate_equipment_modifiers(id);
+    recalculate_appearance(id);
     return item;
 }
 
@@ -357,6 +360,51 @@ void player_system::recalculate_equipment_modifiers(player_id id) {
 
     // Now recalculate computed stats (combines equipment + effect modifiers)
     p->recalculate_stats();
+}
+
+void player_system::recalculate_appearance(player_id id) {
+    auto* p = get_player(id);
+    if (!p) return;
+
+    // Reset appearance state
+    p->appearance = appearance_state{};
+
+    auto* item_sys = subsystems().get<item::item_system>();
+    auto* item_reg = subsystems().get<item_registry>();
+    if (!item_sys || !item_reg) return;
+
+    // Helper: extract visual from an equipped slot
+    auto extract_visual = [&](equip_slot slot) -> equipment_visual {
+        const auto& equipped = p->equipment.get(slot);
+        if (equipped.is_empty()) return {};
+
+        auto* inst = item_sys->get_item(equipped.id);
+        if (!inst) return {};
+
+        auto* tmpl = item_reg->get(inst->template_id);
+        if (!tmpl) return {};
+
+        return equipment_visual{tmpl->appr_value, tmpl->item_color};
+    };
+
+    p->appearance.weapon = extract_visual(equip_slot::weapon);
+    p->appearance.shield = extract_visual(equip_slot::shield);
+    p->appearance.body = extract_visual(equip_slot::body);
+    p->appearance.pants = extract_visual(equip_slot::pants);
+    p->appearance.head = extract_visual(equip_slot::head);
+    p->appearance.arms = extract_visual(equip_slot::arms);
+    p->appearance.boots = extract_visual(equip_slot::boots);
+    p->appearance.cape = extract_visual(equip_slot::cape);
+
+    // Weapon speed from template
+    const auto& weapon_equipped = p->equipment.get(equip_slot::weapon);
+    if (!weapon_equipped.is_empty()) {
+        if (auto* inst = item_sys->get_item(weapon_equipped.id)) {
+            if (auto* tmpl = item_reg->get(inst->template_id)) {
+                p->appearance.weapon_speed = tmpl->speed;
+            }
+        }
+    }
 }
 
 void player_system::set_effect_modifiers(player_id id, const stat_modifiers& mods) {

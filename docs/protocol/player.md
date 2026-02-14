@@ -271,7 +271,7 @@ Update skill levels.
 
 ### `entity_spawn`
 
-A new entity entered visibility range. Player entities include `faction`, `hostility`, `pk_status`, and optionally `guild_name`/`guild_tag`; NPC entities include `category`, `hostility`, `template_id`, `sprite_id`, and `level`.
+A new entity entered visibility range. Player entities include full appearance data (base appearance, equipment visuals, status effects, active buffs). NPC entities include `category`, `hostility`, `template_id`, `sprite_id`, and `level`.
 
 **Server Broadcast (player):**
 ```json
@@ -286,12 +286,35 @@ A new entity entered visibility range. Player entities include `faction`, `hosti
     "y": 145,
     "hp_percent": 100,
     "direction": 4,
+    "level": 50,
     "faction": "elvine",
     "hostility": "enemy",
     "pk_status": "innocent",
     "combat_mode": false,
     "guild_name": "BloodGuard",
-    "guild_tag": "BG"
+    "guild_tag": "BG",
+    "gender": 1,
+    "skin_color": 1,
+    "hair_style": 3,
+    "hair_color": 7,
+    "underwear_color": 2,
+    "equipment": {
+      "weapon": { "appr": 9, "color": 2, "name": "LongSword+2", "rarity": "rare" },
+      "shield": { "appr": 3, "color": 0, "name": "TowerShield", "rarity": "common" },
+      "body": { "appr": 5, "color": 1, "name": "PlateArmor", "rarity": "uncommon" },
+      "pants": { "appr": 0, "color": 0 },
+      "head": { "appr": 0, "color": 0 },
+      "arms": { "appr": 0, "color": 0 },
+      "boots": { "appr": 0, "color": 0 },
+      "cape": { "appr": 0, "color": 0 }
+    },
+    "weapon_glow": 1,
+    "shield_glow": 0,
+    "weapon_speed": 7,
+    "status_effects": ["poisoned", "protection"],
+    "active_buffs": [
+      { "type": "buff_defense", "spell_id": 42, "magnitude": 20, "remaining_ms": 30000 }
+    ]
   }
 }
 ```
@@ -304,6 +327,36 @@ A new entity entered visibility range. Player entities include `faction`, `hosti
 | `combat_mode` | bool | `true` = attack stance, `false` = peace mode |
 | `guild_name` | string | (Optional) Player's guild name, omitted if not in a guild |
 | `guild_tag` | string | (Optional) Player's guild tag, omitted if not in a guild |
+| `gender` | int | 1=male, 2=female |
+| `skin_color` | int | Skin color index (1-3) |
+| `hair_style` | int | Hair style index (0-7) |
+| `hair_color` | int | Hair color index (0-15) |
+| `underwear_color` | int | Underwear color index (0-15) |
+| `level` | int | Player level |
+| `equipment` | object | Per-slot equipment visuals (see below) |
+| `weapon_glow` | int | Weapon glow effect: 0=none, 1=sparkle, 2=ice, 3=green |
+| `shield_glow` | int | Shield glow effect: 0=none, 1=GM, 2=green, 3=ice |
+| `weapon_speed` | int | Attack animation speed (0-15) |
+| `status_effects` | string[] | (Optional) Active status flags: `poisoned`, `berserk`, `protection`, etc. |
+| `active_buffs` | array | (Optional) Active buff details (see below) |
+
+**Equipment slot object:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `appr` | int | Sprite variant index from item template |
+| `color` | int | Color tint index (0-15) |
+| `name` | string | (Optional) Item name for tooltips |
+| `rarity` | string | (Optional) `common`, `uncommon`, `rare`, `epic`, `legendary`, `ancient` |
+
+**Buff object:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Effect type: `buff_attack`, `buff_defense`, `poison`, etc. |
+| `spell_id` | int | Source spell ID |
+| `magnitude` | int | Effect magnitude |
+| `remaining_ms` | int | Milliseconds remaining |
 
 ---
 

@@ -215,6 +215,7 @@ set(BRIDGE_SOURCES
     src/bridge/handlers/auth_handlers.cpp
     src/bridge/handlers/game_handlers.cpp
     src/bridge/handlers/admin_web_handlers.cpp
+    src/bridge/handlers/entity_builders.cpp
 )
 
 set(APP_SOURCES
@@ -368,6 +369,7 @@ add_executable(hgserver_tests
     tests/test_melee_pve.cpp
     tests/test_use_item.cpp
     tests/combat_mode_test.cpp
+    tests/entity_appearance_test.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

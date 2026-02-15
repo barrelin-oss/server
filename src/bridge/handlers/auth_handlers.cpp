@@ -5,6 +5,7 @@
 #include "platform/platform.h"
 
 #include "bridge/handlers/auth_handlers.h"
+#include "bridge/handlers/broadcast_util.h"
 #include "network/websocket_server.h"
 #include "auth/auth_system.h"
 #include "auth/character_serialization.h"
@@ -291,25 +292,8 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
             auto* player = players_->get_player(pid);
             if (player)
             {
-                auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
-
                 auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
-
-                for (auto other_id : nearby)
-                {
-                    if (other_id == pid)
-                        continue;
-
-                    auto* other = players_->get_player(other_id);
-                    if (!other || other->connection.value == 0)
-                        continue;
-
-                    auto* other_conn = ws_server_->get_connection(other->connection);
-                    if (other_conn && other_conn->is_open())
-                    {
-                        other_conn->send(despawn_msg);
-                    }
-                }
+                bridge::broadcast_to_visible(players_, ws_server_, player->current_map, player->pos, despawn_msg, pid);
             }
 
             // Remove player from system
@@ -597,24 +581,11 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
             // Notify nearby players of despawn (re-fetch in case save_player_state invalidated pointer)
             existing_player = players_->get_player(existing_player_id);
-            auto nearby = existing_player
-                              ? players_->get_players_who_can_see(existing_player->current_map, existing_player->pos)
-                              : std::vector<player_id>{};
-            auto despawn_msg = network::make_entity_despawn(
-                0, existing_player ? existing_player->ecs_entity.id : existing_player_id.value);
-
-            for (auto other_id : nearby)
+            if (existing_player)
             {
-                if (other_id == existing_player_id)
-                    continue;
-                auto* other = players_->get_player(other_id);
-                if (!other || other->connection.value == 0)
-                    continue;
-                auto* other_conn = ws_server_->get_connection(other->connection);
-                if (other_conn && other_conn->is_open())
-                {
-                    other_conn->send(despawn_msg);
-                }
+                auto despawn_msg = network::make_entity_despawn(0, existing_player->ecs_entity.id);
+                bridge::broadcast_to_visible(
+                    players_, ws_server_, existing_player->current_map, existing_player->pos, despawn_msg, existing_player_id);
             }
 
             // Remove the stale player
@@ -1376,31 +1347,21 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         auto* player = players_->get_player(live_player_id);
         if (player)
         {
-            auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
-
             // Send per-player (hostility is viewer-relative)
-            for (auto other_id : nearby)
-            {
-                if (other_id == live_player_id)
-                    continue;
+            bridge::for_each_visible_connection(
+                players_,
+                ws_server_,
+                player->current_map,
+                player->pos,
+                [&](player_id, player::player& other, network::ws_connection& conn)
+                {
+                    auto spawn_entity = build_player_spawn(
+                        *player, player_hostility(other.faction, player->faction), item_, item_registry_, effects_);
+                    conn.send(network::make_entity_spawn(0, spawn_entity));
+                },
+                live_player_id);
 
-                auto* other = players_->get_player(other_id);
-                if (!other || other->connection.value == 0)
-                    continue;
-
-                auto* other_conn = ws_server_->get_connection(other->connection);
-                if (!other_conn || !other_conn->is_open())
-                    continue;
-
-                auto spawn_entity = build_player_spawn(
-                    *player, player_hostility(other->faction, player->faction), item_, item_registry_, effects_);
-                other_conn->send(network::make_entity_spawn(0, spawn_entity));
-            }
-
-            LOG_DEBUG(bridge,
-                      "Notified {} nearby players of spawn for {}",
-                      nearby.size() > 0 ? nearby.size() - 1 : 0,
-                      player->name);
+            LOG_DEBUG(bridge, "Notified nearby players of spawn for {}", player->name);
 
             // Forward to admin spectators (neutral perspective)
             auto admin_spawn = build_player_spawn(*player, "neutral", item_, item_registry_, effects_);
@@ -1836,25 +1797,8 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id)
         auto* player = players_->get_player(pid);
         if (player)
         {
-            auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
-
             auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
-
-            for (auto other_id : nearby)
-            {
-                if (other_id == pid)
-                    continue;
-
-                auto* other = players_->get_player(other_id);
-                if (!other || other->connection.value == 0)
-                    continue;
-
-                auto* other_conn = ws_server_->get_connection(other->connection);
-                if (other_conn && other_conn->is_open())
-                {
-                    other_conn->send(despawn_msg);
-                }
-            }
+            bridge::broadcast_to_visible(players_, ws_server_, player->current_map, player->pos, despawn_msg, pid);
 
             // Forward to admin spectators
             for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map))

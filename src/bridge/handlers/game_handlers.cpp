@@ -5,6 +5,7 @@
 #include "platform/platform.h"
 
 #include "bridge/handlers/game_handlers.h"
+#include "bridge/handlers/broadcast_util.h"
 #include "network/websocket_server.h"
 #include "player/player_system.h"
 #include "world/world_subsystem.h"
@@ -208,20 +209,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                 handle_npc_despawn_drop(n); // Generate despawn loot (body parts, rares, boss multi-drops)
 
                 // Broadcast entity_despawn so clients remove the corpse
-                if (players_ && ws_server_)
-                {
-                    auto msg = network::make_entity_despawn(0, n.entity_id.id);
-                    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
-                    for (auto pid : players)
-                    {
-                        auto* p = players_->get_player(pid);
-                        if (!p || p->connection.value == 0)
-                            continue;
-                        auto* conn = ws_server_->get_connection(p->connection);
-                        if (conn && conn->is_open())
-                            conn->send(msg);
-                    }
-                }
+                auto msg = network::make_entity_despawn(0, n.entity_id.id);
+                broadcast_to_visible(players_, ws_server_, n.current_map, n.pos, msg);
             });
     }
 
@@ -255,18 +244,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
 
                 auto msg = network::make_mineral_spawn(node.node_id, visual, node.x, node.y);
                 auto pos = world::position{node.x, node.y};
-                auto players = players_->get_players_who_can_see(map->id(), pos);
-                for (auto pid : players)
-                {
-                    auto* p = players_->get_player(pid);
-                    if (!p || p->connection.value == 0)
-                        continue;
-                    auto* conn = ws_server_->get_connection(p->connection);
-                    if (conn && conn->is_open())
-                    {
-                        conn->send(msg);
-                    }
-                }
+                broadcast_to_visible(players_, ws_server_, map->id(), pos, msg);
             });
 
         mining_->set_despawn_callback(
@@ -284,18 +262,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
 
                 auto msg = network::make_mineral_despawn(node.node_id, node.x, node.y);
                 auto pos = world::position{node.x, node.y};
-                auto players = players_->get_players_who_can_see(map->id(), pos);
-                for (auto pid : players)
-                {
-                    auto* p = players_->get_player(pid);
-                    if (!p || p->connection.value == 0)
-                        continue;
-                    auto* conn = ws_server_->get_connection(p->connection);
-                    if (conn && conn->is_open())
-                    {
-                        conn->send(msg);
-                    }
-                }
+                broadcast_to_visible(players_, ws_server_, map->id(), pos, msg);
             });
     }
 
@@ -318,18 +285,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                 auto msg = network::make_fish_spawn_broadcast(
                     node.index, node.config ? node.config->visual_type : 2, node.x, node.y);
                 auto pos = world::position{node.x, node.y};
-                auto players = players_->get_players_who_can_see(map->id(), pos);
-                for (auto pid : players)
-                {
-                    auto* p = players_->get_player(pid);
-                    if (!p || p->connection.value == 0)
-                        continue;
-                    auto* conn = ws_server_->get_connection(p->connection);
-                    if (conn && conn->is_open())
-                    {
-                        conn->send(msg);
-                    }
-                }
+                broadcast_to_visible(players_, ws_server_, map->id(), pos, msg);
             });
 
         fishing_->set_despawn_callback(
@@ -347,18 +303,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
 
                 auto msg = network::make_fish_despawn_broadcast(node.index, node.x, node.y);
                 auto pos = world::position{node.x, node.y};
-                auto players = players_->get_players_who_can_see(map->id(), pos);
-                for (auto pid : players)
-                {
-                    auto* p = players_->get_player(pid);
-                    if (!p || p->connection.value == 0)
-                        continue;
-                    auto* conn = ws_server_->get_connection(p->connection);
-                    if (conn && conn->is_open())
-                    {
-                        conn->send(msg);
-                    }
-                }
+                broadcast_to_visible(players_, ws_server_, map->id(), pos, msg);
             });
 
         fishing_->set_engaged_callback(
@@ -462,7 +407,6 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                           auto expired = world_->remove_expired_ground_items(std::chrono::seconds(180));
                                           for (const auto& [map, pos, item] : expired)
                                           {
-                                              if (players_ && ws_server_)
                                               {
                                                   network::ground_item_removed_data data{.picker_id = 0,
                                                                                          .picker_name = "",
@@ -471,19 +415,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                                                                          .x = pos.x,
                                                                                          .y = pos.y};
                                                   auto msg = network::make_ground_item_removed(data);
-
-                                                  auto players = players_->get_players_who_can_see(map, pos);
-                                                  for (auto pid : players)
-                                                  {
-                                                      auto* p = players_->get_player(pid);
-                                                      if (!p || p->connection.value == 0)
-                                                          continue;
-                                                      auto* conn = ws_server_->get_connection(p->connection);
-                                                      if (conn && conn->is_open())
-                                                      {
-                                                          conn->send(msg);
-                                                      }
-                                                  }
+                                                  broadcast_to_visible(players_, ws_server_, map, pos, msg);
                                               }
 
                                               if (item_)
@@ -1345,9 +1277,6 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
                              .target_id = target_broadcast_eid});
 
     // Broadcast attack to players who can see the attacker
-    auto nearby = players_->get_players_who_can_see(attacker->current_map, attacker->pos);
-
-    // Create broadcast message (includes projectile info for ranged)
     auto broadcast_msg = network::make_combat_attack_broadcast(attacker->ecs_entity.id,
                                                                target_broadcast_eid,
                                                                attacker->pos.x,
@@ -1359,19 +1288,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
                                                                combat_result.hit.is_critical(),
                                                                combat_result.hit.final_damage,
                                                                projectile);
-
-    for (auto other_id : nearby)
-    {
-        auto* other = players_->get_player(other_id);
-        if (!other || other->connection.value == 0)
-            continue;
-
-        auto* other_conn = ws_server_->get_connection(other->connection);
-        if (other_conn && other_conn->is_open())
-        {
-            other_conn->send(broadcast_msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, attacker->current_map, attacker->pos, broadcast_msg);
 
     // Weapon durability loss on hit
     if (combat_result.hit.is_hit() && item_ && attacker->equipment.has_equipped(player::equip_slot::weapon))
@@ -1743,16 +1660,7 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
                                                            .attribute = next_itm->attribute,
                                                            .reason = "existing"};
                 auto spawn_msg = network::make_ground_item_spawn(spawn_data);
-                auto viewers = players_->get_players_who_can_see(player->current_map, player->pos);
-                for (auto vid : viewers)
-                {
-                    auto* vp = players_->get_player(vid);
-                    if (!vp || vp->connection.value == 0)
-                        continue;
-                    auto* vc = ws_server_->get_connection(vp->connection);
-                    if (vc && vc->is_open())
-                        vc->send(spawn_msg);
-                }
+                broadcast_to_visible(players_, ws_server_, player->current_map, player->pos, spawn_msg);
             }
         }
     }
@@ -2917,27 +2825,9 @@ void game_handlers::broadcast_position_update(player_id moved_player,
     if (!player)
         return;
 
-    // Get players who can see this movement
-    auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
-
     auto update_msg =
         network::make_player_position_update(player->ecs_entity.id, x, y, direction, is_running, dest_x, dest_y);
-
-    for (auto other_id : nearby)
-    {
-        if (other_id == moved_player)
-            continue;
-
-        auto* other = players_->get_player(other_id);
-        if (!other || other->connection.value == 0)
-            continue;
-
-        auto* other_conn = ws_server_->get_connection(other->connection);
-        if (other_conn && other_conn->is_open())
-        {
-            other_conn->send(update_msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, player->current_map, player->pos, update_msg, moved_player);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map))
@@ -4045,23 +3935,8 @@ void game_handlers::execute_player_teleport(player_id pid,
     bool is_cross_map = (old_map_id != teleport_result.new_map);
 
     // Despawn from players who could see OLD position
-    auto old_viewers = players_->get_players_who_can_see(old_map_id, old_pos);
     auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
-    for (auto other_id : old_viewers)
-    {
-        if (other_id == pid)
-            continue;
-
-        auto* other = players_->get_player(other_id);
-        if (!other || other->connection.value == 0)
-            continue;
-
-        auto* other_conn = ws_server_->get_connection(other->connection);
-        if (other_conn && other_conn->is_open())
-        {
-            other_conn->send(despawn_msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, old_map_id, old_pos, despawn_msg, pid);
 
     // Forward despawn to admin spectators on old map
     for (auto admin_conn : ws_server_->get_admin_subscribers(old_map_id))
@@ -4124,27 +3999,20 @@ void game_handlers::execute_player_teleport(player_id pid,
         send_skills_data(conn_id, pid);
     }
 
-    // Spawn to players who can see NEW position
-    auto new_viewers = players_->get_players_who_can_see(teleport_result.new_map, resolved_pos);
-
-    for (auto other_id : new_viewers)
-    {
-        if (other_id == pid)
-            continue;
-
-        auto* other = players_->get_player(other_id);
-        if (!other || other->connection.value == 0)
-            continue;
-
-        auto* other_conn = ws_server_->get_connection(other->connection);
-        if (!other_conn || !other_conn->is_open())
-            continue;
-
-        other_conn->send(network::make_entity_spawn(
-            0,
-            build_player_spawn(
-                *player, player_hostility(other->faction, player->faction), item_, item_registry_, effects_)));
-    }
+    // Spawn to players who can see NEW position (per-viewer hostility)
+    for_each_visible_connection(
+        players_,
+        ws_server_,
+        teleport_result.new_map,
+        resolved_pos,
+        [&](player_id, player::player& other, network::ws_connection& conn)
+        {
+            conn.send(network::make_entity_spawn(
+                0,
+                build_player_spawn(
+                    *player, player_hostility(other.faction, player->faction), item_, item_registry_, effects_)));
+        },
+        pid);
 
     // Forward spawn to admin spectators on new map (neutral perspective)
     auto admin_spawn_msg =
@@ -5121,20 +4989,7 @@ void game_handlers::handle_combat_mode_change(connection_id conn_id, const netwo
     network::combat_mode_change_broadcast_data data{.entity_id = plr->ecs_entity.id, .combat_mode = plr->combat_mode};
     auto broadcast_msg = network::make_combat_mode_change_broadcast(data);
 
-    auto nearby = players_->get_players_who_can_see(plr->current_map, plr->pos);
-    for (auto nearby_pid : nearby)
-    {
-        if (nearby_pid == pid)
-            continue;
-        auto* np = players_->get_player(nearby_pid);
-        if (!np || np->connection.value == 0)
-            continue;
-        auto* nc = ws_server_->get_connection(np->connection);
-        if (nc && nc->is_open())
-        {
-            nc->send(broadcast_msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, plr->current_map, plr->pos, broadcast_msg, pid);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(plr->current_map))
@@ -5398,21 +5253,7 @@ void game_handlers::broadcast_player_action(const player::player& plr,
         return;
 
     auto msg = network::make_player_action_broadcast(data);
-
-    auto nearby = players_->get_players_who_can_see(plr.current_map, plr.pos);
-    for (auto other_id : nearby)
-    {
-        if (other_id == plr.id)
-            continue;
-        auto* other = players_->get_player(other_id);
-        if (!other || other->connection.value == 0)
-            continue;
-        auto* conn = ws_server_->get_connection(other->connection);
-        if (conn && conn->is_open())
-        {
-            conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, plr.current_map, plr.pos, msg, plr.id);
 
     for (auto admin_conn : ws_server_->get_admin_subscribers(plr.current_map))
     {
@@ -5430,22 +5271,7 @@ void game_handlers::broadcast_hp_update(player_id target, int32_t hp, int32_t hp
         return;
 
     auto hp_msg = network::make_entity_hp_update(player->ecs_entity.id, hp, hp_max);
-
-    // Broadcast to players who can see this target
-    auto viewers = players_->get_players_who_can_see(player->current_map, player->pos);
-
-    for (auto other_id : viewers)
-    {
-        auto* other = players_->get_player(other_id);
-        if (!other || other->connection.value == 0)
-            continue;
-
-        auto* other_conn = ws_server_->get_connection(other->connection);
-        if (other_conn && other_conn->is_open())
-        {
-            other_conn->send(hp_msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, player->current_map, player->pos, hp_msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map))
@@ -5473,22 +5299,7 @@ void game_handlers::broadcast_entity_death(player_id victim, player_id killer, i
 
     auto death_msg = network::make_entity_death(
         victim_player->ecs_entity.id, killer_entity_id, victim_player->pos.x, victim_player->pos.y, killing_damage);
-
-    // Broadcast to players who can see the victim's position
-    auto viewers = players_->get_players_who_can_see(victim_player->current_map, victim_player->pos);
-
-    for (auto other_id : viewers)
-    {
-        auto* other = players_->get_player(other_id);
-        if (!other || other->connection.value == 0)
-            continue;
-
-        auto* other_conn = ws_server_->get_connection(other->connection);
-        if (other_conn && other_conn->is_open())
-        {
-            other_conn->send(death_msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, victim_player->current_map, victim_player->pos, death_msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(victim_player->current_map))
@@ -5507,20 +5318,7 @@ void game_handlers::broadcast_combat_effect(map_id map,
         return;
 
     auto msg = network::make_combat_effect(data);
-    auto viewers = players_->get_players_who_can_see(map, pos);
-
-    for (auto pid : viewers)
-    {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0)
-            continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (conn && conn->is_open())
-        {
-            conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, map, pos, msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(map))
@@ -5538,22 +5336,16 @@ void game_handlers::broadcast_combat_effect_to_faction(map_id map,
         return;
 
     auto msg = network::make_combat_effect(data);
-    auto viewers = players_->get_players_who_can_see(map, pos);
-
-    for (auto pid : viewers)
-    {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0)
-            continue;
-        if (p->faction != fac)
-            continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (conn && conn->is_open())
+    for_each_visible_connection(
+        players_,
+        ws_server_,
+        map,
+        pos,
+        [&](player_id, player::player& p, network::ws_connection& conn)
         {
-            conn->send(msg);
-        }
-    }
+            if (p.faction == fac)
+                conn.send(msg);
+        });
 
     // Forward to admin spectators (admins see all factions)
     for (auto admin_conn : ws_server_->get_admin_subscribers(map))
@@ -5714,33 +5506,28 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n)
     auto cat_str = std::string(npc::npc_category_to_string(n.category));
 
     // Send per-player (hostility is viewer-relative)
-    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
-    for (auto pid : players)
-    {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0)
-            continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (!conn || !conn->is_open())
-            continue;
-
-        network::npc_spawn_data data{.entity_id = n.entity_id.id,
-                                     .template_id = n.template_id.value,
-                                     .sprite_id = n.sprite_id,
-                                     .name = n.name,
-                                     .x = n.pos.x,
-                                     .y = n.pos.y,
-                                     .direction = static_cast<uint8_t>(n.facing),
-                                     .hp = n.hp,
-                                     .max_hp = n.max_hp,
-                                     .level = n.level,
-                                     .category = cat_str,
-                                     .hostility = std::string(npc::npc_hostility_for_player(
-                                         n, p->faction, p->pk.is_criminal(), p->pk.is_murderer()))};
-
-        conn->send(network::make_npc_spawn_message(data));
-    }
+    for_each_visible_connection(
+        players_,
+        ws_server_,
+        n.current_map,
+        n.pos,
+        [&](player_id, player::player& p, network::ws_connection& conn)
+        {
+            network::npc_spawn_data data{.entity_id = n.entity_id.id,
+                                         .template_id = n.template_id.value,
+                                         .sprite_id = n.sprite_id,
+                                         .name = n.name,
+                                         .x = n.pos.x,
+                                         .y = n.pos.y,
+                                         .direction = static_cast<uint8_t>(n.facing),
+                                         .hp = n.hp,
+                                         .max_hp = n.max_hp,
+                                         .level = n.level,
+                                         .category = cat_str,
+                                         .hostility = std::string(npc::npc_hostility_for_player(
+                                             n, p.faction, p.pk.is_criminal(), p.pk.is_murderer()))};
+            conn.send(network::make_npc_spawn_message(data));
+        });
 
     // Forward to admin spectators (neutral perspective)
     network::npc_spawn_data admin_data{.entity_id = n.entity_id.id,
@@ -5774,20 +5561,7 @@ void game_handlers::broadcast_npc_move(const npc::npc& n)
         .entity_id = n.entity_id.id, .x = n.pos.x, .y = n.pos.y, .direction = static_cast<uint8_t>(n.facing)};
 
     auto msg = network::make_npc_move_message(data);
-
-    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
-    for (auto pid : players)
-    {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0)
-            continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (conn && conn->is_open())
-        {
-            conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, n.current_map, n.pos, msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map))
@@ -5826,20 +5600,7 @@ void game_handlers::broadcast_npc_attack(const npc::npc& n, entity::entity targe
                                   .target_y = tgt_y};
 
     auto msg = network::make_npc_attack_message(data);
-
-    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
-    for (auto pid : players)
-    {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0)
-            continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (conn && conn->is_open())
-        {
-            conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, n.current_map, n.pos, msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map))
@@ -5857,20 +5618,7 @@ void game_handlers::broadcast_npc_death(const npc::npc& n, entity::entity killer
         return;
 
     auto msg = network::make_entity_death(n.entity_id.id, killer.id, n.pos.x, n.pos.y, killing_damage);
-
-    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
-    for (auto pid : players)
-    {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0)
-            continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (conn && conn->is_open())
-        {
-            conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, n.current_map, n.pos, msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map))
@@ -5886,20 +5634,7 @@ void game_handlers::broadcast_npc_hp_update(const npc::npc& n)
 
     // Use entity_hp_update message for NPCs too
     auto msg = network::make_entity_hp_update(n.entity_id.id, n.hp, n.max_hp);
-
-    auto players = players_->get_players_who_can_see(n.current_map, n.pos);
-    for (auto pid : players)
-    {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0)
-            continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (conn && conn->is_open())
-        {
-            conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, n.current_map, n.pos, msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map))
@@ -5942,22 +5677,7 @@ void game_handlers::broadcast_ground_item_removed(player_id picker,
                                            .y = pos.y};
 
     auto msg = network::make_ground_item_removed(data);
-
-    // Broadcast to all players who can see this position (including the picker)
-    auto nearby = players_->get_players_who_can_see(picker_player->current_map, pos);
-
-    for (auto other_id : nearby)
-    {
-        auto* other = players_->get_player(other_id);
-        if (!other || other->connection.value == 0)
-            continue;
-
-        auto* other_conn = ws_server_->get_connection(other->connection);
-        if (other_conn && other_conn->is_open())
-        {
-            other_conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, picker_player->current_map, pos, msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(map))
@@ -5998,20 +5718,7 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
                                          .reason = "drop"};
 
     auto msg = network::make_ground_item_spawn(data);
-
-    auto players = players_->get_players_who_can_see(map, pos);
-    for (auto pid : players)
-    {
-        auto* p = players_->get_player(pid);
-        if (!p || p->connection.value == 0)
-            continue;
-
-        auto* conn = ws_server_->get_connection(p->connection);
-        if (conn && conn->is_open())
-        {
-            conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, map, pos, msg);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(map))
@@ -6867,21 +6574,7 @@ void game_handlers::broadcast_equipment_change(player_id pid, player::equip_slot
                                                   .item_id = itm.value,
                                                   .template_id = template_id};
     auto msg = network::make_equipment_change_broadcast(data);
-
-    auto nearby = players_->get_players_who_can_see(plr->current_map, plr->pos);
-    for (auto nearby_pid : nearby)
-    {
-        if (nearby_pid == pid)
-            continue; // Don't send to self
-        auto* np = players_->get_player(nearby_pid);
-        if (!np || np->connection.value == 0)
-            continue;
-        auto* conn = ws_server_->get_connection(np->connection);
-        if (conn && conn->is_open())
-        {
-            conn->send(msg);
-        }
-    }
+    broadcast_to_visible(players_, ws_server_, plr->current_map, plr->pos, msg, pid);
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(plr->current_map))

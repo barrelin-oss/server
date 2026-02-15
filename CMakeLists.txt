@@ -223,6 +223,7 @@ set(BRIDGE_SOURCES
     src/bridge/handlers/game_handlers.cpp
     src/bridge/handlers/admin_web_handlers.cpp
     src/bridge/handlers/entity_builders.cpp
+    src/bridge/handlers/broadcast_util.cpp
 )
 
 set(APP_SOURCES

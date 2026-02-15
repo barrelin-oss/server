@@ -369,7 +369,7 @@ add_executable(hgserver_tests
     tests/test_admin_web.cpp
     tests/test_friend_system.cpp
     tests/test_guild_handlers.cpp
-    tests/command_list_test.cpp
+    tests/test_command_list.cpp
     tests/test_perf_stats.cpp
     tests/test_crusade_system.cpp
     tests/test_heldenian_system.cpp
@@ -377,17 +377,17 @@ add_executable(hgserver_tests
     tests/test_war_persistence.cpp
     tests/test_melee_pve.cpp
     tests/test_use_item.cpp
-    tests/combat_mode_test.cpp
-    tests/entity_appearance_test.cpp
-    tests/item_attribute_test.cpp
-    tests/item_attribute_stats_test.cpp
-    tests/weapon_effect_test.cpp
-    tests/item_persistence_test.cpp
-    tests/item_upgrade_test.cpp
-    tests/crafting_attribute_test.cpp
-    tests/special_ability_test.cpp
-    tests/loot_attribute_test.cpp
-    tests/item_audit_test.cpp
+    tests/test_combat_mode.cpp
+    tests/test_entity_appearance.cpp
+    tests/test_item_attribute.cpp
+    tests/test_item_attribute_stats.cpp
+    tests/test_weapon_effect.cpp
+    tests/test_item_persistence.cpp
+    tests/test_item_upgrade.cpp
+    tests/test_crafting_attribute.cpp
+    tests/test_special_ability.cpp
+    tests/test_loot_attribute.cpp
+    tests/test_item_audit.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

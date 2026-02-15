@@ -610,3 +610,61 @@ Server confirms or rejects skill use.
 | `target_id` | uint32 | Target entity ID (if targeted) |
 
 ---
+
+### `skill_update`
+
+Server → Client broadcast. Sent when a player's skill level changes (up or down). Broadcast to the player and all nearby visible players.
+
+```json
+{
+  "type": "skill_update",
+  "data": {
+    "player_id": 42,
+    "skill_id": 8,
+    "old_level": 54,
+    "level": 55,
+    "total_uses": 1203,
+    "uses_this_level": 0,
+    "uses_to_next_level": 525
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `player_id` | uint32 | Player whose skill changed |
+| `skill_id` | uint8 | Skill type ID (0-23) |
+| `old_level` | int16 | Previous skill level |
+| `level` | int16 | New skill level |
+| `total_uses` | int32 | Lifetime uses of this skill |
+| `uses_this_level` | int32 | Uses accumulated in current level |
+| `uses_to_next_level` | int32 | Uses required to reach next level |
+
+The client computes the delta (`level - old_level`) for floating "+N%" text over the player. Nearby players receive this to show the visual effect; only the owning player needs the progress fields.
+
+---
+
+### `skill_progress`
+
+Server → Client (owning player only). Sent when skill SSN (training progress) crosses a 5% threshold between level-ups. At most 20 messages per level.
+
+```json
+{
+  "type": "skill_progress",
+  "data": {
+    "skill_id": 8,
+    "uses_this_level": 55,
+    "uses_to_next_level": 200,
+    "percent": 25
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skill_id` | uint8 | Skill type ID (0-23) |
+| `uses_this_level` | int32 | Current uses accumulated in this level |
+| `uses_to_next_level` | int32 | Uses required to reach next level |
+| `percent` | uint8 | Progress percentage (always a multiple of 5: 5, 10, 15, ... 95) |
+
+---

@@ -92,6 +92,8 @@ void skill_system::shutdown()
 
     player_skills_.clear();
     level_up_callbacks_.clear();
+    progress_callbacks_.clear();
+    progress_tracking_.clear();
 
     set_initialized(false);
     LOG_INFO(general, "Skill system shutdown complete");
@@ -184,12 +186,14 @@ void skill_system::register_player(player_id id)
         return;
 
     player_skills_.emplace(id, player_skills{});
+    progress_tracking_.emplace(id, progress_tracking{});
     LOG_DEBUG(general, "Registered skills for player {}", id.value);
 }
 
 void skill_system::unregister_player(player_id id)
 {
     player_skills_.erase(id);
+    progress_tracking_.erase(id);
     LOG_DEBUG(general, "Unregistered skills for player {}", id.value);
 }
 
@@ -296,6 +300,8 @@ auto skill_system::record_skill_use(player_id player, skill_type skill) -> int16
                   ss.level);
     }
 
+    check_progress(player, skill);
+
     return levels_gained;
 }
 
@@ -332,6 +338,8 @@ void skill_system::add_skill_uses(player_id player, skill_type skill, int32_t co
                   old_level,
                   ss.level);
     }
+
+    check_progress(player, skill);
 }
 
 void skill_system::reset_skill(player_id player, skill_type skill)
@@ -426,6 +434,13 @@ auto skill_system::get_player_skills(player_id player) const -> const player_ski
 
 void skill_system::notify_level_up(player_id player, skill_type skill, int16_t old_level, int16_t new_level)
 {
+    // Reset progress tracking on level-up
+    auto tracking_it = progress_tracking_.find(player);
+    if (tracking_it != progress_tracking_.end())
+    {
+        tracking_it->second.last_reported_percent[static_cast<size_t>(skill)] = 0;
+    }
+
     skill_level_event event;
     event.player = player;
     event.skill = skill;
@@ -436,6 +451,54 @@ void skill_system::notify_level_up(player_id player, skill_type skill, int16_t o
     {
         callback(event);
     }
+}
+
+void skill_system::on_skill_progress(progress_callback callback)
+{
+    progress_callbacks_.push_back(std::move(callback));
+}
+
+void skill_system::check_progress(player_id player, skill_type skill)
+{
+    if (progress_callbacks_.empty())
+        return;
+
+    auto skills_it = player_skills_.find(player);
+    if (skills_it == player_skills_.end())
+        return;
+
+    const auto& ss = skills_it->second.get(skill);
+    auto next = uses_to_next_level(skill, ss.level);
+    if (next <= 0)
+        return;
+
+    auto raw_percent = static_cast<uint8_t>(
+        (static_cast<int64_t>(ss.uses_this_level) * 100) / next);
+    auto floored = static_cast<uint8_t>((raw_percent / 5) * 5);
+
+    auto& tracking = progress_tracking_[player];
+    auto skill_idx = static_cast<size_t>(skill);
+    if (floored == tracking.last_reported_percent[skill_idx])
+        return;
+
+    // Fire for each 5% step crossed (handles bulk adds)
+    auto old_pct = tracking.last_reported_percent[skill_idx];
+    while (old_pct + 5 <= floored)
+    {
+        old_pct = static_cast<uint8_t>(old_pct + 5);
+        skill_progress_event event;
+        event.player = player;
+        event.skill = skill;
+        event.uses_this_level = ss.uses_this_level;
+        event.uses_to_next_level = next;
+        event.percent = old_pct;
+
+        for (const auto& cb : progress_callbacks_)
+        {
+            cb(event);
+        }
+    }
+    tracking.last_reported_percent[skill_idx] = floored;
 }
 
 auto skill_system::get_config_for(skill_type type) const -> const skill_config_entry&

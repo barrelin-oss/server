@@ -417,3 +417,111 @@ TEST_F(skill_system_test, unconfigured_skill_falls_back_to_defaults)
 
     std::filesystem::remove(tmp_path);
 }
+
+// Progress callback tests
+
+TEST(skill_progress_test, progress_callback_fires_at_5_percent_boundary)
+{
+    skill_system sys;
+    sys.initialize();
+    player_id pid(1);
+    sys.register_player(pid);
+
+    sys.set_skill_level(pid, skill_type::mining, 19);
+    // Level 19: (19+1)*10 = 200 uses to next level. 5% = 10 uses.
+
+    struct progress_event
+    {
+        player_id player{};
+        skill_type skill{};
+        int32_t uses_this_level{0};
+        int32_t uses_to_next_level{0};
+        uint8_t percent{0};
+    };
+
+    std::vector<progress_event> events;
+    sys.on_skill_progress([&](const skill_progress_event& e)
+    {
+        events.push_back({e.player, e.skill, e.uses_this_level, e.uses_to_next_level, e.percent});
+    });
+
+    // Add 10 uses (5% of 200) - should fire at 5%
+    for (int i = 0; i < 10; ++i)
+        sys.record_skill_use(pid, skill_type::mining);
+
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].percent, 5);
+    EXPECT_EQ(events[0].uses_this_level, 10);
+    EXPECT_EQ(events[0].uses_to_next_level, 200);
+
+    // Add 10 more (10% total) - should fire again
+    for (int i = 0; i < 10; ++i)
+        sys.record_skill_use(pid, skill_type::mining);
+
+    ASSERT_EQ(events.size(), 2u);
+    EXPECT_EQ(events[1].percent, 10);
+}
+
+TEST(skill_progress_test, progress_callback_does_not_fire_below_threshold)
+{
+    skill_system sys;
+    sys.initialize();
+    player_id pid(1);
+    sys.register_player(pid);
+    sys.set_skill_level(pid, skill_type::mining, 19);
+    // 200 uses to next. 5% = 10 uses.
+
+    int fire_count = 0;
+    sys.on_skill_progress([&](const skill_progress_event&) { ++fire_count; });
+
+    // Add 9 uses (4.5%, below 5% threshold) - should NOT fire
+    for (int i = 0; i < 9; ++i)
+        sys.record_skill_use(pid, skill_type::mining);
+
+    EXPECT_EQ(fire_count, 0);
+}
+
+TEST(skill_progress_test, progress_resets_on_level_up)
+{
+    skill_system sys;
+    sys.initialize();
+    player_id pid(1);
+    sys.register_player(pid);
+    sys.set_skill_level(pid, skill_type::mining, 19);
+    // 200 uses to next level
+
+    std::vector<uint8_t> percents;
+    sys.on_skill_progress([&](const skill_progress_event& e) { percents.push_back(e.percent); });
+
+    int level_ups = 0;
+    sys.on_level_up([&](const skill_level_event&) { ++level_ups; });
+
+    // Add exactly 200 uses to level up
+    sys.add_skill_uses(pid, skill_type::mining, 200);
+
+    EXPECT_EQ(level_ups, 1);
+    // After level-up, last_reported_percent should be reset to 0.
+}
+
+TEST(skill_progress_test, add_skill_uses_fires_progress)
+{
+    skill_system sys;
+    sys.initialize();
+    player_id pid(1);
+    sys.register_player(pid);
+    sys.set_skill_level(pid, skill_type::mining, 19);
+    // 200 uses to next level. 5% = 10 uses.
+
+    std::vector<uint8_t> percents;
+    sys.on_skill_progress([&](const skill_progress_event& e) { percents.push_back(e.percent); });
+
+    // Bulk add 50 uses (25%) - should fire for 5, 10, 15, 20, 25
+    sys.add_skill_uses(pid, skill_type::mining, 50);
+
+    ASSERT_EQ(percents.size(), 5u);
+    EXPECT_EQ(percents[0], 5);
+    EXPECT_EQ(percents[1], 10);
+    EXPECT_EQ(percents[2], 15);
+    EXPECT_EQ(percents[3], 20);
+    EXPECT_EQ(percents[4], 25);
+}

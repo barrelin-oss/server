@@ -99,6 +99,8 @@ enum class json_message_type
     player_magic_response,
     player_skill_request,
     player_skill_response,
+    skill_update,    // Server broadcast: skill level changed
+    skill_progress,  // Server->client: skill SSN progress update
     player_pickup_request,
     player_pickup_response,
     player_interact_request,
@@ -560,6 +562,10 @@ enum class json_message_type
         return "player_skill_request";
     case json_message_type::player_skill_response:
         return "player_skill_response";
+    case json_message_type::skill_update:
+        return "skill_update";
+    case json_message_type::skill_progress:
+        return "skill_progress";
     case json_message_type::player_pickup_request:
         return "player_pickup_request";
     case json_message_type::player_pickup_response:
@@ -1749,6 +1755,15 @@ make_inventory_data(uint32_t seq, const std::vector<inventory_item_msg>& items, 
 
 [[nodiscard]] auto make_skills_data(uint32_t seq, const std::vector<skill_entry_msg>& skills) -> json_message;
 
+[[nodiscard]] auto make_skill_update(uint32_t player_id_val,
+                                     const skill_entry_msg& skill,
+                                     int16_t old_level) -> json_message;
+
+[[nodiscard]] auto make_skill_progress(uint8_t skill_id,
+                                       int32_t uses_this_level,
+                                       int32_t uses_to_next_level,
+                                       uint8_t percent) -> json_message;
+
 [[nodiscard]] auto make_entity_spawn(uint32_t seq, const visible_entity_msg& entity) -> json_message;
 
 [[nodiscard]] auto make_entity_despawn(uint32_t seq, uint32_t entity_id) -> json_message;
@@ -1931,6 +1946,9 @@ struct ground_item_spawn_data
     int16_t count{1};        // Stack count
     int16_t x{0};            // Position
     int16_t y{0};
+    int16_t ground_sprite{0};        // Ground item sprite category (1=swords, 6=misc, etc.)
+    int16_t ground_sprite_frame{0};  // Frame within ground sprite category
+    int8_t item_color{0};            // Color tint index (0 = no tint)
     item::item_attribute attribute{}; // Per-instance attribute data
     std::string reason{"existing"};   // "drop" = live drop (play SFX), "existing" = already on ground
 

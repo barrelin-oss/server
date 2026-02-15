@@ -31,11 +31,22 @@ struct skill_level_event
     int16_t new_level{0};
 };
 
+// Skill progress event (SSN threshold crossed)
+struct skill_progress_event
+{
+    player_id player{};
+    skill_type skill{};
+    int32_t uses_this_level{0};
+    int32_t uses_to_next_level{0};
+    uint8_t percent{0};
+};
+
 // Skill system - manages player skills
 class skill_system : public subsystem
 {
 public:
     using level_up_callback = std::function<void(const skill_level_event&)>;
+    using progress_callback = std::function<void(const skill_progress_event&)>;
 
     skill_system();
     ~skill_system() override;
@@ -79,6 +90,7 @@ public:
 
     // Callbacks
     void on_level_up(level_up_callback callback);
+    void on_skill_progress(progress_callback callback);
 
     // Direct access (for serialization)
     [[nodiscard]] auto get_player_skills(player_id player) -> player_skills*;
@@ -86,6 +98,7 @@ public:
 
 private:
     void notify_level_up(player_id player, skill_type skill, int16_t old_level, int16_t new_level);
+    void check_progress(player_id player, skill_type skill);
     [[nodiscard]] auto get_config_for(skill_type type) const -> const skill_config_entry&;
 
     skill_system_config config_;
@@ -93,6 +106,13 @@ private:
     std::unordered_map<skill_type, skill_config_entry> skill_configs_;
     std::unordered_map<player_id, player_skills> player_skills_;
     std::vector<level_up_callback> level_up_callbacks_;
+    std::vector<progress_callback> progress_callbacks_;
+
+    struct progress_tracking
+    {
+        std::array<uint8_t, max_skills> last_reported_percent{};
+    };
+    std::unordered_map<player_id, progress_tracking> progress_tracking_;
 };
 
 } // namespace hb::skill

@@ -37,6 +37,7 @@
 #include "core/logger.h"
 #include "perf/perf_stats.h"
 #include "war/crusade/crusade_system.h"
+#include "config/config_system.h"
 
 #include <chrono>
 #include <random>
@@ -75,7 +76,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                war::crusade_system* crusade,
                                effect::effect_system* effects,
                                item_registry* item_reg,
-                               audit::item_audit_system* audit)
+                               audit::item_audit_system* audit,
+                               config_system* config)
 {
     ws_server_ = ws_server;
     players_ = players;
@@ -101,6 +103,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     effects_ = effects;
     item_registry_ = item_reg;
     audit_ = audit;
+    config_ = config;
 
     // Register chat message callback to distribute messages
     if (social_)
@@ -120,6 +123,53 @@ void game_handlers::initialize(network::websocket_server* ws_server,
     {
         players_->on_hunger_change([this](player_id pid, int8_t, int8_t new_level)
                                    { send_hunger_update(pid, new_level); });
+    }
+
+    // Register skill level-up callback — broadcast to visible players
+    if (skills_ && players_ && ws_server_)
+    {
+        skills_->on_level_up(
+            [this](const skill::skill_level_event& event)
+            {
+                auto* plr = players_->get_player(event.player);
+                if (!plr)
+                    return;
+
+                auto* ps = skills_->get_player_skills(event.player);
+                if (!ps)
+                    return;
+
+                const auto& ss = ps->get(event.skill);
+                auto skill_idx = static_cast<uint8_t>(event.skill);
+                network::skill_entry_msg entry{
+                    .skill_id = skill_idx,
+                    .level = event.new_level,
+                    .total_uses = ss.total_uses,
+                    .uses_this_level = ss.uses_this_level,
+                    .uses_to_next_level = skills_->uses_to_next_level(event.skill, event.new_level)
+                };
+
+                auto msg = network::make_skill_update(event.player.value, entry, event.old_level);
+                broadcast_to_visible(players_, ws_server_, plr->current_map, plr->pos, msg);
+            });
+
+        skills_->on_skill_progress(
+            [this](const skill::skill_progress_event& event)
+            {
+                auto* plr = players_->get_player(event.player);
+                if (!plr)
+                    return;
+
+                auto* conn = ws_server_->get_connection(plr->connection);
+                if (!conn || !conn->is_open())
+                    return;
+
+                conn->send(network::make_skill_progress(
+                    static_cast<uint8_t>(event.skill),
+                    event.uses_this_level,
+                    event.uses_to_next_level,
+                    event.percent));
+            });
     }
 
     // Register NPC callbacks
@@ -378,18 +428,24 @@ void game_handlers::initialize(network::websocket_server* ws_server,
             });
     }
 
-    // Register and start ground item despawn timer (every 30 seconds, expire after 3 minutes)
+    // Register and start ground item despawn timer (every 30 seconds, expiry from config)
     if (scheduler_ && world_)
     {
         scheduler_->register_task("ground_item_cleanup",
-                                  "Remove ground items older than 3 minutes",
+                                  "Remove expired ground items",
                                   duration_ms{30000},
                                   true,
                                   [this]() -> task_callback
                                   {
                                       return [this]()
                                       {
-                                          auto expired = world_->remove_expired_ground_items(std::chrono::seconds(180));
+                                          uint32_t expiry_secs = 600; // default 10 minutes
+                                          if (config_)
+                                          {
+                                              expiry_secs = config_->server().ground_item_expiry_seconds;
+                                          }
+                                          auto expired = world_->remove_expired_ground_items(
+                                              std::chrono::seconds(expiry_secs));
                                           for (const auto& [map, pos, expired_item] : expired)
                                           {
                                               {

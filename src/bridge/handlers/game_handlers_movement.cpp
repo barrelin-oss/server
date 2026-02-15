@@ -501,9 +501,6 @@ void game_handlers::execute_player_teleport(player_id pid,
                 conn->send(network::make_environment_update(env));
             }
         }
-
-        // Send updated skills data
-        send_skills_data(conn_id, pid);
     }
 
     // Spawn to players who can see NEW position (per-viewer hostility)

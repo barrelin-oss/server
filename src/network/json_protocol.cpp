@@ -97,6 +97,8 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"player_magic_response", json_message_type::player_magic_response},
     {"player_skill_request", json_message_type::player_skill_request},
     {"player_skill_response", json_message_type::player_skill_response},
+    {"skill_update", json_message_type::skill_update},
+    {"skill_progress", json_message_type::skill_progress},
     {"player_pickup_request", json_message_type::player_pickup_request},
     {"player_pickup_response", json_message_type::player_pickup_response},
     {"player_interact_request", json_message_type::player_interact_request},
@@ -1690,6 +1692,42 @@ auto make_skills_data(uint32_t seq, const std::vector<skill_entry_msg>& skills) 
         .type = json_message_type::skills_data, .seq = seq, .data = nlohmann::json{{"skills", std::move(skills_json)}}};
 }
 
+auto make_skill_update(uint32_t player_id_val,
+                       const skill_entry_msg& skill,
+                       int16_t old_level) -> json_message
+{
+    return json_message{
+        .type = json_message_type::skill_update,
+        .seq = 0,
+        .data = nlohmann::json{
+            {"player_id", player_id_val},
+            {"skill_id", skill.skill_id},
+            {"old_level", old_level},
+            {"level", skill.level},
+            {"total_uses", skill.total_uses},
+            {"uses_this_level", skill.uses_this_level},
+            {"uses_to_next_level", skill.uses_to_next_level}
+        }
+    };
+}
+
+auto make_skill_progress(uint8_t skill_id,
+                         int32_t uses_this_level,
+                         int32_t uses_to_next_level,
+                         uint8_t percent) -> json_message
+{
+    return json_message{
+        .type = json_message_type::skill_progress,
+        .seq = 0,
+        .data = nlohmann::json{
+            {"skill_id", skill_id},
+            {"uses_this_level", uses_this_level},
+            {"uses_to_next_level", uses_to_next_level},
+            {"percent", percent}
+        }
+    };
+}
+
 auto make_entity_spawn(uint32_t seq, const visible_entity_msg& entity) -> json_message
 {
     return json_message{.type = json_message_type::entity_spawn, .seq = seq, .data = entity.to_json()};
@@ -2109,6 +2147,9 @@ auto ground_item_spawn_data::to_json() const -> nlohmann::json
                             {"count", count},
                             {"x", x},
                             {"y", y},
+                            {"ground_sprite", ground_sprite},
+                            {"ground_sprite_frame", ground_sprite_frame},
+                            {"item_color", item_color},
                             {"reason", reason}};
     if (!attribute.is_empty())
     {

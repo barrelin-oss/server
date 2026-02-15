@@ -1892,8 +1892,10 @@ struct npc_spawn_data
     int32_t hp{0};
     int32_t max_hp{0};
     int16_t level{0};
-    std::string category;  // "monster", "guard", "merchant", etc.
-    std::string hostility; // "enemy", "friendly", "neutral" (relative to viewing player)
+    std::string category;                  // "monster", "guard", "merchant", etc.
+    std::string hostility;                 // "enemy", "friendly", "neutral" (relative to viewing player)
+    std::vector<std::string> attributes;   // NPC attributes: "Poisonous", "Anti-Magic", etc.
+    bool is_dead{false};                   // True for dead NPC corpses
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };

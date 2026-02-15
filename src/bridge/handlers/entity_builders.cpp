@@ -1,16 +1,23 @@
 // entity_builders.cpp
-// Helper functions to build visible_entity_msg for player and NPC spawns
+// Helper functions to build visible_entity_msg for player and NPC spawns,
+// and shared functions for sending entity data on login/teleport.
 
 #include "bridge/handlers/entity_builders.h"
 #include "player/player.h"
+#include "player/player_system.h"
 #include "npc/npc.h"
+#include "npc/npc_system.h"
 #include "item/item_system.h"
 #include "item/item.h"
 #include "registry/item_registry.h"
 #include "registry/item_template.h"
 #include "effect/effect_system.h"
 #include "effect/active_effect.h"
+#include "world/world_subsystem.h"
+#include "world/map.h"
+#include "network/websocket_server.h"
 #include "core/enums.h"
+#include "core/logger.h"
 
 namespace hb::bridge
 {
@@ -328,6 +335,204 @@ auto build_npc_spawn(const npc::npc& n, std::string_view hostility, bool is_dead
     msg.is_dead = is_dead;
 
     return msg;
+}
+
+// ========== Shared send functions (login + teleport) ==========
+
+void send_visible_entity_spawns(network::ws_connection* conn,
+                                player_id viewer,
+                                map_id map,
+                                const world::position& pos,
+                                player::player_system* players,
+                                npc::npc_system* npc_sys,
+                                const world::world_subsystem* world,
+                                const item::item_system* items,
+                                const item_registry* item_reg,
+                                const effect::effect_system* effects)
+{
+    if (!conn || !conn->is_open() || !players || !world)
+        return;
+
+    auto* player = players->get_player(viewer);
+    if (!player)
+        return;
+
+    int rx = player->visibility_radius_x;
+    int ry = player->visibility_radius_y;
+
+    auto* m = world->get_map(map);
+    if (!m)
+        return;
+
+    // Send entity_spawn for nearby players via spatial index
+    auto coarse_radius = std::max(rx, ry);
+    auto nearby_entities = m->get_entities_in_range(pos, coarse_radius);
+
+    for (auto eid : nearby_entities)
+    {
+        auto* p = players->get_player_by_entity(entity::entity{eid.value});
+        if (!p)
+            continue;
+        if (p == player)
+            continue; // Skip self
+
+        if (std::abs(p->pos.x - pos.x) > rx || std::abs(p->pos.y - pos.y) > ry)
+            continue;
+
+        conn->send(network::make_entity_spawn(
+            0,
+            build_player_spawn(
+                *p, player_hostility(player->faction, p->faction), items, item_reg, effects)));
+    }
+
+    // Send npc_spawn for nearby alive NPCs
+    if (npc_sys)
+    {
+        npc_sys->for_each_npc_on_map(
+            map,
+            [&](auto /*id*/, const hb::npc::npc& n)
+            {
+                if (n.is_dead())
+                    return;
+
+                if (std::abs(n.pos.x - pos.x) > rx || std::abs(n.pos.y - pos.y) > ry)
+                    return;
+
+                network::npc_spawn_data data{
+                    .entity_id = n.entity_id.id,
+                    .template_id = n.template_id.value,
+                    .sprite_id = n.sprite_id,
+                    .name = n.name,
+                    .x = n.pos.x,
+                    .y = n.pos.y,
+                    .direction = static_cast<uint8_t>(n.facing),
+                    .hp = n.hp,
+                    .max_hp = n.max_hp,
+                    .level = n.level,
+                    .category = std::string(npc::npc_category_to_string(n.category)),
+                    .hostility = std::string(npc::npc_hostility_for_player(
+                        n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
+                    .attributes = npc::npc_attribute_strings(n.attribute)};
+                conn->send(network::make_npc_spawn_message(data));
+            });
+
+        // Send npc_spawn for dead NPC corpses
+        npc_sys->for_each_npc_on_map(
+            map,
+            [&](auto /*id*/, const hb::npc::npc& n)
+            {
+                if (!n.is_dead())
+                    return;
+
+                if (std::abs(n.pos.x - pos.x) > rx || std::abs(n.pos.y - pos.y) > ry)
+                    return;
+
+                network::npc_spawn_data data{
+                    .entity_id = n.entity_id.id,
+                    .template_id = n.template_id.value,
+                    .sprite_id = n.sprite_id,
+                    .name = n.name,
+                    .x = n.pos.x,
+                    .y = n.pos.y,
+                    .direction = static_cast<uint8_t>(n.facing),
+                    .hp = n.hp,
+                    .max_hp = n.max_hp,
+                    .level = n.level,
+                    .category = std::string(npc::npc_category_to_string(n.category)),
+                    .hostility = std::string(npc::npc_hostility_for_player(
+                        n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
+                    .attributes = npc::npc_attribute_strings(n.attribute),
+                    .is_dead = true};
+                conn->send(network::make_npc_spawn_message(data));
+            });
+    }
+}
+
+void send_visible_ground_items(network::ws_connection* conn,
+                               map_id map,
+                               const world::position& pos,
+                               int radius_x,
+                               int radius_y,
+                               const world::world_subsystem* world,
+                               const item::item_system* items,
+                               const item_registry* item_reg)
+{
+    if (!conn || !conn->is_open() || !world || !items)
+        return;
+
+    for (int16_t dx = static_cast<int16_t>(-radius_x); dx <= radius_x; ++dx)
+    {
+        for (int16_t dy = static_cast<int16_t>(-radius_y); dy <= radius_y; ++dy)
+        {
+            world::position tile_pos{static_cast<int16_t>(pos.x + dx), static_cast<int16_t>(pos.y + dy)};
+
+            auto ground_items = world->get_ground_items(map, tile_pos);
+            if (ground_items.empty())
+                continue;
+
+            // Only send the top-most item (last in FILO stack)
+            auto top_item = ground_items.back();
+            auto* itm = items->get_item(top_item);
+            if (!itm)
+                continue;
+
+            std::string display_name = itm->name;
+            int16_t gi_sprite = 0;
+            int16_t gi_frame = 0;
+            int8_t gi_color = 0;
+            if (item_reg)
+            {
+                if (auto* tmpl = item_reg->get(itm->template_id))
+                {
+                    display_name = network::get_display_name(tmpl->name, itm->attribute);
+                    gi_sprite = tmpl->ground_sprite;
+                    gi_frame = tmpl->ground_sprite_frame;
+                    gi_color = tmpl->item_color;
+                }
+            }
+
+            network::ground_item_spawn_data data{.item_id = top_item.value,
+                                                 .template_id = itm->template_id.value,
+                                                 .item_name = std::move(display_name),
+                                                 .count = itm->count,
+                                                 .x = tile_pos.x,
+                                                 .y = tile_pos.y,
+                                                 .ground_sprite = gi_sprite,
+                                                 .ground_sprite_frame = gi_frame,
+                                                 .item_color = gi_color,
+                                                 .attribute = itm->attribute};
+
+            conn->send(network::make_ground_item_spawn(data));
+        }
+    }
+}
+
+void send_map_teleporters(network::ws_connection* conn, const world::map& map)
+{
+    if (!conn || !conn->is_open())
+        return;
+
+    const auto& teleports = map.get_all_teleports();
+
+    network::map_teleporters_msg teleporters_msg;
+    teleporters_msg.map_name = std::string(map.name());
+
+    for (const auto& [pos, dest] : teleports)
+    {
+        network::teleporter_info_msg tp_info{
+            .id = (static_cast<uint32_t>(pos.x) << 16) | static_cast<uint32_t>(static_cast<uint16_t>(pos.y)),
+            .x = pos.x,
+            .y = pos.y,
+            .dest_map = dest.dest_map,
+            .dest_x = dest.dest_x,
+            .dest_y = dest.dest_y,
+            .dest_dir = static_cast<int16_t>(dest.dest_dir)};
+        teleporters_msg.teleporters.push_back(tp_info);
+    }
+
+    conn->send(network::make_map_teleporters(teleporters_msg));
+
+    LOG_DEBUG(bridge, "Sent {} teleporters for map {}", teleporters_msg.teleporters.size(), map.name());
 }
 
 } // namespace hb::bridge

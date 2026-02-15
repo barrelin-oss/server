@@ -136,9 +136,6 @@ private:
     // Require authenticated state
     [[nodiscard]] auto require_authenticated(connection_id conn_id, uint32_t seq) -> network::ws_connection*;
 
-    // Send individual entity_spawn and npc_spawn messages for visible entities
-    void send_visible_entity_spawns(network::ws_connection* conn, player_id player_id);
-
     // Save player state to database
     void save_player_state(player_id player_id);
 

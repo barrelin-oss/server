@@ -11,6 +11,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace hb::npc
 {
@@ -225,6 +226,37 @@ struct npc
     }
     }
     return "neutral";
+}
+
+// Convert NPC attribute bitmask to human-readable string list.
+// Legacy Npc.cfg attribute values: 1=Clairvoyant, 2=DMP, 3=Anti-Physical, etc.
+[[nodiscard]] inline auto npc_attribute_strings(int16_t attribute) -> std::vector<std::string>
+{
+    if (attribute <= 0)
+        return {};
+
+    // Attribute is a single value (not bitmask) in legacy — only one can be active
+    switch (attribute)
+    {
+    case 1:
+        return {"Clairvoyant"};
+    case 2:
+        return {"Destructive Magic Protection"};
+    case 3:
+        return {"Anti-Physical"};
+    case 4:
+        return {"Anti-Magic"};
+    case 5:
+        return {"Poisonous"};
+    case 6:
+        return {"Critical Poisonous"};
+    case 7:
+        return {"Explosive"};
+    case 8:
+        return {"Hi-Explosive"};
+    default:
+        return {};
+    }
 }
 
 } // namespace hb::npc

@@ -28,6 +28,8 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n)
 
     auto cat_str = std::string(npc::npc_category_to_string(n.category));
 
+    auto attr_strs = npc::npc_attribute_strings(n.attribute);
+
     // Send per-player (hostility is viewer-relative)
     for_each_visible_connection(
         players_,
@@ -48,7 +50,8 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n)
                                          .level = n.level,
                                          .category = cat_str,
                                          .hostility = std::string(npc::npc_hostility_for_player(
-                                             n, p.faction, p.pk.is_criminal(), p.pk.is_murderer()))};
+                                             n, p.faction, p.pk.is_criminal(), p.pk.is_murderer())),
+                                         .attributes = attr_strs};
             conn.send(network::make_npc_spawn_message(data));
         });
 
@@ -64,7 +67,8 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n)
                                        .max_hp = n.max_hp,
                                        .level = n.level,
                                        .category = cat_str,
-                                       .hostility = "neutral"};
+                                       .hostility = "neutral",
+                                       .attributes = std::move(attr_strs)};
     auto admin_msg = network::make_npc_spawn_message(admin_data);
     for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map))
     {
@@ -395,67 +399,6 @@ void game_handlers::handle_npc_despawn_drop(const npc::npc& n)
     if (!drop.items.empty())
     {
         LOG_DEBUG(bridge, "NPC '{}' corpse despawned with {} item drops", npc_name, drop.items.size());
-    }
-}
-
-void game_handlers::send_visible_ground_items(
-    connection_id conn_id, map_id map, const world::position& pos, int radius_x, int radius_y)
-{
-    auto* perf = subsystems().get<perf::perf_stats_system>();
-    PERF_TIMER(perf, perf::metric_category::visibility_update);
-
-    if (!world_ || !ws_server_ || !item_)
-        return;
-
-    auto* conn = ws_server_->get_connection(conn_id);
-    if (!conn || !conn->is_open())
-        return;
-
-    // Scan tiles in rectangular visibility for ground items
-    for (int16_t dx = static_cast<int16_t>(-radius_x); dx <= radius_x; ++dx)
-    {
-        for (int16_t dy = static_cast<int16_t>(-radius_y); dy <= radius_y; ++dy)
-        {
-            world::position tile_pos{static_cast<int16_t>(pos.x + dx), static_cast<int16_t>(pos.y + dy)};
-
-            auto items = world_->get_ground_items(map, tile_pos);
-            if (items.empty())
-                continue;
-
-            // Only send the top-most item (last in FILO stack)
-            auto top_item = items.back();
-            auto* itm = item_->get_item(top_item);
-            if (!itm)
-                continue;
-
-            std::string display_name = itm->name;
-            int16_t gi_sprite = 0;
-            int16_t gi_frame = 0;
-            int8_t gi_color = 0;
-            if (item_registry_)
-            {
-                if (auto* tmpl = item_registry_->get(itm->template_id))
-                {
-                    display_name = network::get_display_name(tmpl->name, itm->attribute);
-                    gi_sprite = tmpl->ground_sprite;
-                    gi_frame = tmpl->ground_sprite_frame;
-                    gi_color = tmpl->item_color;
-                }
-            }
-
-            network::ground_item_spawn_data data{.item_id = top_item.value,
-                                                 .template_id = itm->template_id.value,
-                                                 .item_name = std::move(display_name),
-                                                 .count = itm->count,
-                                                 .x = tile_pos.x,
-                                                 .y = tile_pos.y,
-                                                 .ground_sprite = gi_sprite,
-                                                 .ground_sprite_frame = gi_frame,
-                                                 .item_color = gi_color,
-                                                 .attribute = itm->attribute};
-
-            conn->send(network::make_ground_item_spawn(data));
-        }
     }
 }
 

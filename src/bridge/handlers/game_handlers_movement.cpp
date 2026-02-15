@@ -465,8 +465,10 @@ void game_handlers::execute_player_teleport(player_id pid,
         // Send full stat update so client resyncs HP/MP/SP/XP/gold after teleport
         send_full_stat_update(conn_id, *player);
 
-        // Send individual entity_spawn / npc_spawn for visible entities at destination
-        send_visible_entity_spawns_at(conn, pid, teleport_result.new_map, resolved_pos);
+        // Send visible entities (players + alive/dead NPCs) at destination
+        bridge::send_visible_entity_spawns(
+            conn, pid, teleport_result.new_map, resolved_pos,
+            players_, npc_, world_, item_, item_registry_, effects_);
 
         // If cross-map, also send map_teleporters for the new map
         if (is_cross_map)
@@ -474,13 +476,15 @@ void game_handlers::execute_player_teleport(player_id pid,
             auto* new_map = world_->get_map(teleport_result.new_map);
             if (new_map)
             {
-                send_map_teleporters(conn_id, *new_map);
+                bridge::send_map_teleporters(conn, *new_map);
             }
         }
 
         // Send visible ground items at destination
-        send_visible_ground_items(
-            conn_id, teleport_result.new_map, resolved_pos, player->visibility_radius_x, player->visibility_radius_y);
+        bridge::send_visible_ground_items(
+            conn, teleport_result.new_map, resolved_pos,
+            player->visibility_radius_x, player->visibility_radius_y,
+            world_, item_, item_registry_);
 
         // Send environment update for destination map
         if (scheduler_)
@@ -527,42 +531,6 @@ void game_handlers::execute_player_teleport(player_id pid,
     }
 
     LOG_INFO(bridge, "Player {} teleported to {} ({}, {})", pid.value, dest_map, resolved_pos.x, resolved_pos.y);
-}
-
-void game_handlers::send_map_teleporters(connection_id conn_id, const world::map& map)
-{
-    if (!ws_server_)
-        return;
-
-    auto* conn = ws_server_->get_connection(conn_id);
-    if (!conn || !conn->is_open())
-        return;
-
-    const auto& teleports = map.get_all_teleports();
-
-    network::map_teleporters_msg teleporters_msg;
-    teleporters_msg.map_name = std::string(map.name());
-
-    for (const auto& [pos, dest] : teleports)
-    {
-        network::teleporter_info_msg tp_info{.id = (static_cast<uint32_t>(pos.x) << 16) |
-                                                   static_cast<uint32_t>(static_cast<uint16_t>(pos.y)),
-                                             .x = pos.x,
-                                             .y = pos.y,
-                                             .dest_map = dest.dest_map,
-                                             .dest_x = dest.dest_x,
-                                             .dest_y = dest.dest_y,
-                                             .dest_dir = static_cast<int16_t>(dest.dest_dir)};
-        teleporters_msg.teleporters.push_back(tp_info);
-    }
-
-    conn->send(network::make_map_teleporters(teleporters_msg));
-
-    LOG_DEBUG(bridge,
-              "Sent {} teleporters for map {} to connection {}",
-              teleporters_msg.teleporters.size(),
-              map.name(),
-              conn_id.value);
 }
 
 void game_handlers::broadcast_teleporter_update(map_id map,
@@ -612,146 +580,6 @@ void game_handlers::broadcast_teleporter_update(map_id map,
         });
 
     LOG_DEBUG(bridge, "Broadcast teleporter {} at ({},{}) on map {}", action, pos.x, pos.y, m->name());
-}
-
-auto game_handlers::build_visible_entities_at(map_id map,
-                                              const world::position& pos,
-                                              int visibility_radius_x,
-                                              int visibility_radius_y) -> std::vector<network::visible_entity_msg>
-{
-    auto* perf = subsystems().get<perf::perf_stats_system>();
-    PERF_TIMER(perf, perf::metric_category::visibility_update);
-
-    std::vector<network::visible_entity_msg> entities;
-
-    if (!players_ || !world_)
-        return entities;
-
-    auto* m = world_->get_map(map);
-    if (!m)
-        return entities;
-
-    // Use max of X/Y as coarse filter for spatial index, then rect-filter below
-    auto coarse_radius = std::max(visibility_radius_x, visibility_radius_y);
-    auto nearby_entities = m->get_entities_in_range(pos, coarse_radius);
-
-    for (auto eid : nearby_entities)
-    {
-        // Spatial index stores ecs_entity.index() - resolve via entity lookup
-        auto* p = players_->get_player_by_entity(entity::entity{eid.value});
-        if (p)
-        {
-            // Rect-filter: skip entities outside the rectangular viewport
-            if (std::abs(p->pos.x - pos.x) > visibility_radius_x || std::abs(p->pos.y - pos.y) > visibility_radius_y)
-                continue;
-
-            entities.push_back(build_player_spawn(*p, "neutral", item_, item_registry_, effects_));
-        }
-    }
-
-    // Include NPCs from npc_system
-    if (npc_)
-    {
-        npc_->for_each_npc_on_map(map,
-                                  [&](auto /*id*/, const hb::npc::npc& n)
-                                  {
-                                      if (n.is_dead())
-                                          return; // Dead NPCs handled separately below
-
-                                      // Rect-filter: skip NPCs outside the rectangular viewport
-                                      if (std::abs(n.pos.x - pos.x) > visibility_radius_x ||
-                                          std::abs(n.pos.y - pos.y) > visibility_radius_y)
-                                          return;
-
-                                      entities.push_back(build_npc_spawn(n, "neutral"));
-                                  });
-
-        // Include dead NPCs (corpses visible within range)
-        npc_->for_each_npc_on_map(map,
-                                  [&](auto /*id*/, const hb::npc::npc& n)
-                                  {
-                                      if (!n.is_dead())
-                                          return; // Only dead NPCs in this pass
-
-                                      // Rect-filter: skip NPCs outside the rectangular viewport
-                                      if (std::abs(n.pos.x - pos.x) > visibility_radius_x ||
-                                          std::abs(n.pos.y - pos.y) > visibility_radius_y)
-                                          return;
-
-                                      entities.push_back(build_npc_spawn(n, "neutral", true));
-                                  });
-    }
-
-    return entities;
-}
-
-void game_handlers::send_visible_entity_spawns_at(network::ws_connection* conn,
-                                                  player_id viewer,
-                                                  map_id map,
-                                                  const world::position& pos)
-{
-    if (!conn || !conn->is_open() || !players_ || !world_)
-        return;
-
-    auto* player = players_->get_player(viewer);
-    if (!player)
-        return;
-
-    int rx = player->visibility_radius_x;
-    int ry = player->visibility_radius_y;
-
-    auto* m = world_->get_map(map);
-    if (!m)
-        return;
-
-    // Send individual entity_spawn for nearby players
-    auto coarse_radius = std::max(rx, ry);
-    auto nearby_entities = m->get_entities_in_range(pos, coarse_radius);
-
-    for (auto eid : nearby_entities)
-    {
-        auto* p = players_->get_player_by_entity(entity::entity{eid.value});
-        if (!p)
-            continue;
-        if (p == player)
-            continue; // Skip self
-
-        if (std::abs(p->pos.x - pos.x) > rx || std::abs(p->pos.y - pos.y) > ry)
-            continue;
-
-        conn->send(network::make_entity_spawn(
-            0, build_player_spawn(*p, player_hostility(player->faction, p->faction), item_, item_registry_, effects_)));
-    }
-
-    // Send individual npc_spawn for nearby NPCs
-    if (npc_)
-    {
-        npc_->for_each_npc_on_map(map,
-                                  [&](auto /*id*/, const hb::npc::npc& n)
-                                  {
-                                      if (n.is_dead())
-                                          return;
-
-                                      if (std::abs(n.pos.x - pos.x) > rx || std::abs(n.pos.y - pos.y) > ry)
-                                          return;
-
-                                      network::npc_spawn_data data{
-                                          .entity_id = n.entity_id.id,
-                                          .template_id = n.template_id.value,
-                                          .sprite_id = n.sprite_id,
-                                          .name = n.name,
-                                          .x = n.pos.x,
-                                          .y = n.pos.y,
-                                          .direction = static_cast<uint8_t>(n.facing),
-                                          .hp = n.hp,
-                                          .max_hp = n.max_hp,
-                                          .level = n.level,
-                                          .category = std::string(npc::npc_category_to_string(n.category)),
-                                          .hostility = std::string(npc::npc_hostility_for_player(
-                                              n, player->faction, player->pk.is_criminal(), player->pk.is_murderer()))};
-                                      conn->send(network::make_npc_spawn_message(data));
-                                  });
-    }
 }
 
 } // namespace hb::bridge

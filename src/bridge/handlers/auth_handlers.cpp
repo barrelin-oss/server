@@ -1254,8 +1254,33 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     auto response = network::make_enter_game_response(msg.seq, true, &game_state);
     conn->send(response);
 
-    // Send individual entity_spawn / npc_spawn messages for visible entities
-    send_visible_entity_spawns(conn, live_player_id);
+    // Send visible entities (players + alive/dead NPCs) at current position
+    if (players_ && world_)
+    {
+        auto* player = players_->get_player(live_player_id);
+        if (player)
+        {
+            bridge::send_visible_entity_spawns(
+                conn, live_player_id, player->current_map, player->pos,
+                players_, npc_, world_, item_, item_registry_, effects_);
+
+            // Send map teleporters
+            auto* current_map = world_->get_map(player->current_map);
+            if (current_map)
+            {
+                bridge::send_map_teleporters(conn, *current_map);
+            }
+
+            // Send visible ground items
+            if (item_)
+            {
+                int rx = player->visibility_radius_x > 0 ? player->visibility_radius_x : 20;
+                int ry = player->visibility_radius_y > 0 ? player->visibility_radius_y : 15;
+                bridge::send_visible_ground_items(
+                    conn, player->current_map, player->pos, rx, ry, world_, item_, item_registry_);
+            }
+        }
+    }
 
     LOG_DEBUG(bridge, "Sent game state to player {}", live_player_id.value);
 
@@ -1267,93 +1292,6 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                   "Player {} was dead on login, auto-respawned at {}",
                   live_player_id.value,
                   game_state.character.map_name);
-    }
-
-    // Send map teleporters
-    if (world_ && players_)
-    {
-        auto* player = players_->get_player(live_player_id);
-        if (player)
-        {
-            auto* current_map = world_->get_map(player->current_map);
-            if (current_map)
-            {
-                const auto& teleports = current_map->get_all_teleports();
-
-                network::map_teleporters_msg teleporters_msg;
-                teleporters_msg.map_name = std::string(current_map->name());
-
-                for (const auto& [pos, dest] : teleports)
-                {
-                    network::teleporter_info_msg tp_info{.id = (static_cast<uint32_t>(pos.x) << 16) |
-                                                               static_cast<uint32_t>(static_cast<uint16_t>(pos.y)),
-                                                         .x = pos.x,
-                                                         .y = pos.y,
-                                                         .dest_map = dest.dest_map,
-                                                         .dest_x = dest.dest_x,
-                                                         .dest_y = dest.dest_y,
-                                                         .dest_dir = static_cast<int16_t>(dest.dest_dir)};
-                    teleporters_msg.teleporters.push_back(tp_info);
-                }
-
-                conn->send(network::make_map_teleporters(teleporters_msg));
-
-                LOG_DEBUG(bridge,
-                          "Sent {} teleporters for map {} to player {}",
-                          teleporters_msg.teleporters.size(),
-                          current_map->name(),
-                          live_player_id.value);
-            }
-
-            // Send visible ground items at player's position
-            if (item_)
-            {
-                int rx = player->visibility_radius_x > 0 ? player->visibility_radius_x : 20;
-                int ry = player->visibility_radius_y > 0 ? player->visibility_radius_y : 15;
-                for (int16_t dx = static_cast<int16_t>(-rx); dx <= rx; ++dx)
-                {
-                    for (int16_t dy = static_cast<int16_t>(-ry); dy <= ry; ++dy)
-                    {
-                        world::position tile_pos{static_cast<int16_t>(player->pos.x + dx),
-                                                 static_cast<int16_t>(player->pos.y + dy)};
-
-                        auto items = world_->get_ground_items(player->current_map, tile_pos);
-                        for (auto ground_item : items)
-                        {
-                            auto* itm = item_->get_item(ground_item);
-                            if (!itm)
-                                continue;
-
-                            int16_t gi_sprite = 0;
-                            int16_t gi_frame = 0;
-                            int8_t gi_color = 0;
-                            std::string display_name = itm->name;
-                            if (item_registry_)
-                            {
-                                if (auto* tmpl = item_registry_->get(itm->template_id))
-                                {
-                                    display_name = network::get_display_name(tmpl->name, itm->attribute);
-                                    gi_sprite = tmpl->ground_sprite;
-                                    gi_frame = tmpl->ground_sprite_frame;
-                                    gi_color = tmpl->item_color;
-                                }
-                            }
-                            network::ground_item_spawn_data spawn_data{.item_id = ground_item.value,
-                                                                       .template_id = itm->template_id.value,
-                                                                       .item_name = std::move(display_name),
-                                                                       .count = itm->count,
-                                                                       .x = tile_pos.x,
-                                                                       .y = tile_pos.y,
-                                                                       .ground_sprite = gi_sprite,
-                                                                       .ground_sprite_frame = gi_frame,
-                                                                       .item_color = gi_color};
-
-                            conn->send(network::make_ground_item_spawn(spawn_data));
-                        }
-                    }
-                }
-            }
-        }
     }
 
     // Notify nearby players of the new spawn
@@ -1432,66 +1370,6 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     if (post_enter_game_callback_)
     {
         post_enter_game_callback_(live_player_id, conn_id);
-    }
-}
-
-void auth_handlers::send_visible_entity_spawns(network::ws_connection* conn, player_id pid)
-{
-    if (!players_ || !conn || !conn->is_open())
-        return;
-
-    auto* player = players_->get_player(pid);
-    if (!player)
-        return;
-
-    // Send individual entity_spawn for each nearby player
-    auto nearby_players =
-        players_->get_players_in_range(pid, std::max(player->visibility_radius_x, player->visibility_radius_y));
-
-    for (auto other_id : nearby_players)
-    {
-        if (other_id == pid)
-            continue;
-
-        auto* other = players_->get_player(other_id);
-        if (!other)
-            continue;
-
-        conn->send(network::make_entity_spawn(
-            0,
-            build_player_spawn(
-                *other, player_hostility(player->faction, other->faction), item_, item_registry_, effects_)));
-    }
-
-    // Send individual npc_spawn for each nearby NPC
-    if (npc_)
-    {
-        npc_->for_each_npc_on_map(player->current_map,
-                                  [&](entity::entity /*id*/, const npc::npc& n)
-                                  {
-                                      if (n.ai_state.state == npc::ai_state::dead)
-                                          return;
-
-                                      if (std::abs(player->pos.x - n.pos.x) > player->visibility_radius_x ||
-                                          std::abs(player->pos.y - n.pos.y) > player->visibility_radius_y)
-                                          return;
-
-                                      network::npc_spawn_data data{
-                                          .entity_id = n.entity_id.id,
-                                          .template_id = n.template_id.value,
-                                          .sprite_id = n.sprite_id,
-                                          .name = n.name,
-                                          .x = n.pos.x,
-                                          .y = n.pos.y,
-                                          .direction = static_cast<uint8_t>(n.facing),
-                                          .hp = n.hp,
-                                          .max_hp = n.max_hp,
-                                          .level = n.level,
-                                          .category = std::string(npc::npc_category_to_string(n.category)),
-                                          .hostility = std::string(npc::npc_hostility_for_player(
-                                              n, player->faction, player->pk.is_criminal(), player->pk.is_murderer()))};
-                                      conn->send(network::make_npc_spawn_message(data));
-                                  });
     }
 }
 

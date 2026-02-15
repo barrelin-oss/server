@@ -2077,18 +2077,27 @@ auto make_combat_effect(const combat_effect_data& data) -> json_message
 
 auto npc_spawn_data::to_json() const -> nlohmann::json
 {
-    return nlohmann::json{{"entity_id", entity_id},
-                          {"template_id", template_id},
-                          {"sprite_id", sprite_id},
-                          {"name", name},
-                          {"x", x},
-                          {"y", y},
-                          {"direction", direction},
-                          {"hp", hp},
-                          {"max_hp", max_hp},
-                          {"level", level},
-                          {"category", category},
-                          {"hostility", hostility}};
+    auto j = nlohmann::json{{"entity_id", entity_id},
+                            {"template_id", template_id},
+                            {"sprite_id", sprite_id},
+                            {"name", name},
+                            {"x", x},
+                            {"y", y},
+                            {"direction", direction},
+                            {"hp", hp},
+                            {"max_hp", max_hp},
+                            {"level", level},
+                            {"category", category},
+                            {"hostility", hostility}};
+    if (!attributes.empty())
+    {
+        j["attributes"] = attributes;
+    }
+    if (is_dead)
+    {
+        j["is_dead"] = true;
+    }
+    return j;
 }
 
 auto npc_move_data::to_json() const -> nlohmann::json

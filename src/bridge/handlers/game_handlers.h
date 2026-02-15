@@ -365,23 +365,10 @@ private:
                                  const world::position& dest_pos,
                                  world::direction dest_dir);
 
-    void send_map_teleporters(connection_id conn_id, const world::map& map);
-
     void broadcast_teleporter_update(map_id map,
                                      const std::string& action,
                                      const world::position& pos,
                                      const world::teleport_dest* dest);
-
-    [[nodiscard]] auto build_visible_entities_at(map_id map,
-                                                 const world::position& pos,
-                                                 int visibility_radius_x,
-                                                 int visibility_radius_y) -> std::vector<network::visible_entity_msg>;
-
-    // Send individual entity_spawn / npc_spawn messages for all visible entities at a position
-    void send_visible_entity_spawns_at(network::ws_connection* conn,
-                                       player_id viewer,
-                                       map_id map,
-                                       const world::position& pos);
 
     // Combat event callbacks
     void on_damage_dealt(const combat::damage_event& event);
@@ -428,10 +415,6 @@ private:
     // Loot drop handlers
     void handle_npc_loot_drop(const npc::npc& n, entity::entity killer);
     void handle_npc_despawn_drop(const npc::npc& n);
-
-    // Send visible ground items to a player
-    void send_visible_ground_items(
-        connection_id conn_id, map_id map, const world::position& pos, int radius_x, int radius_y);
 
     // Skill data sync
     void send_skills_data(connection_id conn_id, player_id pid);

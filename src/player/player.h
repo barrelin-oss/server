@@ -295,12 +295,12 @@ struct player
 
     [[nodiscard]] auto hp_percent() const -> float
     {
-        return computed.max_hp > 0 ? static_cast<float>(hp) / computed.max_hp : 0.0f;
+        return computed.max_hp > 0 ? static_cast<float>(hp) / static_cast<float>(computed.max_hp) : 0.0f;
     }
 
     [[nodiscard]] auto mp_percent() const -> float
     {
-        return computed.max_mp > 0 ? static_cast<float>(mp) / computed.max_mp : 0.0f;
+        return computed.max_mp > 0 ? static_cast<float>(mp) / static_cast<float>(computed.max_mp) : 0.0f;
     }
 
     void recalculate_stats()

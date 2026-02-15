@@ -381,7 +381,7 @@ TEST_F(network_subsystem_test, message_callback)
     std::vector<uint8_t> received_data;
 
     subsystem_.set_message_callback(
-        [&](connection_id id, std::span<const uint8_t> data)
+        [&]([[maybe_unused]] connection_id id, std::span<const uint8_t> data)
         {
             ++message_count;
             received_data.assign(data.begin(), data.end());

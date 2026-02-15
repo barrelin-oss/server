@@ -192,7 +192,9 @@ auto item_audit_system::query_logs(const item_log_query& query) -> std::vector<i
 
     int32_t limit = std::clamp(query.limit, 1, 500);
     int32_t offset = std::max(query.offset, 0);
-    sql << "LIMIT $" << param_idx++ << " OFFSET $" << param_idx++ << " ";
+    int limit_param = param_idx++;
+    int offset_param = param_idx++;
+    sql << "LIMIT $" << limit_param << " OFFSET $" << offset_param << " ";
     params.push_back(std::to_string(limit));
     params.push_back(std::to_string(offset));
 

@@ -313,7 +313,7 @@ TEST_F(magic_system_test, spell_callback)
     spell_template received_spell;
 
     system_.on_spell_cast(
-        [&](entity e, const spell_template& spell, const spell_effect_result&)
+        [&]([[maybe_unused]] entity e, const spell_template& spell, [[maybe_unused]] const spell_effect_result&)
         {
             callback_called = true;
             received_spell = spell;

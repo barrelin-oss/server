@@ -2978,7 +2978,7 @@ auto make_fish_skill_response(uint32_t seq, bool success, std::optional<std::str
     return json_message{.type = json_message_type::fish_skill_response, .seq = seq, .data = data};
 }
 
-auto make_fish_engaged(entity_id player_eid,
+auto make_fish_engaged([[maybe_unused]] entity_id player_eid,
                        std::string_view fish_name,
                        uint8_t visual_type,
                        int32_t initial_chance) -> json_message

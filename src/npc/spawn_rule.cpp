@@ -4,7 +4,7 @@ namespace hb::npc
 {
 
 // Level rule - backward compatible with old level-based spawning
-auto level_rule::evaluate(const spawn_context& ctx) const -> rule_result
+auto level_rule::evaluate([[maybe_unused]] const spawn_context& ctx) const -> rule_result
 {
     // For now, always match (level filtering happens at map level)
     // In future, could query player levels in area

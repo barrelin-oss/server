@@ -1037,11 +1037,11 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
                                        return command_result::error("Usage: /settime <hour> [minute]");
                                    }
 
-                                   int hour = cmd_ctx.args[0].int_value;
+                                   int hour = static_cast<int>(cmd_ctx.args[0].int_value);
                                    int minute = 0;
                                    if (cmd_ctx.args.size() > 1)
                                    {
-                                       minute = cmd_ctx.args[1].int_value;
+                                       minute = static_cast<int>(cmd_ctx.args[1].int_value);
                                    }
 
                                    if (hour < 0 || hour > 23)

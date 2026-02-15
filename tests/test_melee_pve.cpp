@@ -157,7 +157,7 @@ TEST_F(combat_npc_damage_test, damage_fires_callback)
 {
     bool callback_fired = false;
     npc_sys_->set_on_damage_callback(
-        [&](const hb::npc::npc& n, int32_t damage, hb::entity::entity source)
+        [&]([[maybe_unused]] const hb::npc::npc& n, int32_t damage, hb::entity::entity source)
         {
             callback_fired = true;
             EXPECT_EQ(damage, 25);
@@ -183,7 +183,7 @@ TEST_F(combat_npc_damage_test, death_fires_callback)
     bool death_fired = false;
     uint32_t killer_id = 0;
     npc_sys_->set_on_death_callback(
-        [&](const hb::npc::npc& n, hb::entity::entity killer, int32_t /*damage*/)
+        [&]([[maybe_unused]] const hb::npc::npc& n, hb::entity::entity killer, int32_t /*damage*/)
         {
             death_fired = true;
             killer_id = killer.id;

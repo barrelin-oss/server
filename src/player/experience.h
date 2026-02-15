@@ -25,7 +25,7 @@ struct experience_table
         {
             // Helbreath-style exp curve
             int64_t base = static_cast<int64_t>(i) * i * i * 10;
-            required[i] = required[i - 1] + base;
+            required[static_cast<size_t>(i)] = required[static_cast<size_t>(i - 1)] + base;
         }
     }
 
@@ -63,7 +63,7 @@ struct experience_state
         int64_t level_range = next_level_exp - current_level_exp;
         if (level_range <= 0)
             return 1.0f;
-        return static_cast<float>(experience - current_level_exp) / level_range;
+        return static_cast<float>(experience - current_level_exp) / static_cast<float>(level_range);
     }
 
     [[nodiscard]] auto ek_contribution() const -> int32_t { return enemy_kill_count * contribution_per_ek; }

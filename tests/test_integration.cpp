@@ -123,7 +123,7 @@ TEST_F(integration_test, non_help_command_falls_through)
     router().set_legacy_fallback([&](connection_id, std::span<const uint8_t>) { legacy_called = true; });
 
     // Send a common command that's not handled by wave 1
-    auto handled =
+    [[maybe_unused]] auto handled =
         route_message(connection_id{1},
                       session_id{1},
                       player_id{},
@@ -215,7 +215,7 @@ TEST_F(integration_test, skill_use_with_player)
     skill_sys->register_player(pid);
 
     // Send skill use command
-    auto handled = route_message(connection_id{1},
+    [[maybe_unused]] auto handled = route_message(connection_id{1},
                                  session_id{1},
                                  pid,
                                  message_id::command_common,
@@ -380,7 +380,7 @@ TEST_F(integration_test, partial_handler_falls_to_legacy)
 
     // Send a common command subtype that's not handled by any wave
     // Using toggle_combat_mode which isn't handled by any of our waves
-    auto handled =
+    [[maybe_unused]] auto handled =
         route_message(connection_id{1},
                       session_id{1},
                       player_id{},

@@ -132,11 +132,11 @@ void log_handler_stats()
     LOG_INFO(proto_bridge,
              "  Modern handled:    {} ({:.1f}%)",
              global.modern_handled,
-             global.total_messages > 0 ? (100.0 * global.modern_handled / global.total_messages) : 0.0);
+             global.total_messages > 0 ? (100.0 * static_cast<double>(global.modern_handled) / static_cast<double>(global.total_messages)) : 0.0);
     LOG_INFO(proto_bridge,
              "  Legacy fallback:   {} ({:.1f}%)",
              global.legacy_fallback,
-             global.total_messages > 0 ? (100.0 * global.legacy_fallback / global.total_messages) : 0.0);
+             global.total_messages > 0 ? (100.0 * static_cast<double>(global.legacy_fallback) / static_cast<double>(global.total_messages)) : 0.0);
     LOG_INFO(proto_bridge, "  Errors:            {}", global.errors);
     LOG_INFO(proto_bridge, "  Disconnects:       {}", global.disconnects);
     LOG_INFO(proto_bridge,

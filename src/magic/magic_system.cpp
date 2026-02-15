@@ -468,7 +468,7 @@ auto magic_system::calculate_mana_cost(hb::entity::entity caster, spell_id spell
         // 2% reduction per level above 1
         float reduction = 1.0f - (spell_level - 1) * 0.02f;
         reduction = std::max(0.5f, reduction); // Cap at 50% reduction
-        base_cost = static_cast<int32_t>(base_cost * reduction);
+        base_cost = static_cast<int32_t>(static_cast<float>(base_cost) * reduction);
     }
 
     return static_cast<int32_t>(static_cast<float>(base_cost) * config_.global_mana_cost_modifier);
@@ -508,7 +508,7 @@ auto magic_system::calculate_damage(hb::entity::entity caster, spell_id spell_id
     if (spell_level > 1)
     {
         float bonus = 1.0f + (spell_level - 1) * 0.05f;
-        damage = static_cast<int32_t>(damage * bonus);
+        damage = static_cast<int32_t>(static_cast<float>(damage) * bonus);
     }
 
     return static_cast<int32_t>(static_cast<float>(damage) * config_.global_damage_modifier);
@@ -545,7 +545,7 @@ auto magic_system::calculate_heal(hb::entity::entity caster, spell_id spell_id) 
     if (spell_level > 1)
     {
         float bonus = 1.0f + (spell_level - 1) * 0.05f;
-        heal = static_cast<int32_t>(heal * bonus);
+        heal = static_cast<int32_t>(static_cast<float>(heal) * bonus);
     }
 
     return heal;
@@ -913,7 +913,6 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
     // Get NPCs in range for enemy AOE
     if (spell.target_type == spell_target::aoe_enemy || spell.target_type == spell_target::aoe_all)
     {
-        auto* npc_sys = subsystems().get<npc::npc_system>();
         if (npc_sys)
         {
             auto npcs_in_range = npc_sys->get_npcs_in_range(caster_map, center, radius);

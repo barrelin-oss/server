@@ -68,7 +68,7 @@ auto register_wave3_handlers() -> size_t
     // Motion command handler
     handlers(wave3_subsystem)
         .on_player(protocol::message_id::command_motion,
-                   make_simple_handler([](const handler_context& ctx, protocol::message_reader& reader)
+                   make_simple_handler([](const handler_context& ctx, [[maybe_unused]] protocol::message_reader& reader)
                                        { return handle_motion_command(ctx); }));
 
     registered_handlers.push_back(protocol::message_id::command_motion);

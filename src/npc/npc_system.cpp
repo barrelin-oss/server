@@ -257,7 +257,7 @@ auto npc_system::spawn_npc(npc_id template_id,
         // Wire min_bravery to flee behavior
         if (tmpl->min_bravery > 0 && tmpl->min_bravery < 100)
         {
-            new_npc->ai.flee_hp_percent = static_cast<float>(tmpl->min_bravery);
+            new_npc->ai.flee_hp_percent = tmpl->min_bravery;
             new_npc->ai.flags = new_npc->ai.flags | ai_flags::cowardly;
         }
 
@@ -975,7 +975,7 @@ void npc_system::process_ai_state(npc& npc_ref)
     if (state.state == ai_state::attack)
     {
         static constexpr std::array<int32_t, 7> reductions = {0, 100, 200, 300, 400, 600, 700};
-        effective_interval -= reductions[random_int(0, 6)];
+        effective_interval -= reductions[static_cast<size_t>(random_int(0, 6))];
         if (effective_interval < 600)
             effective_interval = 600;
     }
@@ -1328,7 +1328,7 @@ auto npc_system::find_aggro_target(const npc& npc_ref) -> entity::entity
         // Find player by ecs_entity index
         player::player* p = nullptr;
         player_sys->for_each_player(
-            [&](player_id pid, player::player& player)
+            [&](player_id, player::player& player)
             {
                 if (player.ecs_entity.index() == entry.entity.index())
                 {

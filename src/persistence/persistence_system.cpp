@@ -197,7 +197,7 @@ auto persistence_system::get_all_player_ids() -> std::vector<player_id>
             try
             {
                 auto stem = entry.path().stem().string();
-                uint32_t id_value = std::stoul(stem);
+                uint32_t id_value = static_cast<uint32_t>(std::stoul(stem));
                 ids.push_back(player_id{id_value});
             }
             catch (...)

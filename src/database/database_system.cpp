@@ -19,12 +19,12 @@ auto query_result::empty() const -> bool
 
 auto query_result::size() const -> size_t
 {
-    return result_.size();
+    return static_cast<size_t>(result_.size());
 }
 
 auto query_result::affected_rows() const -> size_t
 {
-    return result_.affected_rows();
+    return static_cast<size_t>(result_.affected_rows());
 }
 
 auto query_result::operator[](size_t index) const -> pqxx::row

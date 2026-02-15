@@ -630,9 +630,9 @@ void application::initialize()
         if (admin_web_handlers_)
         {
             // Chat logging — register a second callback on social_system
-            if (auto* social_sys = subsystems().get<social::social_system>())
+            if (auto* chat_social = subsystems().get<social::social_system>())
             {
-                social_sys->on_chat_message(
+                chat_social->on_chat_message(
                     [this](const social::chat_message_event& event)
                     {
                         if (!admin_web_handlers_)
@@ -1660,7 +1660,7 @@ void application::load_game_configs()
                 if (!plr)
                     return;
                 std::string town = (plr->faction == hb::faction::elvine) ? "elvine" : "aresden";
-                player_sys_a->execute_teleport(pid, town, {30, 30}, world::direction::south);
+                (void)player_sys_a->execute_teleport(pid, town, {30, 30}, world::direction::south);
             });
 
         apocalypse_sys->set_teleport_to_fn(
@@ -1668,7 +1668,7 @@ void application::load_game_configs()
             {
                 if (!player_sys_a)
                     return;
-                player_sys_a->execute_teleport(pid, dest_map, dest_pos, world::direction::south);
+                (void)player_sys_a->execute_teleport(pid, dest_map, dest_pos, world::direction::south);
             });
 
         apocalypse_sys->set_get_players_on_map_fn(
@@ -1962,7 +1962,7 @@ void application::on_tick()
 {
     auto now = platform::clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_tick_time_);
-    float delta_time = elapsed.count() / 1000.0f;
+    float delta_time = static_cast<float>(elapsed.count()) / 1000.0f;
     last_tick_time_ = now;
 
     ++tick_count_;

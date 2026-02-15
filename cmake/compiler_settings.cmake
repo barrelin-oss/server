@@ -26,9 +26,12 @@ if(MSVC)
 
     # Disable specific warnings for legacy code compatibility
     add_compile_options(
-        /wd4100                 # Unreferenced formal parameter
         /wd4189                 # Local variable initialized but not referenced
         /wd4996                 # Deprecated functions (strcpy, etc.)
+        /w14456                 # Declaration hides previous local (shadow)
+        /w14457                 # Declaration hides function parameter (shadow)
+        /w14244                 # Conversion, possible loss of data
+        /w14245                 # Signed/unsigned mismatch in conversion
     )
 
 else()
@@ -37,7 +40,9 @@ else()
         -Wall
         -Wextra
         -Wpedantic
-        -Wno-unused-parameter   # Legacy code compatibility
+        -Wshadow
+        -Wconversion
+        -Wsign-conversion
         -Wno-deprecated-declarations
     )
 

@@ -778,7 +778,7 @@ TEST(heldenian_evacuate_test, evacuate_calls_callback_for_map)
     heldenian.set_dependencies(&war_sys, nullptr, nullptr, nullptr, nullptr);
 
     std::vector<player_id> evacuated;
-    heldenian.set_evacuate_fn([&](player_id pid, const std::string& map) { evacuated.push_back(pid); });
+    heldenian.set_evacuate_fn([&](player_id pid, [[maybe_unused]] const std::string& map) { evacuated.push_back(pid); });
 
     heldenian_config cfg;
     cfg.enabled = true;

@@ -2522,7 +2522,7 @@ protected:
         auto result = player_sys_.create_player(info);
         auto pid = result.value();
         auto* plr = player_sys_.get_player(pid);
-        plr->experience.level = level;
+        plr->experience.level = static_cast<uint8_t>(level);
         plr->hp = hp_val;
         plr->admin = hb::player::admin_level::player;
         // Assign an ECS entity for effect lookup

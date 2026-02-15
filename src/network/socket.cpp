@@ -263,7 +263,7 @@ auto tcp_socket::send(std::span<const uint8_t> data) -> result<size_t, socket_er
         return result<size_t, socket_error>::err(socket_error::not_connected);
     }
 
-    auto sent = ::send(handle_, reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), 0);
+    auto sent = ::send(handle_, reinterpret_cast<const char*>(data.data()), static_cast<size_t>(data.size()), 0);
 
     if (sent < 0)
     {
@@ -280,7 +280,7 @@ auto tcp_socket::receive(std::span<uint8_t> buffer) -> result<size_t, socket_err
         return result<size_t, socket_error>::err(socket_error::not_connected);
     }
 
-    auto received = ::recv(handle_, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), 0);
+    auto received = ::recv(handle_, reinterpret_cast<char*>(buffer.data()), static_cast<size_t>(buffer.size()), 0);
 
     if (received < 0)
     {

@@ -90,7 +90,7 @@ public:
     void write_fixed_string(const std::string& value, size_t size)
     {
         size_t copy_size = std::min(value.size(), size);
-        buffer_.insert(buffer_.end(), value.begin(), value.begin() + copy_size);
+        buffer_.insert(buffer_.end(), value.begin(), value.begin() + static_cast<std::ptrdiff_t>(copy_size));
         // Pad with zeros
         for (size_t i = copy_size; i < size; ++i)
         {
@@ -281,7 +281,9 @@ public:
             return result<std::vector<uint8_t>, serialize_error>::err(serialize_error::buffer_underflow);
         }
 
-        std::vector<uint8_t> value(data_.begin() + position_, data_.begin() + position_ + size);
+        auto begin = data_.begin() + static_cast<std::ptrdiff_t>(position_);
+        auto end = begin + static_cast<std::ptrdiff_t>(size);
+        std::vector<uint8_t> value(begin, end);
         position_ += size;
         return result<std::vector<uint8_t>, serialize_error>::ok(std::move(value));
     }

@@ -53,27 +53,27 @@ public:
     [[nodiscard]] auto end() const -> pqxx::result::const_iterator;
 
     // Get single value
-    template<typename T> [[nodiscard]] auto get(size_t row, size_t col) const -> T { return result_[row][col].as<T>(); }
+    template<typename T> [[nodiscard]] auto get(size_t row, size_t col) const -> T { return result_[static_cast<int>(row)][static_cast<int>(col)].as<T>(); }
 
     template<typename T> [[nodiscard]] auto get(size_t row, std::string_view col_name) const -> T
     {
-        return result_[row][std::string(col_name)].as<T>();
+        return result_[static_cast<int>(row)][std::string(col_name)].as<T>();
     }
 
     // Get optional value (handles NULL)
     template<typename T> [[nodiscard]] auto get_optional(size_t row, size_t col) const -> std::optional<T>
     {
-        if (result_[row][col].is_null())
+        if (result_[static_cast<int>(row)][static_cast<int>(col)].is_null())
         {
             return std::nullopt;
         }
-        return result_[row][col].as<T>();
+        return result_[static_cast<int>(row)][static_cast<int>(col)].as<T>();
     }
 
     template<typename T>
     [[nodiscard]] auto get_optional(size_t row, std::string_view col_name) const -> std::optional<T>
     {
-        auto field = result_[row][std::string(col_name)];
+        auto field = result_[static_cast<int>(row)][std::string(col_name)];
         if (field.is_null())
         {
             return std::nullopt;

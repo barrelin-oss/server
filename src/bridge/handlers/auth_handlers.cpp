@@ -1353,11 +1353,11 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 ws_server_,
                 player->current_map,
                 player->pos,
-                [&](player_id, player::player& other, network::ws_connection& conn)
+                [&](player_id, player::player& other, network::ws_connection& peer_conn)
                 {
                     auto spawn_entity = build_player_spawn(
                         *player, player_hostility(other.faction, player->faction), item_, item_registry_, effects_);
-                    conn.send(network::make_entity_spawn(0, spawn_entity));
+                    peer_conn.send(network::make_entity_spawn(0, spawn_entity));
                 },
                 live_player_id);
 
@@ -1543,7 +1543,7 @@ void auth_handlers::send_error(connection_id conn_id,
     conn->send(response);
 }
 
-auto auth_handlers::get_connection_or_error(connection_id conn_id, uint32_t seq) -> network::ws_connection*
+auto auth_handlers::get_connection_or_error(connection_id conn_id, [[maybe_unused]] uint32_t seq) -> network::ws_connection*
 {
     if (!ws_server_)
     {

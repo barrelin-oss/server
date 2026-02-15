@@ -146,7 +146,7 @@ auto scheduler::schedule_repeating(duration_ms interval, task_callback callback)
     return schedule_repeating(interval, interval, std::move(callback));
 }
 
-auto scheduler::schedule_repeating(duration_ms initial_delay, duration_ms interval, task_callback callback) -> task_id
+auto scheduler::schedule_repeating([[maybe_unused]] duration_ms initial_delay, duration_ms interval, task_callback callback) -> task_id
 {
     return schedule_repeating_tagged(interval, "", [=, cb = std::move(callback)]() mutable { cb(); });
 }
@@ -407,7 +407,7 @@ auto game_clock::advance(duration_ms real_time) -> bool
     int old_hour = hour();
 
     // Convert real time to game time
-    float real_seconds = real_time.count() / 1000.0f;
+    float real_seconds = static_cast<float>(real_time.count()) / 1000.0f;
     float game_seconds_delta = real_seconds * time_scale_;
 
     fractional_seconds_ += game_seconds_delta;

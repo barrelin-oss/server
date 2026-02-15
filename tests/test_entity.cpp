@@ -136,7 +136,7 @@ TEST(component_storage_test, for_each)
     storage.emplace(entity{2}, 20, "b");
 
     int sum = 0;
-    storage.for_each([&sum](entity e, const test_component& comp) { sum += comp.value; });
+    storage.for_each([&sum]([[maybe_unused]] entity e, const test_component& comp) { sum += comp.value; });
     EXPECT_EQ(sum, 30);
 }
 
@@ -294,7 +294,7 @@ TEST_F(entity_manager_test, for_each_single_component)
     manager_.add_component<health>(e2, 200);
 
     int sum = 0;
-    manager_.for_each<health>([&sum](entity e, health& h) { sum += h.current; });
+    manager_.for_each<health>([&sum]([[maybe_unused]] entity e, health& h) { sum += h.current; });
 
     EXPECT_EQ(sum, 300);
 }
@@ -317,7 +317,7 @@ TEST_F(entity_manager_test, for_each_two_components)
 
     int count = 0;
     manager_.for_each<health, name>(
-        [&count](entity e, health& h, name& n)
+        [&count]([[maybe_unused]] entity e, [[maybe_unused]] health& h, name& n)
         {
             ++count;
             EXPECT_EQ(n.value, "Both");
@@ -373,8 +373,8 @@ TEST(transform_component_test, construction)
 TEST(faction_component_test, hostile)
 {
     faction_component f1{faction::aresden};
-    faction_component f2{faction::elvine};
-    faction_component f3{faction::aresden};
+    [[maybe_unused]] faction_component f2{faction::elvine};
+    [[maybe_unused]] faction_component f3{faction::aresden};
     faction_component f4{faction::none};
 
     EXPECT_TRUE(f1.is_hostile_to(faction::elvine));

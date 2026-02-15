@@ -342,7 +342,7 @@ TEST(message_stats_test, time_tracking)
     // Calculate average (if total_count were set)
     message_stats stats2{.total_count = 100, .total_time = std::chrono::nanoseconds{1000000}};
 
-    auto avg_ns = stats2.total_time.count() / stats2.total_count;
+    auto avg_ns = stats2.total_time.count() / static_cast<int64_t>(stats2.total_count);
     EXPECT_EQ(avg_ns, 10000);
 }
 
@@ -350,6 +350,6 @@ TEST(router_stats_test, time_tracking)
 {
     router_stats stats{.total_messages = 1000, .total_processing_time = std::chrono::nanoseconds{10000000}};
 
-    auto avg_ns = stats.total_processing_time.count() / stats.total_messages;
+    auto avg_ns = stats.total_processing_time.count() / static_cast<int64_t>(stats.total_messages);
     EXPECT_EQ(avg_ns, 10000);
 }

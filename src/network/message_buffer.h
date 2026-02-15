@@ -131,7 +131,7 @@ public:
         uint64_t value = 0;
         for (int i = 0; i < 8; ++i)
         {
-            value |= static_cast<uint64_t>(data_[position_ + i]) << (i * 8);
+            value |= static_cast<uint64_t>(data_[position_ + static_cast<size_t>(i)]) << (i * 8);
         }
         position_ += 8;
         return value;
@@ -168,7 +168,9 @@ public:
     [[nodiscard]] auto read_bytes(size_t count) -> std::vector<uint8_t>
     {
         check_remaining(count);
-        std::vector<uint8_t> result(data_.begin() + position_, data_.begin() + position_ + count);
+        auto begin = data_.begin() + static_cast<std::ptrdiff_t>(position_);
+        auto end = begin + static_cast<std::ptrdiff_t>(count);
+        std::vector<uint8_t> result(begin, end);
         position_ += count;
         return result;
     }

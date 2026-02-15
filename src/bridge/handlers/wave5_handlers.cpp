@@ -127,7 +127,7 @@ auto register_wave5_handlers() -> size_t
     // Register guild creation request
     handlers(wave5_subsystem)
         .on_player(protocol::message_id::request_create_new_guild,
-                   make_simple_handler([](const handler_context& ctx, protocol::message_reader& reader)
+                   make_simple_handler([](const handler_context& ctx, [[maybe_unused]] protocol::message_reader& reader)
                                        { return handle_create_guild(ctx); }));
 
     registered_handlers.push_back(protocol::message_id::request_create_new_guild);

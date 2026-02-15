@@ -1081,8 +1081,6 @@ auto player_system::get_players_on_map_in_range(map_id map,
         return result;
     }
 
-    auto* entity_mgr = subsystems().get<entity::entity_manager>();
-
     // Get entities in range from spatial index
     auto entities = m->get_entities_in_range(center, radius);
 

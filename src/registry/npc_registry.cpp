@@ -400,7 +400,7 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path) -> result<s
     return result<size_t, std::string>::ok(loaded);
 }
 
-auto npc_registry::parse_npc_line(std::string_view line, int line_num) -> result<npc_template, std::string>
+auto npc_registry::parse_npc_line(std::string_view line, [[maybe_unused]] int line_num) -> result<npc_template, std::string>
 {
     // Expected format:
     // ID  Name  Type  HP  MP  Level  Attack  Defense  Exp  GoldMin  GoldMax  ...

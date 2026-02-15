@@ -455,7 +455,7 @@ void admin_web_handlers::handle_server_stats(connection_id conn_id, const networ
     int64_t total_gold = 0;
     if (inventory_ && players_)
     {
-        players_->for_each_player([&](player_id pid, const player::player& plr)
+        players_->for_each_player([&](player_id, const player::player& plr)
                                   { total_gold += inventory_->get_gold(entity_id(plr.id.value)); });
     }
     data["total_gold"] = total_gold;
@@ -960,8 +960,8 @@ void admin_web_handlers::handle_modify_player(connection_id conn_id, const netwo
     }
     if (mods.contains("level") && mods["level"].is_number())
     {
-        plr->experience.level =
-            std::clamp(mods["level"].get<int16_t>(), static_cast<int16_t>(1), static_cast<int16_t>(180));
+        plr->experience.level = static_cast<uint8_t>(
+            std::clamp(mods["level"].get<int16_t>(), static_cast<int16_t>(1), static_cast<int16_t>(180)));
         plr->recalculate_stats();
     }
     if (mods.contains("str") && mods["str"].is_number())
@@ -1449,7 +1449,7 @@ void admin_web_handlers::handle_give_item(connection_id conn_id, const network::
     // Audit admin give (always log, ignore audit flag)
     if (audit_)
     {
-        audit_->log_item(plr->character_id.value, item_name, new_item_id.value, item_log_type::admin_spawn, req.count);
+        audit_->log_item(static_cast<int32_t>(plr->character_id.value), item_name, static_cast<int32_t>(new_item_id.value), item_log_type::admin_spawn, req.count);
     }
 
     LOG_INFO(admin, "Admin gave '{}' x{} to '{}'", item_name, req.count, req.player_name);
@@ -1531,7 +1531,7 @@ void admin_web_handlers::handle_remove_item(connection_id conn_id, const network
     if (audit_)
     {
         audit_->log_item(
-            plr->character_id.value, item_name, removed_item_id.value, item_log_type::admin_remove, removed_count);
+            static_cast<int32_t>(plr->character_id.value), item_name, static_cast<int32_t>(removed_item_id.value), item_log_type::admin_remove, removed_count);
     }
 
     LOG_INFO(admin, "Admin removed '{}' from '{}' slot {}", item_name, req.player_name, req.inventory_slot);
@@ -1888,7 +1888,7 @@ void admin_web_handlers::send_spectator_init(connection_id conn_id, map_id map)
     if (players_)
     {
         players_->for_each_player(
-            [&](player_id pid, const player::player& plr)
+            [&](player_id, const player::player& plr)
             {
                 if (plr.current_map == map)
                 {
@@ -2533,7 +2533,7 @@ void admin_web_handlers::handle_get_audit_log(connection_id conn_id, const netwo
         return;
     }
 
-    auto entries = admin_->get_log_entries(req.count);
+    auto entries = admin_->get_log_entries(static_cast<size_t>(req.count));
 
     nlohmann::json entries_arr = nlohmann::json::array();
     for (const auto& e : entries)
@@ -2735,7 +2735,6 @@ void admin_web_handlers::handle_reload_config(connection_id conn_id, const netwo
     nlohmann::json restart_required = nlohmann::json::array();
 
     // Hot-reload logging levels
-    auto& server_cfg = config_->server();
     hot_applied.push_back("logging.console_level");
     hot_applied.push_back("logging.file_level");
 
@@ -3035,7 +3034,7 @@ void admin_web_handlers::handle_run_query(connection_id conn_id, const network::
     if (!result.empty())
     {
         auto first_row = result[0];
-        for (size_t c = 0; c < first_row.size(); ++c)
+        for (int c = 0; c < first_row.size(); ++c)
         {
             columns_arr.push_back(first_row[c].name());
         }
@@ -3044,7 +3043,7 @@ void admin_web_handlers::handle_run_query(connection_id conn_id, const network::
         {
             nlohmann::json row = nlohmann::json::array();
             auto pqxx_row = result[r];
-            for (size_t c = 0; c < pqxx_row.size(); ++c)
+            for (int c = 0; c < pqxx_row.size(); ++c)
             {
                 if (pqxx_row[c].is_null())
                 {
@@ -4752,7 +4751,7 @@ void admin_web_handlers::handle_item_log(connection_id conn_id, const network::j
         auto* plr = players_->get_player_by_name(req.player_name);
         if (plr)
         {
-            query.character_id = plr->character_id.value;
+            query.character_id = static_cast<int32_t>(plr->character_id.value);
         }
         else
         {

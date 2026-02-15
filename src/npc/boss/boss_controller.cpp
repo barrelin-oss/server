@@ -95,13 +95,13 @@ void boss_controller::check_phase_transitions(entity::entity id, npc& npc_ref, b
     if (state.config->phases.empty())
         return;
 
-    float hp_pct = npc_ref.max_hp > 0 ? static_cast<float>(npc_ref.hp) / npc_ref.max_hp : 0.0f;
+    float hp_pct = npc_ref.max_hp > 0 ? static_cast<float>(npc_ref.hp) / static_cast<float>(npc_ref.max_hp) : 0.0f;
 
     // Check if any later phase should be triggered
     // Iterate from last phase to current+1 (to handle skipping phases on large damage)
     for (int i = static_cast<int>(state.config->phases.size()) - 1; i > state.current_phase; --i)
     {
-        const auto& phase = state.config->phases[i];
+        const auto& phase = state.config->phases[static_cast<size_t>(i)];
         const auto& trigger = phase.enter_trigger;
         bool should_transition = false;
 
@@ -151,8 +151,8 @@ void boss_controller::transition_phase(entity::entity id, npc& npc_ref, boss_sta
         return;
 
     int old_phase_idx = state.current_phase;
-    const auto& old_phase = state.config->phases[old_phase_idx];
-    const auto& new_phase_data = state.config->phases[new_phase];
+    const auto& old_phase = state.config->phases[static_cast<size_t>(old_phase_idx)];
+    const auto& new_phase_data = state.config->phases[static_cast<size_t>(new_phase)];
 
     LOG_INFO(general,
              "Boss '{}' transitioning from phase {} ('{}') to phase {} ('{}')",
@@ -214,7 +214,7 @@ void boss_controller::apply_phase_modifiers(npc& npc_ref, const boss_phase& phas
     }
 }
 
-void boss_controller::check_enrage(entity::entity id, npc& npc_ref, boss_state& state)
+void boss_controller::check_enrage([[maybe_unused]] entity::entity id, npc& npc_ref, boss_state& state)
 {
     if (!state.config)
         return;

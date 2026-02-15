@@ -295,7 +295,7 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
     }
 }
 
-auto item_registry::parse_item_line(std::string_view line, int line_num) -> result<item_template, std::string>
+auto item_registry::parse_item_line(std::string_view line, [[maybe_unused]] int line_num) -> result<item_template, std::string>
 {
     // Expected format (tab or space separated):
     // ID  Name  Type  EquipPos  Weight  Price  Attack  Defense  STR  DEX  INT  MAG  ...

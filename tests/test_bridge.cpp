@@ -492,11 +492,7 @@ TEST(handler_builder_test, fluent_registration)
 TEST(migration_tracking_test, mark_fully_migrated)
 {
     // Reset state
-    auto migrated = get_migrated_messages();
-    for (auto id : migrated)
-    {
-        // No unmark function, so just verify current state
-    }
+    [[maybe_unused]] auto migrated = get_migrated_messages();
 
     mark_fully_migrated(message_id::request_login);
     EXPECT_TRUE(is_fully_migrated(message_id::request_login));

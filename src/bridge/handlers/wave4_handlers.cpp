@@ -263,7 +263,7 @@ auto handle_use_skill(const handler_context& ctx) -> handle_result
     return handle_skill_use(ctx, skill_id{skill_id_val}, target);
 }
 
-auto handle_skill_use(const handler_context& ctx, skill_id skill, entity_id target) -> handle_result
+auto handle_skill_use(const handler_context& ctx, skill_id skill, [[maybe_unused]] entity_id target) -> handle_result
 {
     auto* skill_sys = subsystems().get<skill::skill_system>();
     if (!skill_sys)

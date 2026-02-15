@@ -405,12 +405,12 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                       return [this]()
                                       {
                                           auto expired = world_->remove_expired_ground_items(std::chrono::seconds(180));
-                                          for (const auto& [map, pos, item] : expired)
+                                          for (const auto& [map, pos, expired_item] : expired)
                                           {
                                               {
                                                   network::ground_item_removed_data data{.picker_id = 0,
                                                                                          .picker_name = "",
-                                                                                         .item_id = item.value,
+                                                                                         .item_id = expired_item.value,
                                                                                          .item_name = "",
                                                                                          .x = pos.x,
                                                                                          .y = pos.y};
@@ -420,7 +420,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
 
                                               if (item_)
                                               {
-                                                  item_->destroy_item(item);
+                                                  item_->destroy_item(expired_item);
                                               }
                                           }
 
@@ -1300,7 +1300,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         auto* weapon = item_->get_item(weapon_item_id);
         if (weapon && weapon->is_broken())
         {
-            auto old_equipped = players_->unequip_item(pid, player::equip_slot::weapon);
+            players_->unequip_item(pid, player::equip_slot::weapon);
             players_->recalculate_equipment_modifiers(pid);
             broadcast_equipment_change(pid, player::equip_slot::weapon, item_id{});
             send_stat_update(conn_id, *attacker);
@@ -1540,7 +1540,6 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
         return;
     }
 
-    auto& data = data_result.value();
     auto pid = conn->player();
 
     auto* player = players_->get_player(pid);
@@ -1676,9 +1675,9 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
             {
                 map_name = map->name();
             }
-            audit_->log_item(player->character_id.value,
+            audit_->log_item(static_cast<int32_t>(player->character_id.value),
                              itm->name,
-                             picked_item_id.value,
+                             static_cast<int32_t>(picked_item_id.value),
                              item_log_type::get,
                              itm->count,
                              0,
@@ -2053,9 +2052,9 @@ void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_m
         auto* bought = item_->get_item(new_item_id);
         if (bought && bought->audited)
         {
-            audit_->log_item(check.plr->character_id.value, tmpl->name, new_item_id.value, item_log_type::buy, count);
+            audit_->log_item(static_cast<int32_t>(check.plr->character_id.value), tmpl->name, static_cast<int32_t>(new_item_id.value), item_log_type::buy, count);
         }
-        audit_->log_gold(check.plr->character_id.value,
+        audit_->log_gold(static_cast<int32_t>(check.plr->character_id.value),
                          item_log_type::gold_shop_spend,
                          -total_price,
                          0,
@@ -2259,9 +2258,9 @@ void game_handlers::handle_shop_sell_confirm(connection_id conn_id, const networ
         if (sold_audited)
         {
             audit_->log_item(
-                check.plr->character_id.value, sold_item_name, sell_item_id.value, item_log_type::sell, sold_count);
+                static_cast<int32_t>(check.plr->character_id.value), sold_item_name, static_cast<int32_t>(sell_item_id.value), item_log_type::sell, sold_count);
         }
-        audit_->log_gold(check.plr->character_id.value,
+        audit_->log_gold(static_cast<int32_t>(check.plr->character_id.value),
                          item_log_type::gold_shop_earn,
                          sell_price,
                          0,
@@ -2432,9 +2431,9 @@ void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const netw
     {
         if (itm && itm->audited)
         {
-            audit_->log_item(check.plr->character_id.value, itm->name, slot->item.value, item_log_type::repair, 1);
+            audit_->log_item(static_cast<int32_t>(check.plr->character_id.value), itm->name, static_cast<int32_t>(slot->item.value), item_log_type::repair, 1);
         }
-        audit_->log_gold(check.plr->character_id.value,
+        audit_->log_gold(static_cast<int32_t>(check.plr->character_id.value),
                          item_log_type::gold_shop_spend,
                          -repair_cost,
                          0,
@@ -2519,7 +2518,7 @@ void game_handlers::handle_bank_deposit(connection_id conn_id, const network::js
     if (audit_ && deposit_audited)
     {
         audit_->log_item(
-            check.plr->character_id.value, item_name, deposit_item_id.value, item_log_type::deposit, deposit_count);
+            static_cast<int32_t>(check.plr->character_id.value), item_name, static_cast<int32_t>(deposit_item_id.value), item_log_type::deposit, deposit_count);
     }
 
     LOG_DEBUG(bridge, "Player {} deposited '{}'", check.plr->id.value, item_name);
@@ -2602,7 +2601,7 @@ void game_handlers::handle_bank_withdraw(connection_id conn_id, const network::j
     if (audit_ && withdraw_audited)
     {
         audit_->log_item(
-            check.plr->character_id.value, item_name, withdraw_item_id.value, item_log_type::retrieve, withdraw_count);
+            static_cast<int32_t>(check.plr->character_id.value), item_name, static_cast<int32_t>(withdraw_item_id.value), item_log_type::retrieve, withdraw_count);
     }
 
     LOG_DEBUG(bridge, "Player {} withdrew '{}'", check.plr->id.value, item_name);
@@ -4005,9 +4004,9 @@ void game_handlers::execute_player_teleport(player_id pid,
         ws_server_,
         teleport_result.new_map,
         resolved_pos,
-        [&](player_id, player::player& other, network::ws_connection& conn)
+        [&](player_id, player::player& other, network::ws_connection& peer_conn)
         {
-            conn.send(network::make_entity_spawn(
+            peer_conn.send(network::make_entity_spawn(
                 0,
                 build_player_spawn(
                     *player, player_hostility(other.faction, player->faction), item_, item_registry_, effects_)));
@@ -4093,7 +4092,7 @@ void game_handlers::broadcast_teleporter_update(map_id map,
 
     // Send to all players on this map
     players_->for_each_player(
-        [&](player_id pid, const player::player& p)
+        [&](player_id, const player::player& p)
         {
             if (p.current_map != map)
                 return;
@@ -4957,7 +4956,7 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
         if (post_count < pre_use_count)
         {
             audit_->log_item(
-                plr->character_id.value, tmpl->name, use_item_id.value, item_log_type::use, pre_use_count - post_count);
+                static_cast<int32_t>(plr->character_id.value), tmpl->name, static_cast<int32_t>(use_item_id.value), item_log_type::use, pre_use_count - post_count);
         }
     }
 }
@@ -5074,7 +5073,6 @@ void game_handlers::handle_item_upgrade(connection_id conn_id, const network::js
     // Find appropriate upgrade stone in inventory
     int16_t stone_slot = -1;
     item_id stone_item_id{};
-    uint32_t stone_template = 0;
 
     for (int16_t i = 0; i < inv->capacity(); ++i)
     {
@@ -5093,7 +5091,6 @@ void game_handlers::handle_item_upgrade(connection_id conn_id, const network::js
             {
                 stone_slot = i;
                 stone_item_id = slot->item;
-                stone_template = itm->template_id.value;
                 break;
             }
         }
@@ -5757,7 +5754,7 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
                 std::string map_str;
                 if (auto* map = world_->get_map(npc_map))
                     map_str = map->name();
-                audit_->log_gold(plr->character_id.value,
+                audit_->log_gold(static_cast<int32_t>(plr->character_id.value),
                                  item_log_type::gold_loot,
                                  drop.gold,
                                  0,
@@ -6254,7 +6251,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     }
 
     // Check not trading
-    auto trade_partner = inventory_->get_trade_partner(plr->ecs_entity.id);
+    auto trade_partner = inventory_->get_trade_partner(entity_id(plr->ecs_entity.id));
     if (trade_partner.is_valid())
     {
         send_error(conn_id, msg.seq, "player_busy", "Cannot equip while trading");
@@ -6262,7 +6259,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     }
 
     // Get inventory and validate slot
-    auto* inv = inventory_->get_inventory(plr->ecs_entity.id);
+    auto* inv = inventory_->get_inventory(entity_id(plr->ecs_entity.id));
     if (!inv)
     {
         send_error(conn_id, msg.seq, "internal_error", "Inventory not found");
@@ -6452,7 +6449,7 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
     }
 
     // Check not trading
-    auto trade_partner = inventory_->get_trade_partner(plr->ecs_entity.id);
+    auto trade_partner = inventory_->get_trade_partner(entity_id(plr->ecs_entity.id));
     if (trade_partner.is_valid())
     {
         send_error(conn_id, msg.seq, "player_busy", "Cannot unequip while trading");
@@ -6474,7 +6471,7 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
     }
 
     // Check inventory space
-    auto* inv = inventory_->get_inventory(plr->ecs_entity.id);
+    auto* inv = inventory_->get_inventory(entity_id(plr->ecs_entity.id));
     if (!inv)
     {
         send_error(conn_id, msg.seq, "internal_error", "Inventory not found");
@@ -6826,9 +6823,9 @@ void game_handlers::handle_manufacture_request(connection_id conn_id, const netw
         {
             if (crafted->audited)
             {
-                audit_->log_item(players_->get_player(pid)->character_id.value,
+                audit_->log_item(static_cast<int32_t>(players_->get_player(pid)->character_id.value),
                                  item_name.empty() ? crafted->name : item_name,
-                                 result.created_item.value,
+                                 static_cast<int32_t>(result.created_item.value),
                                  item_log_type::make,
                                  1);
             }
@@ -6939,9 +6936,9 @@ void game_handlers::handle_alchemy_request(connection_id conn_id, const network:
         {
             if (crafted->audited)
             {
-                audit_->log_item(players_->get_player(pid)->character_id.value,
+                audit_->log_item(static_cast<int32_t>(players_->get_player(pid)->character_id.value),
                                  item_name.empty() ? crafted->name : item_name,
-                                 result.created_item.value,
+                                 static_cast<int32_t>(result.created_item.value),
                                  item_log_type::make,
                                  1);
             }

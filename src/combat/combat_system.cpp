@@ -502,7 +502,7 @@ auto combat_system::can_attack(hb::entity::entity attacker, hb::entity::entity d
     return true;
 }
 
-auto combat_system::is_hostile(hb::entity::entity a, hb::entity::entity b) const -> bool
+auto combat_system::is_hostile([[maybe_unused]] hb::entity::entity a, [[maybe_unused]] hb::entity::entity b) const -> bool
 {
     // Would check factions, PK status, war state, etc.
     return true;

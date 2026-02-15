@@ -170,9 +170,10 @@ auto random_spawn_whitelist::get_by_id(npc_id id) const -> std::optional<random_
 
 auto random_spawn_whitelist::spawnable_count() const -> size_t
 {
-    return std::count_if(entries_.begin(),
-                         entries_.end(),
-                         [](const random_spawn_entry& e) { return e.enabled && e.template_id.value > 0; });
+    return static_cast<size_t>(std::count_if(entries_.begin(),
+                                            entries_.end(),
+                                            [](const random_spawn_entry& e)
+                                            { return e.enabled && e.template_id.value > 0; }));
 }
 
 void random_spawn_whitelist::clear()

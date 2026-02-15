@@ -38,7 +38,7 @@ auto has_target::tick(npc& npc_ref, bt_context& /*ctx*/) -> node_status
 
 auto hp_below::tick(npc& npc_ref, bt_context& /*ctx*/) -> node_status
 {
-    float hp_pct = npc_ref.max_hp > 0 ? static_cast<float>(npc_ref.hp) / npc_ref.max_hp : 0.0f;
+    float hp_pct = npc_ref.max_hp > 0 ? static_cast<float>(npc_ref.hp) / static_cast<float>(npc_ref.max_hp) : 0.0f;
     return hp_pct < threshold ? node_status::success : node_status::failure;
 }
 
@@ -222,7 +222,7 @@ auto heal_self::tick(npc& npc_ref, bt_context& /*ctx*/) -> node_status
     }
     else if (percent > 0.0f)
     {
-        int heal_amount = static_cast<int>(npc_ref.max_hp * percent);
+        int heal_amount = static_cast<int>(static_cast<float>(npc_ref.max_hp) * percent);
         npc_ref.heal(heal_amount);
     }
     return node_status::success;

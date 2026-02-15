@@ -375,7 +375,6 @@ void war_system::update_objective_capture(war_id wid, uint16_t objective_id, war
 
     if (obj->capture_progress >= 100)
     {
-        war_faction old_faction = obj->controlling_faction;
         obj->controlling_faction = capturing;
         obj->capture_progress = 0;
         obj->capturing_faction = war_faction::neutral;
@@ -636,7 +635,7 @@ void war_system::update_war_timers(war_state& war, float delta_time)
     }
 }
 
-void war_system::update_objectives(war_state& war, float delta_time)
+void war_system::update_objectives(war_state& war, [[maybe_unused]] float delta_time)
 {
     // Update objective scores
     for (const auto& obj : war.objectives)

@@ -19,7 +19,7 @@ void map::initialize(map_id id, const map_config& config)
     config_ = config;
 
     // Allocate tile arrays
-    size_t total = static_cast<size_t>(config_.width) * config_.height;
+    size_t total = static_cast<size_t>(config_.width) * static_cast<size_t>(config_.height);
     static_tiles_.resize(total);
     dynamic_tiles_.resize(total);
 
@@ -93,7 +93,7 @@ auto map::load_from_file(const std::filesystem::path& path) -> result<void, std:
     config_.height = size_y;
 
     // Reallocate tile arrays with correct dimensions
-    size_t total = static_cast<size_t>(size_x) * size_y;
+    size_t total = static_cast<size_t>(size_x) * static_cast<size_t>(size_y);
     static_tiles_.resize(total);
     dynamic_tiles_.resize(total);
 
@@ -101,7 +101,7 @@ auto map::load_from_file(const std::filesystem::path& path) -> result<void, std:
     spatial_index_.initialize(size_x, size_y);
 
     // Read tile data
-    std::vector<char> tile_data(tile_size);
+    std::vector<char> tile_data(static_cast<size_t>(tile_size));
     for (int16_t y = 0; y < size_y; ++y)
     {
         for (int16_t x = 0; x < size_x; ++x)

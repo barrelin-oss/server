@@ -282,7 +282,7 @@ void social_system::connect_guild_member(player_id character_id, player_id runti
               g->name);
 }
 
-void social_system::disconnect_guild_member(player_id runtime_id, player_id character_id)
+void social_system::disconnect_guild_member(player_id runtime_id, [[maybe_unused]] player_id character_id)
 {
     auto guild_it = player_guilds_.find(runtime_id);
     if (guild_it == player_guilds_.end())
@@ -1224,7 +1224,6 @@ auto social_system::leave_party(player_id player) -> party_result
     if (!p)
         return party_result::party_not_found;
 
-    bool was_leader = p->is_leader(player);
     p->remove_member(player);
     player_parties_.erase(player);
 
@@ -2279,7 +2278,7 @@ auto social_system::lookup_character_by_name(const std::string& name) -> std::pa
         player_id found_char_id{};
         std::string found_name;
         player_system_->for_each_player(
-            [&](player_id pid, const player::player& p)
+            [&](player_id, const player::player& p)
             {
                 if (p.name == name)
                 {

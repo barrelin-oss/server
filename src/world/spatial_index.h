@@ -31,7 +31,7 @@ public:
         height_ = height;
         cells_x_ = (width + spatial_cell_size - 1) / spatial_cell_size;
         cells_y_ = (height + spatial_cell_size - 1) / spatial_cell_size;
-        cells_.resize(static_cast<size_t>(cells_x_) * cells_y_);
+        cells_.resize(static_cast<size_t>(cells_x_) * static_cast<size_t>(cells_y_));
     }
 
     // Clear all entities

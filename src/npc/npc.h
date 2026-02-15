@@ -102,7 +102,7 @@ struct npc
 
     [[nodiscard]] auto hp_percent() const -> float
     {
-        return max_hp > 0 ? static_cast<float>(hp) / max_hp * 100.0f : 0.0f;
+        return max_hp > 0 ? static_cast<float>(hp) / static_cast<float>(max_hp) * 100.0f : 0.0f;
     }
 
     [[nodiscard]] auto is_monster() const -> bool

@@ -80,7 +80,7 @@ struct special_ability_state
     }
 
     // Activate the ability
-    auto activate(std::chrono::steady_clock::time_point now) -> bool
+    auto activate([[maybe_unused]] std::chrono::steady_clock::time_point now) -> bool
     {
         if (status != ability_status::ready)
             return false;

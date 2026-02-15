@@ -294,12 +294,12 @@ public:
     }
 
     // Statistics
-    [[nodiscard]] auto total_tiles() const -> size_t { return static_cast<size_t>(config_.width) * config_.height; }
+    [[nodiscard]] auto total_tiles() const -> size_t { return static_cast<size_t>(config_.width) * static_cast<size_t>(config_.height); }
 
 private:
     [[nodiscard]] auto tile_index(int16_t x, int16_t y) const -> size_t
     {
-        return static_cast<size_t>(y) * config_.width + x;
+        return static_cast<size_t>(y) * static_cast<size_t>(config_.width) + static_cast<size_t>(x);
     }
 
     [[nodiscard]] auto tile_index(const position& pos) const -> size_t { return tile_index(pos.x, pos.y); }

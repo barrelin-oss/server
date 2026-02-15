@@ -245,7 +245,7 @@ TEST_F(combat_system_test, process_attack)
     attack.type = damage_type::physical;
     attack.base_damage = 100;
 
-    auto result = system_.process_attack(attack);
+    [[maybe_unused]] auto result = system_.process_attack(attack);
     // Result depends on RNG, but should complete without error
 }
 
@@ -318,7 +318,7 @@ TEST_F(combat_system_test, process_attack_with_context)
     attack.type = damage_type::physical;
     attack.base_damage = 200;
 
-    auto result = system_.process_attack(attack);
+    [[maybe_unused]] auto result = system_.process_attack(attack);
     // Should complete without error regardless of RNG
 }
 
@@ -330,7 +330,7 @@ TEST_F(combat_system_test, process_attack_magic_damage)
     attack.type = damage_type::magic;
     attack.base_damage = 150;
 
-    auto result = system_.process_attack(attack);
+    [[maybe_unused]] auto result = system_.process_attack(attack);
     // Magic damage should complete without error
 }
 
@@ -346,7 +346,7 @@ TEST_F(combat_system_test, resolve_hit_with_dodge)
 
     // With these stats, most hits should miss, but this is RNG
     // Just verify it doesn't crash
-    auto result = system_.resolve_hit(ctx);
+    [[maybe_unused]] auto result = system_.resolve_hit(ctx);
 }
 
 TEST_F(combat_system_test, resolve_hit_blocked)

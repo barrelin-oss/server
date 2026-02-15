@@ -21,7 +21,7 @@ struct health
 
     [[nodiscard]] auto is_alive() const -> bool { return current > 0; }
     [[nodiscard]] auto is_full() const -> bool { return current >= maximum; }
-    [[nodiscard]] auto percent() const -> float { return maximum > 0 ? static_cast<float>(current) / maximum : 0.0f; }
+    [[nodiscard]] auto percent() const -> float { return maximum > 0 ? static_cast<float>(current) / static_cast<float>(maximum) : 0.0f; }
 
     void damage(int32_t amount) { current = std::max(0, current - amount); }
 
@@ -49,7 +49,7 @@ struct mana
 
     [[nodiscard]] auto has_mana(int32_t amount) const -> bool { return current >= amount; }
     [[nodiscard]] auto is_full() const -> bool { return current >= maximum; }
-    [[nodiscard]] auto percent() const -> float { return maximum > 0 ? static_cast<float>(current) / maximum : 0.0f; }
+    [[nodiscard]] auto percent() const -> float { return maximum > 0 ? static_cast<float>(current) / static_cast<float>(maximum) : 0.0f; }
 
     auto spend(int32_t amount) -> bool
     {
@@ -116,7 +116,7 @@ struct level
 
     [[nodiscard]] auto exp_progress() const -> float
     {
-        return next_level_exp > 0 ? static_cast<float>(experience) / next_level_exp : 0.0f;
+        return next_level_exp > 0 ? static_cast<float>(experience) / static_cast<float>(next_level_exp) : 0.0f;
     }
 };
 

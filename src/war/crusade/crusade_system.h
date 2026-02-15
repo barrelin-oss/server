@@ -18,50 +18,60 @@
 #include <utility>
 #include <vector>
 
-namespace hb {
-    class scheduler;
+namespace hb
+{
+class scheduler;
 }
 
-namespace hb::war {
-    class war_system;
-    class war_persistence;
-    class force_recall_system;
+namespace hb::war
+{
+class war_system;
+class war_persistence;
+class force_recall_system;
+} // namespace hb::war
+
+namespace hb::player
+{
+class player_system;
+struct player;
+} // namespace hb::player
+
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::player {
-    class player_system;
-    struct player;
+namespace hb::npc
+{
+class npc_system;
 }
 
-namespace hb::world {
-    class world_subsystem;
+namespace hb::social
+{
+class social_system;
 }
 
-namespace hb::npc {
-    class npc_system;
+namespace hb::effect
+{
+class effect_system;
 }
 
-namespace hb::social {
-    class social_system;
-}
+namespace hb::network
+{
+class websocket_server;
+struct json_message;
+} // namespace hb::network
 
-namespace hb::effect {
-    class effect_system;
-}
-
-namespace hb::network {
-    class websocket_server;
-    struct json_message;
-}
-
-namespace hb::war {
+namespace hb::war
+{
 
 // Broadcast callback — crusade_system calls this to send messages to players
 using crusade_broadcast_fn = std::function<void(player_id, const network::json_message&)>;
 using crusade_broadcast_all_fn = std::function<void(const network::json_message&)>;
 
 // Result codes
-enum class crusade_result : uint8_t {
+enum class crusade_result : uint8_t
+{
     success = 0,
     not_active = 1,
     already_active = 2,
@@ -84,7 +94,8 @@ enum class crusade_result : uint8_t {
     wrong_map = 19,
 };
 
-class crusade_system : public subsystem {
+class crusade_system : public subsystem
+{
 public:
     crusade_system();
     ~crusade_system() override;
@@ -164,21 +175,29 @@ public:
 
     // ========== Guild Construct Location ==========
 
-    auto set_guild_construct_location(player_id commander, const std::string& map, int16_t x, int16_t y) -> crusade_result;
+    auto
+    set_guild_construct_location(player_id commander, const std::string& map, int16_t x, int16_t y) -> crusade_result;
     [[nodiscard]] auto get_guild_construct_location(uint32_t guild_id) const -> const guild_construct_location*;
 
     // ========== Guild Teleport ==========
 
-    auto set_guild_teleport_location(player_id commander, const std::string& map, int16_t x, int16_t y) -> crusade_result;
+    auto
+    set_guild_teleport_location(player_id commander, const std::string& map, int16_t x, int16_t y) -> crusade_result;
     auto use_guild_teleport(player_id pid) -> crusade_result;
     [[nodiscard]] auto get_guild_teleport_location(uint32_t guild_id) const -> const guild_teleport_location*;
     [[nodiscard]] auto get_guild_teleport_dest(player_id pid) const -> const guild_teleport_location*;
 
     // ========== War Unit Summoning ==========
 
-    auto summon_war_unit(player_id pid, war_unit_type type,
-                        const std::string& map_name = {}, int16_t x = 0, int16_t y = 0) -> crusade_result;
-    [[nodiscard]] auto get_war_structures() const -> const std::vector<war_structure_instance>& { return war_structures_; }
+    auto summon_war_unit(player_id pid,
+                         war_unit_type type,
+                         const std::string& map_name = {},
+                         int16_t x = 0,
+                         int16_t y = 0) -> crusade_result;
+    [[nodiscard]] auto get_war_structures() const -> const std::vector<war_structure_instance>&
+    {
+        return war_structures_;
+    }
     [[nodiscard]] auto get_war_structures(war_faction faction) const -> std::vector<war_structure_instance>;
     [[nodiscard]] auto count_structures_by_type(war_faction faction, war_unit_type type) const -> int32_t;
 
@@ -273,7 +292,7 @@ private:
     war_faction last_crusade_winner_{war_faction::neutral};
 
     // Duplicate-in-day prevention (legacy: m_iLatestCrusadeDayOfWeek)
-    int8_t last_crusade_day_{-1};  // Day of week of last crusade start (-1 = none)
+    int8_t last_crusade_day_{-1}; // Day of week of last crusade start (-1 = none)
 
     // Crusade advantage: tracks consecutive wins (-5 to +5, positive = Aresden dominant)
     int8_t crusade_advantage_{0};
@@ -298,4 +317,4 @@ private:
     crusade_broadcast_all_fn broadcast_all_fn_;
 };
 
-}  // namespace hb::war
+} // namespace hb::war

@@ -8,17 +8,22 @@
 #include <algorithm>
 #include <random>
 
-namespace hb::war {
+namespace hb::war
+{
 
 void meteor_handler::fire_meteor(war_faction attacking_faction)
 {
     auto target = get_target_faction(attacking_faction);
-    if (target == war_faction::neutral) return;
+    if (target == war_faction::neutral)
+        return;
 
     ++pending_meteors_;
 
-    LOG_INFO(general, "Meteor incoming! Faction {} attacking faction {} (warning: {}ms)",
-        static_cast<int>(attacking_faction), static_cast<int>(target), config_.warning_time_ms);
+    LOG_INFO(general,
+             "Meteor incoming! Faction {} attacking faction {} (warning: {}ms)",
+             static_cast<int>(attacking_faction),
+             static_cast<int>(target),
+             config_.warning_time_ms);
 
     // Stage 1: Broadcast warning
     if (callbacks_.broadcast_warning)
@@ -29,13 +34,9 @@ void meteor_handler::fire_meteor(war_faction attacking_faction)
     // Stage 2: Schedule impact after warning period
     if (scheduler_)
     {
-        scheduler_->schedule_tagged(
-            duration_ms{config_.warning_time_ms},
-            "crusade_meteor",
-            [this, attacking_faction]() {
-                execute_meteor_impact(attacking_faction);
-            }
-        );
+        scheduler_->schedule_tagged(duration_ms{config_.warning_time_ms},
+                                    "crusade_meteor",
+                                    [this, attacking_faction]() { execute_meteor_impact(attacking_faction); });
     }
     else
     {
@@ -71,7 +72,8 @@ void meteor_handler::execute_meteor_impact(war_faction attacking_faction)
     // Calculate damage to each strike point
     for (const auto& sp : points)
     {
-        if (sp.is_destroyed()) continue;
+        if (sp.is_destroyed())
+            continue;
 
         meteor_strike_result sr;
         sr.strike_point_id = sp.id;
@@ -95,40 +97,29 @@ void meteor_handler::execute_meteor_impact(war_faction attacking_faction)
         result.strike_results.push_back(sr);
     }
 
-    LOG_INFO(general, "Meteor impact on faction {}! {} strike points hit",
-        static_cast<int>(target), result.strike_results.size());
+    LOG_INFO(general,
+             "Meteor impact on faction {}! {} strike points hit",
+             static_cast<int>(target),
+             result.strike_results.size());
 
     // Schedule player damage waves
     if (scheduler_)
     {
         auto wave1_delay = duration_ms{config_.player_wave1_delay_ms - config_.warning_time_ms};
         scheduler_->schedule_tagged(
-            wave1_delay,
-            "crusade_meteor",
-            [this, target]() {
-                execute_player_damage(target, 1);
-            }
-        );
+            wave1_delay, "crusade_meteor", [this, target]() { execute_player_damage(target, 1); });
 
         auto wave2_delay = duration_ms{config_.player_wave2_delay_ms - config_.warning_time_ms};
         scheduler_->schedule_tagged(
-            wave2_delay,
-            "crusade_meteor",
-            [this, target]() {
-                execute_player_damage(target, 2);
-            }
-        );
+            wave2_delay, "crusade_meteor", [this, target]() { execute_player_damage(target, 2); });
 
         // Schedule result broadcast
         auto result_delay = duration_ms{config_.result_delay_ms - config_.warning_time_ms};
         auto result_copy = result;
-        scheduler_->schedule_tagged(
-            result_delay,
-            "crusade_meteor",
-            [this, attacking_faction, r = std::move(result_copy)]() mutable {
-                execute_result(attacking_faction, std::move(r));
-            }
-        );
+        scheduler_->schedule_tagged(result_delay,
+                                    "crusade_meteor",
+                                    [this, attacking_faction, r = std::move(result_copy)]() mutable
+                                    { execute_result(attacking_faction, std::move(r)); });
     }
     else
     {
@@ -156,8 +147,11 @@ void meteor_handler::execute_result(war_faction attacking_faction, meteor_event_
 {
     --pending_meteors_;
 
-    LOG_INFO(general, "Meteor sequence complete for faction {} attack. {} strike points damaged, {} casualties",
-        static_cast<int>(attacking_faction), result.strike_results.size(), result.player_casualties);
+    LOG_INFO(general,
+             "Meteor sequence complete for faction {} attack. {} strike points damaged, {} casualties",
+             static_cast<int>(attacking_faction),
+             result.strike_results.size(),
+             result.player_casualties);
 
     if (callbacks_.broadcast_result)
     {
@@ -169,15 +163,19 @@ auto meteor_handler::get_target_faction(war_faction attacker) const -> war_facti
 {
     switch (attacker)
     {
-        case war_faction::aresden: return war_faction::elvine;
-        case war_faction::elvine: return war_faction::aresden;
-        default: return war_faction::neutral;
+    case war_faction::aresden:
+        return war_faction::elvine;
+    case war_faction::elvine:
+        return war_faction::aresden;
+    default:
+        return war_faction::neutral;
     }
 }
 
 auto meteor_handler::calculate_player_damage(int32_t player_level) const -> int32_t
 {
-    if (player_level <= 0) return 0;
+    if (player_level <= 0)
+        return 0;
 
     thread_local std::mt19937 rng{std::random_device{}()};
     std::uniform_int_distribution<int32_t> dist(1, player_level);
@@ -187,9 +185,10 @@ auto meteor_handler::calculate_player_damage(int32_t player_level) const -> int3
     int32_t damage = dist(rng) + player_level;
 
     // Legacy cap: 255 maximum
-    if (damage > 255) damage = 255;
+    if (damage > 255)
+        damage = 255;
 
     return damage;
 }
 
-}  // namespace hb::war
+} // namespace hb::war

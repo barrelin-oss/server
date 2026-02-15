@@ -14,40 +14,47 @@
 #include <unordered_set>
 #include <vector>
 
-namespace hb::player {
-    class player_system;
+namespace hb::player
+{
+class player_system;
 }
 
-namespace hb::world {
-    class world_subsystem;
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::network {
-    struct json_message;
+namespace hb::network
+{
+struct json_message;
 }
 
-namespace hb::war {
+namespace hb::war
+{
 
 // Per-day raid time configuration
-struct raid_time_entry {
-    uint8_t day_of_week{0};   // 0=Sunday, 6=Saturday
-    int32_t duration_seconds{180};  // How long players can stay in enemy territory
+struct raid_time_entry
+{
+    uint8_t day_of_week{0};        // 0=Sunday, 6=Saturday
+    int32_t duration_seconds{180}; // How long players can stay in enemy territory
 };
 
 // Force recall configuration
-struct force_recall_config {
+struct force_recall_config
+{
     bool enabled{true};
-    std::vector<raid_time_entry> raid_times;  // Per-day settings
-    int32_t default_duration_seconds{180};     // 3 minutes default
-    int32_t warning_interval_seconds{30};      // How often to send timer warnings
-    int32_t override_duration_seconds{0};      // >0 overrides all per-day values
-    bool fight_zone_recall_enabled{true};      // Whether fight zone players get recalled
-    int32_t fight_zone_duration_seconds{0};    // >0 overrides dynamic even-hour calculation
-    int32_t jail_duration_seconds{300};        // 5 minutes for jail maps
+    std::vector<raid_time_entry> raid_times; // Per-day settings
+    int32_t default_duration_seconds{180};   // 3 minutes default
+    int32_t warning_interval_seconds{30};    // How often to send timer warnings
+    int32_t override_duration_seconds{0};    // >0 overrides all per-day values
+    bool fight_zone_recall_enabled{true};    // Whether fight zone players get recalled
+    int32_t fight_zone_duration_seconds{0};  // >0 overrides dynamic even-hour calculation
+    int32_t jail_duration_seconds{300};      // 5 minutes for jail maps
 };
 
 // Flags describing the territory a player is in
-struct territory_flags {
+struct territory_flags
+{
     bool is_fight_zone{false};
     bool is_jail{false};
 };
@@ -56,18 +63,19 @@ struct territory_flags {
 inline auto get_default_raid_times() -> std::vector<raid_time_entry>
 {
     return {
-        {0, 3600},   // Sunday: 60 min
-        {1, 180},    // Monday: 3 min
-        {2, 180},    // Tuesday: 3 min
-        {3, 180},    // Wednesday: 3 min
-        {4, 180},    // Thursday: 3 min
-        {5, 600},    // Friday: 10 min (legacy code uses 600s despite comments saying 15)
-        {6, 2700},   // Saturday: 45 min
+        {0, 3600}, // Sunday: 60 min
+        {1, 180},  // Monday: 3 min
+        {2, 180},  // Tuesday: 3 min
+        {3, 180},  // Wednesday: 3 min
+        {4, 180},  // Thursday: 3 min
+        {5, 600},  // Friday: 10 min (legacy code uses 600s despite comments saying 15)
+        {6, 2700}, // Saturday: 45 min
     };
 }
 
 // Tracked player in enemy territory
-struct recall_tracker {
+struct recall_tracker
+{
     player_id pid{};
     war_faction player_faction{war_faction::neutral};
     int32_t time_remaining_seconds{0};
@@ -79,11 +87,12 @@ struct recall_tracker {
 
 // Callback types
 using recall_broadcast_fn = std::function<void(player_id, const network::json_message&)>;
-using recall_execute_fn = std::function<void(player_id)>;           // Teleport player home
-using is_crusade_active_fn = std::function<bool()>;                 // Query crusade state
-using debuff_removal_fn = std::function<void(player_id)>;           // Strip building debuffs
+using recall_execute_fn = std::function<void(player_id)>; // Teleport player home
+using is_crusade_active_fn = std::function<bool()>;       // Query crusade state
+using debuff_removal_fn = std::function<void(player_id)>; // Strip building debuffs
 
-class force_recall_system : public subsystem {
+class force_recall_system : public subsystem
+{
 public:
     force_recall_system() = default;
     ~force_recall_system() override;
@@ -102,9 +111,10 @@ public:
     void set_debuff_removal_fn(debuff_removal_fn fn) { debuff_removal_fn_ = std::move(fn); }
 
     // Check if a player is in enemy territory and start tracking them
-    void check_player_territory(player_id pid, war_faction player_faction,
-                                 war_faction map_faction,
-                                 territory_flags flags = {});
+    void check_player_territory(player_id pid,
+                                war_faction player_faction,
+                                war_faction map_faction,
+                                territory_flags flags = {});
 
     // Stop tracking a player (left enemy territory or logged out)
     void remove_player(player_id pid);
@@ -118,8 +128,7 @@ public:
     [[nodiscard]] auto tracked_count() const -> size_t { return trackers_.size(); }
 
     // Crusade integration: instant building recall for enemies during crusade
-    void check_building_recall(player_id pid, const std::string& map_name,
-                               war_faction player_faction);
+    void check_building_recall(player_id pid, const std::string& map_name, war_faction player_faction);
 
     // Crusade integration: strip debuffs in building maps
     void check_building_debuffs(player_id pid, const std::string& map_name);
@@ -148,7 +157,7 @@ private:
 
     force_recall_config config_;
     float tick_accumulator_{0.0f};
-    uint8_t last_checked_day_{255};  // Sentinel: 255 = not yet checked
+    uint8_t last_checked_day_{255}; // Sentinel: 255 = not yet checked
 
     std::unordered_map<player_id, recall_tracker> trackers_;
 
@@ -160,4 +169,4 @@ private:
     debuff_removal_fn debuff_removal_fn_;
 };
 
-}  // namespace hb::war
+} // namespace hb::war

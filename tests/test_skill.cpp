@@ -14,14 +14,16 @@ using namespace hb::skill;
 
 // Skill state tests
 
-TEST(skill_state_test, default_values) {
+TEST(skill_state_test, default_values)
+{
     skill_state state;
     EXPECT_EQ(state.level, 0);
     EXPECT_EQ(state.total_uses, 0);
     EXPECT_EQ(state.uses_this_level, 0);
 }
 
-TEST(skill_state_test, mastery_levels) {
+TEST(skill_state_test, mastery_levels)
+{
     skill_state state;
     state.level = 10;
     EXPECT_EQ(state.mastery(), mastery_level::novice);
@@ -38,7 +40,8 @@ TEST(skill_state_test, mastery_levels) {
 
 // Player skills tests
 
-TEST(player_skills_test, initialization) {
+TEST(player_skills_test, initialization)
+{
     player_skills skills;
 
     // All skills should default to level 0
@@ -46,7 +49,8 @@ TEST(player_skills_test, initialization) {
     EXPECT_EQ(skills.get(skill_type::mining).level, 0);
 }
 
-TEST(player_skills_test, get_set_level) {
+TEST(player_skills_test, get_set_level)
+{
     player_skills skills;
 
     skills.set_level(skill_type::short_sword, 50);
@@ -56,7 +60,8 @@ TEST(player_skills_test, get_set_level) {
     EXPECT_EQ(skills.level(skill_type::mining), 75);
 }
 
-TEST(player_skills_test, total_combat_skill) {
+TEST(player_skills_test, total_combat_skill)
+{
     player_skills skills;
 
     skills.set_level(skill_type::short_sword, 50);
@@ -64,64 +69,68 @@ TEST(player_skills_test, total_combat_skill) {
     skills.set_level(skill_type::archery, 20);
 
     int32_t total = skills.total_combat_skill();
-    EXPECT_EQ(total, 100);  // 50 + 30 + 20
+    EXPECT_EQ(total, 100); // 50 + 30 + 20
 }
 
 // Skill category tests
 
-TEST(skill_category_test, combat_skills) {
+TEST(skill_category_test, combat_skills)
+{
     EXPECT_EQ(get_skill_category(skill_type::short_sword), skill_category::combat);
     EXPECT_EQ(get_skill_category(skill_type::axe), skill_category::combat);
     EXPECT_EQ(get_skill_category(skill_type::archery), skill_category::combat);
 }
 
-TEST(skill_category_test, gathering_skills) {
+TEST(skill_category_test, gathering_skills)
+{
     EXPECT_EQ(get_skill_category(skill_type::mining), skill_category::gathering);
     EXPECT_EQ(get_skill_category(skill_type::fishing), skill_category::gathering);
     EXPECT_EQ(get_skill_category(skill_type::farming), skill_category::gathering);
 }
 
-TEST(skill_category_test, crafting_skills) {
+TEST(skill_category_test, crafting_skills)
+{
     EXPECT_EQ(get_skill_category(skill_type::manufacturing), skill_category::crafting);
     EXPECT_EQ(get_skill_category(skill_type::alchemy), skill_category::crafting);
 }
 
-TEST(skill_category_test, defense_skills) {
+TEST(skill_category_test, defense_skills)
+{
     EXPECT_EQ(get_skill_category(skill_type::shield), skill_category::defense);
     EXPECT_EQ(get_skill_category(skill_type::magic_resistance), skill_category::defense);
 }
 
 // Skill system tests
 
-class skill_system_test : public ::testing::Test {
+class skill_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        system_.initialize();
-    }
+    void SetUp() override { system_.initialize(); }
 
-    void TearDown() override {
-        system_.shutdown();
-    }
+    void TearDown() override { system_.shutdown(); }
 
     skill_system system_;
 };
 
-TEST_F(skill_system_test, lifecycle) {
+TEST_F(skill_system_test, lifecycle)
+{
     EXPECT_TRUE(system_.is_initialized());
     EXPECT_EQ(system_.name(), "skill_system");
 }
 
-TEST_F(skill_system_test, register_unregister_player) {
+TEST_F(skill_system_test, register_unregister_player)
+{
     player_id player{1};
 
     system_.register_player(player);
     EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0);
 
     system_.unregister_player(player);
-    EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0);  // Returns 0 for unknown player
+    EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0); // Returns 0 for unknown player
 }
 
-TEST_F(skill_system_test, set_skill_level) {
+TEST_F(skill_system_test, set_skill_level)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -131,7 +140,8 @@ TEST_F(skill_system_test, set_skill_level) {
     EXPECT_EQ(system_.get_uses_this_level(player, skill_type::short_sword), 0);
 }
 
-TEST_F(skill_system_test, uses_to_next_level_default_tiers) {
+TEST_F(skill_system_test, uses_to_next_level_default_tiers)
+{
     // Default tiers: 0-19 → N=10, 20-39 → N=25, 40-59 → N=50,
     //                60-79 → N=75, 80-89 → N=100, 90+ → N=125
 
@@ -172,7 +182,8 @@ TEST_F(skill_system_test, uses_to_next_level_default_tiers) {
     EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 99), 12500);
 }
 
-TEST_F(skill_system_test, record_skill_use_single) {
+TEST_F(skill_system_test, record_skill_use_single)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -183,12 +194,14 @@ TEST_F(skill_system_test, record_skill_use_single) {
     EXPECT_EQ(system_.get_skill_level(player, skill_type::short_sword), 0);
 }
 
-TEST_F(skill_system_test, record_skill_use_level_up) {
+TEST_F(skill_system_test, record_skill_use_level_up)
+{
     player_id player{1};
     system_.register_player(player);
 
     // Level 0→1 needs 10 uses (default tier: (0+1)*10 = 10)
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < 9; ++i)
+    {
         system_.record_skill_use(player, skill_type::mining);
     }
     EXPECT_EQ(system_.get_skill_level(player, skill_type::mining), 0);
@@ -202,7 +215,8 @@ TEST_F(skill_system_test, record_skill_use_level_up) {
     EXPECT_EQ(system_.get_total_uses(player, skill_type::mining), 10);
 }
 
-TEST_F(skill_system_test, add_skill_uses_bulk_level_up) {
+TEST_F(skill_system_test, add_skill_uses_bulk_level_up)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -213,7 +227,8 @@ TEST_F(skill_system_test, add_skill_uses_bulk_level_up) {
     EXPECT_EQ(system_.get_uses_this_level(player, skill_type::axe), 0);
 }
 
-TEST_F(skill_system_test, add_skill_uses_with_remainder) {
+TEST_F(skill_system_test, add_skill_uses_with_remainder)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -224,7 +239,8 @@ TEST_F(skill_system_test, add_skill_uses_with_remainder) {
     EXPECT_EQ(system_.get_total_uses(player, skill_type::fencing), 15);
 }
 
-TEST_F(skill_system_test, get_mastery) {
+TEST_F(skill_system_test, get_mastery)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -232,7 +248,8 @@ TEST_F(skill_system_test, get_mastery) {
     EXPECT_EQ(system_.get_mastery(player, skill_type::alchemy), mastery_level::master);
 }
 
-TEST_F(skill_system_test, reset_skill) {
+TEST_F(skill_system_test, reset_skill)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -245,7 +262,8 @@ TEST_F(skill_system_test, reset_skill) {
     EXPECT_EQ(system_.get_uses_this_level(player, skill_type::short_sword), 0);
 }
 
-TEST_F(skill_system_test, reset_all_skills) {
+TEST_F(skill_system_test, reset_all_skills)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -257,43 +275,49 @@ TEST_F(skill_system_test, reset_all_skills) {
     EXPECT_EQ(system_.get_skill_level(player, skill_type::mining), 0);
 }
 
-TEST_F(skill_system_test, level_up_callback) {
+TEST_F(skill_system_test, level_up_callback)
+{
     player_id player{1};
     system_.register_player(player);
 
     bool callback_fired = false;
-    system_.on_level_up([&](const skill_level_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.player, player);
-        EXPECT_EQ(event.skill, skill_type::fishing);
-        EXPECT_EQ(event.old_level, 0);
-        EXPECT_EQ(event.new_level, 1);
-    });
+    system_.on_level_up(
+        [&](const skill_level_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.player, player);
+            EXPECT_EQ(event.skill, skill_type::fishing);
+            EXPECT_EQ(event.old_level, 0);
+            EXPECT_EQ(event.new_level, 1);
+        });
 
     // Level 0→1 needs 10 uses
     system_.add_skill_uses(player, skill_type::fishing, 10);
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(skill_system_test, damage_bonus) {
+TEST_F(skill_system_test, damage_bonus)
+{
     player_id player{1};
     system_.register_player(player);
 
     system_.set_skill_level(player, skill_type::short_sword, 50);
     int16_t bonus = system_.calculate_damage_bonus(player, skill_type::short_sword);
-    EXPECT_EQ(bonus, 5);  // 50 / 10
+    EXPECT_EQ(bonus, 5); // 50 / 10
 }
 
-TEST_F(skill_system_test, hit_bonus) {
+TEST_F(skill_system_test, hit_bonus)
+{
     player_id player{1};
     system_.register_player(player);
 
     system_.set_skill_level(player, skill_type::axe, 30);
     int16_t bonus = system_.calculate_hit_bonus(player, skill_type::axe);
-    EXPECT_EQ(bonus, 6);  // 30 / 5
+    EXPECT_EQ(bonus, 6); // 30 / 5
 }
 
-TEST_F(skill_system_test, max_level_stops_leveling) {
+TEST_F(skill_system_test, max_level_stops_leveling)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -307,7 +331,8 @@ TEST_F(skill_system_test, max_level_stops_leveling) {
     EXPECT_EQ(system_.get_total_uses(player, skill_type::archery), 0);
 }
 
-TEST_F(skill_system_test, train_skill_calls_record_skill_use) {
+TEST_F(skill_system_test, train_skill_calls_record_skill_use)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -319,14 +344,16 @@ TEST_F(skill_system_test, train_skill_calls_record_skill_use) {
 
 // YAML loading tests
 
-TEST_F(skill_system_test, load_config_file_not_found_uses_defaults) {
+TEST_F(skill_system_test, load_config_file_not_found_uses_defaults)
+{
     system_.load_config("/nonexistent/path.yaml");
 
     // Should still use defaults
     EXPECT_EQ(system_.uses_to_next_level(skill_type::short_sword, 0), 10);
 }
 
-TEST_F(skill_system_test, load_config_custom_tiers) {
+TEST_F(skill_system_test, load_config_custom_tiers)
+{
     auto tmp_path = std::filesystem::temp_directory_path() / "test_skills.yaml";
     {
         std::ofstream f(tmp_path);
@@ -365,7 +392,8 @@ TEST_F(skill_system_test, load_config_custom_tiers) {
     std::filesystem::remove(tmp_path);
 }
 
-TEST_F(skill_system_test, unconfigured_skill_falls_back_to_defaults) {
+TEST_F(skill_system_test, unconfigured_skill_falls_back_to_defaults)
+{
     auto tmp_path = std::filesystem::temp_directory_path() / "test_skills2.yaml";
     {
         std::ofstream f(tmp_path);

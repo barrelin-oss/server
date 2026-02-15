@@ -10,33 +10,36 @@
 using namespace hb;
 
 // Test events
-struct test_event_a {
+struct test_event_a
+{
     int value;
 };
 
-struct test_event_b {
+struct test_event_b
+{
     std::string message;
 };
 
-struct test_event_c {
+struct test_event_c
+{
     int x;
     int y;
 };
 
-TEST(event_bus_test, subscribe_and_publish) {
+TEST(event_bus_test, subscribe_and_publish)
+{
     event_bus bus;
     int received_value = 0;
 
-    bus.subscribe<test_event_a>([&](const test_event_a& e) {
-        received_value = e.value;
-    });
+    bus.subscribe<test_event_a>([&](const test_event_a& e) { received_value = e.value; });
 
     bus.publish(test_event_a{42});
 
     EXPECT_EQ(received_value, 42);
 }
 
-TEST(event_bus_test, multiple_subscribers) {
+TEST(event_bus_test, multiple_subscribers)
+{
     event_bus bus;
     int count = 0;
 
@@ -49,18 +52,15 @@ TEST(event_bus_test, multiple_subscribers) {
     EXPECT_EQ(count, 3);
 }
 
-TEST(event_bus_test, different_event_types) {
+TEST(event_bus_test, different_event_types)
+{
     event_bus bus;
     int a_received = 0;
     std::string b_received;
 
-    bus.subscribe<test_event_a>([&](const test_event_a& e) {
-        a_received = e.value;
-    });
+    bus.subscribe<test_event_a>([&](const test_event_a& e) { a_received = e.value; });
 
-    bus.subscribe<test_event_b>([&](const test_event_b& e) {
-        b_received = e.message;
-    });
+    bus.subscribe<test_event_b>([&](const test_event_b& e) { b_received = e.message; });
 
     bus.publish(test_event_a{100});
     bus.publish(test_event_b{"hello"});
@@ -69,13 +69,12 @@ TEST(event_bus_test, different_event_types) {
     EXPECT_EQ(b_received, "hello");
 }
 
-TEST(event_bus_test, unsubscribe) {
+TEST(event_bus_test, unsubscribe)
+{
     event_bus bus;
     int count = 0;
 
-    auto id = bus.subscribe<test_event_a>([&](const test_event_a&) {
-        count++;
-    });
+    auto id = bus.subscribe<test_event_a>([&](const test_event_a&) { count++; });
 
     bus.publish(test_event_a{1});
     EXPECT_EQ(count, 1);
@@ -83,10 +82,11 @@ TEST(event_bus_test, unsubscribe) {
     bus.unsubscribe(id);
 
     bus.publish(test_event_a{1});
-    EXPECT_EQ(count, 1);  // Should not increment
+    EXPECT_EQ(count, 1); // Should not increment
 }
 
-TEST(event_bus_test, subscription_id_validity) {
+TEST(event_bus_test, subscription_id_validity)
+{
     event_bus bus;
 
     auto id = bus.subscribe<test_event_a>([](const test_event_a&) {});
@@ -97,7 +97,8 @@ TEST(event_bus_test, subscription_id_validity) {
     EXPECT_FALSE(invalid_id.is_valid());
 }
 
-TEST(event_bus_test, has_subscribers) {
+TEST(event_bus_test, has_subscribers)
+{
     event_bus bus;
 
     EXPECT_FALSE(bus.has_subscribers<test_event_a>());
@@ -112,7 +113,8 @@ TEST(event_bus_test, has_subscribers) {
     EXPECT_FALSE(bus.has_subscribers<test_event_a>());
 }
 
-TEST(event_bus_test, subscriber_count) {
+TEST(event_bus_test, subscriber_count)
+{
     event_bus bus;
 
     EXPECT_EQ(bus.subscriber_count<test_event_a>(), 0u);
@@ -124,7 +126,8 @@ TEST(event_bus_test, subscriber_count) {
     EXPECT_EQ(bus.subscriber_count<test_event_a>(), 2u);
 }
 
-TEST(event_bus_test, clear) {
+TEST(event_bus_test, clear)
+{
     event_bus bus;
     int count = 0;
 
@@ -139,20 +142,21 @@ TEST(event_bus_test, clear) {
     EXPECT_EQ(count, 0);
 }
 
-TEST(event_bus_test, publish_to_no_subscribers) {
+TEST(event_bus_test, publish_to_no_subscribers)
+{
     event_bus bus;
 
     // Should not crash
     EXPECT_NO_THROW(bus.publish(test_event_a{42}));
 }
 
-TEST(event_bus_test, subscription_guard) {
+TEST(event_bus_test, subscription_guard)
+{
     event_bus bus;
     int count = 0;
 
     {
-        subscription_guard guard = subscribe_scoped<test_event_a>(bus,
-            [&](const test_event_a&) { count++; });
+        subscription_guard guard = subscribe_scoped<test_event_a>(bus, [&](const test_event_a&) { count++; });
 
         bus.publish(test_event_a{1});
         EXPECT_EQ(count, 1);
@@ -160,17 +164,17 @@ TEST(event_bus_test, subscription_guard) {
 
     // Guard destroyed, should be unsubscribed
     bus.publish(test_event_a{1});
-    EXPECT_EQ(count, 1);  // Should not increment
+    EXPECT_EQ(count, 1); // Should not increment
 }
 
-TEST(event_bus_test, subscription_guard_release) {
+TEST(event_bus_test, subscription_guard_release)
+{
     event_bus bus;
     int count = 0;
     subscription_id released_id;
 
     {
-        subscription_guard guard = subscribe_scoped<test_event_a>(bus,
-            [&](const test_event_a&) { count++; });
+        subscription_guard guard = subscribe_scoped<test_event_a>(bus, [&](const test_event_a&) { count++; });
 
         released_id = guard.release();
     }
@@ -183,12 +187,12 @@ TEST(event_bus_test, subscription_guard_release) {
     bus.unsubscribe(released_id);
 }
 
-TEST(event_bus_test, subscription_guard_move) {
+TEST(event_bus_test, subscription_guard_move)
+{
     event_bus bus;
     int count = 0;
 
-    subscription_guard guard1 = subscribe_scoped<test_event_a>(bus,
-        [&](const test_event_a&) { count++; });
+    subscription_guard guard1 = subscribe_scoped<test_event_a>(bus, [&](const test_event_a&) { count++; });
 
     subscription_guard guard2 = std::move(guard1);
 
@@ -200,12 +204,11 @@ TEST(event_bus_test, subscription_guard_move) {
     EXPECT_EQ(count, 1);
 }
 
-TEST(event_bus_test, global_event_bus) {
+TEST(event_bus_test, global_event_bus)
+{
     int count = 0;
 
-    auto id = global_event_bus().subscribe<test_event_a>([&](const test_event_a&) {
-        count++;
-    });
+    auto id = global_event_bus().subscribe<test_event_a>([&](const test_event_a&) { count++; });
 
     global_event_bus().publish(test_event_a{1});
     EXPECT_EQ(count, 1);
@@ -214,26 +217,30 @@ TEST(event_bus_test, global_event_bus) {
 }
 
 // Thread safety test (basic)
-TEST(event_bus_test, thread_safety) {
+TEST(event_bus_test, thread_safety)
+{
     event_bus bus;
     std::atomic<int> count{0};
 
     // Subscribe from main thread
-    bus.subscribe<test_event_a>([&](const test_event_a&) {
-        count++;
-    });
+    bus.subscribe<test_event_a>([&](const test_event_a&) { count++; });
 
     // Publish from multiple threads
     std::vector<std::thread> threads;
-    for (int i = 0; i < 10; ++i) {
-        threads.emplace_back([&bus]() {
-            for (int j = 0; j < 100; ++j) {
-                bus.publish(test_event_a{j});
-            }
-        });
+    for (int i = 0; i < 10; ++i)
+    {
+        threads.emplace_back(
+            [&bus]()
+            {
+                for (int j = 0; j < 100; ++j)
+                {
+                    bus.publish(test_event_a{j});
+                }
+            });
     }
 
-    for (auto& t : threads) {
+    for (auto& t : threads)
+    {
         t.join();
     }
 

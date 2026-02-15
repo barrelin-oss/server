@@ -7,7 +7,8 @@
 #include "bridge/message_router.h"
 #include "protocol/protocol.h"
 
-namespace hb::bridge::wave4 {
+namespace hb::bridge::wave4
+{
 
 // ========== Wave 4: Combat Handlers ==========
 
@@ -45,14 +46,12 @@ auto handle_skill_use(const handler_context& ctx, skill_id skill, entity_id targ
 // ========== Combat Event Responses ==========
 
 // Send damage notification to client
-void send_damage_event(const handler_context& ctx, entity_id target, int32_t damage,
-                       bool critical, bool killed);
+void send_damage_event(const handler_context& ctx, entity_id target, int32_t damage, bool critical, bool killed);
 
 // Send spell effect notification
-void send_spell_effect(const handler_context& ctx, spell_id spell, entity_id target,
-                       int32_t damage, bool resisted);
+void send_spell_effect(const handler_context& ctx, spell_id spell, entity_id target, int32_t damage, bool resisted);
 
 // Send skill result notification
 void send_skill_result(const handler_context& ctx, skill_id skill, bool success);
 
-}  // namespace hb::bridge::wave4
+} // namespace hb::bridge::wave4

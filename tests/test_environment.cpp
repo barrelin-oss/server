@@ -7,18 +7,14 @@
 #include <gtest/gtest.h>
 #include <chrono>
 
-namespace hb::network {
+namespace hb::network
+{
 
 // === environment_update_data tests ===
 
 TEST(environment_update_test, to_json_basic)
 {
-    environment_update_data data{
-        .hour = 14,
-        .minute = 30,
-        .is_day = true,
-        .weather = 0
-    };
+    environment_update_data data{.hour = 14, .minute = 30, .is_day = true, .weather = 0};
 
     auto j = data.to_json();
     EXPECT_EQ(j["hour"], 14);
@@ -29,12 +25,7 @@ TEST(environment_update_test, to_json_basic)
 
 TEST(environment_update_test, to_json_night_with_weather)
 {
-    environment_update_data data{
-        .hour = 22,
-        .minute = 45,
-        .is_day = false,
-        .weather = 2
-    };
+    environment_update_data data{.hour = 22, .minute = 45, .is_day = false, .weather = 2};
 
     auto j = data.to_json();
     EXPECT_EQ(j["hour"], 22);
@@ -45,12 +36,7 @@ TEST(environment_update_test, to_json_night_with_weather)
 
 TEST(environment_update_test, make_environment_update_builds_valid_message)
 {
-    environment_update_data data{
-        .hour = 6,
-        .minute = 0,
-        .is_day = true,
-        .weather = 1
-    };
+    environment_update_data data{.hour = 6, .minute = 0, .is_day = true, .weather = 1};
 
     auto msg = make_environment_update(data);
     EXPECT_EQ(msg.type, json_message_type::environment_update);
@@ -108,9 +94,10 @@ TEST(environment_update_test, to_string_round_trip)
     EXPECT_EQ(str, "environment_update");
 }
 
-}  // namespace hb::network
+} // namespace hb::network
 
-namespace hb::world {
+namespace hb::world
+{
 
 // === Map weather timing tests ===
 
@@ -208,4 +195,4 @@ TEST(map_weather_test, snow_enabled_config)
     EXPECT_TRUE(m.config().is_snow_enabled);
 }
 
-}  // namespace hb::world
+} // namespace hb::world

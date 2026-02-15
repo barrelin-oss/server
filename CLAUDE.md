@@ -1,10 +1,8 @@
 # Helbreath Server
 
-> **See also:** [`../CLAUDE.md`](../CLAUDE.md) for shared coding standards, C++20 guidelines, and memory safety patterns.
-
 ## Project Overview
 
-The Helbreath game server - a classic MMO server being modernized to C++20 with PostgreSQL persistence and WebSocket support.
+The Helbreath game server - a classic late-1990s/early-2000s 2D MMORPG being modernized to C++20 with PostgreSQL persistence and WebSocket support.
 
 ### Current State
 
@@ -23,7 +21,7 @@ The Helbreath game server - a classic MMO server being modernized to C++20 with 
 ### Prerequisites
 
 - **CMake 3.20+**
-- **Visual Studio 2022** (or MSVC 19.29+)
+- **GCC 11+** or **MSVC 19.29+**
 - **vcpkg** (for dependency management)
 
 ### Build Commands
@@ -57,6 +55,12 @@ cmake --build build --config Release
 
 ```bash
 cmake --build build --config Debug
+```
+
+### Running Tests
+
+```bash
+./bin/hgserver_tests
 ```
 
 ### Output
@@ -95,6 +99,248 @@ cd bin
 
 ---
 
+## Coding Style
+
+### Naming Convention
+
+**All code must follow stdlib-style snake_case naming:**
+
+| Element | Convention | Example |
+|---------|------------|---------|
+| Types (classes, structs, enums) | snake_case | `player_state`, `damage_type` |
+| Variables | snake_case | `health`, `player_name` |
+| Functions/Methods | snake_case | `calculate_damage()`, `get_player()` |
+| Constants | snake_case with constexpr | `max_inventory_slots` |
+| Files | snake_case | `player_state.h`, `combat_system.cpp` |
+| Namespace | `hb` | `namespace hb { }` |
+
+**What to avoid:**
+- **No Hungarian notation**: No `bVar`, `iCount`, `szString` prefixes
+- **No member prefixes**: No `m_` prefix for class members
+- **No C-prefix**: No `CGame`, `CClient` - just `game`, `client`
+- **No SCREAMING_SNAKE**: Use `constexpr` lowercase instead
+
+### Formatting
+
+| Rule | Convention |
+|------|------------|
+| Brace style | **Allman** (opening brace on its own line) |
+| Indentation | 4 spaces (no tabs) |
+| Line length | 120 characters max |
+| Pointer/reference | `int* ptr` not `int *ptr` |
+
+**Note:** Some older files still use K&R braces. All new code and modified code must use Allman. Do not mix styles within a function — if you modify a K&R function, convert the entire function to Allman.
+
+```cpp
+// GOOD (Allman braces)
+class player_state
+{
+    int32_t health;
+    std::string name;
+    bool is_active;
+};
+
+void calculate_damage(int raw_damage, int armor)
+{
+    if (raw_damage > 0)
+    {
+        // ...
+    }
+}
+
+inline constexpr auto max_level = 180;
+
+// BAD (K&R braces, legacy style)
+class CPlayerState {              // No C-prefix, use Allman braces
+    int m_iHealth;                // No m_ prefix, no Hungarian notation
+    char* m_szName;               // No sz prefix
+    BOOL m_bIsActive;             // No BOOL, no m_b prefix
+};
+#define MAX_LEVEL 180             // Use constexpr instead
+```
+
+---
+
+## C++20 Guidelines
+
+### Preferred Language Features
+
+```cpp
+// Use concepts for generic constraints
+template<typename T>
+concept entity = requires(T t)
+{
+    { t.get_id() } -> std::convertible_to<uint32_t>;
+};
+
+// Use std::span instead of raw pointer + size
+void process_items(std::span<const item> items);
+
+// Use std::optional for nullable returns
+auto find_player(uint32_t id) -> std::optional<player_state&>;
+
+// Use std::expected (C++23) or result<T,E> for error handling
+auto create_item(item_template tmpl) -> std::expected<item, std::string>;
+
+// Use std::string_view for non-owning string parameters
+void send_message(client_id id, std::string_view message);
+
+// Use designated initializers
+auto config = server_config
+{
+    .port = 2848,
+    .max_clients = 2000,
+};
+
+// Use structured bindings
+auto [success, player] = player_manager.authenticate(credentials);
+
+// Use ranges for collection operations
+auto active = clients | std::views::filter(&client::is_active);
+
+// Use constexpr for compile-time computation
+inline constexpr auto max_inventory_slots = 50;
+
+// Use enum class with underlying type
+enum class damage_type : uint8_t
+{
+    physical = 0,
+    magic = 1,
+};
+```
+
+### Memory Management
+
+```cpp
+// Use smart pointers
+std::unique_ptr<T>  // Sole ownership
+std::shared_ptr<T>  // Shared ownership (use sparingly)
+
+// Use containers instead of raw arrays
+std::vector<T>              // Dynamic array
+std::array<T, N>            // Fixed-size array
+std::unordered_map<K, V>    // Hash map
+
+// RAII for all resources - no manual new/delete
+```
+
+---
+
+## Memory Safety Patterns
+
+### Container Removal Order
+
+When an object is owned by one container (e.g., `unique_ptr` in a map) and referenced by another (e.g., raw pointers in a vector), **always remove references before deleting the owner**:
+
+```cpp
+// WRONG - use-after-free!
+dialogs_.erase(type);  // Deletes the object
+dialog_order_.erase(   // Dereferences deleted pointer
+    std::remove_if(..., [](dialog* d) { return d->type() == type; }), ...);
+
+// CORRECT - remove reference first, then delete
+if (auto it = dialogs_.find(type); it != dialogs_.end())
+{
+    dialog* ptr = it->second.get();  // Get pointer while object is alive
+    dialog_order_.erase(
+        std::remove(dialog_order_.begin(), dialog_order_.end(), ptr),
+        dialog_order_.end()
+    );
+    dialogs_.erase(it);  // Now safe to delete
+}
+```
+
+### Thread Safety
+
+Never modify shared containers from background threads. The ixwebsocket library runs callbacks on background threads. Use one of these patterns:
+
+1. **Polling**: Don't set callbacks; poll for messages on the main thread:
+   ```cpp
+   // In update() on main thread:
+   while (auto msg = connection.receive())
+   {
+       handle_message(*msg);  // Safe to modify state here
+   }
+   ```
+
+2. **Deferred actions**: Queue events for main thread processing:
+   ```cpp
+   // Background thread - just set a flag
+   {
+       std::lock_guard<std::mutex> lock(mutex_);
+       pending_event_ = event;
+   }
+   has_pending_event_.store(true);
+
+   // Main thread - process the queued event
+   if (has_pending_event_.exchange(false))
+   {
+       Event event;
+       {
+           std::lock_guard<std::mutex> lock(mutex_);
+           event = std::move(pending_event_);
+       }
+       process_event(event);  // Safe to modify state
+   }
+   ```
+
+---
+
+## Error Handling
+
+```cpp
+// Prefer std::expected or Result<T,E> for recoverable errors
+std::expected<result, error_code> try_operation();
+
+// Use exceptions only for truly exceptional/unrecoverable situations
+// No exceptions in hot paths
+
+// Use assertions for programmer errors (debug only)
+assert(ptr != nullptr && "Pointer must not be null");
+
+// Log errors with structured logging (spdlog)
+spdlog::error("Failed to load player {}: {}", player_id, error.message());
+```
+
+---
+
+## File Organization
+
+```cpp
+// Header file structure
+#pragma once
+
+#include <standard_library>     // Standard library first
+#include <third_party/lib.h>    // Third-party second
+#include "project/header.h"     // Project headers last
+
+namespace hb::subsystem
+{
+
+// Forward declarations
+class other_class;
+
+// Type aliases
+using player_id = uint32_t;
+
+// Class declaration
+class my_class
+{
+public:
+    my_class();
+    ~my_class();
+
+    void public_method();
+
+private:
+    int32_t member_;  // Trailing underscore for private members (optional)
+};
+
+} // namespace hb::subsystem
+```
+
+---
+
 ## Documentation
 
 **Check these before starting work:**
@@ -108,13 +354,6 @@ cd bin
 | [docs/SUBSYSTEM_INTERFACES.md](docs/SUBSYSTEM_INTERFACES.md) | Detailed subsystem interface specs |
 | [src/database/schema.sql](src/database/schema.sql) | Full database schema (for fresh installs) |
 | [tools/migrate/](tools/migrate/) | Database migration tool and migration files |
-
-### Current Priorities
-
-1. **Ground Items / Loot Drops** - NPCs drop items, players can pick up
-2. **Equip/Unequip Handlers** - Wire client requests to inventory equip logic
-3. **Combat Broadcasts** - Visual feedback to nearby players
-4. **NPC Interaction** - Dialog, shops, banks
 
 ---
 
@@ -157,18 +396,16 @@ tools/
 | **World** | `src/world/world_subsystem.*` | Maps, spatial queries |
 | **Combat** | `src/combat/combat_system.*` | Damage calculation |
 
----
+### Key Implementation Files
 
-## Key Implementation Files
-
-### Core Entry Points
+#### Core Entry Points
 
 | File | Purpose |
 |------|---------|
 | `src/application.cpp` | Server startup, subsystem wiring |
 | `src/main.cpp` | Entry point |
 
-### Network & Protocol
+#### Network & Protocol
 
 | File | Purpose |
 |------|---------|
@@ -177,7 +414,7 @@ tools/
 | `src/bridge/handlers/auth_handlers.cpp` | Auth handlers |
 | `src/bridge/handlers/game_handlers.cpp` | Game handlers |
 
-### Player & World
+#### Player & World
 
 | File | Purpose |
 |------|---------|
@@ -185,7 +422,7 @@ tools/
 | `src/world/world_subsystem.*` | Maps, zones |
 | `src/world/position.h` | Position types |
 
-### Auth & Database
+#### Auth & Database
 
 | File | Purpose |
 |------|---------|
@@ -193,7 +430,7 @@ tools/
 | `src/auth/account.h` | Account, character data structures |
 | `src/database/database_system.*` | PostgreSQL connection pool |
 
-### Game Systems
+#### Game Systems
 
 | File | Purpose |
 |------|---------|
@@ -204,10 +441,10 @@ tools/
 | `src/skill/skill_system.*` | Weapon skills, training, mastery |
 | `src/quest/quest_system.*` | Quest journal, objectives, rewards |
 | `src/social/social_system.*` | Guilds, parties, chat |
-| `src/war/war_system.*` | War scheduling, territory (mechanics WIP) |
+| `src/war/war_system.*` | War scheduling, territory |
 | `src/admin/admin_system.*` | GM commands, muting, audit logging |
 
-### Configuration
+#### Configuration
 
 | File | Purpose |
 |------|---------|
@@ -245,43 +482,11 @@ The monolithic `CGame` class is being decomposed into:
 
 ---
 
-## Migration Strategy
+## Legacy Exclusions
 
-### Completed
-- [x] CMake build system with vcpkg
-- [x] PostgreSQL database integration
-- [x] WebSocket authentication server
-- [x] Player movement and position sync
-- [x] Map loading and spatial queries
-- [x] Combat system (damage calc, hit resolution, crits, kill rewards)
-- [x] Magic system (all spell types, cooldowns, learning)
-- [x] NPC system (AI, spawning, bosses, behavior trees)
-- [x] Skill system (weapon skills, training, mastery)
-- [x] Item system (instances, stacking, durability)
-- [x] Inventory system (slots, bank, gold, trading)
-- [x] Chat system (all channels, filtering, rate limiting)
-- [x] Social systems (guilds, parties)
-- [x] Quest system (all objective types, rewards)
-- [x] Entity ECS system
-- [x] Persistence (auto-save, full character save/load)
-- [x] Registry systems (NPC, magic, item from YAML)
-- [x] Scheduler with game clock
+### Equilibrium System
 
-### In Progress
-- [x] Ground items and loot drops
-- [x] Equip/unequip handler wiring
-- [x] Combat/spell visual broadcasts
-- [x] NPC interaction (dialog, shops)
-- [ ] War battle mechanics
-- [ ] Admin GM commands
-
-### Planned
-- [x] Crafting/gathering
-- [x] Ranged combat
-- [x] Death/respawn flow
-- [x] Guild persistence
-- [ ] Guild warehouse
-- [ ] Friend list
+The legacy Helbreath codebase contains an "Equilibrium" system (also referred to as "EQ", "balance mode", or similar). **Do not implement or port equilibrium-related code by default.** When you encounter anything related to equilibrium during research or implementation — whether in legacy code references, oracle search results, or design docs — **always ask the user** whether it should be included before proceeding. In most cases the answer will be no, but occasionally it may be desired.
 
 ---
 
@@ -291,7 +496,7 @@ When working on the server:
 
 1. **Ask questions frequently** - Use AskUserQuestion liberally to clarify requirements, validate assumptions, and confirm implementation approaches before writing code. When in doubt, ask.
 2. **Check PROGRESS.md first** - Know what's implemented before starting. Don't rebuild what already exists.
-3. **Update PROGRESS.md when done** - After completing a feature or significant component, update `docs/PROGRESS.md`: mark the relevant items as ✅, update the phase status, and add a dated entry under `## Recent Changes` using the format:
+3. **Update PROGRESS.md when done** - After completing a feature or significant component, update `docs/PROGRESS.md`: mark the relevant items as done, update the phase status, and add a dated entry under `## Recent Changes` using the format:
    ```
    ### YYYY-MM-DD: Summary
    - Individual items
@@ -300,8 +505,25 @@ When working on the server:
    ```
    Keep the "Immediate Next Steps" list current. Every major feature MUST be checked off here.
 4. **Document all protocol changes** - Any change to client/server WebSocket message structures MUST be documented in both `docs/JSON_PROTOCOL.md` and the `docs/protocol/` directory so the client stays in sync. This is non-negotiable — undocumented protocol changes break the client.
-5. **Message routing requires two switches** - Every new client→server message type must be added in **two** places: the handler's `handle_message()` switch (e.g., `game_handlers.cpp`) **and** the top-level routing switch in `application.cpp`. Missing the `application.cpp` entry causes "Unknown message type" at runtime — the message is silently dropped.
+5. **Message routing requires two switches** - Every new client-to-server message type must be added in **two** places: the handler's `handle_message()` switch (e.g., `game_handlers.cpp`) **and** the top-level routing switch in `application.cpp`. Missing the `application.cpp` entry causes "Unknown message type" at runtime — the message is silently dropped.
 6. **Protocol compatibility** - Legacy binary protocol must match original
 7. **Database transactions** - Use connection pool properly
 8. **Thread safety** - WebSocket callbacks run on separate threads
 9. **Create migrations for DB changes** - Any change to the PostgreSQL schema (new tables, columns, indexes, constraints, functions) must include a migration file. Run `cd tools/migrate && npx tsx migrate.ts create <description>` to scaffold one, then fill in the `-- up` and `-- down` SQL. Also update `src/database/schema.sql` to match so fresh installs get the current schema. Never modify existing migration files — including the baseline schema. Always create a new migration instead.
+
+## Notes for AI Assistants
+
+When working on this codebase:
+
+1. **Always use C++20 features** - Prefer modern alternatives to legacy patterns
+2. **Follow the coding style strictly** - snake_case everywhere, Allman braces, no Hungarian notation
+3. **Check existing code first** - Patterns may already exist
+4. **Use RAII** - Never use raw `new`/`delete`
+5. **Handle errors gracefully** - Use `std::expected` or result types
+6. **Keep functions small** - Each function should do one thing well
+7. **Log important operations** - But avoid excessive logging in hot paths
+8. **Test edge cases** - Especially around combat, items, and networking
+9. **Preserve game behavior** - Modernized code should behave identically to original
+10. **Update documentation** - Keep CLAUDE.md and docs/ in sync with changes
+11. **Translate Korean comments** - When encountered, translate to English inline
+12. **Update PROGRESS.md** - After completing a feature, update `docs/PROGRESS.md`

@@ -6,20 +6,22 @@
 #include <chrono>
 #include <cstdint>
 
-namespace hb::item {
+namespace hb::item
+{
 
 // Special ability types (from legacy ActivateSpecialAbilityHandler)
-enum class special_ability_type : uint8_t {
+enum class special_ability_type : uint8_t
+{
     none = 0,
-    hp_halve = 1,        // Halve target HP on next hit
-    poison = 2,          // Apply poison on next hit
-    paralyze = 3,        // Freeze target on next hit
-    warrior_boost = 4,   // Temporary stat boost
-    life_drain = 5,      // Drain HP on next hit
+    hp_halve = 1,      // Halve target HP on next hit
+    poison = 2,        // Apply poison on next hit
+    paralyze = 3,      // Freeze target on next hit
+    warrior_boost = 4, // Temporary stat boost
+    life_drain = 5,    // Drain HP on next hit
     // 50+ = defensive/wizard abilities
-    spell_immunity = 50, // Immune to magic while active
-    attack_block = 51,   // Block player attacks while active
-    high_spell_immunity = 52,  // Immune to level 5+ spells
+    spell_immunity = 50,      // Immune to magic while active
+    attack_block = 51,        // Block player attacks while active
+    high_spell_immunity = 52, // Immune to level 5+ spells
 };
 
 // Whether an ability is an attack ability (1-5) or defense ability (50+)
@@ -37,11 +39,12 @@ enum class special_ability_type : uint8_t {
 inline constexpr int32_t ability_cooldown_seconds = 1200;
 
 // Ability status for protocol communication
-enum class ability_status : uint8_t {
-    disabled = 0,   // No ability equipped
-    ready = 1,      // Ability ready to activate
-    active = 2,     // Ability currently active
-    cooldown = 3,   // Ability on cooldown
+enum class ability_status : uint8_t
+{
+    disabled = 0, // No ability equipped
+    ready = 1,    // Ability ready to activate
+    active = 2,   // Ability currently active
+    cooldown = 3, // Ability on cooldown
 };
 
 // Per-player special ability state
@@ -51,15 +54,9 @@ struct special_ability_state
     ability_status status{ability_status::disabled};
     std::chrono::steady_clock::time_point cooldown_end{};
 
-    [[nodiscard]] auto is_ready() const -> bool
-    {
-        return status == ability_status::ready;
-    }
+    [[nodiscard]] auto is_ready() const -> bool { return status == ability_status::ready; }
 
-    [[nodiscard]] auto is_active() const -> bool
-    {
-        return status == ability_status::active;
-    }
+    [[nodiscard]] auto is_active() const -> bool { return status == ability_status::active; }
 
     [[nodiscard]] auto is_on_cooldown(std::chrono::steady_clock::time_point now) const -> bool
     {
@@ -68,7 +65,8 @@ struct special_ability_state
 
     [[nodiscard]] auto cooldown_remaining(std::chrono::steady_clock::time_point now) const -> int32_t
     {
-        if (status != ability_status::cooldown || now >= cooldown_end) return 0;
+        if (status != ability_status::cooldown || now >= cooldown_end)
+            return 0;
         auto remaining = std::chrono::duration_cast<std::chrono::seconds>(cooldown_end - now);
         return static_cast<int32_t>(remaining.count());
     }
@@ -77,15 +75,15 @@ struct special_ability_state
     void set_ability(special_ability_type new_type)
     {
         type = new_type;
-        status = (new_type != special_ability_type::none)
-            ? ability_status::ready : ability_status::disabled;
+        status = (new_type != special_ability_type::none) ? ability_status::ready : ability_status::disabled;
         cooldown_end = {};
     }
 
     // Activate the ability
     auto activate(std::chrono::steady_clock::time_point now) -> bool
     {
-        if (status != ability_status::ready) return false;
+        if (status != ability_status::ready)
+            return false;
         status = ability_status::active;
         return true;
     }
@@ -104,7 +102,7 @@ struct special_ability_state
         {
             status = ability_status::ready;
             cooldown_end = {};
-            return true;  // Just became ready
+            return true; // Just became ready
         }
         return false;
     }
@@ -118,4 +116,4 @@ struct special_ability_state
     }
 };
 
-}  // namespace hb::item
+} // namespace hb::item

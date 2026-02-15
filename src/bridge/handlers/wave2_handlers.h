@@ -7,7 +7,8 @@
 #include "bridge/message_router.h"
 #include "protocol/protocol.h"
 
-namespace hb::bridge::wave2 {
+namespace hb::bridge::wave2
+{
 
 // ========== Wave 2: Admin Command Handlers ==========
 
@@ -41,7 +42,9 @@ auto admin_teleport(const handler_context& ctx, int16_t x, int16_t y, map_id map
 auto admin_invisible(const handler_context& ctx, bool invisible) -> handle_result;
 
 // Ban a player
-auto admin_ban(const handler_context& ctx, player_id target, std::string_view reason,
+auto admin_ban(const handler_context& ctx,
+               player_id target,
+               std::string_view reason,
                int64_t duration_seconds) -> handle_result;
 
-}  // namespace hb::bridge::wave2
+} // namespace hb::bridge::wave2

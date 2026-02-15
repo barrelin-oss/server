@@ -10,13 +10,15 @@
 #include <unordered_map>
 #include <typeindex>
 
-namespace hb {
+namespace hb
+{
 
 // Forward declarations
 class event_bus;
 
 // Base class for all subsystems
-class subsystem {
+class subsystem
+{
 public:
     virtual ~subsystem() = default;
 
@@ -64,7 +66,8 @@ private:
 };
 
 // Subsystem registry and manager
-class subsystem_manager {
+class subsystem_manager
+{
 public:
     subsystem_manager();
     ~subsystem_manager();
@@ -77,18 +80,17 @@ public:
 
     // Register a subsystem
     // Takes ownership of the subsystem
-    template<typename T>
-    void register_subsystem(std::unique_ptr<T> subsystem) {
-        static_assert(std::is_base_of_v<hb::subsystem, T>,
-            "T must derive from subsystem");
+    template<typename T> void register_subsystem(std::unique_ptr<T> subsystem)
+    {
+        static_assert(std::is_base_of_v<hb::subsystem, T>, "T must derive from subsystem");
         auto ptr = subsystem.get();
         subsystems_.push_back(std::move(subsystem));
         subsystem_map_[std::type_index(typeid(T))] = ptr;
     }
 
     // Create and register a subsystem
-    template<typename T, typename... Args>
-    auto create_subsystem(Args&&... args) -> T& {
+    template<typename T, typename... Args> auto create_subsystem(Args&&... args) -> T&
+    {
         auto ptr = std::make_unique<T>(std::forward<Args>(args)...);
         auto& ref = *ptr;
         register_subsystem(std::move(ptr));
@@ -96,19 +98,21 @@ public:
     }
 
     // Get a subsystem by type
-    template<typename T>
-    [[nodiscard]] auto get() -> T* {
+    template<typename T> [[nodiscard]] auto get() -> T*
+    {
         auto it = subsystem_map_.find(std::type_index(typeid(T)));
-        if (it == subsystem_map_.end()) {
+        if (it == subsystem_map_.end())
+        {
             return nullptr;
         }
         return static_cast<T*>(it->second);
     }
 
-    template<typename T>
-    [[nodiscard]] auto get() const -> const T* {
+    template<typename T> [[nodiscard]] auto get() const -> const T*
+    {
         auto it = subsystem_map_.find(std::type_index(typeid(T)));
-        if (it == subsystem_map_.end()) {
+        if (it == subsystem_map_.end())
+        {
             return nullptr;
         }
         return static_cast<const T*>(it->second);
@@ -141,4 +145,4 @@ private:
 // Global subsystem manager singleton
 [[nodiscard]] auto subsystems() -> subsystem_manager&;
 
-}  // namespace hb
+} // namespace hb

@@ -6,90 +6,111 @@
 #include "core/types.h"
 #include "network/json_protocol.h"
 
-namespace hb::network {
-    class websocket_server;
-    class ws_connection;
+namespace hb::network
+{
+class websocket_server;
+class ws_connection;
+} // namespace hb::network
+
+namespace hb::auth
+{
+class auth_system;
 }
 
-namespace hb::auth {
-    class auth_system;
+namespace hb::player
+{
+class player_system;
 }
 
-namespace hb::player {
-    class player_system;
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::world {
-    class world_subsystem;
+namespace hb::inventory
+{
+class inventory_system;
 }
 
-namespace hb::inventory {
-    class inventory_system;
+namespace hb::admin
+{
+class admin_system;
 }
 
-namespace hb::admin {
-    class admin_system;
+namespace hb::npc
+{
+class npc_system;
 }
 
-namespace hb::npc {
-    class npc_system;
+namespace hb::item
+{
+class item_system;
 }
 
-namespace hb::item {
-    class item_system;
+namespace hb::social
+{
+class social_system;
 }
 
-namespace hb::social {
-    class social_system;
+namespace hb::combat
+{
+class combat_system;
 }
 
-namespace hb::combat {
-    class combat_system;
+namespace hb::war
+{
+class war_system;
+class war_persistence;
+} // namespace hb::war
+
+namespace hb::effect
+{
+class effect_system;
 }
 
-namespace hb::war {
-    class war_system;
-    class war_persistence;
+namespace hb::database
+{
+class database_system;
 }
 
-namespace hb::effect {
-    class effect_system;
+namespace hb::magic
+{
+class magic_system;
 }
 
-namespace hb::database {
-    class database_system;
+namespace hb::quest
+{
+class quest_system;
 }
 
-namespace hb::magic {
-    class magic_system;
+namespace hb::skill
+{
+class skill_system;
 }
 
-namespace hb::quest {
-    class quest_system;
+namespace hb
+{
+class scheduler;
+class npc_registry;
+class item_registry;
+class config_system;
+} // namespace hb
+
+namespace hb::perf
+{
+class perf_stats_system;
 }
 
-namespace hb::skill {
-    class skill_system;
+namespace hb::audit
+{
+class item_audit_system;
 }
 
-namespace hb {
-    class scheduler;
-    class npc_registry;
-    class item_registry;
-    class config_system;
-}
+namespace hb::bridge
+{
 
-namespace hb::perf {
-    class perf_stats_system;
-}
-
-namespace hb::audit {
-    class item_audit_system;
-}
-
-namespace hb::bridge {
-
-class admin_web_handlers {
+class admin_web_handlers
+{
 public:
     admin_web_handlers();
     ~admin_web_handlers();
@@ -223,12 +244,10 @@ private:
     void handle_war_participants(connection_id conn_id, const network::json_message& msg);
 
     // Helpers
-    void send_error(connection_id conn_id, uint32_t seq,
-                    std::string_view error_code, std::string_view message);
-    [[nodiscard]] auto require_admin(connection_id conn_id, uint32_t seq, uint8_t min_level = 10)
-        -> network::ws_connection*;
-    void audit_log(connection_id conn_id, std::string_view action, bool success = true,
-                   std::string_view result = "");
+    void send_error(connection_id conn_id, uint32_t seq, std::string_view error_code, std::string_view message);
+    [[nodiscard]] auto
+    require_admin(connection_id conn_id, uint32_t seq, uint8_t min_level = 10) -> network::ws_connection*;
+    void audit_log(connection_id conn_id, std::string_view action, bool success = true, std::string_view result = "");
 
     network::websocket_server* ws_server_{nullptr};
     auth::auth_system* auth_{nullptr};
@@ -256,4 +275,4 @@ private:
     std::chrono::steady_clock::time_point start_time_{std::chrono::steady_clock::now()};
 };
 
-}  // namespace hb::bridge
+} // namespace hb::bridge

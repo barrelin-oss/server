@@ -15,7 +15,8 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace hb::perf {
+namespace hb::perf
+{
 
 // Health status for metric evaluation
 enum class health_status : uint8_t
@@ -29,10 +30,14 @@ enum class health_status : uint8_t
 {
     switch (s)
     {
-        case health_status::good:     return "good";
-        case health_status::warning:  return "warning";
-        case health_status::critical: return "critical";
-        default:                      return "good";
+    case health_status::good:
+        return "good";
+    case health_status::warning:
+        return "warning";
+    case health_status::critical:
+        return "critical";
+    default:
+        return "good";
     }
 }
 
@@ -44,11 +49,11 @@ enum class health_status : uint8_t
 // Importance level for metric categorization
 enum class importance_level : uint8_t
 {
-    critical = 0,  // Game-breaking if slow
-    high = 1,      // Noticeable impact on gameplay
-    medium = 2,    // Important but tolerable delays
-    low = 3,       // Less critical operations
-    info = 4       // Monitoring/debugging only
+    critical = 0, // Game-breaking if slow
+    high = 1,     // Noticeable impact on gameplay
+    medium = 2,   // Important but tolerable delays
+    low = 3,      // Less critical operations
+    info = 4      // Monitoring/debugging only
 };
 
 // Metric categories for instrumentation points
@@ -93,7 +98,7 @@ enum class metric_category : uint8_t
     bytes_sent,
     db_queries,
 
-    count  // Must be last
+    count // Must be last
 };
 
 inline constexpr auto metric_category_count = static_cast<size_t>(metric_category::count);
@@ -103,38 +108,70 @@ inline constexpr auto metric_category_count = static_cast<size_t>(metric_categor
 {
     switch (cat)
     {
-        case metric_category::tick_total:                return "tick_total";
-        case metric_category::npc_ai_update:             return "npc_ai_update";
-        case metric_category::spatial_query_visibility:  return "spatial_query_visibility";
-        case metric_category::spatial_query_range:       return "spatial_query_range";
-        case metric_category::db_query:                  return "db_query";
-        case metric_category::db_pool_acquire:           return "db_pool_acquire";
-        case metric_category::scheduler_task_exec:       return "scheduler_task_exec";
-        case metric_category::message_handler:           return "message_handler";
-        case metric_category::broadcast:                 return "broadcast";
-        case metric_category::combat_attack:             return "combat_attack";
-        case metric_category::inventory_op:              return "inventory_op";
-        case metric_category::trade_complete:            return "trade_complete";
-        case metric_category::npc_pathfinding:            return "npc_pathfinding";
-        case metric_category::chat_send:                 return "chat_send";
-        case metric_category::chat_filter:               return "chat_filter";
-        case metric_category::skill_training:            return "skill_training";
-        case metric_category::magic_cast:                return "magic_cast";
-        case metric_category::magic_learn:               return "magic_learn";
-        case metric_category::entity_lifecycle:          return "entity_lifecycle";
-        case metric_category::player_save:               return "player_save";
-        case metric_category::loot_generation:           return "loot_generation";
-        case metric_category::effect_tick:               return "effect_tick";
-        case metric_category::quest_update:              return "quest_update";
-        case metric_category::crafting:                  return "crafting";
-        case metric_category::player_death:              return "player_death";
-        case metric_category::visibility_update:         return "visibility_update";
-        case metric_category::messages_received:         return "messages_received";
-        case metric_category::messages_sent:             return "messages_sent";
-        case metric_category::bytes_received:            return "bytes_received";
-        case metric_category::bytes_sent:                return "bytes_sent";
-        case metric_category::db_queries:                return "db_queries";
-        default:                                         return "unknown";
+    case metric_category::tick_total:
+        return "tick_total";
+    case metric_category::npc_ai_update:
+        return "npc_ai_update";
+    case metric_category::spatial_query_visibility:
+        return "spatial_query_visibility";
+    case metric_category::spatial_query_range:
+        return "spatial_query_range";
+    case metric_category::db_query:
+        return "db_query";
+    case metric_category::db_pool_acquire:
+        return "db_pool_acquire";
+    case metric_category::scheduler_task_exec:
+        return "scheduler_task_exec";
+    case metric_category::message_handler:
+        return "message_handler";
+    case metric_category::broadcast:
+        return "broadcast";
+    case metric_category::combat_attack:
+        return "combat_attack";
+    case metric_category::inventory_op:
+        return "inventory_op";
+    case metric_category::trade_complete:
+        return "trade_complete";
+    case metric_category::npc_pathfinding:
+        return "npc_pathfinding";
+    case metric_category::chat_send:
+        return "chat_send";
+    case metric_category::chat_filter:
+        return "chat_filter";
+    case metric_category::skill_training:
+        return "skill_training";
+    case metric_category::magic_cast:
+        return "magic_cast";
+    case metric_category::magic_learn:
+        return "magic_learn";
+    case metric_category::entity_lifecycle:
+        return "entity_lifecycle";
+    case metric_category::player_save:
+        return "player_save";
+    case metric_category::loot_generation:
+        return "loot_generation";
+    case metric_category::effect_tick:
+        return "effect_tick";
+    case metric_category::quest_update:
+        return "quest_update";
+    case metric_category::crafting:
+        return "crafting";
+    case metric_category::player_death:
+        return "player_death";
+    case metric_category::visibility_update:
+        return "visibility_update";
+    case metric_category::messages_received:
+        return "messages_received";
+    case metric_category::messages_sent:
+        return "messages_sent";
+    case metric_category::bytes_received:
+        return "bytes_received";
+    case metric_category::bytes_sent:
+        return "bytes_sent";
+    case metric_category::db_queries:
+        return "db_queries";
+    default:
+        return "unknown";
     }
 }
 
@@ -155,13 +192,20 @@ struct timing_threshold
 {
     switch (cat)
     {
-        case metric_category::tick_total:        return {12.0, 16.0};
-        case metric_category::npc_ai_update:     return {5.0, 10.0};
-        case metric_category::db_query:          return {5.0, 10.0};
-        case metric_category::db_pool_acquire:   return {2.0, 5.0};
-        case metric_category::message_handler:   return {3.0, 8.0};
-        case metric_category::player_save:       return {10.0, 20.0};
-        default:                                 return {5.0, 15.0};
+    case metric_category::tick_total:
+        return {12.0, 16.0};
+    case metric_category::npc_ai_update:
+        return {5.0, 10.0};
+    case metric_category::db_query:
+        return {5.0, 10.0};
+    case metric_category::db_pool_acquire:
+        return {2.0, 5.0};
+    case metric_category::message_handler:
+        return {3.0, 8.0};
+    case metric_category::player_save:
+        return {10.0, 20.0};
+    default:
+        return {5.0, 15.0};
     }
 }
 
@@ -170,47 +214,47 @@ struct timing_threshold
 {
     switch (cat)
     {
-        // Critical - game-breaking if slow
-        case metric_category::tick_total:
-        case metric_category::combat_attack:
-        case metric_category::entity_lifecycle:
-        case metric_category::player_save:
-            return importance_level::critical;
+    // Critical - game-breaking if slow
+    case metric_category::tick_total:
+    case metric_category::combat_attack:
+    case metric_category::entity_lifecycle:
+    case metric_category::player_save:
+        return importance_level::critical;
 
-        // High - noticeable impact on gameplay
-        case metric_category::npc_ai_update:
-        case metric_category::spatial_query_visibility:
-        case metric_category::spatial_query_range:
-        case metric_category::broadcast:
-        case metric_category::inventory_op:
-        case metric_category::loot_generation:
-        case metric_category::effect_tick:
-        case metric_category::visibility_update:
-            return importance_level::high;
+    // High - noticeable impact on gameplay
+    case metric_category::npc_ai_update:
+    case metric_category::spatial_query_visibility:
+    case metric_category::spatial_query_range:
+    case metric_category::broadcast:
+    case metric_category::inventory_op:
+    case metric_category::loot_generation:
+    case metric_category::effect_tick:
+    case metric_category::visibility_update:
+        return importance_level::high;
 
-        // Medium - important but tolerable delays
-        case metric_category::message_handler:
-        case metric_category::scheduler_task_exec:
-        case metric_category::skill_training:
-        case metric_category::magic_cast:
-        case metric_category::npc_pathfinding:
-        case metric_category::quest_update:
-        case metric_category::player_death:
-            return importance_level::medium;
+    // Medium - important but tolerable delays
+    case metric_category::message_handler:
+    case metric_category::scheduler_task_exec:
+    case metric_category::skill_training:
+    case metric_category::magic_cast:
+    case metric_category::npc_pathfinding:
+    case metric_category::quest_update:
+    case metric_category::player_death:
+        return importance_level::medium;
 
-        // Low - less critical operations
-        case metric_category::db_query:
-        case metric_category::db_pool_acquire:
-        case metric_category::chat_send:
-        case metric_category::chat_filter:
-        case metric_category::magic_learn:
-        case metric_category::trade_complete:
-        case metric_category::crafting:
-            return importance_level::low;
+    // Low - less critical operations
+    case metric_category::db_query:
+    case metric_category::db_pool_acquire:
+    case metric_category::chat_send:
+    case metric_category::chat_filter:
+    case metric_category::magic_learn:
+    case metric_category::trade_complete:
+    case metric_category::crafting:
+        return importance_level::low;
 
-        // Info - monitoring/debugging only (all counters)
-        default:
-            return importance_level::info;
+    // Info - monitoring/debugging only (all counters)
+    default:
+        return importance_level::info;
     }
 }
 
@@ -240,13 +284,13 @@ struct sample_buffer
     // Welford's online algorithm for mean/variance
     uint64_t welford_n{0};
     double welford_mean{0.0};
-    double welford_m2{0.0};  // Sum of squared deviations
+    double welford_m2{0.0}; // Sum of squared deviations
 
     void add(double value);
     void reset();
     [[nodiscard]] auto percentile(double p) const -> double;
     [[nodiscard]] auto get_windowed_stats(std::chrono::system_clock::time_point window_start) const
-        -> std::tuple<double, double, double>;  // min, max, avg
+        -> std::tuple<double, double, double>; // min, max, avg
     [[nodiscard]] auto welford_variance() const -> double;
     [[nodiscard]] auto welford_stddev() const -> double;
 };
@@ -283,7 +327,7 @@ struct gauge_snapshot
     size_t active_effects{0};
     size_t scheduled_tasks{0};
     size_t active_connections{0};
-    size_t max_connections{0};  // For capacity-based health check
+    size_t max_connections{0}; // For capacity-based health check
     std::unordered_map<std::string, health_status> statuses;
 };
 
@@ -362,8 +406,8 @@ private:
     void update_gauges();
 
     // Health computation helpers
-    [[nodiscard]] auto compute_timing_status(metric_category cat, double avg_ms,
-        const sample_buffer& buf) const -> health_status;
+    [[nodiscard]] auto
+    compute_timing_status(metric_category cat, double avg_ms, const sample_buffer& buf) const -> health_status;
     [[nodiscard]] auto compute_counter_status(metric_category cat, double per_second) const -> health_status;
     void compute_gauge_statuses(gauge_snapshot& snapshot) const;
 };
@@ -373,7 +417,8 @@ class scoped_timer
 {
 public:
     scoped_timer(perf_stats_system* stats, metric_category cat)
-        : stats_(stats), category_(cat)
+        : stats_(stats)
+        , category_(cat)
         , start_(std::chrono::steady_clock::now())
     {
     }
@@ -401,7 +446,6 @@ private:
 };
 
 // Convenience macro - creates a scoped timer with unique variable name
-#define PERF_TIMER(stats_ptr, category) \
-    ::hb::perf::scoped_timer perf_timer_##__LINE__((stats_ptr), (category))
+#define PERF_TIMER(stats_ptr, category) ::hb::perf::scoped_timer perf_timer_##__LINE__((stats_ptr), (category))
 
-}  // namespace hb::perf
+} // namespace hb::perf

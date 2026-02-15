@@ -16,33 +16,38 @@
 #include <chrono>
 #include <variant>
 
-namespace hb::network {
+namespace hb::network
+{
 
 // Attack type enum
-enum class attack_type : uint8_t {
-    regular = 0,  // Normal melee attack
-    dash = 1,     // Dash attack (requires 100% skill, 1 tile gap)
-    ranged = 2    // Ranged attack (bow/crossbow)
+enum class attack_type : uint8_t
+{
+    regular = 0, // Normal melee attack
+    dash = 1,    // Dash attack (requires 100% skill, 1 tile gap)
+    ranged = 2   // Ranged attack (bow/crossbow)
 };
 
 // Projectile type for ranged attack broadcasts
-enum class projectile_type : uint8_t {
+enum class projectile_type : uint8_t
+{
     none = 0,
     arrow = 1,
     poison_arrow = 2,
 };
 
 // Target type enum
-enum class target_type : uint8_t {
+enum class target_type : uint8_t
+{
     none = 0,
     player = 1,
     npc = 2,
-    ground = 3,   // For ground-targeted spells/skills
-    item = 4      // For items on ground
+    ground = 3, // For ground-targeted spells/skills
+    item = 4    // For items on ground
 };
 
 // Message types for the JSON protocol
-enum class json_message_type {
+enum class json_message_type
+{
     // System
     error,
     ping,
@@ -79,15 +84,15 @@ enum class json_message_type {
     player_move_response,
     player_stop_request,
     player_stop_response,
-    player_position_update,  // Broadcast to nearby players
+    player_position_update, // Broadcast to nearby players
 
     // Combat
     player_attack_request,
     player_attack_response,
-    combat_attack_broadcast,  // Broadcast attack to nearby players
-    entity_hp_update,         // HP changed (damage or heal)
-    entity_death,             // Entity died
-    combat_effect,            // Visual combat/spell effect broadcast (damage, heal, miss, etc.)
+    combat_attack_broadcast, // Broadcast attack to nearby players
+    entity_hp_update,        // HP changed (damage or heal)
+    entity_death,            // Entity died
+    combat_effect,           // Visual combat/spell effect broadcast (damage, heal, miss, etc.)
 
     // Actions
     player_magic_request,
@@ -104,37 +109,37 @@ enum class json_message_type {
     chat_message_broadcast, // Outbound chat broadcast to recipients
 
     // Commands (separate from chat - client-side /command construct)
-    command_request,        // Client sends a command
-    command_response,       // Server response to command
+    command_request,  // Client sends a command
+    command_response, // Server response to command
 
     // Teleportation
-    map_teleporters,        // Full teleporter list for a map
-    teleporter_update,      // Live add/remove/modify teleporter
-    player_teleport,        // Sent to player being teleported
+    map_teleporters,   // Full teleporter list for a map
+    teleporter_update, // Live add/remove/modify teleporter
+    player_teleport,   // Sent to player being teleported
 
     // View/Resolution
-    set_view_range,         // Client updates visibility radius
-    set_render_mode,        // Server tells client which rendering mode to use
-    view_range_update,      // Server tells client its effective visibility range
+    set_view_range,    // Client updates visibility radius
+    set_render_mode,   // Server tells client which rendering mode to use
+    view_range_update, // Server tells client its effective visibility range
 
     // NPC messages (server -> client)
-    npc_spawn,              // NPC appears in view
-    npc_despawn,            // NPC leaves view
-    npc_move,               // NPC moved
-    npc_attack,             // NPC attacked something
+    npc_spawn,   // NPC appears in view
+    npc_despawn, // NPC leaves view
+    npc_move,    // NPC moved
+    npc_attack,  // NPC attacked something
 
     // Ground item messages (server -> client)
-    ground_item_spawn,      // Item appeared on ground
-    ground_item_removed,    // Item picked up from ground
+    ground_item_spawn,   // Item appeared on ground
+    ground_item_removed, // Item picked up from ground
 
     // Player state updates (server -> client)
-    player_death_info,      // Death details sent to dead player
-    hunger_update,          // Player hunger level changed
-    environment_update,     // Day/night cycle and weather state
+    player_death_info,  // Death details sent to dead player
+    hunger_update,      // Player hunger level changed
+    environment_update, // Day/night cycle and weather state
 
     // Entity info (client -> server -> client)
-    entity_info_request,    // Request info about an entity
-    entity_info_response,   // Entity info response
+    entity_info_request,  // Request info about an entity
+    entity_info_response, // Entity info response
 
     // Equipment
     player_equip_request,
@@ -186,14 +191,14 @@ enum class json_message_type {
     mineral_despawn,
 
     // Fishing
-    fish_skill_request,             // Player activates fishing skill
-    fish_skill_response,            // Skill activated or error
-    fish_engaged,                   // Fish found, show dialog with preview
-    fish_chance_update,             // Periodic update of catch %
-    fish_catch_request,             // Player attempts catch ("Try Now!")
-    fish_catch_response,            // Success/fail/canceled result
-    fish_spawn_broadcast,           // Fish appeared on map
-    fish_despawn_broadcast,         // Fish removed from map
+    fish_skill_request,     // Player activates fishing skill
+    fish_skill_response,    // Skill activated or error
+    fish_engaged,           // Fish found, show dialog with preview
+    fish_chance_update,     // Periodic update of catch %
+    fish_catch_request,     // Player attempts catch ("Try Now!")
+    fish_catch_response,    // Success/fail/canceled result
+    fish_spawn_broadcast,   // Fish appeared on map
+    fish_despawn_broadcast, // Fish removed from map
 
     // Death/Respawn
     respawn_request,
@@ -366,51 +371,51 @@ enum class json_message_type {
     friend_offline_notification,
 
     // Crusade warfare
-    crusade_started,                // S->C: Crusade has begun
-    crusade_ended,                  // S->C: Crusade is over
-    crusade_status_update,          // S->C: Periodic status to participants
-    select_duty_request,            // C->S: Player selects crusade duty
-    select_duty_response,           // S->C: Duty selection result
-    crusade_strike_point_update,    // S->C: Strike point HP changes
-    crusade_meteor_warning,         // S->C: Meteor incoming
-    crusade_meteor_hit,             // S->C: Meteor impact results
-    crusade_meteor_result,          // S->C: Full meteor event summary
-    crusade_mana_update,            // S->C: Mana pool status (to commanders)
+    crusade_started,                   // S->C: Crusade has begun
+    crusade_ended,                     // S->C: Crusade is over
+    crusade_status_update,             // S->C: Periodic status to participants
+    select_duty_request,               // C->S: Player selects crusade duty
+    select_duty_response,              // S->C: Duty selection result
+    crusade_strike_point_update,       // S->C: Strike point HP changes
+    crusade_meteor_warning,            // S->C: Meteor incoming
+    crusade_meteor_hit,                // S->C: Meteor impact results
+    crusade_meteor_result,             // S->C: Full meteor event summary
+    crusade_mana_update,               // S->C: Mana pool status (to commanders)
     crusade_construction_point_update, // S->C: Construction point change
-    summon_war_unit_request,        // C->S: Summon a war structure
-    summon_war_unit_response,       // S->C: Result of summon attempt
-    crusade_map_status,             // S->C: War structure overview for commanders
+    summon_war_unit_request,           // C->S: Summon a war structure
+    summon_war_unit_response,          // S->C: Result of summon attempt
+    crusade_map_status,                // S->C: War structure overview for commanders
 
     // Heldenian warfare
-    heldenian_started,              // S->C: Heldenian war started
-    heldenian_ended,                // S->C: Heldenian war ended
-    heldenian_status_update,        // S->C: Tower/door status update
+    heldenian_started,       // S->C: Heldenian war started
+    heldenian_ended,         // S->C: Heldenian war ended
+    heldenian_status_update, // S->C: Tower/door status update
 
     // Apocalypse event
-    apocalypse_started,             // S->C: Apocalypse event started
-    apocalypse_ended,               // S->C: Apocalypse event ended
-    apocalypse_gate_open,           // S->C: Gate open notification
+    apocalypse_started,   // S->C: Apocalypse event started
+    apocalypse_ended,     // S->C: Apocalypse event ended
+    apocalypse_gate_open, // S->C: Gate open notification
 
     // Force recall
-    force_recall_timer,             // S->C: Countdown timer in enemy territory
-    force_recall_execute,           // S->C: Player being recalled
+    force_recall_timer,   // S->C: Countdown timer in enemy territory
+    force_recall_execute, // S->C: Player being recalled
 
     // War rewards
-    crusade_reward_summary,         // S->C: End-of-war reward summary to participant
+    crusade_reward_summary, // S->C: End-of-war reward summary to participant
 
     // Admin war management
-    admin_start_war_request,        // C->S: Start a war event (admin)
-    admin_start_war_response,       // S->C: Result
-    admin_end_war_request,          // C->S: End a running war (admin)
-    admin_end_war_response,         // S->C: Result
-    admin_war_history_request,      // C->S: Get war history
-    admin_war_history_response,     // S->C: War history list
-    admin_war_participants_request, // C->S: Get participants for a specific war
-    admin_war_participants_response,// S->C: Participant list
+    admin_start_war_request,         // C->S: Start a war event (admin)
+    admin_start_war_response,        // S->C: Result
+    admin_end_war_request,           // C->S: End a running war (admin)
+    admin_end_war_response,          // S->C: Result
+    admin_war_history_request,       // C->S: Get war history
+    admin_war_history_response,      // S->C: War history list
+    admin_war_participants_request,  // C->S: Get participants for a specific war
+    admin_war_participants_response, // S->C: Participant list
 
     // Item audit log
-    admin_item_log_request,        // C->S: Query item/gold audit logs
-    admin_item_log_response,       // S->C: Paginated log results
+    admin_item_log_request,  // C->S: Query item/gold audit logs
+    admin_item_log_response, // S->C: Paginated log results
 
     // Crusade guild teleport
     crusade_set_guild_teleport_request,  // C->S: Commander sets guild teleport location
@@ -419,398 +424,734 @@ enum class json_message_type {
     crusade_guild_teleport_response,     // S->C: Teleport destination or error
 
     // Crusade mana collector MP restoration
-    crusade_mp_restore,             // S->C: Mana collector restored MP to nearby allies
+    crusade_mp_restore, // S->C: Mana collector restored MP to nearby allies
 
     // Guild system (player-facing)
-    guild_create_request,           // C->S: Create a guild
-    guild_create_response,          // S->C: Creation result
-    guild_disband_request,          // C->S: Disband guild
-    guild_disband_response,         // S->C: Disband result
-    guild_leave_request,            // C->S: Leave guild
-    guild_leave_response,           // S->C: Leave result
-    guild_kick_request,             // C->S: Kick member
-    guild_kick_response,            // S->C: Kick result
-    guild_invite_request,           // C->S: Invite player to guild
-    guild_invite_response,          // S->C: Invite result
-    guild_invite_received,          // S->C: Push invite notification to target
-    guild_invite_respond_request,   // C->S: Accept/decline guild invite
-    guild_invite_respond_response,  // S->C: Respond result
-    guild_promote_request,          // C->S: Promote member
-    guild_promote_response,         // S->C: Promote result
-    guild_demote_request,           // C->S: Demote member
-    guild_demote_response,          // S->C: Demote result
-    guild_set_motd_request,         // C->S: Set guild MOTD
-    guild_set_motd_response,        // S->C: MOTD result
-    guild_info_request,             // C->S: Get guild info
-    guild_info_response,            // S->C: Guild info with member list
-    guild_update,                   // S->C: Broadcast guild state change
+    guild_create_request,          // C->S: Create a guild
+    guild_create_response,         // S->C: Creation result
+    guild_disband_request,         // C->S: Disband guild
+    guild_disband_response,        // S->C: Disband result
+    guild_leave_request,           // C->S: Leave guild
+    guild_leave_response,          // S->C: Leave result
+    guild_kick_request,            // C->S: Kick member
+    guild_kick_response,           // S->C: Kick result
+    guild_invite_request,          // C->S: Invite player to guild
+    guild_invite_response,         // S->C: Invite result
+    guild_invite_received,         // S->C: Push invite notification to target
+    guild_invite_respond_request,  // C->S: Accept/decline guild invite
+    guild_invite_respond_response, // S->C: Respond result
+    guild_promote_request,         // C->S: Promote member
+    guild_promote_response,        // S->C: Promote result
+    guild_demote_request,          // C->S: Demote member
+    guild_demote_response,         // S->C: Demote result
+    guild_set_motd_request,        // C->S: Set guild MOTD
+    guild_set_motd_response,       // S->C: MOTD result
+    guild_info_request,            // C->S: Get guild info
+    guild_info_response,           // S->C: Guild info with member list
+    guild_update,                  // S->C: Broadcast guild state change
 
     // Item usage
-    player_use_item_request,        // C->S: Use a consumable item
-    player_use_item_response,       // S->C: Use item result
+    player_use_item_request,  // C->S: Use a consumable item
+    player_use_item_response, // S->C: Use item result
 
     // Command list (server -> client push)
-    available_commands,             // S->C: Full command list on enter_game
-    command_availability_update,    // S->C: Partial update when state changes
+    available_commands,          // S->C: Full command list on enter_game
+    command_availability_update, // S->C: Partial update when state changes
 
     // Combat mode
-    combat_mode_change_request,     // C->S: Toggle combat mode
-    combat_mode_change_response,    // S->C: Confirm combat mode change
-    combat_mode_change_broadcast,   // S->C: Broadcast combat mode change to nearby
+    combat_mode_change_request,   // C->S: Toggle combat mode
+    combat_mode_change_response,  // S->C: Confirm combat mode change
+    combat_mode_change_broadcast, // S->C: Broadcast combat mode change to nearby
 
     // Action broadcast (replaces legacy MSGID_EVENT_MOTION)
-    player_action_broadcast,        // S->C: Player performed an action (nearby see animation)
+    player_action_broadcast, // S->C: Player performed an action (nearby see animation)
 
     // Item upgrade
-    item_upgrade_request,           // C->S: Upgrade item with Xelima/Merien stone
-    item_upgrade_response,          // S->C: Upgrade result
+    item_upgrade_request,  // C->S: Upgrade item with Xelima/Merien stone
+    item_upgrade_response, // S->C: Upgrade result
 
     // Special ability
-    activate_ability_request,       // C->S: Activate special weapon ability
-    activate_ability_response,      // S->C: Activation result
-    special_ability_status,         // S->C: Ability status update (ready/active/cooldown/disabled)
+    activate_ability_request,  // C->S: Activate special weapon ability
+    activate_ability_response, // S->C: Activation result
+    special_ability_status,    // S->C: Ability status update (ready/active/cooldown/disabled)
 
     // Unknown/invalid
     unknown
 };
 
 // Convert message type to string
-[[nodiscard]] constexpr auto to_string(json_message_type type) -> std::string_view {
-    switch (type) {
-        case json_message_type::error: return "error";
-        case json_message_type::ping: return "ping";
-        case json_message_type::pong: return "pong";
-        case json_message_type::login_request: return "login_request";
-        case json_message_type::login_response: return "login_response";
-        case json_message_type::logout_request: return "logout_request";
-        case json_message_type::logout_response: return "logout_response";
-        case json_message_type::create_account_request: return "create_account_request";
-        case json_message_type::create_account_response: return "create_account_response";
-        case json_message_type::get_characters_request: return "get_characters_request";
-        case json_message_type::get_characters_response: return "get_characters_response";
-        case json_message_type::create_character_request: return "create_character_request";
-        case json_message_type::create_character_response: return "create_character_response";
-        case json_message_type::delete_character_request: return "delete_character_request";
-        case json_message_type::delete_character_response: return "delete_character_response";
-        case json_message_type::enter_game_request: return "enter_game_request";
-        case json_message_type::enter_game_response: return "enter_game_response";
-        case json_message_type::character_data: return "character_data";
-        case json_message_type::inventory_data: return "inventory_data";
-        case json_message_type::equipment_data: return "equipment_data";
-        case json_message_type::skills_data: return "skills_data";
-        case json_message_type::entity_spawn: return "entity_spawn";
-        case json_message_type::entity_despawn: return "entity_despawn";
-        case json_message_type::player_move_request: return "player_move_request";
-        case json_message_type::player_move_response: return "player_move_response";
-        case json_message_type::player_stop_request: return "player_stop_request";
-        case json_message_type::player_stop_response: return "player_stop_response";
-        case json_message_type::player_position_update: return "player_position_update";
-        case json_message_type::player_attack_request: return "player_attack_request";
-        case json_message_type::player_attack_response: return "player_attack_response";
-        case json_message_type::combat_attack_broadcast: return "combat_attack_broadcast";
-        case json_message_type::entity_hp_update: return "entity_hp_update";
-        case json_message_type::entity_death: return "entity_death";
-        case json_message_type::combat_effect: return "combat_effect";
-        case json_message_type::player_magic_request: return "player_magic_request";
-        case json_message_type::player_magic_response: return "player_magic_response";
-        case json_message_type::player_skill_request: return "player_skill_request";
-        case json_message_type::player_skill_response: return "player_skill_response";
-        case json_message_type::player_pickup_request: return "player_pickup_request";
-        case json_message_type::player_pickup_response: return "player_pickup_response";
-        case json_message_type::player_interact_request: return "player_interact_request";
-        case json_message_type::player_interact_response: return "player_interact_response";
-        case json_message_type::chat_message: return "chat_message";
-        case json_message_type::chat_message_broadcast: return "chat_message_broadcast";
-        case json_message_type::command_request: return "command_request";
-        case json_message_type::command_response: return "command_response";
-        case json_message_type::map_teleporters: return "map_teleporters";
-        case json_message_type::teleporter_update: return "teleporter_update";
-        case json_message_type::player_teleport: return "player_teleport";
-        case json_message_type::set_view_range: return "set_view_range";
-        case json_message_type::set_render_mode: return "set_render_mode";
-        case json_message_type::view_range_update: return "view_range_update";
-        case json_message_type::npc_spawn: return "npc_spawn";
-        case json_message_type::npc_despawn: return "npc_despawn";
-        case json_message_type::npc_move: return "npc_move";
-        case json_message_type::npc_attack: return "npc_attack";
-        case json_message_type::ground_item_spawn: return "ground_item_spawn";
-        case json_message_type::ground_item_removed: return "ground_item_removed";
-        case json_message_type::player_death_info: return "player_death_info";
-        case json_message_type::hunger_update: return "hunger_update";
-        case json_message_type::environment_update: return "environment_update";
-        case json_message_type::entity_info_request: return "entity_info_request";
-        case json_message_type::entity_info_response: return "entity_info_response";
-        case json_message_type::player_equip_request: return "player_equip_request";
-        case json_message_type::player_equip_response: return "player_equip_response";
-        case json_message_type::player_unequip_request: return "player_unequip_request";
-        case json_message_type::player_unequip_response: return "player_unequip_response";
-        case json_message_type::equipment_change_broadcast: return "equipment_change_broadcast";
-        case json_message_type::stat_update: return "stat_update";
-        case json_message_type::spell_list_update: return "spell_list_update";
-        case json_message_type::shop_buy_request: return "shop_buy_request";
-        case json_message_type::shop_buy_response: return "shop_buy_response";
-        case json_message_type::shop_sell_request: return "shop_sell_request";
-        case json_message_type::shop_sell_response: return "shop_sell_response";
-        case json_message_type::shop_sell_confirm_request: return "shop_sell_confirm_request";
-        case json_message_type::shop_sell_confirm_response: return "shop_sell_confirm_response";
-        case json_message_type::shop_repair_request: return "shop_repair_request";
-        case json_message_type::shop_repair_response: return "shop_repair_response";
-        case json_message_type::shop_repair_confirm_request: return "shop_repair_confirm_request";
-        case json_message_type::shop_repair_confirm_response: return "shop_repair_confirm_response";
-        case json_message_type::bank_deposit_request: return "bank_deposit_request";
-        case json_message_type::bank_deposit_response: return "bank_deposit_response";
-        case json_message_type::bank_withdraw_request: return "bank_withdraw_request";
-        case json_message_type::bank_withdraw_response: return "bank_withdraw_response";
-        case json_message_type::dialog_choice_request: return "dialog_choice_request";
-        case json_message_type::dialog_choice_response: return "dialog_choice_response";
-        case json_message_type::manufacture_list_request: return "manufacture_list_request";
-        case json_message_type::manufacture_list_response: return "manufacture_list_response";
-        case json_message_type::manufacture_request: return "manufacture_request";
-        case json_message_type::manufacture_response: return "manufacture_response";
-        case json_message_type::alchemy_list_request: return "alchemy_list_request";
-        case json_message_type::alchemy_list_response: return "alchemy_list_response";
-        case json_message_type::alchemy_request: return "alchemy_request";
-        case json_message_type::alchemy_response: return "alchemy_response";
-        case json_message_type::mine_request: return "mine_request";
-        case json_message_type::mine_response: return "mine_response";
-        case json_message_type::mineral_spawn: return "mineral_spawn";
-        case json_message_type::mineral_despawn: return "mineral_despawn";
-        case json_message_type::fish_skill_request: return "fish_skill_request";
-        case json_message_type::fish_skill_response: return "fish_skill_response";
-        case json_message_type::fish_engaged: return "fish_engaged";
-        case json_message_type::fish_chance_update: return "fish_chance_update";
-        case json_message_type::fish_catch_request: return "fish_catch_request";
-        case json_message_type::fish_catch_response: return "fish_catch_response";
-        case json_message_type::fish_spawn_broadcast: return "fish_spawn_broadcast";
-        case json_message_type::fish_despawn_broadcast: return "fish_despawn_broadcast";
-        case json_message_type::respawn_request: return "respawn_request";
-        case json_message_type::respawn_response: return "respawn_response";
-        case json_message_type::enter_admin_mode_request: return "enter_admin_mode_request";
-        case json_message_type::enter_admin_mode_response: return "enter_admin_mode_response";
-        case json_message_type::admin_server_stats_request: return "admin_server_stats_request";
-        case json_message_type::admin_server_stats_response: return "admin_server_stats_response";
-        case json_message_type::admin_list_players_request: return "admin_list_players_request";
-        case json_message_type::admin_list_players_response: return "admin_list_players_response";
-        case json_message_type::admin_get_player_request: return "admin_get_player_request";
-        case json_message_type::admin_get_player_response: return "admin_get_player_response";
-        case json_message_type::admin_kick_player_request: return "admin_kick_player_request";
-        case json_message_type::admin_kick_player_response: return "admin_kick_player_response";
-        case json_message_type::admin_ban_player_request: return "admin_ban_player_request";
-        case json_message_type::admin_ban_player_response: return "admin_ban_player_response";
-        case json_message_type::admin_teleport_player_request: return "admin_teleport_player_request";
-        case json_message_type::admin_teleport_player_response: return "admin_teleport_player_response";
-        case json_message_type::admin_modify_player_request: return "admin_modify_player_request";
-        case json_message_type::admin_modify_player_response: return "admin_modify_player_response";
-        case json_message_type::admin_list_maps_request: return "admin_list_maps_request";
-        case json_message_type::admin_list_maps_response: return "admin_list_maps_response";
-        case json_message_type::admin_get_map_request: return "admin_get_map_request";
-        case json_message_type::admin_get_map_response: return "admin_get_map_response";
-        case json_message_type::admin_spawn_npc_request: return "admin_spawn_npc_request";
-        case json_message_type::admin_spawn_npc_response: return "admin_spawn_npc_response";
-        case json_message_type::admin_kill_npc_request: return "admin_kill_npc_request";
-        case json_message_type::admin_kill_npc_response: return "admin_kill_npc_response";
-        case json_message_type::admin_get_inventory_request: return "admin_get_inventory_request";
-        case json_message_type::admin_get_inventory_response: return "admin_get_inventory_response";
-        case json_message_type::admin_give_item_request: return "admin_give_item_request";
-        case json_message_type::admin_give_item_response: return "admin_give_item_response";
-        case json_message_type::admin_remove_item_request: return "admin_remove_item_request";
-        case json_message_type::admin_remove_item_response: return "admin_remove_item_response";
-        case json_message_type::admin_list_guilds_request: return "admin_list_guilds_request";
-        case json_message_type::admin_list_guilds_response: return "admin_list_guilds_response";
-        case json_message_type::admin_get_guild_request: return "admin_get_guild_request";
-        case json_message_type::admin_get_guild_response: return "admin_get_guild_response";
-        case json_message_type::admin_get_account_request: return "admin_get_account_request";
-        case json_message_type::admin_get_account_response: return "admin_get_account_response";
-        case json_message_type::admin_unban_player_request: return "admin_unban_player_request";
-        case json_message_type::admin_unban_player_response: return "admin_unban_player_response";
-        case json_message_type::admin_subscribe_map_request: return "admin_subscribe_map_request";
-        case json_message_type::admin_subscribe_map_response: return "admin_subscribe_map_response";
-        case json_message_type::admin_get_map_data_request: return "admin_get_map_data_request";
-        case json_message_type::admin_get_map_data_response: return "admin_get_map_data_response";
-        case json_message_type::admin_subscribe_player_request: return "admin_subscribe_player_request";
-        case json_message_type::admin_subscribe_player_response: return "admin_subscribe_player_response";
-        case json_message_type::admin_unsubscribe_request: return "admin_unsubscribe_request";
-        case json_message_type::admin_unsubscribe_response: return "admin_unsubscribe_response";
-        case json_message_type::admin_spectator_init: return "admin_spectator_init";
-        case json_message_type::admin_player_connected: return "admin_player_connected";
-        case json_message_type::admin_player_disconnected: return "admin_player_disconnected";
-        case json_message_type::admin_chat_log: return "admin_chat_log";
-        case json_message_type::admin_broadcast_request: return "admin_broadcast_request";
-        case json_message_type::admin_broadcast_response: return "admin_broadcast_response";
-        case json_message_type::admin_mute_player_request: return "admin_mute_player_request";
-        case json_message_type::admin_mute_player_response: return "admin_mute_player_response";
-        case json_message_type::admin_unmute_player_request: return "admin_unmute_player_request";
-        case json_message_type::admin_unmute_player_response: return "admin_unmute_player_response";
-        case json_message_type::admin_list_item_templates_request: return "admin_list_item_templates_request";
-        case json_message_type::admin_list_item_templates_response: return "admin_list_item_templates_response";
-        case json_message_type::admin_get_item_template_request: return "admin_get_item_template_request";
-        case json_message_type::admin_get_item_template_response: return "admin_get_item_template_response";
-        case json_message_type::admin_list_npc_templates_request: return "admin_list_npc_templates_request";
-        case json_message_type::admin_list_npc_templates_response: return "admin_list_npc_templates_response";
-        case json_message_type::admin_get_npc_template_request: return "admin_get_npc_template_request";
-        case json_message_type::admin_get_npc_template_response: return "admin_get_npc_template_response";
-        case json_message_type::admin_get_war_status_request: return "admin_get_war_status_request";
-        case json_message_type::admin_get_war_status_response: return "admin_get_war_status_response";
-        case json_message_type::admin_list_parties_request: return "admin_list_parties_request";
-        case json_message_type::admin_list_parties_response: return "admin_list_parties_response";
-        case json_message_type::admin_search_players_request: return "admin_search_players_request";
-        case json_message_type::admin_search_players_response: return "admin_search_players_response";
-        case json_message_type::admin_get_audit_log_request: return "admin_get_audit_log_request";
-        case json_message_type::admin_get_audit_log_response: return "admin_get_audit_log_response";
-        case json_message_type::admin_get_config_request: return "admin_get_config_request";
-        case json_message_type::admin_get_config_response: return "admin_get_config_response";
-        case json_message_type::admin_set_config_request: return "admin_set_config_request";
-        case json_message_type::admin_set_config_response: return "admin_set_config_response";
-        case json_message_type::admin_reload_config_request: return "admin_reload_config_request";
-        case json_message_type::admin_reload_config_response: return "admin_reload_config_response";
-        case json_message_type::admin_list_scheduled_tasks_request: return "admin_list_scheduled_tasks_request";
-        case json_message_type::admin_list_scheduled_tasks_response: return "admin_list_scheduled_tasks_response";
-        case json_message_type::admin_cancel_scheduled_task_request: return "admin_cancel_scheduled_task_request";
-        case json_message_type::admin_cancel_scheduled_task_response: return "admin_cancel_scheduled_task_response";
-        case json_message_type::admin_run_query_request: return "admin_run_query_request";
-        case json_message_type::admin_run_query_response: return "admin_run_query_response";
-        case json_message_type::admin_list_map_npcs_request: return "admin_list_map_npcs_request";
-        case json_message_type::admin_list_map_npcs_response: return "admin_list_map_npcs_response";
-        case json_message_type::admin_list_map_ground_items_request: return "admin_list_map_ground_items_request";
-        case json_message_type::admin_list_map_ground_items_response: return "admin_list_map_ground_items_response";
-        case json_message_type::admin_remove_ground_item_request: return "admin_remove_ground_item_request";
-        case json_message_type::admin_remove_ground_item_response: return "admin_remove_ground_item_response";
-        case json_message_type::admin_guild_action_request: return "admin_guild_action_request";
-        case json_message_type::admin_guild_action_response: return "admin_guild_action_response";
-        case json_message_type::admin_message_player_request: return "admin_message_player_request";
-        case json_message_type::admin_message_player_response: return "admin_message_player_response";
-        case json_message_type::admin_set_environment_request: return "admin_set_environment_request";
-        case json_message_type::admin_set_environment_response: return "admin_set_environment_response";
-        case json_message_type::admin_shutdown_server_request: return "admin_shutdown_server_request";
-        case json_message_type::admin_shutdown_server_response: return "admin_shutdown_server_response";
-        case json_message_type::admin_modify_skills_request: return "admin_modify_skills_request";
-        case json_message_type::admin_modify_skills_response: return "admin_modify_skills_response";
-        case json_message_type::admin_modify_spells_request: return "admin_modify_spells_request";
-        case json_message_type::admin_modify_spells_response: return "admin_modify_spells_response";
-        case json_message_type::admin_get_player_quests_request: return "admin_get_player_quests_request";
-        case json_message_type::admin_get_player_quests_response: return "admin_get_player_quests_response";
-        case json_message_type::admin_quest_action_request: return "admin_quest_action_request";
-        case json_message_type::admin_quest_action_response: return "admin_quest_action_response";
-        case json_message_type::admin_remove_effects_request: return "admin_remove_effects_request";
-        case json_message_type::admin_remove_effects_response: return "admin_remove_effects_response";
-        case json_message_type::admin_create_account_request: return "admin_create_account_request";
-        case json_message_type::admin_create_account_response: return "admin_create_account_response";
-        case json_message_type::admin_change_password_request: return "admin_change_password_request";
-        case json_message_type::admin_change_password_response: return "admin_change_password_response";
-        case json_message_type::admin_set_admin_level_request: return "admin_set_admin_level_request";
-        case json_message_type::admin_set_admin_level_response: return "admin_set_admin_level_response";
-        case json_message_type::admin_list_spawn_points_request: return "admin_list_spawn_points_request";
-        case json_message_type::admin_list_spawn_points_response: return "admin_list_spawn_points_response";
-        case json_message_type::admin_list_spell_templates_request: return "admin_list_spell_templates_request";
-        case json_message_type::admin_list_spell_templates_response: return "admin_list_spell_templates_response";
-        case json_message_type::admin_get_spell_template_request: return "admin_get_spell_template_request";
-        case json_message_type::admin_get_spell_template_response: return "admin_get_spell_template_response";
-        case json_message_type::admin_set_maintenance_mode_request: return "admin_set_maintenance_mode_request";
-        case json_message_type::admin_set_maintenance_mode_response: return "admin_set_maintenance_mode_response";
-        case json_message_type::admin_create_character_request_admin: return "admin_create_character_request_admin";
-        case json_message_type::admin_create_character_response_admin: return "admin_create_character_response_admin";
-        case json_message_type::admin_delete_character_request_admin: return "admin_delete_character_request_admin";
-        case json_message_type::admin_delete_character_response_admin: return "admin_delete_character_response_admin";
-        case json_message_type::admin_manage_ip_bans_request: return "admin_manage_ip_bans_request";
-        case json_message_type::admin_manage_ip_bans_response: return "admin_manage_ip_bans_response";
-        case json_message_type::admin_start_task_request: return "admin_start_task_request";
-        case json_message_type::admin_start_task_response: return "admin_start_task_response";
-        case json_message_type::admin_perf_stats_request: return "admin_perf_stats_request";
-        case json_message_type::admin_perf_stats_response: return "admin_perf_stats_response";
-        case json_message_type::friend_request_send_request: return "friend_request_send_request";
-        case json_message_type::friend_request_send_response: return "friend_request_send_response";
-        case json_message_type::friend_request_accept_request: return "friend_request_accept_request";
-        case json_message_type::friend_request_accept_response: return "friend_request_accept_response";
-        case json_message_type::friend_request_decline_request: return "friend_request_decline_request";
-        case json_message_type::friend_request_decline_response: return "friend_request_decline_response";
-        case json_message_type::friend_request_cancel_request: return "friend_request_cancel_request";
-        case json_message_type::friend_request_cancel_response: return "friend_request_cancel_response";
-        case json_message_type::friend_remove_request: return "friend_remove_request";
-        case json_message_type::friend_remove_response: return "friend_remove_response";
-        case json_message_type::friend_block_request: return "friend_block_request";
-        case json_message_type::friend_block_response: return "friend_block_response";
-        case json_message_type::friend_unblock_request: return "friend_unblock_request";
-        case json_message_type::friend_unblock_response: return "friend_unblock_response";
-        case json_message_type::friend_list_request: return "friend_list_request";
-        case json_message_type::friend_list_response: return "friend_list_response";
-        case json_message_type::friend_request_notification: return "friend_request_notification";
-        case json_message_type::friend_accepted_notification: return "friend_accepted_notification";
-        case json_message_type::friend_online_notification: return "friend_online_notification";
-        case json_message_type::friend_offline_notification: return "friend_offline_notification";
-        case json_message_type::crusade_started: return "crusade_started";
-        case json_message_type::crusade_ended: return "crusade_ended";
-        case json_message_type::crusade_status_update: return "crusade_status_update";
-        case json_message_type::select_duty_request: return "select_duty_request";
-        case json_message_type::select_duty_response: return "select_duty_response";
-        case json_message_type::crusade_strike_point_update: return "crusade_strike_point_update";
-        case json_message_type::crusade_meteor_warning: return "crusade_meteor_warning";
-        case json_message_type::crusade_meteor_hit: return "crusade_meteor_hit";
-        case json_message_type::crusade_meteor_result: return "crusade_meteor_result";
-        case json_message_type::crusade_mana_update: return "crusade_mana_update";
-        case json_message_type::crusade_construction_point_update: return "crusade_construction_point_update";
-        case json_message_type::summon_war_unit_request: return "summon_war_unit_request";
-        case json_message_type::summon_war_unit_response: return "summon_war_unit_response";
-        case json_message_type::crusade_map_status: return "crusade_map_status";
-        case json_message_type::heldenian_started: return "heldenian_started";
-        case json_message_type::heldenian_ended: return "heldenian_ended";
-        case json_message_type::heldenian_status_update: return "heldenian_status_update";
-        case json_message_type::apocalypse_started: return "apocalypse_started";
-        case json_message_type::apocalypse_ended: return "apocalypse_ended";
-        case json_message_type::apocalypse_gate_open: return "apocalypse_gate_open";
-        case json_message_type::force_recall_timer: return "force_recall_timer";
-        case json_message_type::force_recall_execute: return "force_recall_execute";
-        case json_message_type::crusade_reward_summary: return "crusade_reward_summary";
-        case json_message_type::admin_start_war_request: return "admin_start_war_request";
-        case json_message_type::admin_start_war_response: return "admin_start_war_response";
-        case json_message_type::admin_end_war_request: return "admin_end_war_request";
-        case json_message_type::admin_end_war_response: return "admin_end_war_response";
-        case json_message_type::admin_war_history_request: return "admin_war_history_request";
-        case json_message_type::admin_war_history_response: return "admin_war_history_response";
-        case json_message_type::admin_war_participants_request: return "admin_war_participants_request";
-        case json_message_type::admin_war_participants_response: return "admin_war_participants_response";
-        case json_message_type::admin_item_log_request: return "admin_item_log_request";
-        case json_message_type::admin_item_log_response: return "admin_item_log_response";
-        case json_message_type::crusade_set_guild_teleport_request: return "crusade_set_guild_teleport_request";
-        case json_message_type::crusade_set_guild_teleport_response: return "crusade_set_guild_teleport_response";
-        case json_message_type::crusade_guild_teleport_request: return "crusade_guild_teleport_request";
-        case json_message_type::crusade_guild_teleport_response: return "crusade_guild_teleport_response";
-        case json_message_type::crusade_mp_restore: return "crusade_mp_restore";
-        case json_message_type::guild_create_request: return "guild_create_request";
-        case json_message_type::guild_create_response: return "guild_create_response";
-        case json_message_type::guild_disband_request: return "guild_disband_request";
-        case json_message_type::guild_disband_response: return "guild_disband_response";
-        case json_message_type::guild_leave_request: return "guild_leave_request";
-        case json_message_type::guild_leave_response: return "guild_leave_response";
-        case json_message_type::guild_kick_request: return "guild_kick_request";
-        case json_message_type::guild_kick_response: return "guild_kick_response";
-        case json_message_type::guild_invite_request: return "guild_invite_request";
-        case json_message_type::guild_invite_response: return "guild_invite_response";
-        case json_message_type::guild_invite_received: return "guild_invite_received";
-        case json_message_type::guild_invite_respond_request: return "guild_invite_respond_request";
-        case json_message_type::guild_invite_respond_response: return "guild_invite_respond_response";
-        case json_message_type::guild_promote_request: return "guild_promote_request";
-        case json_message_type::guild_promote_response: return "guild_promote_response";
-        case json_message_type::guild_demote_request: return "guild_demote_request";
-        case json_message_type::guild_demote_response: return "guild_demote_response";
-        case json_message_type::guild_set_motd_request: return "guild_set_motd_request";
-        case json_message_type::guild_set_motd_response: return "guild_set_motd_response";
-        case json_message_type::guild_info_request: return "guild_info_request";
-        case json_message_type::guild_info_response: return "guild_info_response";
-        case json_message_type::guild_update: return "guild_update";
-        case json_message_type::player_use_item_request: return "player_use_item_request";
-        case json_message_type::player_use_item_response: return "player_use_item_response";
-        case json_message_type::available_commands: return "available_commands";
-        case json_message_type::command_availability_update: return "command_availability_update";
-        case json_message_type::combat_mode_change_request: return "combat_mode_change_request";
-        case json_message_type::combat_mode_change_response: return "combat_mode_change_response";
-        case json_message_type::combat_mode_change_broadcast: return "combat_mode_change_broadcast";
-        case json_message_type::player_action_broadcast: return "player_action_broadcast";
-        case json_message_type::item_upgrade_request: return "item_upgrade_request";
-        case json_message_type::item_upgrade_response: return "item_upgrade_response";
-        case json_message_type::activate_ability_request: return "activate_ability_request";
-        case json_message_type::activate_ability_response: return "activate_ability_response";
-        case json_message_type::special_ability_status: return "special_ability_status";
-        default: return "unknown";
+[[nodiscard]] constexpr auto to_string(json_message_type type) -> std::string_view
+{
+    switch (type)
+    {
+    case json_message_type::error:
+        return "error";
+    case json_message_type::ping:
+        return "ping";
+    case json_message_type::pong:
+        return "pong";
+    case json_message_type::login_request:
+        return "login_request";
+    case json_message_type::login_response:
+        return "login_response";
+    case json_message_type::logout_request:
+        return "logout_request";
+    case json_message_type::logout_response:
+        return "logout_response";
+    case json_message_type::create_account_request:
+        return "create_account_request";
+    case json_message_type::create_account_response:
+        return "create_account_response";
+    case json_message_type::get_characters_request:
+        return "get_characters_request";
+    case json_message_type::get_characters_response:
+        return "get_characters_response";
+    case json_message_type::create_character_request:
+        return "create_character_request";
+    case json_message_type::create_character_response:
+        return "create_character_response";
+    case json_message_type::delete_character_request:
+        return "delete_character_request";
+    case json_message_type::delete_character_response:
+        return "delete_character_response";
+    case json_message_type::enter_game_request:
+        return "enter_game_request";
+    case json_message_type::enter_game_response:
+        return "enter_game_response";
+    case json_message_type::character_data:
+        return "character_data";
+    case json_message_type::inventory_data:
+        return "inventory_data";
+    case json_message_type::equipment_data:
+        return "equipment_data";
+    case json_message_type::skills_data:
+        return "skills_data";
+    case json_message_type::entity_spawn:
+        return "entity_spawn";
+    case json_message_type::entity_despawn:
+        return "entity_despawn";
+    case json_message_type::player_move_request:
+        return "player_move_request";
+    case json_message_type::player_move_response:
+        return "player_move_response";
+    case json_message_type::player_stop_request:
+        return "player_stop_request";
+    case json_message_type::player_stop_response:
+        return "player_stop_response";
+    case json_message_type::player_position_update:
+        return "player_position_update";
+    case json_message_type::player_attack_request:
+        return "player_attack_request";
+    case json_message_type::player_attack_response:
+        return "player_attack_response";
+    case json_message_type::combat_attack_broadcast:
+        return "combat_attack_broadcast";
+    case json_message_type::entity_hp_update:
+        return "entity_hp_update";
+    case json_message_type::entity_death:
+        return "entity_death";
+    case json_message_type::combat_effect:
+        return "combat_effect";
+    case json_message_type::player_magic_request:
+        return "player_magic_request";
+    case json_message_type::player_magic_response:
+        return "player_magic_response";
+    case json_message_type::player_skill_request:
+        return "player_skill_request";
+    case json_message_type::player_skill_response:
+        return "player_skill_response";
+    case json_message_type::player_pickup_request:
+        return "player_pickup_request";
+    case json_message_type::player_pickup_response:
+        return "player_pickup_response";
+    case json_message_type::player_interact_request:
+        return "player_interact_request";
+    case json_message_type::player_interact_response:
+        return "player_interact_response";
+    case json_message_type::chat_message:
+        return "chat_message";
+    case json_message_type::chat_message_broadcast:
+        return "chat_message_broadcast";
+    case json_message_type::command_request:
+        return "command_request";
+    case json_message_type::command_response:
+        return "command_response";
+    case json_message_type::map_teleporters:
+        return "map_teleporters";
+    case json_message_type::teleporter_update:
+        return "teleporter_update";
+    case json_message_type::player_teleport:
+        return "player_teleport";
+    case json_message_type::set_view_range:
+        return "set_view_range";
+    case json_message_type::set_render_mode:
+        return "set_render_mode";
+    case json_message_type::view_range_update:
+        return "view_range_update";
+    case json_message_type::npc_spawn:
+        return "npc_spawn";
+    case json_message_type::npc_despawn:
+        return "npc_despawn";
+    case json_message_type::npc_move:
+        return "npc_move";
+    case json_message_type::npc_attack:
+        return "npc_attack";
+    case json_message_type::ground_item_spawn:
+        return "ground_item_spawn";
+    case json_message_type::ground_item_removed:
+        return "ground_item_removed";
+    case json_message_type::player_death_info:
+        return "player_death_info";
+    case json_message_type::hunger_update:
+        return "hunger_update";
+    case json_message_type::environment_update:
+        return "environment_update";
+    case json_message_type::entity_info_request:
+        return "entity_info_request";
+    case json_message_type::entity_info_response:
+        return "entity_info_response";
+    case json_message_type::player_equip_request:
+        return "player_equip_request";
+    case json_message_type::player_equip_response:
+        return "player_equip_response";
+    case json_message_type::player_unequip_request:
+        return "player_unequip_request";
+    case json_message_type::player_unequip_response:
+        return "player_unequip_response";
+    case json_message_type::equipment_change_broadcast:
+        return "equipment_change_broadcast";
+    case json_message_type::stat_update:
+        return "stat_update";
+    case json_message_type::spell_list_update:
+        return "spell_list_update";
+    case json_message_type::shop_buy_request:
+        return "shop_buy_request";
+    case json_message_type::shop_buy_response:
+        return "shop_buy_response";
+    case json_message_type::shop_sell_request:
+        return "shop_sell_request";
+    case json_message_type::shop_sell_response:
+        return "shop_sell_response";
+    case json_message_type::shop_sell_confirm_request:
+        return "shop_sell_confirm_request";
+    case json_message_type::shop_sell_confirm_response:
+        return "shop_sell_confirm_response";
+    case json_message_type::shop_repair_request:
+        return "shop_repair_request";
+    case json_message_type::shop_repair_response:
+        return "shop_repair_response";
+    case json_message_type::shop_repair_confirm_request:
+        return "shop_repair_confirm_request";
+    case json_message_type::shop_repair_confirm_response:
+        return "shop_repair_confirm_response";
+    case json_message_type::bank_deposit_request:
+        return "bank_deposit_request";
+    case json_message_type::bank_deposit_response:
+        return "bank_deposit_response";
+    case json_message_type::bank_withdraw_request:
+        return "bank_withdraw_request";
+    case json_message_type::bank_withdraw_response:
+        return "bank_withdraw_response";
+    case json_message_type::dialog_choice_request:
+        return "dialog_choice_request";
+    case json_message_type::dialog_choice_response:
+        return "dialog_choice_response";
+    case json_message_type::manufacture_list_request:
+        return "manufacture_list_request";
+    case json_message_type::manufacture_list_response:
+        return "manufacture_list_response";
+    case json_message_type::manufacture_request:
+        return "manufacture_request";
+    case json_message_type::manufacture_response:
+        return "manufacture_response";
+    case json_message_type::alchemy_list_request:
+        return "alchemy_list_request";
+    case json_message_type::alchemy_list_response:
+        return "alchemy_list_response";
+    case json_message_type::alchemy_request:
+        return "alchemy_request";
+    case json_message_type::alchemy_response:
+        return "alchemy_response";
+    case json_message_type::mine_request:
+        return "mine_request";
+    case json_message_type::mine_response:
+        return "mine_response";
+    case json_message_type::mineral_spawn:
+        return "mineral_spawn";
+    case json_message_type::mineral_despawn:
+        return "mineral_despawn";
+    case json_message_type::fish_skill_request:
+        return "fish_skill_request";
+    case json_message_type::fish_skill_response:
+        return "fish_skill_response";
+    case json_message_type::fish_engaged:
+        return "fish_engaged";
+    case json_message_type::fish_chance_update:
+        return "fish_chance_update";
+    case json_message_type::fish_catch_request:
+        return "fish_catch_request";
+    case json_message_type::fish_catch_response:
+        return "fish_catch_response";
+    case json_message_type::fish_spawn_broadcast:
+        return "fish_spawn_broadcast";
+    case json_message_type::fish_despawn_broadcast:
+        return "fish_despawn_broadcast";
+    case json_message_type::respawn_request:
+        return "respawn_request";
+    case json_message_type::respawn_response:
+        return "respawn_response";
+    case json_message_type::enter_admin_mode_request:
+        return "enter_admin_mode_request";
+    case json_message_type::enter_admin_mode_response:
+        return "enter_admin_mode_response";
+    case json_message_type::admin_server_stats_request:
+        return "admin_server_stats_request";
+    case json_message_type::admin_server_stats_response:
+        return "admin_server_stats_response";
+    case json_message_type::admin_list_players_request:
+        return "admin_list_players_request";
+    case json_message_type::admin_list_players_response:
+        return "admin_list_players_response";
+    case json_message_type::admin_get_player_request:
+        return "admin_get_player_request";
+    case json_message_type::admin_get_player_response:
+        return "admin_get_player_response";
+    case json_message_type::admin_kick_player_request:
+        return "admin_kick_player_request";
+    case json_message_type::admin_kick_player_response:
+        return "admin_kick_player_response";
+    case json_message_type::admin_ban_player_request:
+        return "admin_ban_player_request";
+    case json_message_type::admin_ban_player_response:
+        return "admin_ban_player_response";
+    case json_message_type::admin_teleport_player_request:
+        return "admin_teleport_player_request";
+    case json_message_type::admin_teleport_player_response:
+        return "admin_teleport_player_response";
+    case json_message_type::admin_modify_player_request:
+        return "admin_modify_player_request";
+    case json_message_type::admin_modify_player_response:
+        return "admin_modify_player_response";
+    case json_message_type::admin_list_maps_request:
+        return "admin_list_maps_request";
+    case json_message_type::admin_list_maps_response:
+        return "admin_list_maps_response";
+    case json_message_type::admin_get_map_request:
+        return "admin_get_map_request";
+    case json_message_type::admin_get_map_response:
+        return "admin_get_map_response";
+    case json_message_type::admin_spawn_npc_request:
+        return "admin_spawn_npc_request";
+    case json_message_type::admin_spawn_npc_response:
+        return "admin_spawn_npc_response";
+    case json_message_type::admin_kill_npc_request:
+        return "admin_kill_npc_request";
+    case json_message_type::admin_kill_npc_response:
+        return "admin_kill_npc_response";
+    case json_message_type::admin_get_inventory_request:
+        return "admin_get_inventory_request";
+    case json_message_type::admin_get_inventory_response:
+        return "admin_get_inventory_response";
+    case json_message_type::admin_give_item_request:
+        return "admin_give_item_request";
+    case json_message_type::admin_give_item_response:
+        return "admin_give_item_response";
+    case json_message_type::admin_remove_item_request:
+        return "admin_remove_item_request";
+    case json_message_type::admin_remove_item_response:
+        return "admin_remove_item_response";
+    case json_message_type::admin_list_guilds_request:
+        return "admin_list_guilds_request";
+    case json_message_type::admin_list_guilds_response:
+        return "admin_list_guilds_response";
+    case json_message_type::admin_get_guild_request:
+        return "admin_get_guild_request";
+    case json_message_type::admin_get_guild_response:
+        return "admin_get_guild_response";
+    case json_message_type::admin_get_account_request:
+        return "admin_get_account_request";
+    case json_message_type::admin_get_account_response:
+        return "admin_get_account_response";
+    case json_message_type::admin_unban_player_request:
+        return "admin_unban_player_request";
+    case json_message_type::admin_unban_player_response:
+        return "admin_unban_player_response";
+    case json_message_type::admin_subscribe_map_request:
+        return "admin_subscribe_map_request";
+    case json_message_type::admin_subscribe_map_response:
+        return "admin_subscribe_map_response";
+    case json_message_type::admin_get_map_data_request:
+        return "admin_get_map_data_request";
+    case json_message_type::admin_get_map_data_response:
+        return "admin_get_map_data_response";
+    case json_message_type::admin_subscribe_player_request:
+        return "admin_subscribe_player_request";
+    case json_message_type::admin_subscribe_player_response:
+        return "admin_subscribe_player_response";
+    case json_message_type::admin_unsubscribe_request:
+        return "admin_unsubscribe_request";
+    case json_message_type::admin_unsubscribe_response:
+        return "admin_unsubscribe_response";
+    case json_message_type::admin_spectator_init:
+        return "admin_spectator_init";
+    case json_message_type::admin_player_connected:
+        return "admin_player_connected";
+    case json_message_type::admin_player_disconnected:
+        return "admin_player_disconnected";
+    case json_message_type::admin_chat_log:
+        return "admin_chat_log";
+    case json_message_type::admin_broadcast_request:
+        return "admin_broadcast_request";
+    case json_message_type::admin_broadcast_response:
+        return "admin_broadcast_response";
+    case json_message_type::admin_mute_player_request:
+        return "admin_mute_player_request";
+    case json_message_type::admin_mute_player_response:
+        return "admin_mute_player_response";
+    case json_message_type::admin_unmute_player_request:
+        return "admin_unmute_player_request";
+    case json_message_type::admin_unmute_player_response:
+        return "admin_unmute_player_response";
+    case json_message_type::admin_list_item_templates_request:
+        return "admin_list_item_templates_request";
+    case json_message_type::admin_list_item_templates_response:
+        return "admin_list_item_templates_response";
+    case json_message_type::admin_get_item_template_request:
+        return "admin_get_item_template_request";
+    case json_message_type::admin_get_item_template_response:
+        return "admin_get_item_template_response";
+    case json_message_type::admin_list_npc_templates_request:
+        return "admin_list_npc_templates_request";
+    case json_message_type::admin_list_npc_templates_response:
+        return "admin_list_npc_templates_response";
+    case json_message_type::admin_get_npc_template_request:
+        return "admin_get_npc_template_request";
+    case json_message_type::admin_get_npc_template_response:
+        return "admin_get_npc_template_response";
+    case json_message_type::admin_get_war_status_request:
+        return "admin_get_war_status_request";
+    case json_message_type::admin_get_war_status_response:
+        return "admin_get_war_status_response";
+    case json_message_type::admin_list_parties_request:
+        return "admin_list_parties_request";
+    case json_message_type::admin_list_parties_response:
+        return "admin_list_parties_response";
+    case json_message_type::admin_search_players_request:
+        return "admin_search_players_request";
+    case json_message_type::admin_search_players_response:
+        return "admin_search_players_response";
+    case json_message_type::admin_get_audit_log_request:
+        return "admin_get_audit_log_request";
+    case json_message_type::admin_get_audit_log_response:
+        return "admin_get_audit_log_response";
+    case json_message_type::admin_get_config_request:
+        return "admin_get_config_request";
+    case json_message_type::admin_get_config_response:
+        return "admin_get_config_response";
+    case json_message_type::admin_set_config_request:
+        return "admin_set_config_request";
+    case json_message_type::admin_set_config_response:
+        return "admin_set_config_response";
+    case json_message_type::admin_reload_config_request:
+        return "admin_reload_config_request";
+    case json_message_type::admin_reload_config_response:
+        return "admin_reload_config_response";
+    case json_message_type::admin_list_scheduled_tasks_request:
+        return "admin_list_scheduled_tasks_request";
+    case json_message_type::admin_list_scheduled_tasks_response:
+        return "admin_list_scheduled_tasks_response";
+    case json_message_type::admin_cancel_scheduled_task_request:
+        return "admin_cancel_scheduled_task_request";
+    case json_message_type::admin_cancel_scheduled_task_response:
+        return "admin_cancel_scheduled_task_response";
+    case json_message_type::admin_run_query_request:
+        return "admin_run_query_request";
+    case json_message_type::admin_run_query_response:
+        return "admin_run_query_response";
+    case json_message_type::admin_list_map_npcs_request:
+        return "admin_list_map_npcs_request";
+    case json_message_type::admin_list_map_npcs_response:
+        return "admin_list_map_npcs_response";
+    case json_message_type::admin_list_map_ground_items_request:
+        return "admin_list_map_ground_items_request";
+    case json_message_type::admin_list_map_ground_items_response:
+        return "admin_list_map_ground_items_response";
+    case json_message_type::admin_remove_ground_item_request:
+        return "admin_remove_ground_item_request";
+    case json_message_type::admin_remove_ground_item_response:
+        return "admin_remove_ground_item_response";
+    case json_message_type::admin_guild_action_request:
+        return "admin_guild_action_request";
+    case json_message_type::admin_guild_action_response:
+        return "admin_guild_action_response";
+    case json_message_type::admin_message_player_request:
+        return "admin_message_player_request";
+    case json_message_type::admin_message_player_response:
+        return "admin_message_player_response";
+    case json_message_type::admin_set_environment_request:
+        return "admin_set_environment_request";
+    case json_message_type::admin_set_environment_response:
+        return "admin_set_environment_response";
+    case json_message_type::admin_shutdown_server_request:
+        return "admin_shutdown_server_request";
+    case json_message_type::admin_shutdown_server_response:
+        return "admin_shutdown_server_response";
+    case json_message_type::admin_modify_skills_request:
+        return "admin_modify_skills_request";
+    case json_message_type::admin_modify_skills_response:
+        return "admin_modify_skills_response";
+    case json_message_type::admin_modify_spells_request:
+        return "admin_modify_spells_request";
+    case json_message_type::admin_modify_spells_response:
+        return "admin_modify_spells_response";
+    case json_message_type::admin_get_player_quests_request:
+        return "admin_get_player_quests_request";
+    case json_message_type::admin_get_player_quests_response:
+        return "admin_get_player_quests_response";
+    case json_message_type::admin_quest_action_request:
+        return "admin_quest_action_request";
+    case json_message_type::admin_quest_action_response:
+        return "admin_quest_action_response";
+    case json_message_type::admin_remove_effects_request:
+        return "admin_remove_effects_request";
+    case json_message_type::admin_remove_effects_response:
+        return "admin_remove_effects_response";
+    case json_message_type::admin_create_account_request:
+        return "admin_create_account_request";
+    case json_message_type::admin_create_account_response:
+        return "admin_create_account_response";
+    case json_message_type::admin_change_password_request:
+        return "admin_change_password_request";
+    case json_message_type::admin_change_password_response:
+        return "admin_change_password_response";
+    case json_message_type::admin_set_admin_level_request:
+        return "admin_set_admin_level_request";
+    case json_message_type::admin_set_admin_level_response:
+        return "admin_set_admin_level_response";
+    case json_message_type::admin_list_spawn_points_request:
+        return "admin_list_spawn_points_request";
+    case json_message_type::admin_list_spawn_points_response:
+        return "admin_list_spawn_points_response";
+    case json_message_type::admin_list_spell_templates_request:
+        return "admin_list_spell_templates_request";
+    case json_message_type::admin_list_spell_templates_response:
+        return "admin_list_spell_templates_response";
+    case json_message_type::admin_get_spell_template_request:
+        return "admin_get_spell_template_request";
+    case json_message_type::admin_get_spell_template_response:
+        return "admin_get_spell_template_response";
+    case json_message_type::admin_set_maintenance_mode_request:
+        return "admin_set_maintenance_mode_request";
+    case json_message_type::admin_set_maintenance_mode_response:
+        return "admin_set_maintenance_mode_response";
+    case json_message_type::admin_create_character_request_admin:
+        return "admin_create_character_request_admin";
+    case json_message_type::admin_create_character_response_admin:
+        return "admin_create_character_response_admin";
+    case json_message_type::admin_delete_character_request_admin:
+        return "admin_delete_character_request_admin";
+    case json_message_type::admin_delete_character_response_admin:
+        return "admin_delete_character_response_admin";
+    case json_message_type::admin_manage_ip_bans_request:
+        return "admin_manage_ip_bans_request";
+    case json_message_type::admin_manage_ip_bans_response:
+        return "admin_manage_ip_bans_response";
+    case json_message_type::admin_start_task_request:
+        return "admin_start_task_request";
+    case json_message_type::admin_start_task_response:
+        return "admin_start_task_response";
+    case json_message_type::admin_perf_stats_request:
+        return "admin_perf_stats_request";
+    case json_message_type::admin_perf_stats_response:
+        return "admin_perf_stats_response";
+    case json_message_type::friend_request_send_request:
+        return "friend_request_send_request";
+    case json_message_type::friend_request_send_response:
+        return "friend_request_send_response";
+    case json_message_type::friend_request_accept_request:
+        return "friend_request_accept_request";
+    case json_message_type::friend_request_accept_response:
+        return "friend_request_accept_response";
+    case json_message_type::friend_request_decline_request:
+        return "friend_request_decline_request";
+    case json_message_type::friend_request_decline_response:
+        return "friend_request_decline_response";
+    case json_message_type::friend_request_cancel_request:
+        return "friend_request_cancel_request";
+    case json_message_type::friend_request_cancel_response:
+        return "friend_request_cancel_response";
+    case json_message_type::friend_remove_request:
+        return "friend_remove_request";
+    case json_message_type::friend_remove_response:
+        return "friend_remove_response";
+    case json_message_type::friend_block_request:
+        return "friend_block_request";
+    case json_message_type::friend_block_response:
+        return "friend_block_response";
+    case json_message_type::friend_unblock_request:
+        return "friend_unblock_request";
+    case json_message_type::friend_unblock_response:
+        return "friend_unblock_response";
+    case json_message_type::friend_list_request:
+        return "friend_list_request";
+    case json_message_type::friend_list_response:
+        return "friend_list_response";
+    case json_message_type::friend_request_notification:
+        return "friend_request_notification";
+    case json_message_type::friend_accepted_notification:
+        return "friend_accepted_notification";
+    case json_message_type::friend_online_notification:
+        return "friend_online_notification";
+    case json_message_type::friend_offline_notification:
+        return "friend_offline_notification";
+    case json_message_type::crusade_started:
+        return "crusade_started";
+    case json_message_type::crusade_ended:
+        return "crusade_ended";
+    case json_message_type::crusade_status_update:
+        return "crusade_status_update";
+    case json_message_type::select_duty_request:
+        return "select_duty_request";
+    case json_message_type::select_duty_response:
+        return "select_duty_response";
+    case json_message_type::crusade_strike_point_update:
+        return "crusade_strike_point_update";
+    case json_message_type::crusade_meteor_warning:
+        return "crusade_meteor_warning";
+    case json_message_type::crusade_meteor_hit:
+        return "crusade_meteor_hit";
+    case json_message_type::crusade_meteor_result:
+        return "crusade_meteor_result";
+    case json_message_type::crusade_mana_update:
+        return "crusade_mana_update";
+    case json_message_type::crusade_construction_point_update:
+        return "crusade_construction_point_update";
+    case json_message_type::summon_war_unit_request:
+        return "summon_war_unit_request";
+    case json_message_type::summon_war_unit_response:
+        return "summon_war_unit_response";
+    case json_message_type::crusade_map_status:
+        return "crusade_map_status";
+    case json_message_type::heldenian_started:
+        return "heldenian_started";
+    case json_message_type::heldenian_ended:
+        return "heldenian_ended";
+    case json_message_type::heldenian_status_update:
+        return "heldenian_status_update";
+    case json_message_type::apocalypse_started:
+        return "apocalypse_started";
+    case json_message_type::apocalypse_ended:
+        return "apocalypse_ended";
+    case json_message_type::apocalypse_gate_open:
+        return "apocalypse_gate_open";
+    case json_message_type::force_recall_timer:
+        return "force_recall_timer";
+    case json_message_type::force_recall_execute:
+        return "force_recall_execute";
+    case json_message_type::crusade_reward_summary:
+        return "crusade_reward_summary";
+    case json_message_type::admin_start_war_request:
+        return "admin_start_war_request";
+    case json_message_type::admin_start_war_response:
+        return "admin_start_war_response";
+    case json_message_type::admin_end_war_request:
+        return "admin_end_war_request";
+    case json_message_type::admin_end_war_response:
+        return "admin_end_war_response";
+    case json_message_type::admin_war_history_request:
+        return "admin_war_history_request";
+    case json_message_type::admin_war_history_response:
+        return "admin_war_history_response";
+    case json_message_type::admin_war_participants_request:
+        return "admin_war_participants_request";
+    case json_message_type::admin_war_participants_response:
+        return "admin_war_participants_response";
+    case json_message_type::admin_item_log_request:
+        return "admin_item_log_request";
+    case json_message_type::admin_item_log_response:
+        return "admin_item_log_response";
+    case json_message_type::crusade_set_guild_teleport_request:
+        return "crusade_set_guild_teleport_request";
+    case json_message_type::crusade_set_guild_teleport_response:
+        return "crusade_set_guild_teleport_response";
+    case json_message_type::crusade_guild_teleport_request:
+        return "crusade_guild_teleport_request";
+    case json_message_type::crusade_guild_teleport_response:
+        return "crusade_guild_teleport_response";
+    case json_message_type::crusade_mp_restore:
+        return "crusade_mp_restore";
+    case json_message_type::guild_create_request:
+        return "guild_create_request";
+    case json_message_type::guild_create_response:
+        return "guild_create_response";
+    case json_message_type::guild_disband_request:
+        return "guild_disband_request";
+    case json_message_type::guild_disband_response:
+        return "guild_disband_response";
+    case json_message_type::guild_leave_request:
+        return "guild_leave_request";
+    case json_message_type::guild_leave_response:
+        return "guild_leave_response";
+    case json_message_type::guild_kick_request:
+        return "guild_kick_request";
+    case json_message_type::guild_kick_response:
+        return "guild_kick_response";
+    case json_message_type::guild_invite_request:
+        return "guild_invite_request";
+    case json_message_type::guild_invite_response:
+        return "guild_invite_response";
+    case json_message_type::guild_invite_received:
+        return "guild_invite_received";
+    case json_message_type::guild_invite_respond_request:
+        return "guild_invite_respond_request";
+    case json_message_type::guild_invite_respond_response:
+        return "guild_invite_respond_response";
+    case json_message_type::guild_promote_request:
+        return "guild_promote_request";
+    case json_message_type::guild_promote_response:
+        return "guild_promote_response";
+    case json_message_type::guild_demote_request:
+        return "guild_demote_request";
+    case json_message_type::guild_demote_response:
+        return "guild_demote_response";
+    case json_message_type::guild_set_motd_request:
+        return "guild_set_motd_request";
+    case json_message_type::guild_set_motd_response:
+        return "guild_set_motd_response";
+    case json_message_type::guild_info_request:
+        return "guild_info_request";
+    case json_message_type::guild_info_response:
+        return "guild_info_response";
+    case json_message_type::guild_update:
+        return "guild_update";
+    case json_message_type::player_use_item_request:
+        return "player_use_item_request";
+    case json_message_type::player_use_item_response:
+        return "player_use_item_response";
+    case json_message_type::available_commands:
+        return "available_commands";
+    case json_message_type::command_availability_update:
+        return "command_availability_update";
+    case json_message_type::combat_mode_change_request:
+        return "combat_mode_change_request";
+    case json_message_type::combat_mode_change_response:
+        return "combat_mode_change_response";
+    case json_message_type::combat_mode_change_broadcast:
+        return "combat_mode_change_broadcast";
+    case json_message_type::player_action_broadcast:
+        return "player_action_broadcast";
+    case json_message_type::item_upgrade_request:
+        return "item_upgrade_request";
+    case json_message_type::item_upgrade_response:
+        return "item_upgrade_response";
+    case json_message_type::activate_ability_request:
+        return "activate_ability_request";
+    case json_message_type::activate_ability_response:
+        return "activate_ability_response";
+    case json_message_type::special_ability_status:
+        return "special_ability_status";
+    default:
+        return "unknown";
     }
 }
 
@@ -818,11 +1159,12 @@ enum class json_message_type {
 [[nodiscard]] auto parse_message_type(std::string_view type_str) -> json_message_type;
 
 // Base JSON message structure
-struct json_message {
+struct json_message
+{
     json_message_type type{json_message_type::unknown};
-    uint32_t seq{0};  // Sequence number for request/response matching
+    uint32_t seq{0}; // Sequence number for request/response matching
     nlohmann::json data;
-    std::string raw_type;  // Original type string from JSON (useful for debugging unknown types)
+    std::string raw_type; // Original type string from JSON (useful for debugging unknown types)
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<json_message, std::string>;
@@ -831,26 +1173,29 @@ struct json_message {
 
 // Request message structures
 
-struct login_request_data {
+struct login_request_data
+{
     std::string username;
-    std::string password;       // normal login (empty when using forum_token)
-    std::string forum_token;    // forum token-based auto-login (empty when using password)
+    std::string password;    // normal login (empty when using forum_token)
+    std::string forum_token; // forum token-based auto-login (empty when using password)
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<login_request_data, std::string>;
 };
 
-struct create_account_request_data {
+struct create_account_request_data
+{
     std::string username;
     std::string password;
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<create_account_request_data, std::string>;
 };
 
-struct create_character_request_data {
+struct create_character_request_data
+{
     std::string name;
     int16_t class_type{0};
     int16_t nation{0};
-    int16_t gender{1};       // 1 = male, 2 = female
+    int16_t gender{1}; // 1 = male, 2 = female
     int16_t hair_style{0};
     int16_t hair_color{0};
     int16_t skin_color{0};
@@ -866,176 +1211,192 @@ struct create_character_request_data {
     [[nodiscard]] auto to_create_info() const -> auth::character_create_info;
 };
 
-struct delete_character_request_data {
+struct delete_character_request_data
+{
     uint32_t character_id{0};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<delete_character_request_data, std::string>;
 };
 
-struct enter_game_request_data {
+struct enter_game_request_data
+{
     uint32_t character_id{0};
-    bool force_disconnect{false};  // If true, disconnect existing session for this account
-    int16_t screen_width{640};     // Client effective viewport width for visibility calculation
-    int16_t screen_height{480};    // Client effective viewport height for visibility calculation
+    bool force_disconnect{false}; // If true, disconnect existing session for this account
+    int16_t screen_width{640};    // Client effective viewport width for visibility calculation
+    int16_t screen_height{480};   // Client effective viewport height for visibility calculation
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<enter_game_request_data, std::string>;
 };
 
 // Set view range request from client (when resolution or view mode changes)
-struct set_view_range_request_data {
-    int16_t screen_width{640};     // Effective viewport width
-    int16_t screen_height{480};    // Effective viewport height
+struct set_view_range_request_data
+{
+    int16_t screen_width{640};  // Effective viewport width
+    int16_t screen_height{480}; // Effective viewport height
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<set_view_range_request_data, std::string>;
 };
 
 // Movement request from client
-struct player_move_request_data {
-    int16_t x{0};          // Current position for validation
+struct player_move_request_data
+{
+    int16_t x{0}; // Current position for validation
     int16_t y{0};
-    int16_t direction{0};  // Direction to move (0-7)
-    bool is_running{false}; // True if running (moves 2 tiles), false if walking (1 tile)
-    uint64_t timestamp{0}; // Client timestamp in ms
-    std::optional<int16_t> dest_x;  // Mouse destination tile X (optional)
-    std::optional<int16_t> dest_y;  // Mouse destination tile Y (optional)
+    int16_t direction{0};          // Direction to move (0-7)
+    bool is_running{false};        // True if running (moves 2 tiles), false if walking (1 tile)
+    uint64_t timestamp{0};         // Client timestamp in ms
+    std::optional<int16_t> dest_x; // Mouse destination tile X (optional)
+    std::optional<int16_t> dest_y; // Mouse destination tile Y (optional)
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_move_request_data, std::string>;
 };
 
 // Stop request from client
-struct player_stop_request_data {
-    int16_t x{0};          // Position where stopped
+struct player_stop_request_data
+{
+    int16_t x{0}; // Position where stopped
     int16_t y{0};
-    std::optional<int16_t> direction;  // Direction to face (0-7), optional
-    uint64_t timestamp{0}; // Client timestamp in ms
+    std::optional<int16_t> direction; // Direction to face (0-7), optional
+    uint64_t timestamp{0};            // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_stop_request_data, std::string>;
 };
 
 // Attack request from client
-struct player_attack_request_data {
-    int16_t x{0};              // Current position for validation
+struct player_attack_request_data
+{
+    int16_t x{0}; // Current position for validation
     int16_t y{0};
-    int16_t direction{0};      // Direction facing
+    int16_t direction{0}; // Direction facing
     attack_type type{attack_type::regular};
     target_type tgt_type{target_type::none};
-    uint32_t target_id{0};     // Target entity ID
-    uint64_t timestamp{0};     // Client timestamp in ms
+    uint32_t target_id{0}; // Target entity ID
+    uint64_t timestamp{0}; // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_attack_request_data, std::string>;
 };
 
 // Magic cast request from client
-struct player_magic_request_data {
-    int16_t x{0};              // Current position for validation
+struct player_magic_request_data
+{
+    int16_t x{0}; // Current position for validation
     int16_t y{0};
-    int16_t direction{0};      // Direction facing
-    uint32_t spell_id{0};      // Spell to cast
+    int16_t direction{0}; // Direction facing
+    uint32_t spell_id{0}; // Spell to cast
     target_type tgt_type{target_type::none};
-    uint32_t target_id{0};     // Target entity ID (for targeted spells)
-    int16_t target_x{0};       // Target location (for ground-targeted spells)
+    uint32_t target_id{0}; // Target entity ID (for targeted spells)
+    int16_t target_x{0};   // Target location (for ground-targeted spells)
     int16_t target_y{0};
-    uint64_t timestamp{0};     // Client timestamp in ms
+    uint64_t timestamp{0}; // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_magic_request_data, std::string>;
 };
 
 // Skill use request from client
-struct player_skill_request_data {
-    int16_t x{0};              // Current position for validation
+struct player_skill_request_data
+{
+    int16_t x{0}; // Current position for validation
     int16_t y{0};
-    int16_t direction{0};      // Direction facing
-    uint32_t skill_id{0};      // Skill to use
+    int16_t direction{0}; // Direction facing
+    uint32_t skill_id{0}; // Skill to use
     target_type tgt_type{target_type::none};
-    uint32_t target_id{0};     // Target entity ID (if applicable)
-    uint64_t timestamp{0};     // Client timestamp in ms
+    uint32_t target_id{0}; // Target entity ID (if applicable)
+    uint64_t timestamp{0}; // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_skill_request_data, std::string>;
 };
 
 // Pickup item request from client
-struct player_pickup_request_data {
-    int16_t x{0};              // Current position for validation
+struct player_pickup_request_data
+{
+    int16_t x{0}; // Current position for validation
     int16_t y{0};
-    uint32_t item_id{0};       // Ground item ID to pick up
-    uint64_t timestamp{0};     // Client timestamp in ms
+    uint32_t item_id{0};   // Ground item ID to pick up
+    uint64_t timestamp{0}; // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_pickup_request_data, std::string>;
 };
 
 // Interact request from client (NPC dialog, objects, etc.)
-struct player_interact_request_data {
-    int16_t x{0};              // Current position for validation
+struct player_interact_request_data
+{
+    int16_t x{0}; // Current position for validation
     int16_t y{0};
     target_type tgt_type{target_type::none};
-    uint32_t target_id{0};     // Target NPC or object ID
-    uint64_t timestamp{0};     // Client timestamp in ms
+    uint32_t target_id{0}; // Target NPC or object ID
+    uint64_t timestamp{0}; // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_interact_request_data, std::string>;
 };
 
 // Chat channel type for JSON protocol
-enum class chat_channel_type : uint8_t {
-    local = 0,          // Nearby players (default, no prefix)
-    shout = 1,          // Server-wide (! prefix)
-    guild = 2,          // Guild members (@ prefix)
-    party = 3,          // Party members ($ prefix)
-    whisper = 4,        // Private message (recipient name or # prefix)
-    global = 5,         // Global channel
-    trade = 6,          // Trade channel
-    faction = 7,        // Faction channel (Aresden/Elvine)
-    system = 8,         // System messages (server-generated only)
+enum class chat_channel_type : uint8_t
+{
+    local = 0,   // Nearby players (default, no prefix)
+    shout = 1,   // Server-wide (! prefix)
+    guild = 2,   // Guild members (@ prefix)
+    party = 3,   // Party members ($ prefix)
+    whisper = 4, // Private message (recipient name or # prefix)
+    global = 5,  // Global channel
+    trade = 6,   // Trade channel
+    faction = 7, // Faction channel (Aresden/Elvine)
+    system = 8,  // System messages (server-generated only)
 };
 
 // Chat message request from client
 // Client can send either:
 //   - Raw message with prefix: "!Hello everyone" -> shout
 //   - Explicit channel: {"channel": "guild", "content": "Hello guild"}
-struct chat_message_request_data {
-    std::string content;                        // Message content (may include prefix)
-    std::optional<std::string> channel;         // Explicit channel override
-    std::optional<std::string> recipient_name;  // For whispers
-    uint64_t timestamp{0};                      // Client timestamp in ms
+struct chat_message_request_data
+{
+    std::string content;                       // Message content (may include prefix)
+    std::optional<std::string> channel;        // Explicit channel override
+    std::optional<std::string> recipient_name; // For whispers
+    uint64_t timestamp{0};                     // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<chat_message_request_data, std::string>;
 };
 
 // Chat broadcast data (sent to recipients)
-struct chat_message_broadcast_data {
-    std::string channel;            // "local", "shout", "guild", "party", "whisper", etc.
-    uint32_t sender_id{0};          // Sender player ID (0 for system)
-    std::string sender_name;        // Sender display name
-    std::string content;            // Message content
-    std::vector<std::string> flags; // "emote", "censored", "system", "gm"
-    std::string timestamp;          // ISO 8601 timestamp
-    std::optional<std::string> recipient_name;  // For whisper (recipient sees their own name)
+struct chat_message_broadcast_data
+{
+    std::string channel;                       // "local", "shout", "guild", "party", "whisper", etc.
+    uint32_t sender_id{0};                     // Sender player ID (0 for system)
+    std::string sender_name;                   // Sender display name
+    std::string content;                       // Message content
+    std::vector<std::string> flags;            // "emote", "censored", "system", "gm"
+    std::string timestamp;                     // ISO 8601 timestamp
+    std::optional<std::string> recipient_name; // For whisper (recipient sees their own name)
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Command request from client (for /commands)
 // Commands are sent as structured data, not parsed from chat
-struct command_request_data {
-    std::string command;                        // Command name (without /)
-    std::vector<std::string> args;              // Command arguments
-    nlohmann::json params;                      // Named parameters (optional)
-    uint64_t timestamp{0};                      // Client timestamp in ms
+struct command_request_data
+{
+    std::string command;           // Command name (without /)
+    std::vector<std::string> args; // Command arguments
+    nlohmann::json params;         // Named parameters (optional)
+    uint64_t timestamp{0};         // Client timestamp in ms
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<command_request_data, std::string>;
 };
 
 // Command response to client
-struct command_response_data {
+struct command_response_data
+{
     bool success{false};
-    std::string command;                        // Echo back the command
-    std::string message;                        // Success/error message
-    nlohmann::json result;                      // Command-specific result data
+    std::string command;   // Echo back the command
+    std::string message;   // Success/error message
+    nlohmann::json result; // Command-specific result data
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Character data message (full character info for entering game)
-struct character_data_msg {
+struct character_data_msg
+{
     uint32_t id;
     std::string name;
     int16_t level;
@@ -1072,50 +1433,55 @@ struct character_data_msg {
 };
 
 // Inventory item for inventory_data message
-struct inventory_item_msg {
+struct inventory_item_msg
+{
     uint8_t slot;
     uint32_t item_id;
     std::string name;
     int16_t count;
     int16_t durability;
     int16_t max_durability;
-    item::item_attribute attribute{};  // Per-instance attribute data
+    item::item_attribute attribute{}; // Per-instance attribute data
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Equipment item for equipment_data message
-struct equipment_item_msg {
+struct equipment_item_msg
+{
     uint8_t slot;
     uint32_t item_id;
     std::string name;
     int16_t durability;
     int16_t max_durability;
-    item::item_attribute attribute{};  // Per-instance attribute data
+    item::item_attribute attribute{}; // Per-instance attribute data
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Visible entity for enter_game_response and entity_spawn messages
 // Equipment visual data for a single slot in entity spawns
-struct equip_visual_msg {
+struct equip_visual_msg
+{
     int8_t appr{0};
     int8_t color{0};
-    std::string name;       // Item name for tooltips
-    std::string rarity;     // "common".."ancient"
+    std::string name;   // Item name for tooltips
+    std::string rarity; // "common".."ancient"
 };
 
 // Active buff info for entity spawns
-struct buff_info_msg {
-    std::string type;           // spell_effect_type as string
+struct buff_info_msg
+{
+    std::string type; // spell_effect_type as string
     uint32_t spell_id{0};
     int32_t magnitude{0};
     int64_t remaining_ms{0};
 };
 
-struct visible_entity_msg {
+struct visible_entity_msg
+{
     uint32_t entity_id;
-    std::string type;  // "player" or "npc"
+    std::string type; // "player" or "npc"
     std::string name;
     int16_t x;
     int16_t y;
@@ -1123,20 +1489,20 @@ struct visible_entity_msg {
     int16_t direction;
 
     // Player-specific fields (optional, only used when type == "player")
-    std::string faction;         // "neutral", "aresden", "elvine"
-    std::string hostility;       // "enemy", "friendly", "neutral" (relative to viewing player)
-    std::string pk_status;       // "innocent", "criminal", "murderer"
-    std::string guild_name;      // Player's guild name (empty if no guild)
-    std::string guild_tag;       // Player's guild tag (empty if no guild)
-    bool combat_mode{false};     // true = attack stance, false = peace mode
+    std::string faction;     // "neutral", "aresden", "elvine"
+    std::string hostility;   // "enemy", "friendly", "neutral" (relative to viewing player)
+    std::string pk_status;   // "innocent", "criminal", "murderer"
+    std::string guild_name;  // Player's guild name (empty if no guild)
+    std::string guild_tag;   // Player's guild tag (empty if no guild)
+    bool combat_mode{false}; // true = attack stance, false = peace mode
 
     // Player base appearance
-    int8_t gender{0};           // 1=male, 2=female
-    int8_t skin_color{0};       // 1-3
-    int8_t hair_style{0};       // 0-7
-    int8_t hair_color{0};       // 0-15
-    int8_t underwear_color{0};  // 0-15
-    int16_t player_level{0};    // Player level
+    int8_t gender{0};          // 1=male, 2=female
+    int8_t skin_color{0};      // 1-3
+    int8_t hair_style{0};      // 0-7
+    int8_t hair_color{0};      // 0-15
+    int8_t underwear_color{0}; // 0-15
+    int16_t player_level{0};   // Player level
 
     // Player equipment visuals (pre-computed)
     equip_visual_msg weapon_visual;
@@ -1158,59 +1524,63 @@ struct visible_entity_msg {
 
     // NPC-specific fields (optional, only used when type == "npc")
     uint32_t template_id{0};
-    int16_t sprite_id{0};       // Legacy sprite type for client rendering (10=Slime, etc.)
+    int16_t sprite_id{0}; // Legacy sprite type for client rendering (10=Slime, etc.)
     int16_t level{0};
-    std::string category;        // "monster", "guard", "merchant", etc.
+    std::string category; // "monster", "guard", "merchant", etc.
 
-    bool is_dead{false};         // Entity is a corpse
+    bool is_dead{false}; // Entity is a corpse
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Attack result for attack response
-struct attack_result_msg {
+struct attack_result_msg
+{
     bool hit{false};
     bool critical{false};
     int32_t damage{0};
     uint32_t target_id{0};
-    int16_t target_hp{0};        // Target's remaining HP
-    int16_t target_hp_max{0};    // Target's max HP
-    int16_t attacker_x{0};       // Confirmed attacker position
+    int16_t target_hp{0};     // Target's remaining HP
+    int16_t target_hp_max{0}; // Target's max HP
+    int16_t attacker_x{0};    // Confirmed attacker position
     int16_t attacker_y{0};
 
     // Ranged combat fields (optional)
     bool is_ranged{false};
-    int32_t ammo_count{-1};          // Remaining arrows (-1 = not applicable)
-    uint32_t ammo_template_id{0};    // Arrow template that was consumed
+    int32_t ammo_count{-1};       // Remaining arrows (-1 = not applicable)
+    uint32_t ammo_template_id{0}; // Arrow template that was consumed
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Magic result for magic response
-struct magic_result_msg {
+struct magic_result_msg
+{
     bool success{false};
     uint32_t spell_id{0};
     int32_t mana_cost{0};
-    int32_t damage{0};           // If damage spell
-    int32_t heal{0};             // If heal spell
-    uint32_t target_id{0};       // If targeted
-    int16_t caster_mp{0};        // Remaining MP after cast
+    int32_t damage{0};     // If damage spell
+    int32_t heal{0};       // If heal spell
+    uint32_t target_id{0}; // If targeted
+    int16_t caster_mp{0};  // Remaining MP after cast
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Skill result for skill response
-struct skill_result_msg {
+struct skill_result_msg
+{
     bool success{false};
     uint32_t skill_id{0};
-    int32_t effect_value{0};     // Skill-specific effect
-    uint32_t target_id{0};       // If targeted
+    int32_t effect_value{0}; // Skill-specific effect
+    uint32_t target_id{0};   // If targeted
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Skill entry for skills_data message
-struct skill_entry_msg {
+struct skill_entry_msg
+{
     uint8_t skill_id{0};
     int16_t level{0};
     int32_t total_uses{0};
@@ -1219,30 +1589,33 @@ struct skill_entry_msg {
 };
 
 // Pickup result for pickup response
-struct pickup_result_msg {
+struct pickup_result_msg
+{
     bool success{false};
     uint32_t item_id{0};
     std::string item_name;
     int16_t quantity{0};
-    uint8_t inventory_slot{0};   // Where it was placed
+    uint8_t inventory_slot{0}; // Where it was placed
     item::item_attribute attribute{};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Interact result for interact response
-struct interact_result_msg {
+struct interact_result_msg
+{
     bool success{false};
     uint32_t target_id{0};
-    std::string interaction_type;  // "dialog", "shop", "bank", etc.
-    nlohmann::json interaction_data;  // Type-specific data
+    std::string interaction_type;    // "dialog", "shop", "bank", etc.
+    nlohmann::json interaction_data; // Type-specific data
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Teleporter info for map_teleporters message
-struct teleporter_info_msg {
-    uint32_t id{0};            // Computed from position (x << 16 | y)
+struct teleporter_info_msg
+{
+    uint32_t id{0}; // Computed from position (x << 16 | y)
     int16_t x{0};
     int16_t y{0};
     std::string dest_map;
@@ -1254,7 +1627,8 @@ struct teleporter_info_msg {
 };
 
 // Map teleporters message (full list for a map)
-struct map_teleporters_msg {
+struct map_teleporters_msg
+{
     std::string map_name;
     std::vector<teleporter_info_msg> teleporters;
 
@@ -1262,8 +1636,9 @@ struct map_teleporters_msg {
 };
 
 // Teleporter update message (live add/remove/modify)
-struct teleporter_update_msg {
-    std::string action;        // "add", "remove", "modify"
+struct teleporter_update_msg
+{
+    std::string action; // "add", "remove", "modify"
     std::string map_name;
     teleporter_info_msg teleporter;
 
@@ -1271,7 +1646,8 @@ struct teleporter_update_msg {
 };
 
 // Player teleport message (sent to player being teleported)
-struct player_teleport_msg {
+struct player_teleport_msg
+{
     std::string dest_map;
     int16_t dest_x{0};
     int16_t dest_y{0};
@@ -1281,32 +1657,37 @@ struct player_teleport_msg {
 
 // Response builders
 
-[[nodiscard]] auto make_error_response(uint32_t seq, std::string_view error_code,
-                                        std::string_view message) -> json_message;
+[[nodiscard]] auto
+make_error_response(uint32_t seq, std::string_view error_code, std::string_view message) -> json_message;
 
-[[nodiscard]] auto make_login_response(uint32_t seq, bool success,
-                                        std::optional<std::string_view> token = std::nullopt,
-                                        std::optional<std::string_view> error = std::nullopt,
-                                        std::optional<std::string_view> forum_token = std::nullopt) -> json_message;
+[[nodiscard]] auto make_login_response(uint32_t seq,
+                                       bool success,
+                                       std::optional<std::string_view> token = std::nullopt,
+                                       std::optional<std::string_view> error = std::nullopt,
+                                       std::optional<std::string_view> forum_token = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_create_account_response(uint32_t seq, bool success,
-                                                  std::optional<uint32_t> account_id = std::nullopt,
-                                                  std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_create_account_response(uint32_t seq,
+                                                bool success,
+                                                std::optional<uint32_t> account_id = std::nullopt,
+                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 [[nodiscard]] auto make_logout_response(uint32_t seq, bool success) -> json_message;
 
 [[nodiscard]] auto make_get_characters_response(uint32_t seq,
-                                                  const std::vector<auth::character_summary>& characters) -> json_message;
+                                                const std::vector<auth::character_summary>& characters) -> json_message;
 
-[[nodiscard]] auto make_create_character_response(uint32_t seq, bool success,
-                                                    std::optional<uint32_t> character_id = std::nullopt,
-                                                    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_create_character_response(uint32_t seq,
+                                                  bool success,
+                                                  std::optional<uint32_t> character_id = std::nullopt,
+                                                  std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_delete_character_response(uint32_t seq, bool success,
-                                                    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_delete_character_response(uint32_t seq,
+                                                  bool success,
+                                                  std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Known spell for enter_game_response
-struct known_spell_msg {
+struct known_spell_msg
+{
     uint16_t spell_id{0};
     int16_t level{1};
     int32_t total_casts{0};
@@ -1315,9 +1696,10 @@ struct known_spell_msg {
 };
 
 // Quest objective progress for enter_game_response
-struct quest_objective_msg {
+struct quest_objective_msg
+{
     uint16_t id{0};
-    uint8_t status{0};       // 0=incomplete, 1=complete, 2=failed
+    uint8_t status{0}; // 0=incomplete, 1=complete, 2=failed
     int32_t current{0};
     int32_t required{1};
 
@@ -1325,16 +1707,18 @@ struct quest_objective_msg {
 };
 
 // Active quest for enter_game_response
-struct active_quest_msg {
+struct active_quest_msg
+{
     uint16_t quest_id{0};
-    uint8_t status{0};       // quest_status enum
+    uint8_t status{0}; // quest_status enum
     std::vector<quest_objective_msg> objectives;
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Full game state for enter_game_response
-struct game_state_msg {
+struct game_state_msg
+{
     character_data_msg character;
     std::vector<inventory_item_msg> inventory;
     std::vector<equipment_item_msg> equipment;
@@ -1353,66 +1737,77 @@ struct game_state_msg {
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
-[[nodiscard]] auto make_enter_game_response(uint32_t seq, bool success,
-                                             const game_state_msg* game_state = nullptr,
-                                             std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_enter_game_response(uint32_t seq,
+                                            bool success,
+                                            const game_state_msg* game_state = nullptr,
+                                            std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_inventory_data(uint32_t seq,
-                                        const std::vector<inventory_item_msg>& items,
-                                        int32_t gold) -> json_message;
+[[nodiscard]] auto
+make_inventory_data(uint32_t seq, const std::vector<inventory_item_msg>& items, int32_t gold) -> json_message;
 
-[[nodiscard]] auto make_equipment_data(uint32_t seq,
-                                        const std::vector<equipment_item_msg>& equipped) -> json_message;
+[[nodiscard]] auto make_equipment_data(uint32_t seq, const std::vector<equipment_item_msg>& equipped) -> json_message;
 
-[[nodiscard]] auto make_skills_data(uint32_t seq,
-                                     const std::vector<skill_entry_msg>& skills) -> json_message;
+[[nodiscard]] auto make_skills_data(uint32_t seq, const std::vector<skill_entry_msg>& skills) -> json_message;
 
-[[nodiscard]] auto make_entity_spawn(uint32_t seq,
-                                      const visible_entity_msg& entity) -> json_message;
+[[nodiscard]] auto make_entity_spawn(uint32_t seq, const visible_entity_msg& entity) -> json_message;
 
 [[nodiscard]] auto make_entity_despawn(uint32_t seq, uint32_t entity_id) -> json_message;
 
 // Movement messages
-[[nodiscard]] auto make_player_move_response(uint32_t seq, bool success,
-                                              int16_t x, int16_t y, int16_t direction,
-                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_player_move_response(uint32_t seq,
+                                             bool success,
+                                             int16_t x,
+                                             int16_t y,
+                                             int16_t direction,
+                                             std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_player_stop_response(uint32_t seq, bool success,
-                                              int16_t x, int16_t y, int16_t direction,
-                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_player_stop_response(uint32_t seq,
+                                             bool success,
+                                             int16_t x,
+                                             int16_t y,
+                                             int16_t direction,
+                                             std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 [[nodiscard]] auto make_player_position_update(uint32_t entity_id,
-                                                int16_t x, int16_t y, int16_t direction,
-                                                bool is_running = false,
-                                                std::optional<int16_t> dest_x = std::nullopt,
-                                                std::optional<int16_t> dest_y = std::nullopt) -> json_message;
+                                               int16_t x,
+                                               int16_t y,
+                                               int16_t direction,
+                                               bool is_running = false,
+                                               std::optional<int16_t> dest_x = std::nullopt,
+                                               std::optional<int16_t> dest_y = std::nullopt) -> json_message;
 
 // Combat messages
-[[nodiscard]] auto make_player_attack_response(uint32_t seq, bool success,
-                                                const attack_result_msg* result = nullptr,
-                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_player_attack_response(uint32_t seq,
+                                               bool success,
+                                               const attack_result_msg* result = nullptr,
+                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
-                                                 int16_t attacker_x, int16_t attacker_y,
-                                                 int16_t target_x, int16_t target_y,
-                                                 int16_t direction,
-                                                 bool hit, bool critical, int32_t damage,
-                                                 projectile_type projectile = projectile_type::none) -> json_message;
+[[nodiscard]] auto make_combat_attack_broadcast(uint32_t attacker_id,
+                                                uint32_t target_id,
+                                                int16_t attacker_x,
+                                                int16_t attacker_y,
+                                                int16_t target_x,
+                                                int16_t target_y,
+                                                int16_t direction,
+                                                bool hit,
+                                                bool critical,
+                                                int32_t damage,
+                                                projectile_type projectile = projectile_type::none) -> json_message;
 
 [[nodiscard]] auto make_entity_hp_update(uint32_t entity_id, int32_t hp, int32_t hp_max) -> json_message;
 
-[[nodiscard]] auto make_entity_death(uint32_t victim_id, uint32_t killer_id,
-                                      int16_t x, int16_t y,
-                                      int32_t damage = 0) -> json_message;
+[[nodiscard]] auto
+make_entity_death(uint32_t victim_id, uint32_t killer_id, int16_t x, int16_t y, int32_t damage = 0) -> json_message;
 
 // Combat effect broadcast data (unified visual feedback for all combat/spell events)
-struct combat_effect_data {
+struct combat_effect_data
+{
     uint32_t source_id{0};
     uint32_t target_id{0};
-    std::string effect_type;     // "damage","heal","miss","dodge","block","resist","buff","debuff"
+    std::string effect_type; // "damage","heal","miss","dodge","block","resist","buff","debuff"
     int32_t value{0};
-    std::string damage_type;     // "physical","magic","fire","ice","lightning","poison","holy","dark","pure"
-    std::optional<uint32_t> spell_id;  // absent for melee
+    std::string damage_type;          // "physical","magic","fire","ice","lightning","poison","holy","dark","pure"
+    std::optional<uint32_t> spell_id; // absent for melee
     bool is_critical{false};
     int16_t target_x{0};
     int16_t target_y{0};
@@ -1423,38 +1818,44 @@ struct combat_effect_data {
 [[nodiscard]] auto make_combat_effect(const combat_effect_data& data) -> json_message;
 
 // Magic messages
-[[nodiscard]] auto make_player_magic_response(uint32_t seq, bool success,
-                                               const magic_result_msg* result = nullptr,
-                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_player_magic_response(uint32_t seq,
+                                              bool success,
+                                              const magic_result_msg* result = nullptr,
+                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Skill messages
-[[nodiscard]] auto make_player_skill_response(uint32_t seq, bool success,
-                                               const skill_result_msg* result = nullptr,
-                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_player_skill_response(uint32_t seq,
+                                              bool success,
+                                              const skill_result_msg* result = nullptr,
+                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Pickup messages
-[[nodiscard]] auto make_player_pickup_response(uint32_t seq, bool success,
-                                                const pickup_result_msg* result = nullptr,
-                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_player_pickup_response(uint32_t seq,
+                                               bool success,
+                                               const pickup_result_msg* result = nullptr,
+                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Interact messages
-[[nodiscard]] auto make_player_interact_response(uint32_t seq, bool success,
-                                                  const interact_result_msg* result = nullptr,
-                                                  std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_player_interact_response(uint32_t seq,
+                                                 bool success,
+                                                 const interact_result_msg* result = nullptr,
+                                                 std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 [[nodiscard]] auto make_pong_response(uint32_t seq) -> json_message;
 
 // Chat messages
-[[nodiscard]] auto make_chat_message_response(uint32_t seq, bool success,
-                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_chat_message_response(uint32_t seq,
+                                              bool success,
+                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 [[nodiscard]] auto make_chat_message_broadcast(const chat_message_broadcast_data& data) -> json_message;
 
 // Command messages
-[[nodiscard]] auto make_command_response(uint32_t seq, bool success,
-                                          std::string_view command,
-                                          std::string_view message,
-                                          const nlohmann::json& result = nlohmann::json::object()) -> json_message;
+[[nodiscard]] auto make_command_response(uint32_t seq,
+                                         bool success,
+                                         std::string_view command,
+                                         std::string_view message,
+                                         const nlohmann::json& result = nlohmann::json::object()) -> json_message;
 
 // Teleportation messages
 [[nodiscard]] auto make_map_teleporters(const map_teleporters_msg& data) -> json_message;
@@ -1464,10 +1865,11 @@ struct combat_effect_data {
 [[nodiscard]] auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json_message;
 
 // NPC spawn data
-struct npc_spawn_data {
+struct npc_spawn_data
+{
     uint32_t entity_id{0};
     uint32_t template_id{0};
-    int16_t sprite_id{0};       // Legacy sprite type for client rendering (10=Slime, etc.)
+    int16_t sprite_id{0}; // Legacy sprite type for client rendering (10=Slime, etc.)
     std::string name;
     int16_t x{0};
     int16_t y{0};
@@ -1475,19 +1877,21 @@ struct npc_spawn_data {
     int32_t hp{0};
     int32_t max_hp{0};
     int16_t level{0};
-    std::string category;        // "monster", "guard", "merchant", etc.
-    std::string hostility;       // "enemy", "friendly", "neutral" (relative to viewing player)
+    std::string category;  // "monster", "guard", "merchant", etc.
+    std::string hostility; // "enemy", "friendly", "neutral" (relative to viewing player)
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // NPC despawn data
-struct npc_despawn_data {
+struct npc_despawn_data
+{
     uint32_t entity_id{0};
 };
 
 // NPC move data
-struct npc_move_data {
+struct npc_move_data
+{
     uint32_t entity_id{0};
     int16_t x{0};
     int16_t y{0};
@@ -1497,12 +1901,13 @@ struct npc_move_data {
 };
 
 // NPC attack data
-struct npc_attack_data {
+struct npc_attack_data
+{
     uint32_t attacker_id{0};
     uint32_t target_id{0};
     int32_t damage{0};
     bool is_critical{false};
-    bool is_ranged{false};  // NPC ranged attack (sends projectile visual)
+    bool is_ranged{false}; // NPC ranged attack (sends projectile visual)
     int16_t attacker_x{0};
     int16_t attacker_y{0};
     int16_t target_x{0};
@@ -1518,15 +1923,16 @@ struct npc_attack_data {
 [[nodiscard]] auto make_npc_attack_message(const npc_attack_data& data) -> json_message;
 
 // Ground item spawn data (broadcast when item appears on ground)
-struct ground_item_spawn_data {
-    uint32_t item_id{0};         // Item instance ID
-    uint32_t template_id{0};     // Item template ID
-    std::string item_name;       // Item name for display
-    int16_t count{1};            // Stack count
-    int16_t x{0};                // Position
+struct ground_item_spawn_data
+{
+    uint32_t item_id{0};     // Item instance ID
+    uint32_t template_id{0}; // Item template ID
+    std::string item_name;   // Item name for display
+    int16_t count{1};        // Stack count
+    int16_t x{0};            // Position
     int16_t y{0};
-    item::item_attribute attribute{};  // Per-instance attribute data
-    std::string reason{"existing"};    // "drop" = live drop (play SFX), "existing" = already on ground
+    item::item_attribute attribute{}; // Per-instance attribute data
+    std::string reason{"existing"};   // "drop" = live drop (play SFX), "existing" = already on ground
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1535,12 +1941,13 @@ struct ground_item_spawn_data {
 [[nodiscard]] auto make_ground_item_spawn(const ground_item_spawn_data& data) -> json_message;
 
 // Ground item removed data (broadcast when item is picked up)
-struct ground_item_removed_data {
-    uint32_t picker_id{0};       // Player who picked up the item
-    std::string picker_name;     // Picker's name for display
-    uint32_t item_id{0};         // Item that was removed
-    std::string item_name;       // Item name for display
-    int16_t x{0};                // Position where item was
+struct ground_item_removed_data
+{
+    uint32_t picker_id{0};   // Player who picked up the item
+    std::string picker_name; // Picker's name for display
+    uint32_t item_id{0};     // Item that was removed
+    std::string item_name;   // Item name for display
+    int16_t x{0};            // Position where item was
     int16_t y{0};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
@@ -1550,13 +1957,14 @@ struct ground_item_removed_data {
 [[nodiscard]] auto make_ground_item_removed(const ground_item_removed_data& data) -> json_message;
 
 // Player death info data (sent to dead player)
-struct player_death_info_data {
+struct player_death_info_data
+{
     uint32_t killer_id{0};
     std::string killer_name;
     bool is_pvp{false};
     int64_t xp_lost{0};
-    int32_t pk_points_change{0};   // Positive = killer gained PK points
-    int32_t gold_reward{0};        // Gold earned for killing a PKer
+    int32_t pk_points_change{0}; // Positive = killer gained PK points
+    int32_t gold_reward{0};      // Gold earned for killing a PKer
     uint32_t respawn_delay_ms{0};
     std::string respawn_map;
     int16_t respawn_x{0};
@@ -1569,7 +1977,8 @@ struct player_death_info_data {
 [[nodiscard]] auto make_player_death_info(const player_death_info_data& data) -> json_message;
 
 // Hunger update data
-struct hunger_update_data {
+struct hunger_update_data
+{
     int8_t level{0};
     bool is_starving{false};
 
@@ -1580,11 +1989,12 @@ struct hunger_update_data {
 [[nodiscard]] auto make_hunger_update(int8_t level) -> json_message;
 
 // Environment update data (day/night + weather)
-struct environment_update_data {
-    uint8_t hour{0};       // 0-23
-    uint8_t minute{0};     // 0-59
+struct environment_update_data
+{
+    uint8_t hour{0};   // 0-23
+    uint8_t minute{0}; // 0-59
     bool is_day{true};
-    uint8_t weather{0};    // weather_type value (0-8)
+    uint8_t weather{0}; // weather_type value (0-8)
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1593,16 +2003,18 @@ struct environment_update_data {
 [[nodiscard]] auto make_environment_update(const environment_update_data& data) -> json_message;
 
 // Entity info request data
-struct entity_info_request_data {
+struct entity_info_request_data
+{
     uint32_t entity_id{0};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<entity_info_request_data, std::string>;
 };
 
 // Entity info response data
-struct entity_info_response_data {
+struct entity_info_response_data
+{
     uint32_t entity_id{0};
-    std::string entity_type;      // "player" or "npc"
+    std::string entity_type; // "player" or "npc"
     std::string name;
     int16_t level{0};
     int32_t hp{0};
@@ -1612,55 +2024,59 @@ struct entity_info_response_data {
     int16_t direction{0};
 
     // Player-specific fields
-    std::optional<std::string> faction;       // "aresden", "elvine", "neutral"
+    std::optional<std::string> faction; // "aresden", "elvine", "neutral"
     std::optional<std::string> guild_name;
     std::optional<int16_t> class_type;
     std::optional<int32_t> pk_count;
 
     // NPC-specific fields
     std::optional<uint32_t> template_id;
-    std::optional<int16_t> sprite_id;         // Legacy sprite type for client rendering
-    std::optional<std::string> npc_type;      // "monster", "vendor", "guard", etc.
+    std::optional<int16_t> sprite_id;    // Legacy sprite type for client rendering
+    std::optional<std::string> npc_type; // "monster", "vendor", "guard", etc.
 
     // Hostility (both player and NPC)
-    std::optional<std::string> hostility;     // "friendly", "hostile", "neutral"
+    std::optional<std::string> hostility; // "friendly", "hostile", "neutral"
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Entity info message builders
-[[nodiscard]] auto make_entity_info_response(uint32_t seq, bool success,
-                                              const entity_info_response_data* data = nullptr,
-                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_entity_info_response(uint32_t seq,
+                                             bool success,
+                                             const entity_info_response_data* data = nullptr,
+                                             std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // === Equipment: Equip/Unequip request/response data ===
 
 // Equip request from client
-struct player_equip_request_data {
-    int16_t inventory_slot{-1};  // Source inventory slot
-    uint8_t target_slot{0};      // Target equip_slot
+struct player_equip_request_data
+{
+    int16_t inventory_slot{-1}; // Source inventory slot
+    uint8_t target_slot{0};     // Target equip_slot
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_equip_request_data, std::string>;
 };
 
 // Unequip request from client
-struct player_unequip_request_data {
-    uint8_t equip_slot{0};       // Slot to unequip
+struct player_unequip_request_data
+{
+    uint8_t equip_slot{0}; // Slot to unequip
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_unequip_request_data, std::string>;
 };
 
 // Equip result response
-struct equip_result_msg {
+struct equip_result_msg
+{
     bool success{false};
     uint8_t slot{0};
     uint32_t item_id{0};
     std::string item_name;
     int16_t durability{0};
     int16_t max_durability{0};
-    std::optional<uint32_t> swapped_item_id;       // Old item returned to inventory
-    std::optional<uint8_t> swapped_to_inv_slot;     // Where old item went
-    std::optional<uint32_t> unequipped_shield_id;   // If 2H forced shield removal
+    std::optional<uint32_t> swapped_item_id;      // Old item returned to inventory
+    std::optional<uint8_t> swapped_to_inv_slot;   // Where old item went
+    std::optional<uint32_t> unequipped_shield_id; // If 2H forced shield removal
     std::optional<uint8_t> shield_to_inv_slot;
     item::item_attribute attribute{};
     std::string error;
@@ -1669,12 +2085,13 @@ struct equip_result_msg {
 };
 
 // Unequip result response
-struct unequip_result_msg {
+struct unequip_result_msg
+{
     bool success{false};
     uint8_t slot{0};
     uint32_t item_id{0};
     std::string item_name;
-    uint8_t inventory_slot{0};   // Where it was placed
+    uint8_t inventory_slot{0}; // Where it was placed
     item::item_attribute attribute{};
     std::string error;
 
@@ -1682,17 +2099,19 @@ struct unequip_result_msg {
 };
 
 // Equipment change broadcast to nearby players
-struct equipment_change_broadcast_data {
-    uint32_t entity_id{0};       // Player's ECS entity ID (client-facing)
+struct equipment_change_broadcast_data
+{
+    uint32_t entity_id{0}; // Player's ECS entity ID (client-facing)
     uint8_t slot{0};
-    uint32_t item_id{0};         // 0 = now empty
-    uint32_t template_id{0};     // For client sprite lookup
+    uint32_t item_id{0};     // 0 = now empty
+    uint32_t template_id{0}; // For client sprite lookup
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Stat update sent to equipping player after equipment change
-struct stat_update_data {
+struct stat_update_data
+{
     int32_t max_hp{0};
     int32_t max_mp{0};
     int32_t max_sp{0};
@@ -1731,7 +2150,8 @@ struct stat_update_data {
 // === NPC Interaction: Shop request/response data ===
 
 // Shop buy request from client
-struct shop_buy_request_data {
+struct shop_buy_request_data
+{
     uint32_t npc_entity_id{0};
     uint32_t item_template_id{0};
     int16_t count{1};
@@ -1740,7 +2160,8 @@ struct shop_buy_request_data {
 };
 
 // Shop sell request from client (requests a price quote)
-struct shop_sell_request_data {
+struct shop_sell_request_data
+{
     uint32_t npc_entity_id{0};
     int16_t inventory_slot{-1};
     int16_t count{1};
@@ -1749,7 +2170,8 @@ struct shop_sell_request_data {
 };
 
 // Shop sell confirm request from client
-struct shop_sell_confirm_request_data {
+struct shop_sell_confirm_request_data
+{
     uint32_t npc_entity_id{0};
     int16_t inventory_slot{-1};
     int16_t count{1};
@@ -1758,7 +2180,8 @@ struct shop_sell_confirm_request_data {
 };
 
 // Shop repair request from client (requests a cost quote)
-struct shop_repair_request_data {
+struct shop_repair_request_data
+{
     uint32_t npc_entity_id{0};
     int16_t inventory_slot{-1};
 
@@ -1766,15 +2189,18 @@ struct shop_repair_request_data {
 };
 
 // Shop repair confirm request from client
-struct shop_repair_confirm_request_data {
+struct shop_repair_confirm_request_data
+{
     uint32_t npc_entity_id{0};
     int16_t inventory_slot{-1};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_repair_confirm_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<shop_repair_confirm_request_data, std::string>;
 };
 
 // Bank deposit request from client
-struct bank_deposit_request_data {
+struct bank_deposit_request_data
+{
     uint32_t npc_entity_id{0};
     int16_t inventory_slot{-1};
 
@@ -1782,7 +2208,8 @@ struct bank_deposit_request_data {
 };
 
 // Bank withdraw request from client
-struct bank_withdraw_request_data {
+struct bank_withdraw_request_data
+{
     uint32_t npc_entity_id{0};
     int16_t bank_slot{-1};
 
@@ -1790,7 +2217,8 @@ struct bank_withdraw_request_data {
 };
 
 // Dialog choice request from client
-struct dialog_choice_request_data {
+struct dialog_choice_request_data
+{
     uint32_t npc_entity_id{0};
     std::string node_id;
     int16_t choice_index{0};
@@ -1801,52 +2229,62 @@ struct dialog_choice_request_data {
 // === NPC Interaction response builders ===
 
 // Shop buy response
-[[nodiscard]] auto make_shop_buy_response(uint32_t seq, bool success,
-                                           std::string_view item_name = "",
-                                           int16_t count = 0,
-                                           int32_t price_paid = 0,
-                                           int64_t gold_remaining = 0,
-                                           std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_shop_buy_response(uint32_t seq,
+                                          bool success,
+                                          std::string_view item_name = "",
+                                          int16_t count = 0,
+                                          int32_t price_paid = 0,
+                                          int64_t gold_remaining = 0,
+                                          std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Shop sell quote response
-[[nodiscard]] auto make_shop_sell_response(uint32_t seq, bool success,
-                                            std::string_view item_name = "",
-                                            int32_t offered_price = 0,
-                                            int16_t durability = 0,
-                                            std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_shop_sell_response(uint32_t seq,
+                                           bool success,
+                                           std::string_view item_name = "",
+                                           int32_t offered_price = 0,
+                                           int16_t durability = 0,
+                                           std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Shop sell confirm response
-[[nodiscard]] auto make_shop_sell_confirm_response(uint32_t seq, bool success,
-                                                    int32_t gold_received = 0,
-                                                    int64_t gold_total = 0,
-                                                    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto
+make_shop_sell_confirm_response(uint32_t seq,
+                                bool success,
+                                int32_t gold_received = 0,
+                                int64_t gold_total = 0,
+                                std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Shop repair quote response
-[[nodiscard]] auto make_shop_repair_response(uint32_t seq, bool success,
-                                              std::string_view item_name = "",
-                                              int32_t repair_cost = 0,
-                                              int16_t durability = 0,
-                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_shop_repair_response(uint32_t seq,
+                                             bool success,
+                                             std::string_view item_name = "",
+                                             int32_t repair_cost = 0,
+                                             int16_t durability = 0,
+                                             std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Shop repair confirm response
-[[nodiscard]] auto make_shop_repair_confirm_response(uint32_t seq, bool success,
-                                                      int16_t new_durability = 0,
-                                                      int32_t gold_spent = 0,
-                                                      int64_t gold_remaining = 0,
-                                                      std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto
+make_shop_repair_confirm_response(uint32_t seq,
+                                  bool success,
+                                  int16_t new_durability = 0,
+                                  int32_t gold_spent = 0,
+                                  int64_t gold_remaining = 0,
+                                  std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Bank deposit response
-[[nodiscard]] auto make_bank_deposit_response(uint32_t seq, bool success,
+[[nodiscard]] auto make_bank_deposit_response(uint32_t seq,
+                                              bool success,
+                                              std::string_view item_name = "",
+                                              std::optional<std::string_view> error = std::nullopt) -> json_message;
+
+// Bank withdraw response
+[[nodiscard]] auto make_bank_withdraw_response(uint32_t seq,
+                                               bool success,
                                                std::string_view item_name = "",
                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-// Bank withdraw response
-[[nodiscard]] auto make_bank_withdraw_response(uint32_t seq, bool success,
-                                                std::string_view item_name = "",
-                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
-
 // Dialog choice response - returns next dialog state or action result
-struct dialog_option_msg {
+struct dialog_option_msg
+{
     std::string label;
     std::string action;
     std::string next_node;
@@ -1854,12 +2292,13 @@ struct dialog_option_msg {
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
-[[nodiscard]] auto make_dialog_choice_response(uint32_t seq, bool success,
-                                                std::string_view action = "",
-                                                std::string_view node_id = "",
-                                                std::string_view text = "",
-                                                const std::vector<dialog_option_msg>& options = {},
-                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_dialog_choice_response(uint32_t seq,
+                                               bool success,
+                                               std::string_view action = "",
+                                               std::string_view node_id = "",
+                                               std::string_view text = "",
+                                               const std::vector<dialog_option_msg>& options = {},
+                                               std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // === View Mode & Visibility ===
 
@@ -1878,17 +2317,23 @@ enum class view_mode : uint8_t
 {
     switch (mode)
     {
-        case view_mode::scaled: return "scaled";
-        case view_mode::extended: return "extended";
-        case view_mode::special: return "special";
-        default: return "scaled";
+    case view_mode::scaled:
+        return "scaled";
+    case view_mode::extended:
+        return "extended";
+    case view_mode::special:
+        return "special";
+    default:
+        return "scaled";
     }
 }
 
 [[nodiscard]] inline auto parse_view_mode(std::string_view str) -> view_mode
 {
-    if (str == "extended") return view_mode::extended;
-    if (str == "special") return view_mode::special;
+    if (str == "extended")
+        return view_mode::extended;
+    if (str == "special")
+        return view_mode::special;
     return view_mode::scaled;
 }
 
@@ -1896,8 +2341,8 @@ enum class view_mode : uint8_t
 struct render_mode_data
 {
     view_mode mode{view_mode::scaled};
-    int16_t fair_width{800};     // Fair zone width in pixels
-    int16_t fair_height{600};    // Fair zone height in pixels
+    int16_t fair_width{800};  // Fair zone width in pixels
+    int16_t fair_height{600}; // Fair zone height in pixels
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1908,7 +2353,7 @@ struct render_mode_data
 // Visibility range constants
 inline constexpr int16_t min_visibility_radius = 15;
 inline constexpr int16_t max_visibility_radius = 80;
-inline constexpr float visibility_buffer_ratio = 0.2f;  // 20% proportional buffer
+inline constexpr float visibility_buffer_ratio = 0.2f; // 20% proportional buffer
 inline constexpr int pixels_per_tile = 32;
 
 // Separate X/Y visibility radii matching the rectangular viewport
@@ -1936,49 +2381,48 @@ struct visibility_radii
     auto rx = static_cast<int16_t>(base_x + buffer_x);
     auto ry = static_cast<int16_t>(base_y + buffer_y);
 
-    return {
-        std::clamp(rx, min_visibility_radius, max_visibility_radius),
-        std::clamp(ry, min_visibility_radius, max_visibility_radius)
-    };
+    return {std::clamp(rx, min_visibility_radius, max_visibility_radius),
+            std::clamp(ry, min_visibility_radius, max_visibility_radius)};
 }
 
 // === Crafting: Manufacturing request/response data ===
 
 // Manufacture request from client
-struct manufacture_request_data {
+struct manufacture_request_data
+{
     int32_t recipe_index{-1};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<manufacture_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<manufacture_request_data, std::string>;
 };
 
 // Alchemy request from client
-struct alchemy_request_data {
+struct alchemy_request_data
+{
     int32_t recipe_id{-1};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<alchemy_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<alchemy_request_data, std::string>;
 };
 
 // Crafting response builders
-[[nodiscard]] auto make_manufacture_list_response(uint32_t seq,
-    const nlohmann::json& recipes) -> json_message;
+[[nodiscard]] auto make_manufacture_list_response(uint32_t seq, const nlohmann::json& recipes) -> json_message;
 
-[[nodiscard]] auto make_manufacture_response(uint32_t seq, bool success,
-    std::string_view item_name = "",
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_manufacture_response(uint32_t seq,
+                                             bool success,
+                                             std::string_view item_name = "",
+                                             std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_alchemy_list_response(uint32_t seq,
-    const nlohmann::json& recipes) -> json_message;
+[[nodiscard]] auto make_alchemy_list_response(uint32_t seq, const nlohmann::json& recipes) -> json_message;
 
-[[nodiscard]] auto make_alchemy_response(uint32_t seq, bool success,
-    std::string_view item_name = "",
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_alchemy_response(uint32_t seq,
+                                         bool success,
+                                         std::string_view item_name = "",
+                                         std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // === Death/Respawn response data ===
 
 // Respawn response sent to client after successful respawn
-struct respawn_response_data {
+struct respawn_response_data
+{
     bool success{false};
     std::string map_name;
     int16_t x{0};
@@ -1988,63 +2432,64 @@ struct respawn_response_data {
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
-[[nodiscard]] auto make_respawn_response(uint32_t seq, bool success,
-    std::string_view map_name = "",
-    int16_t x = 0, int16_t y = 0,
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_respawn_response(uint32_t seq,
+                                         bool success,
+                                         std::string_view map_name = "",
+                                         int16_t x = 0,
+                                         int16_t y = 0,
+                                         std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // === Mining request/response data ===
 
 // Mine request from client
-struct mine_request_data {
+struct mine_request_data
+{
     int16_t target_x{};
     int16_t target_y{};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<mine_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<mine_request_data, std::string>;
 };
 
 // Mining response builders
-[[nodiscard]] auto make_mine_response(uint32_t seq, bool success,
-    std::string_view item_name = "",
-    int32_t template_id = 0,
-    bool node_depleted = false,
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_mine_response(uint32_t seq,
+                                      bool success,
+                                      std::string_view item_name = "",
+                                      int32_t template_id = 0,
+                                      bool node_depleted = false,
+                                      std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_mineral_spawn(uint32_t node_id, uint8_t mineral_type,
-    int16_t x, int16_t y) -> json_message;
+[[nodiscard]] auto make_mineral_spawn(uint32_t node_id, uint8_t mineral_type, int16_t x, int16_t y) -> json_message;
 
-[[nodiscard]] auto make_mineral_despawn(uint32_t node_id,
-    int16_t x, int16_t y) -> json_message;
+[[nodiscard]] auto make_mineral_despawn(uint32_t node_id, int16_t x, int16_t y) -> json_message;
 
 // === Fishing request/response data ===
 
 // Fish skill response (ack or error)
-[[nodiscard]] auto make_fish_skill_response(uint32_t seq, bool success,
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_fish_skill_response(uint32_t seq,
+                                            bool success,
+                                            std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Fish engaged: fish found, show preview dialog
 [[nodiscard]] auto make_fish_engaged(entity_id player_eid,
-    std::string_view fish_name, uint8_t visual_type,
-    int32_t initial_chance) -> json_message;
+                                     std::string_view fish_name,
+                                     uint8_t visual_type,
+                                     int32_t initial_chance) -> json_message;
 
 // Fish chance update: periodic catch % update
-[[nodiscard]] auto make_fish_chance_update(entity_id player_eid,
-    int32_t catch_chance) -> json_message;
+[[nodiscard]] auto make_fish_chance_update(entity_id player_eid, int32_t catch_chance) -> json_message;
 
 // Fish catch result: success/fail/canceled
 [[nodiscard]] auto make_fish_catch_response(entity_id player_eid,
-    std::string_view result_str,
-    std::string_view item_name = "",
-    int32_t template_id = 0) -> json_message;
+                                            std::string_view result_str,
+                                            std::string_view item_name = "",
+                                            int32_t template_id = 0) -> json_message;
 
 // Fish spawn broadcast
-[[nodiscard]] auto make_fish_spawn_broadcast(uint32_t fish_index,
-    uint8_t visual_type, int16_t x, int16_t y) -> json_message;
+[[nodiscard]] auto
+make_fish_spawn_broadcast(uint32_t fish_index, uint8_t visual_type, int16_t x, int16_t y) -> json_message;
 
 // Fish despawn broadcast
-[[nodiscard]] auto make_fish_despawn_broadcast(uint32_t fish_index,
-    int16_t x, int16_t y) -> json_message;
+[[nodiscard]] auto make_fish_despawn_broadcast(uint32_t fish_index, int16_t x, int16_t y) -> json_message;
 
 // === Friend system data structures and builders ===
 
@@ -2052,13 +2497,12 @@ struct friend_target_request_data
 {
     std::string target_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<friend_target_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<friend_target_request_data, std::string>;
 };
 
 // Friend list response builder
-[[nodiscard]] auto make_friend_response(uint32_t seq, json_message_type type,
-    bool success, std::string_view error = "") -> json_message;
+[[nodiscard]] auto
+make_friend_response(uint32_t seq, json_message_type type, bool success, std::string_view error = "") -> json_message;
 
 struct friend_list_entry_msg
 {
@@ -2073,10 +2517,10 @@ struct friend_request_msg
 };
 
 [[nodiscard]] auto make_friend_list_response(uint32_t seq,
-    const std::vector<friend_list_entry_msg>& friends,
-    const std::vector<friend_request_msg>& incoming_requests,
-    const std::vector<friend_request_msg>& outgoing_requests,
-    const std::vector<std::string>& blocked) -> json_message;
+                                             const std::vector<friend_list_entry_msg>& friends,
+                                             const std::vector<friend_request_msg>& incoming_requests,
+                                             const std::vector<friend_request_msg>& outgoing_requests,
+                                             const std::vector<std::string>& blocked) -> json_message;
 
 [[nodiscard]] auto make_friend_request_notification(std::string_view requester_name) -> json_message;
 [[nodiscard]] auto make_friend_accepted_notification(std::string_view friend_name) -> json_message;
@@ -2090,24 +2534,21 @@ struct guild_create_request_data
     std::string name;
     std::string tag;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<guild_create_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<guild_create_request_data, std::string>;
 };
 
 struct guild_target_request_data
 {
     std::string target_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<guild_target_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<guild_target_request_data, std::string>;
 };
 
 struct guild_set_motd_request_data
 {
     std::string motd;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<guild_set_motd_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<guild_set_motd_request_data, std::string>;
 };
 
 struct guild_member_info_msg
@@ -2124,31 +2565,38 @@ struct guild_invite_respond_request_data
 {
     bool accept{false};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<guild_invite_respond_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<guild_invite_respond_request_data, std::string>;
 };
 
 // Guild invite received notification (pushed to target, unsolicited)
 [[nodiscard]] auto make_guild_invite_received(const std::string& guild_name,
-    const std::string& guild_tag, const std::string& inviter_name) -> json_message;
+                                              const std::string& guild_tag,
+                                              const std::string& inviter_name) -> json_message;
 
 // Generic guild response builder (like make_friend_response)
-[[nodiscard]] auto make_guild_response(uint32_t seq, json_message_type type,
-    bool success, std::string_view error = {},
-    const nlohmann::json& extra = {}) -> json_message;
+[[nodiscard]] auto make_guild_response(uint32_t seq,
+                                       json_message_type type,
+                                       bool success,
+                                       std::string_view error = {},
+                                       const nlohmann::json& extra = {}) -> json_message;
 
 // Guild info response with full member list
-[[nodiscard]] auto make_guild_info_response(uint32_t seq, bool success,
-    const std::string& guild_name = {}, const std::string& tag = {},
-    const std::string& motd = {}, size_t member_count = 0,
-    const std::string& master_name = {},
-    const std::vector<guild_member_info_msg>& members = {},
-    std::string_view error = {}) -> json_message;
+[[nodiscard]] auto make_guild_info_response(uint32_t seq,
+                                            bool success,
+                                            const std::string& guild_name = {},
+                                            const std::string& tag = {},
+                                            const std::string& motd = {},
+                                            size_t member_count = 0,
+                                            const std::string& master_name = {},
+                                            const std::vector<guild_member_info_msg>& members = {},
+                                            std::string_view error = {}) -> json_message;
 
 // Guild update broadcast (unsolicited, no seq)
 [[nodiscard]] auto make_guild_update(const std::string& action,
-    const std::string& guild_name, const std::string& player_name = {},
-    const nlohmann::json& extra = {}) -> json_message;
+                                     const std::string& guild_name,
+                                     const std::string& player_name = {},
+                                     const nlohmann::json& extra = {}) -> json_message;
 
 // === Use item data structures and builders ===
 
@@ -2156,262 +2604,289 @@ struct use_item_request_data
 {
     int16_t slot{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<use_item_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<use_item_request_data, std::string>;
 };
 
-[[nodiscard]] auto make_use_item_response(uint32_t seq, bool success,
-    const std::string& item_name = {}, const std::string& effect = {},
-    int32_t amount = 0, int32_t current = 0, int32_t max = 0,
-    std::string_view error = {}) -> json_message;
+[[nodiscard]] auto make_use_item_response(uint32_t seq,
+                                          bool success,
+                                          const std::string& item_name = {},
+                                          const std::string& effect = {},
+                                          int32_t amount = 0,
+                                          int32_t current = 0,
+                                          int32_t max = 0,
+                                          std::string_view error = {}) -> json_message;
 
 // === Crusade warfare builders ===
 
-[[nodiscard]] auto make_select_duty_response(uint32_t seq, bool success,
-    uint8_t duty = 0, int32_t construction_points = 0,
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_select_duty_response(uint32_t seq,
+                                             bool success,
+                                             uint8_t duty = 0,
+                                             int32_t construction_points = 0,
+                                             std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_summon_war_unit_response(uint32_t seq, bool success,
-    uint8_t unit_type = 0, int32_t remaining_points = 0,
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_summon_war_unit_response(uint32_t seq,
+                                                 bool success,
+                                                 uint8_t unit_type = 0,
+                                                 int32_t remaining_points = 0,
+                                                 std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // War reward summary builder (sent to each participant at war end)
 // winner_faction: 0=neutral/draw, 1=aresden, 2=elvine
 [[nodiscard]] auto make_crusade_reward_summary(uint32_t seq,
-    uint8_t winner_faction, int32_t contribution, int64_t reward_exp,
-    int64_t reward_gold, int32_t reward_contribution) -> json_message;
+                                               uint8_t winner_faction,
+                                               int32_t contribution,
+                                               int64_t reward_exp,
+                                               int64_t reward_gold,
+                                               int32_t reward_contribution) -> json_message;
 
 // Guild teleport response builders
-[[nodiscard]] auto make_set_guild_teleport_response(uint32_t seq, bool success,
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_set_guild_teleport_response(
+    uint32_t seq, bool success, std::optional<std::string_view> error = std::nullopt) -> json_message;
 
-[[nodiscard]] auto make_guild_teleport_response(uint32_t seq, bool success,
-    const std::string& map = {}, int16_t x = 0, int16_t y = 0,
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_guild_teleport_response(uint32_t seq,
+                                                bool success,
+                                                const std::string& map = {},
+                                                int16_t x = 0,
+                                                int16_t y = 0,
+                                                std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Mana collector MP restoration broadcast
-[[nodiscard]] auto make_crusade_mp_restore(int16_t source_x, int16_t source_y,
-    int32_t radius, int32_t your_restore) -> json_message;
+[[nodiscard]] auto
+make_crusade_mp_restore(int16_t source_x, int16_t source_y, int32_t radius, int32_t your_restore) -> json_message;
 
 // === Admin Web Tool data structures and builders ===
 
 // Enter admin mode response builder
-[[nodiscard]] auto make_enter_admin_mode_response(uint32_t seq, bool success,
-    uint8_t admin_level = 0,
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_enter_admin_mode_response(uint32_t seq,
+                                                  bool success,
+                                                  uint8_t admin_level = 0,
+                                                  std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Admin get player request
-struct admin_get_player_request_data {
-    std::string player_name;  // Look up by name (preferred) or ID
+struct admin_get_player_request_data
+{
+    std::string player_name; // Look up by name (preferred) or ID
     uint32_t player_id{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_player_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_get_player_request_data, std::string>;
 };
 
 // Admin kick player request
-struct admin_kick_player_request_data {
+struct admin_kick_player_request_data
+{
     std::string player_name;
     std::string reason;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_kick_player_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_kick_player_request_data, std::string>;
 };
 
 // Admin ban player request
-struct admin_ban_player_request_data {
+struct admin_ban_player_request_data
+{
     std::string player_name;
     std::string reason;
-    int32_t duration_hours{0};  // 0 = permanent
+    int32_t duration_hours{0}; // 0 = permanent
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_ban_player_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_ban_player_request_data, std::string>;
 };
 
 // Admin unban player request
-struct admin_unban_player_request_data {
+struct admin_unban_player_request_data
+{
     std::string player_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_unban_player_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_unban_player_request_data, std::string>;
 };
 
 // Admin teleport player request
-struct admin_teleport_player_request_data {
+struct admin_teleport_player_request_data
+{
     std::string player_name;
     std::string dest_map;
     int16_t dest_x{0};
     int16_t dest_y{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_teleport_player_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_teleport_player_request_data, std::string>;
 };
 
 // Admin modify player request
-struct admin_modify_player_request_data {
+struct admin_modify_player_request_data
+{
     std::string player_name;
-    nlohmann::json modifications;  // {"hp": 100, "level": 50, "gold": 1000, ...}
+    nlohmann::json modifications; // {"hp": 100, "level": 50, "gold": 1000, ...}
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_modify_player_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_modify_player_request_data, std::string>;
 };
 
 // Admin get map request
-struct admin_get_map_request_data {
+struct admin_get_map_request_data
+{
     std::string map_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_map_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_get_map_request_data, std::string>;
 };
 
 // Admin spawn NPC request
-struct admin_spawn_npc_request_data {
+struct admin_spawn_npc_request_data
+{
     std::string npc_name;
     std::string map_name;
     int16_t x{0};
     int16_t y{0};
     int16_t count{1};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_spawn_npc_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_spawn_npc_request_data, std::string>;
 };
 
 // Admin kill NPC request
-struct admin_kill_npc_request_data {
+struct admin_kill_npc_request_data
+{
     uint32_t entity_id{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_kill_npc_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_kill_npc_request_data, std::string>;
 };
 
 // Admin get inventory request
-struct admin_get_inventory_request_data {
+struct admin_get_inventory_request_data
+{
     std::string player_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_inventory_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_get_inventory_request_data, std::string>;
 };
 
 // Admin give item request
-struct admin_give_item_request_data {
+struct admin_give_item_request_data
+{
     std::string player_name;
     uint32_t item_template_id{0};
     int16_t count{1};
-    std::optional<item::item_attribute> attribute;  // Optional pre-set attribute
+    std::optional<item::item_attribute> attribute; // Optional pre-set attribute
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_give_item_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_give_item_request_data, std::string>;
 };
 
 // Admin remove item request
-struct admin_remove_item_request_data {
+struct admin_remove_item_request_data
+{
     std::string player_name;
     int16_t inventory_slot{-1};
-    int16_t count{0};  // 0 = remove entire stack
+    int16_t count{0}; // 0 = remove entire stack
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_remove_item_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_remove_item_request_data, std::string>;
 };
 
 // Admin get guild request
-struct admin_get_guild_request_data {
+struct admin_get_guild_request_data
+{
     std::string guild_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_guild_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_get_guild_request_data, std::string>;
 };
 
 // Admin get account request
-struct admin_get_account_request_data {
+struct admin_get_account_request_data
+{
     std::string username;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_account_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_get_account_request_data, std::string>;
 };
 
 // Admin subscribe to map
-struct admin_subscribe_map_request_data {
+struct admin_subscribe_map_request_data
+{
     std::string map_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_subscribe_map_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_subscribe_map_request_data, std::string>;
 };
 
 // Admin get map data (raw AMD binary as base64)
-struct admin_get_map_data_request_data {
+struct admin_get_map_data_request_data
+{
     std::string map_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_map_data_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_get_map_data_request_data, std::string>;
 };
 
 // Admin subscribe to player (follow mode)
-struct admin_subscribe_player_request_data {
+struct admin_subscribe_player_request_data
+{
     std::string player_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_subscribe_player_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_subscribe_player_request_data, std::string>;
 };
 
 // Admin response builder helpers (generic success/error pattern)
-[[nodiscard]] auto make_admin_response(json_message_type type, uint32_t seq, bool success,
-    const nlohmann::json& data = nlohmann::json::object(),
-    std::optional<std::string_view> error = std::nullopt) -> json_message;
+[[nodiscard]] auto make_admin_response(json_message_type type,
+                                       uint32_t seq,
+                                       bool success,
+                                       const nlohmann::json& data = nlohmann::json::object(),
+                                       std::optional<std::string_view> error = std::nullopt) -> json_message;
 
 // Admin push notification builders
-[[nodiscard]] auto make_admin_player_connected(const std::string& name,
-    int16_t level, const std::string& map_name) -> json_message;
+[[nodiscard]] auto
+make_admin_player_connected(const std::string& name, int16_t level, const std::string& map_name) -> json_message;
 [[nodiscard]] auto make_admin_player_disconnected(const std::string& name) -> json_message;
-[[nodiscard]] auto make_admin_chat_log(const std::string& channel,
-    const std::string& sender, const std::string& content) -> json_message;
+[[nodiscard]] auto
+make_admin_chat_log(const std::string& channel, const std::string& sender, const std::string& content) -> json_message;
 
 // === Admin Web Tool - Expanded request data ===
 
 // Admin broadcast request
-struct admin_broadcast_request_data {
+struct admin_broadcast_request_data
+{
     std::string message;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_broadcast_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_broadcast_request_data, std::string>;
 };
 
 // Admin mute player request
-struct admin_mute_player_request_data {
+struct admin_mute_player_request_data
+{
     std::string player_name;
-    int32_t duration_minutes{0};  // 0 = permanent
+    int32_t duration_minutes{0}; // 0 = permanent
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_mute_player_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_mute_player_request_data, std::string>;
 };
 
 // Admin unmute player request
-struct admin_unmute_player_request_data {
+struct admin_unmute_player_request_data
+{
     std::string player_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_unmute_player_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_unmute_player_request_data, std::string>;
 };
 
 // Admin get item template request (by id or name)
-struct admin_get_item_template_request_data {
+struct admin_get_item_template_request_data
+{
     uint32_t item_id{0};
     std::string item_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_item_template_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_get_item_template_request_data, std::string>;
 };
 
 // Admin get NPC template request (by id or name)
-struct admin_get_npc_template_request_data {
+struct admin_get_npc_template_request_data
+{
     uint32_t npc_id{0};
     std::string npc_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_npc_template_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_get_npc_template_request_data, std::string>;
 };
 
 // Admin search players request
-struct admin_search_players_request_data {
+struct admin_search_players_request_data
+{
     std::string query;
     std::optional<int16_t> level_min;
     std::optional<int16_t> level_max;
@@ -2419,222 +2894,243 @@ struct admin_search_players_request_data {
     std::optional<int> faction;
     std::string guild_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_search_players_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_search_players_request_data, std::string>;
 };
 
 // === Admin Web Tool - Phase 3 request data ===
 
 // Audit log request
-struct admin_get_audit_log_request_data {
+struct admin_get_audit_log_request_data
+{
     int32_t count{100};
-    std::string executor_name;  // Optional filter
+    std::string executor_name; // Optional filter
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_audit_log_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_get_audit_log_request_data, std::string>;
 };
 
 // Config set request
-struct admin_set_config_request_data {
-    nlohmann::json values;  // Dot-notation key → value pairs
+struct admin_set_config_request_data
+{
+    nlohmann::json values; // Dot-notation key → value pairs
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_set_config_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_set_config_request_data, std::string>;
 };
 
 // Cancel scheduled task request
-struct admin_cancel_scheduled_task_request_data {
+struct admin_cancel_scheduled_task_request_data
+{
     std::string tag;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_cancel_scheduled_task_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_cancel_scheduled_task_request_data, std::string>;
 };
 
 // Run canned query request
-struct admin_run_query_request_data {
+struct admin_run_query_request_data
+{
     std::string query_name;
     nlohmann::json params;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_run_query_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_run_query_request_data, std::string>;
 };
 
 // List map NPCs request (reuses admin_get_map_request_data pattern)
-struct admin_list_map_npcs_request_data {
+struct admin_list_map_npcs_request_data
+{
     std::string map_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_list_map_npcs_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_list_map_npcs_request_data, std::string>;
 };
 
 // List map ground items request
-struct admin_list_map_ground_items_request_data {
+struct admin_list_map_ground_items_request_data
+{
     std::string map_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_list_map_ground_items_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_list_map_ground_items_request_data, std::string>;
 };
 
 // Remove ground item request
-struct admin_remove_ground_item_request_data {
+struct admin_remove_ground_item_request_data
+{
     std::string map_name;
     int16_t x{0};
     int16_t y{0};
     uint32_t item_id{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_remove_ground_item_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_remove_ground_item_request_data, std::string>;
 };
 
 // Guild action request
-struct admin_guild_action_request_data {
+struct admin_guild_action_request_data
+{
     std::string guild_name;
-    std::string action;          // "disband", "kick", "set_rank"
-    std::string target_player;   // For kick/set_rank
-    std::string rank;            // For set_rank: "master","officer","veteran","member","recruit"
+    std::string action;        // "disband", "kick", "set_rank"
+    std::string target_player; // For kick/set_rank
+    std::string rank;          // For set_rank: "master","officer","veteran","member","recruit"
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_guild_action_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_guild_action_request_data, std::string>;
 };
 
 // Message player request
-struct admin_message_player_request_data {
+struct admin_message_player_request_data
+{
     std::string player_name;
     std::string message;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_message_player_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_message_player_request_data, std::string>;
 };
 
 // Set environment request
-struct admin_set_environment_request_data {
-    std::string map_name;        // Empty = global
+struct admin_set_environment_request_data
+{
+    std::string map_name; // Empty = global
     std::optional<int> weather;
     std::optional<int> hour;
     std::optional<int> minute;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_set_environment_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_set_environment_request_data, std::string>;
 };
 
 // Shutdown server request
-struct admin_shutdown_server_request_data {
+struct admin_shutdown_server_request_data
+{
     int32_t countdown_seconds{0};
     std::string reason;
     bool cancel{false};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_shutdown_server_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_shutdown_server_request_data, std::string>;
 };
 
 // === Admin Web Tool - Phase 4 request data ===
 
 // Skill management request
-struct admin_modify_skills_request_data {
+struct admin_modify_skills_request_data
+{
     std::string player_name;
-    std::string action;       // "set", "reset", "reset_all", "add_exp"
+    std::string action; // "set", "reset", "reset_all", "add_exp"
     int32_t skill_type{0};
     int32_t value{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_modify_skills_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_modify_skills_request_data, std::string>;
 };
 
 // Spell management request
-struct admin_modify_spells_request_data {
+struct admin_modify_spells_request_data
+{
     std::string player_name;
-    std::string action;       // "learn", "forget", "level_up", "reset_cooldowns"
+    std::string action; // "learn", "forget", "level_up", "reset_cooldowns"
     uint32_t spell_id{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_modify_spells_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_modify_spells_request_data, std::string>;
 };
 
 // Quest inspection request
-struct admin_get_player_quests_request_data {
+struct admin_get_player_quests_request_data
+{
     std::string player_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_player_quests_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_get_player_quests_request_data, std::string>;
 };
 
 // Quest action request
-struct admin_quest_action_request_data {
+struct admin_quest_action_request_data
+{
     std::string player_name;
-    std::string action;       // "accept", "abandon", "complete"
+    std::string action; // "accept", "abandon", "complete"
     uint32_t quest_id{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_quest_action_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_quest_action_request_data, std::string>;
 };
 
 // Effect removal request
-struct admin_remove_effects_request_data {
+struct admin_remove_effects_request_data
+{
     std::string player_name;
-    std::string mode;         // "all", "group", "single"
+    std::string mode; // "all", "group", "single"
     int32_t group{0};
     int32_t effect_id{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_remove_effects_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_remove_effects_request_data, std::string>;
 };
 
 // Account creation request (admin)
-struct admin_create_account_request_data {
+struct admin_create_account_request_data
+{
     std::string username;
     std::string password;
     int32_t admin_level{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_create_account_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_create_account_request_data, std::string>;
 };
 
 // Password reset request (admin)
-struct admin_change_password_request_data {
+struct admin_change_password_request_data
+{
     std::string username;
     std::string new_password;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_change_password_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_change_password_request_data, std::string>;
 };
 
 // Admin level change request
-struct admin_set_admin_level_request_data {
+struct admin_set_admin_level_request_data
+{
     std::string username;
     int32_t admin_level{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_set_admin_level_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_set_admin_level_request_data, std::string>;
 };
 
 // Spawn point listing request
-struct admin_list_spawn_points_request_data {
+struct admin_list_spawn_points_request_data
+{
     std::string map_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_list_spawn_points_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_list_spawn_points_request_data, std::string>;
 };
 
 // Spell template detail request
-struct admin_get_spell_template_request_data {
+struct admin_get_spell_template_request_data
+{
     uint32_t spell_id{0};
     std::string spell_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_get_spell_template_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_get_spell_template_request_data, std::string>;
 };
 
 // Maintenance mode request
-struct admin_set_maintenance_mode_request_data {
+struct admin_set_maintenance_mode_request_data
+{
     bool enabled{false};
     std::string message;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_set_maintenance_mode_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_set_maintenance_mode_request_data, std::string>;
 };
 
 // Character creation request (admin)
-struct admin_create_character_request_admin_data {
+struct admin_create_character_request_admin_data
+{
     std::string username;
     std::string name;
     int16_t gender{1};
@@ -2643,65 +3139,68 @@ struct admin_create_character_request_admin_data {
     int16_t skin_color{0};
     int16_t underwear_color{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_create_character_request_admin_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_create_character_request_admin_data, std::string>;
 };
 
 // Character deletion request (admin)
-struct admin_delete_character_request_admin_data {
+struct admin_delete_character_request_admin_data
+{
     std::string username;
     std::string character_name;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_delete_character_request_admin_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_delete_character_request_admin_data, std::string>;
 };
 
 // IP ban management request
-struct admin_manage_ip_bans_request_data {
-    std::string action;       // "list", "add", "remove"
+struct admin_manage_ip_bans_request_data
+{
+    std::string action; // "list", "add", "remove"
     std::string ip;
     std::string reason;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_manage_ip_bans_request_data, std::string>;
+    [[nodiscard]] static auto
+    from_json(const nlohmann::json& j) -> result<admin_manage_ip_bans_request_data, std::string>;
 };
 
 // Start task request
-struct admin_start_task_request_data {
+struct admin_start_task_request_data
+{
     std::string tag;
     std::optional<int64_t> interval_ms;
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_start_task_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_start_task_request_data, std::string>;
 };
 
 // Performance stats request
-struct admin_perf_stats_request_data {
+struct admin_perf_stats_request_data
+{
     bool include_timing{true};
     bool include_counters{true};
     bool include_gauges{true};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_perf_stats_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_perf_stats_request_data, std::string>;
 };
 
 // === Item audit log data structures ===
 
 struct admin_item_log_request_data
 {
-    std::string player_name;     // optional filter
-    std::string item_name;       // optional filter
-    int32_t action_type{0};      // optional filter (0 = any)
+    std::string player_name; // optional filter
+    std::string item_name;   // optional filter
+    int32_t action_type{0};  // optional filter (0 = any)
     int32_t limit{50};
     int32_t offset{0};
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<admin_item_log_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_item_log_request_data, std::string>;
 };
 
-auto make_admin_item_log_response(uint32_t seq, bool success,
-    const nlohmann::json& entries, int32_t total = 0,
-    const std::string& error = {}) -> json_message;
+auto make_admin_item_log_response(uint32_t seq,
+                                  bool success,
+                                  const nlohmann::json& entries,
+                                  int32_t total = 0,
+                                  const std::string& error = {}) -> json_message;
 
 // === Command list data structures and builders ===
 
@@ -2718,12 +3217,11 @@ struct command_entry_msg
 };
 
 // Build full available_commands push message (sent on enter_game)
-[[nodiscard]] auto make_available_commands(
-    const std::vector<command_entry_msg>& commands) -> json_message;
+[[nodiscard]] auto make_available_commands(const std::vector<command_entry_msg>& commands) -> json_message;
 
 // Build partial command_availability_update push message (sent on state changes)
-[[nodiscard]] auto make_command_availability_update(
-    const std::vector<std::pair<std::string, bool>>& changes) -> json_message;
+[[nodiscard]] auto
+make_command_availability_update(const std::vector<std::pair<std::string, bool>>& changes) -> json_message;
 
 // === Combat mode messages ===
 
@@ -2731,15 +3229,15 @@ struct command_entry_msg
 [[nodiscard]] auto make_combat_mode_change_response(uint32_t seq, bool combat_mode) -> json_message;
 
 // Combat mode change broadcast to nearby players
-struct combat_mode_change_broadcast_data {
+struct combat_mode_change_broadcast_data
+{
     uint32_t entity_id{0};
     bool combat_mode{false};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
-[[nodiscard]] auto make_combat_mode_change_broadcast(
-    const combat_mode_change_broadcast_data& data) -> json_message;
+[[nodiscard]] auto make_combat_mode_change_broadcast(const combat_mode_change_broadcast_data& data) -> json_message;
 
 // === Player action broadcast (legacy MSGID_EVENT_MOTION equivalent) ===
 // Tells nearby clients what animation to play for an entity.
@@ -2752,54 +3250,56 @@ struct combat_mode_change_broadcast_data {
 //   "dash_attack" (DEF_OBJECTATTACKMOVE = 8)
 //   "dying"       (DEF_OBJECTDYING = 10)
 
-struct player_action_broadcast_data {
+struct player_action_broadcast_data
+{
     uint32_t entity_id{0};
-    std::string action;         // Action type string (see above)
-    int16_t direction{0};       // Facing direction during action
+    std::string action;   // Action type string (see above)
+    int16_t direction{0}; // Facing direction during action
 
     // Optional fields — included only when relevant to the action type
-    uint32_t target_id{0};      // Target entity (attack, magic, dash_attack)
-    uint32_t spell_id{0};       // Spell being cast (magic)
+    uint32_t target_id{0}; // Target entity (attack, magic, dash_attack)
+    uint32_t spell_id{0};  // Spell being cast (magic)
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
-[[nodiscard]] auto make_player_action_broadcast(
-    const player_action_broadcast_data& data) -> json_message;
+[[nodiscard]] auto make_player_action_broadcast(const player_action_broadcast_data& data) -> json_message;
 
 // === Item upgrade ===
 
 struct item_upgrade_request_data
 {
-    int16_t item_slot{0};   // Inventory slot of item to upgrade
+    int16_t item_slot{0}; // Inventory slot of item to upgrade
 
-    [[nodiscard]] static auto from_json(const nlohmann::json& j)
-        -> result<item_upgrade_request_data, std::string>;
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<item_upgrade_request_data, std::string>;
 };
 
-[[nodiscard]] auto make_item_upgrade_response(uint32_t seq, bool success,
-    int16_t item_slot, uint8_t new_level, std::string_view error = {}) -> json_message;
+[[nodiscard]] auto make_item_upgrade_response(
+    uint32_t seq, bool success, int16_t item_slot, uint8_t new_level, std::string_view error = {}) -> json_message;
 
 // === Special ability ===
 
-[[nodiscard]] auto make_activate_ability_response(uint32_t seq, bool success,
-    uint8_t ability_type = 0, int32_t cooldown_sec = 0,
-    std::string_view error = {}) -> json_message;
+[[nodiscard]] auto make_activate_ability_response(uint32_t seq,
+                                                  bool success,
+                                                  uint8_t ability_type = 0,
+                                                  int32_t cooldown_sec = 0,
+                                                  std::string_view error = {}) -> json_message;
 
 // status: "disabled", "ready", "active", "cooldown"
 [[nodiscard]] auto make_special_ability_status(std::string_view status,
-    uint8_t ability_type = 0, int32_t cooldown_remaining_sec = 0) -> json_message;
+                                               uint8_t ability_type = 0,
+                                               int32_t cooldown_remaining_sec = 0) -> json_message;
 
 // === Display name helper ===
 
 // Format item display name with upgrade suffix: "Excalibur" → "Excalibur +7"
-[[nodiscard]] inline auto get_display_name(std::string_view base_name,
-    const item::item_attribute& attr) -> std::string
+[[nodiscard]] inline auto get_display_name(std::string_view base_name, const item::item_attribute& attr) -> std::string
 {
-    if (attr.upgrade_level > 0) {
+    if (attr.upgrade_level > 0)
+    {
         return std::string(base_name) + " +" + std::to_string(attr.upgrade_level);
     }
     return std::string(base_name);
 }
 
-}  // namespace hb::network
+} // namespace hb::network

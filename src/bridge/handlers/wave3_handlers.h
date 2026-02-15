@@ -8,11 +8,13 @@
 #include "protocol/protocol.h"
 #include "core/types.h"
 
-namespace hb::player {
+namespace hb::player
+{
 struct player;
 }
 
-namespace hb::bridge::wave3 {
+namespace hb::bridge::wave3
+{
 
 // ========== Wave 3: Player State Handlers ==========
 
@@ -29,12 +31,11 @@ void unregister_wave3_handlers();
 auto handle_motion_command(const handler_context& ctx) -> handle_result;
 
 // Process move action
-auto handle_motion_move(const handler_context& ctx, int16_t x, int16_t y,
-                        int8_t dir, uint8_t run_mode) -> handle_result;
+auto handle_motion_move(const handler_context& ctx, int16_t x, int16_t y, int8_t dir, uint8_t run_mode)
+    -> handle_result;
 
 // Process stop action
-auto handle_motion_stop(const handler_context& ctx, int16_t x, int16_t y,
-                        int8_t dir) -> handle_result;
+auto handle_motion_stop(const handler_context& ctx, int16_t x, int16_t y, int8_t dir) -> handle_result;
 
 // ========== Item Handlers ==========
 
@@ -48,13 +49,13 @@ auto handle_drop_item(const handler_context& ctx) -> handle_result;
 auto handle_pickup_item(const handler_context& ctx) -> handle_result;
 
 // Broadcast item removal to nearby players
-void broadcast_item_removal(const handler_context& ctx, const player::player& picker,
-                            item_id removed_item);
+void broadcast_item_removal(const handler_context& ctx, const player::player& picker, item_id removed_item);
 
 // ========== Motion Types ==========
 
 // Motion command subtypes
-enum class motion_type : uint8_t {
+enum class motion_type : uint8_t
+{
     none = 0,
     move = 1,
     stop = 2,
@@ -68,4 +69,4 @@ enum class motion_type : uint8_t {
     dying = 10,
 };
 
-}  // namespace hb::bridge::wave3
+} // namespace hb::bridge::wave3

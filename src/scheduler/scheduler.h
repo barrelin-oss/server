@@ -19,10 +19,12 @@
 #include <functional>
 #include <optional>
 
-namespace hb {
+namespace hb
+{
 
 // Scheduler subsystem for managing timed tasks
-class scheduler : public subsystem {
+class scheduler : public subsystem
+{
 public:
     scheduler();
     ~scheduler() override;
@@ -64,43 +66,45 @@ public:
     [[nodiscard]] auto pending_count() const -> size_t;
 
     // Task enumeration for admin inspection
-    struct task_info {
+    struct task_info
+    {
         uint64_t id{0};
         std::string tag;
-        int64_t next_fire_ms{0};  // ms from now until next execution
-        int64_t interval_ms{0};   // 0 = one-shot
+        int64_t next_fire_ms{0}; // ms from now until next execution
+        int64_t interval_ms{0};  // 0 = one-shot
         bool repeating{false};
     };
 
-    template<typename Func>
-    void for_each_task(Func&& func) const {
+    template<typename Func> void for_each_task(Func&& func) const
+    {
         // Copy metadata under lock, iterate outside
         std::vector<task_info> snapshot;
         {
             std::lock_guard lock(mutex_);
             snapshot.reserve(task_metadata_.size());
             auto now = platform::clock::now();
-            for (const auto& [id, meta] : task_metadata_) {
+            for (const auto& [id, meta] : task_metadata_)
+            {
                 auto it = active_tasks_.find(id);
-                if (it == active_tasks_.end() || !it->second) continue;
-                auto ms_until = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    meta.execute_at - now).count();
-                snapshot.push_back({
-                    .id = id,
-                    .tag = meta.tag,
-                    .next_fire_ms = ms_until,
-                    .interval_ms = meta.interval.count(),
-                    .repeating = meta.interval.count() > 0
-                });
+                if (it == active_tasks_.end() || !it->second)
+                    continue;
+                auto ms_until = std::chrono::duration_cast<std::chrono::milliseconds>(meta.execute_at - now).count();
+                snapshot.push_back({.id = id,
+                                    .tag = meta.tag,
+                                    .next_fire_ms = ms_until,
+                                    .interval_ms = meta.interval.count(),
+                                    .repeating = meta.interval.count() > 0});
             }
         }
-        for (const auto& info : snapshot) {
+        for (const auto& info : snapshot)
+        {
             func(info);
         }
     }
 
     // Task definition registry
-    struct task_definition {
+    struct task_definition
+    {
         std::string tag;
         std::string description;
         int64_t default_interval_ms{0};
@@ -108,18 +112,21 @@ public:
         std::function<task_callback()> factory;
     };
 
-    void register_task(std::string_view tag, std::string_view description,
-                       duration_ms default_interval, bool repeating,
+    void register_task(std::string_view tag,
+                       std::string_view description,
+                       duration_ms default_interval,
+                       bool repeating,
                        std::function<task_callback()> factory);
 
     auto start_task(std::string_view tag, std::optional<duration_ms> interval = std::nullopt) -> task_id;
 
     [[nodiscard]] auto is_task_running(std::string_view tag) const -> bool;
 
-    template<typename Func>
-    void for_each_definition(Func&& func) const {
+    template<typename Func> void for_each_definition(Func&& func) const
+    {
         std::lock_guard lock(mutex_);
-        for (const auto& [tag, def] : task_definitions_) {
+        for (const auto& [tag, def] : task_definitions_)
+        {
             bool running = is_task_running_locked(tag);
             func(def, running);
         }
@@ -137,18 +144,21 @@ private:
     auto next_id() -> task_id;
 
     // Priority queue comparator (earliest first)
-    struct task_comparator {
-        auto operator()(const scheduled_task& a, const scheduled_task& b) const -> bool {
-            return a.execute_at > b.execute_at;  // Min-heap
+    struct task_comparator
+    {
+        auto operator()(const scheduled_task& a, const scheduled_task& b) const -> bool
+        {
+            return a.execute_at > b.execute_at; // Min-heap
         }
     };
 
     // Task storage
     std::priority_queue<scheduled_task, std::vector<scheduled_task>, task_comparator> task_queue_;
-    std::unordered_map<uint64_t, bool> active_tasks_;  // id -> is_active
+    std::unordered_map<uint64_t, bool> active_tasks_; // id -> is_active
 
     // Task metadata for enumeration (mirrors active_tasks_)
-    struct task_metadata {
+    struct task_metadata
+    {
         std::string tag;
         time_point execute_at;
         duration_ms interval{0};
@@ -172,4 +182,4 @@ private:
     uint64_t tasks_cancelled_{0};
 };
 
-}  // namespace hb
+} // namespace hb

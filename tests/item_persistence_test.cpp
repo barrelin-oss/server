@@ -34,30 +34,22 @@ TEST(item_persistence_test, serialize_equipment_with_attributes)
     equip.equip(equip_slot::body, item_id{200}, 90, 100);
 
     std::vector<equipment_slot_attribute> attrs;
-    attrs.push_back({
-        .slot = static_cast<size_t>(equip_slot::weapon),
-        .attribute = {
-            .upgrade_level = 7,
-            .main_type = enchantment_type::sharp,
-            .main_value = 1,
-            .sub_type = sub_enchantment_type::physical_resist,
-            .sub_value = 3,
-            .custom_made = false,
-            .custom_quality = 0
-        }
-    });
-    attrs.push_back({
-        .slot = static_cast<size_t>(equip_slot::body),
-        .attribute = {
-            .upgrade_level = 5,
-            .main_type = enchantment_type::none,
-            .main_value = 0,
-            .sub_type = sub_enchantment_type::hp_recovery,
-            .sub_value = 4,
-            .custom_made = true,
-            .custom_quality = 42
-        }
-    });
+    attrs.push_back({.slot = static_cast<size_t>(equip_slot::weapon),
+                     .attribute = {.upgrade_level = 7,
+                                   .main_type = enchantment_type::sharp,
+                                   .main_value = 1,
+                                   .sub_type = sub_enchantment_type::physical_resist,
+                                   .sub_value = 3,
+                                   .custom_made = false,
+                                   .custom_quality = 0}});
+    attrs.push_back({.slot = static_cast<size_t>(equip_slot::body),
+                     .attribute = {.upgrade_level = 5,
+                                   .main_type = enchantment_type::none,
+                                   .main_value = 0,
+                                   .sub_type = sub_enchantment_type::hp_recovery,
+                                   .sub_value = 4,
+                                   .custom_made = true,
+                                   .custom_quality = 42}});
 
     auto json = serialize_equipment_with_attributes(equip, attrs);
     auto result = deserialize_equipment_with_attributes(json);
@@ -70,9 +62,12 @@ TEST(item_persistence_test, serialize_equipment_with_attributes)
     // Find weapon attribute
     const equipment_slot_attribute* weapon_attr = nullptr;
     const equipment_slot_attribute* body_attr = nullptr;
-    for (const auto& a : result.attributes) {
-        if (a.slot == static_cast<size_t>(equip_slot::weapon)) weapon_attr = &a;
-        if (a.slot == static_cast<size_t>(equip_slot::body)) body_attr = &a;
+    for (const auto& a : result.attributes)
+    {
+        if (a.slot == static_cast<size_t>(equip_slot::weapon))
+            weapon_attr = &a;
+        if (a.slot == static_cast<size_t>(equip_slot::body))
+            body_attr = &a;
     }
 
     ASSERT_NE(weapon_attr, nullptr);
@@ -108,8 +103,7 @@ TEST(item_persistence_test, empty_attributes_not_serialized)
     // Provide an empty attribute — should NOT produce "attribute" key
     std::vector<equipment_slot_attribute> attrs;
     attrs.push_back({
-        .slot = static_cast<size_t>(equip_slot::weapon),
-        .attribute = {}  // empty/default
+        .slot = static_cast<size_t>(equip_slot::weapon), .attribute = {} // empty/default
     });
 
     auto json = serialize_equipment_with_attributes(equip, attrs);
@@ -132,14 +126,8 @@ TEST(item_persistence_test, serialize_inventory_with_attributes)
     slot1->count = 5;
 
     std::vector<inventory_slot_attribute> attrs;
-    attrs.push_back({
-        .slot = 0,
-        .attribute = {
-            .upgrade_level = 3,
-            .main_type = enchantment_type::poison,
-            .main_value = 5
-        }
-    });
+    attrs.push_back(
+        {.slot = 0, .attribute = {.upgrade_level = 3, .main_type = enchantment_type::poison, .main_value = 5}});
 
     auto json = serialize_inventory_with_attributes(inv, attrs);
 
@@ -200,11 +188,7 @@ TEST(item_persistence_test, item_create_info_has_optional_attribute)
     item_create_info info;
     EXPECT_FALSE(info.attribute.has_value());
 
-    info.attribute = item_attribute{
-        .upgrade_level = 5,
-        .main_type = enchantment_type::fire,
-        .main_value = 3
-    };
+    info.attribute = item_attribute{.upgrade_level = 5, .main_type = enchantment_type::fire, .main_value = 3};
     EXPECT_TRUE(info.attribute.has_value());
     EXPECT_EQ(info.attribute->upgrade_level, 5);
 }

@@ -53,7 +53,7 @@ TEST(item_attribute_stats_test, weapon_upgrade_adds_attack_power)
 
     // base 20 + upgrade 5
     EXPECT_EQ(mods.attack_power, 25);
-    EXPECT_EQ(mods.magic_power, 5);  // +N magic power too
+    EXPECT_EQ(mods.magic_power, 5); // +N magic power too
 }
 
 TEST(item_attribute_stats_test, weapon_upgrade_max)
@@ -65,7 +65,7 @@ TEST(item_attribute_stats_test, weapon_upgrade_max)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.attack_power, 25);  // 10 + 15
+    EXPECT_EQ(mods.attack_power, 25); // 10 + 15
     EXPECT_EQ(mods.magic_power, 15);
 }
 
@@ -93,7 +93,7 @@ TEST(item_attribute_stats_test, armor_upgrade_adds_defense_and_absorption)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.defense, 45);  // 30 + 3*5
+    EXPECT_EQ(mods.defense, 45); // 30 + 3*5
     EXPECT_EQ(mods.physical_absorption, 3);
 }
 
@@ -106,7 +106,7 @@ TEST(item_attribute_stats_test, armor_upgrade_max)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.defense, 85);  // 10 + 15*5
+    EXPECT_EQ(mods.defense, 85); // 10 + 15*5
     EXPECT_EQ(mods.physical_absorption, 15);
 }
 
@@ -208,7 +208,7 @@ TEST(item_attribute_stats_test, sub_physical_resist)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.physical_resist, 21);  // 3 * 7
+    EXPECT_EQ(mods.physical_resist, 21); // 3 * 7
 }
 
 TEST(item_attribute_stats_test, sub_attack_rating)
@@ -221,7 +221,7 @@ TEST(item_attribute_stats_test, sub_attack_rating)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.hit_bonus, 35);  // 5 * 7
+    EXPECT_EQ(mods.hit_bonus, 35); // 5 * 7
 }
 
 TEST(item_attribute_stats_test, sub_defense_rating)
@@ -234,7 +234,7 @@ TEST(item_attribute_stats_test, sub_defense_rating)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.defense, 24);  // 10 + 2*7
+    EXPECT_EQ(mods.defense, 24); // 10 + 2*7
 }
 
 TEST(item_attribute_stats_test, sub_hp_recovery)
@@ -247,7 +247,7 @@ TEST(item_attribute_stats_test, sub_hp_recovery)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.hp_bonus, 28);  // 4 * 7
+    EXPECT_EQ(mods.hp_bonus, 28); // 4 * 7
 }
 
 TEST(item_attribute_stats_test, sub_magic_absorption)
@@ -260,7 +260,7 @@ TEST(item_attribute_stats_test, sub_magic_absorption)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.magic_absorption, 15);  // 5 * 3
+    EXPECT_EQ(mods.magic_absorption, 15); // 5 * 3
 }
 
 TEST(item_attribute_stats_test, sub_exp_bonus)
@@ -273,7 +273,7 @@ TEST(item_attribute_stats_test, sub_exp_bonus)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.exp_bonus_percent, 20);  // 2 * 10
+    EXPECT_EQ(mods.exp_bonus_percent, 20); // 2 * 10
 }
 
 TEST(item_attribute_stats_test, sub_gold_bonus)
@@ -286,7 +286,7 @@ TEST(item_attribute_stats_test, sub_gold_bonus)
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.gold_bonus_percent, 30);  // 3 * 10
+    EXPECT_EQ(mods.gold_bonus_percent, 30); // 3 * 10
 }
 
 TEST(item_attribute_stats_test, sub_critical_damage)
@@ -369,13 +369,13 @@ TEST(item_attribute_stats_test, broken_item_no_attribute_bonus)
     auto itm = make_weapon(20);
     itm.attribute.upgrade_level = 10;
     itm.attribute.main_type = enchantment_type::sharp;
-    itm.durability = 0;  // broken
+    itm.durability = 0; // broken
 
     stat_modifiers mods;
     apply_item_base_stats(itm, mods);
     apply_item_attribute(itm, mods);
 
-    EXPECT_EQ(mods.attack_power, 0);  // broken = no stats
+    EXPECT_EQ(mods.attack_power, 0); // broken = no stats
     EXPECT_EQ(mods.weapon_dice_bonus, 0);
 }
 
@@ -384,10 +384,10 @@ TEST(item_attribute_stats_test, broken_item_no_attribute_bonus)
 TEST(item_attribute_stats_test, computed_stats_clamp_absorption)
 {
     stat_modifiers mods;
-    mods.physical_absorption = 100;  // over cap
-    mods.magic_absorption = 100;     // over cap
-    mods.charge_critical = 30;       // over cap
-    mods.mana_conversion = 30;       // over cap
+    mods.physical_absorption = 100; // over cap
+    mods.magic_absorption = 100;    // over cap
+    mods.charge_critical = 30;      // over cap
+    mods.mana_conversion = 30;      // over cap
 
     base_stats base;
     computed_stats computed;

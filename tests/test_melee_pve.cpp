@@ -16,18 +16,20 @@
 #include <chrono>
 #include <thread>
 
-namespace {
+namespace
+{
 
-using hb::player_id;
-using hb::npc_id;
 using hb::map_id;
+using hb::npc_id;
+using hb::player_id;
 using pos = hb::world::position;
 
 // ============================================================================
 // Fixture: combat_system::apply_damage() wiring NPC damage
 // ============================================================================
 
-class combat_npc_damage_test : public ::testing::Test {
+class combat_npc_damage_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -41,10 +43,7 @@ protected:
         combat_ = hb::subsystems().get<hb::combat::combat_system>();
     }
 
-    void TearDown() override
-    {
-        hb::subsystems().clear_all();
-    }
+    void TearDown() override { hb::subsystems().clear_all(); }
 
     hb::npc::npc_system* npc_sys_{};
     hb::combat::combat_system* combat_{};
@@ -147,7 +146,8 @@ TEST_F(combat_npc_damage_test, process_attack_on_npc_returns_kill_rewards)
     attack.base_damage = 10000;
 
     auto result = combat_->process_attack(attack);
-    if (result.target_killed) {
+    if (result.target_killed)
+    {
         EXPECT_GE(result.exp_reward, 0);
         EXPECT_GE(result.gold_reward, 0);
     }
@@ -156,11 +156,13 @@ TEST_F(combat_npc_damage_test, process_attack_on_npc_returns_kill_rewards)
 TEST_F(combat_npc_damage_test, damage_fires_callback)
 {
     bool callback_fired = false;
-    npc_sys_->set_on_damage_callback([&](const hb::npc::npc& n, int32_t damage, hb::entity::entity source) {
-        callback_fired = true;
-        EXPECT_EQ(damage, 25);
-        EXPECT_EQ(source.id, 77u);
-    });
+    npc_sys_->set_on_damage_callback(
+        [&](const hb::npc::npc& n, int32_t damage, hb::entity::entity source)
+        {
+            callback_fired = true;
+            EXPECT_EQ(damage, 25);
+            EXPECT_EQ(source.id, 77u);
+        });
 
     auto spawn_result = npc_sys_->spawn_npc(npc_id{1}, map_id{1}, pos{10, 10});
     ASSERT_TRUE(spawn_result.is_ok());
@@ -180,10 +182,12 @@ TEST_F(combat_npc_damage_test, death_fires_callback)
 {
     bool death_fired = false;
     uint32_t killer_id = 0;
-    npc_sys_->set_on_death_callback([&](const hb::npc::npc& n, hb::entity::entity killer, int32_t /*damage*/) {
-        death_fired = true;
-        killer_id = killer.id;
-    });
+    npc_sys_->set_on_death_callback(
+        [&](const hb::npc::npc& n, hb::entity::entity killer, int32_t /*damage*/)
+        {
+            death_fired = true;
+            killer_id = killer.id;
+        });
 
     auto spawn_result = npc_sys_->spawn_npc(npc_id{1}, map_id{1}, pos{10, 10});
     ASSERT_TRUE(spawn_result.is_ok());
@@ -208,7 +212,8 @@ TEST_F(combat_npc_damage_test, death_fires_callback)
 // Fixture: NPC as target in combat with player attacker
 // ============================================================================
 
-class melee_pve_combat_test : public ::testing::Test {
+class melee_pve_combat_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -233,10 +238,7 @@ protected:
         map_id_ = map_result.value();
     }
 
-    void TearDown() override
-    {
-        hb::subsystems().clear_all();
-    }
+    void TearDown() override { hb::subsystems().clear_all(); }
 
     auto create_player_at(pos p) -> player_id
     {
@@ -285,7 +287,8 @@ TEST_F(melee_pve_combat_test, player_can_attack_npc_at_melee_range)
 
     auto result = combat_->process_attack(attack);
 
-    if (result.hit.is_hit()) {
+    if (result.hit.is_hit())
+    {
         EXPECT_LT(n->hp, initial_hp);
     }
 }
@@ -306,7 +309,8 @@ TEST_F(melee_pve_combat_test, npc_death_yields_rewards)
 
     // Hit chance is capped at 95%, so retry on miss (up to 20 attempts)
     hb::combat::combat_result result;
-    for (int i = 0; i < 20 && !result.target_killed; ++i) {
+    for (int i = 0; i < 20 && !result.target_killed; ++i)
+    {
         result = combat_->process_attack(attack);
     }
 
@@ -337,7 +341,8 @@ TEST_F(melee_pve_combat_test, npc_not_killed_by_zero_damage)
 // NPC target validation tests (unit-level)
 // ============================================================================
 
-class npc_target_validation_test : public ::testing::Test {
+class npc_target_validation_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -348,10 +353,7 @@ protected:
         npc_sys_ = hb::subsystems().get<hb::npc::npc_system>();
     }
 
-    void TearDown() override
-    {
-        hb::subsystems().clear_all();
-    }
+    void TearDown() override { hb::subsystems().clear_all(); }
 
     hb::npc::npc_system* npc_sys_{};
 };
@@ -431,4 +433,4 @@ TEST(attack_cooldown_test, elapsed_time_calculation)
     EXPECT_GE(elapsed.count(), 10);
 }
 
-}  // namespace
+} // namespace

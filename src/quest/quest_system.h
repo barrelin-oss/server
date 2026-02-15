@@ -13,32 +13,38 @@
 #include <functional>
 #include <vector>
 
-namespace hb::quest {
+namespace hb::quest
+{
 
 // Quest event types
-struct quest_accepted_event {
+struct quest_accepted_event
+{
     player_id player{};
     quest_id quest{};
 };
 
-struct quest_completed_event {
+struct quest_completed_event
+{
     player_id player{};
     quest_id quest{};
     quest_rewards rewards{};
 };
 
-struct quest_failed_event {
+struct quest_failed_event
+{
     player_id player{};
     quest_id quest{};
     std::string reason;
 };
 
-struct quest_abandoned_event {
+struct quest_abandoned_event
+{
     player_id player{};
     quest_id quest{};
 };
 
-struct objective_progress_event {
+struct objective_progress_event
+{
     player_id player{};
     quest_id quest{};
     uint16_t objective_id{};
@@ -48,50 +54,58 @@ struct objective_progress_event {
 };
 
 // Quest update events (for tracking progress)
-struct kill_event {
+struct kill_event
+{
     player_id killer{};
     npc_id killed_npc{};
     bool was_player{false};
 };
 
-struct item_collected_event {
+struct item_collected_event
+{
     player_id player{};
     item_id item{};
     int32_t count{1};
 };
 
-struct location_reached_event {
+struct location_reached_event
+{
     player_id player{};
     map_id map{};
     int16_t x{};
     int16_t y{};
 };
 
-struct npc_talked_event {
+struct npc_talked_event
+{
     player_id player{};
     npc_id npc{};
 };
 
-struct item_crafted_event {
+struct item_crafted_event
+{
     player_id player{};
     item_id item{};
     int32_t count{1};
 };
 
-struct resource_gathered_event {
+struct resource_gathered_event
+{
     player_id player{};
     uint8_t skill_type{};
     int32_t count{1};
 };
 
-struct level_reached_event {
+struct level_reached_event
+{
     player_id player{};
     int16_t new_level{};
-    uint8_t skill_type{0};  // 0 = character level
+    uint8_t skill_type{0}; // 0 = character level
 };
 
 // Quest system configuration
-struct quest_system_config {
+struct quest_system_config
+{
     size_t max_active_quests{25};
     bool allow_quest_sharing{true};
     float quest_exp_modifier{1.0f};
@@ -99,7 +113,8 @@ struct quest_system_config {
 };
 
 // Quest acceptance result
-enum class accept_result : uint8_t {
+enum class accept_result : uint8_t
+{
     success = 0,
     quest_log_full = 1,
     level_too_low = 2,
@@ -112,7 +127,8 @@ enum class accept_result : uint8_t {
 };
 
 // Quest completion result
-enum class complete_result : uint8_t {
+enum class complete_result : uint8_t
+{
     success = 0,
     not_active = 1,
     objectives_incomplete = 2,
@@ -121,7 +137,8 @@ enum class complete_result : uint8_t {
 };
 
 // Quest system - manages quest templates and player quest state
-class quest_system : public subsystem {
+class quest_system : public subsystem
+{
 public:
     using quest_callback = std::function<void(const quest_completed_event&)>;
 
@@ -159,8 +176,8 @@ public:
     [[nodiscard]] auto can_accept_quest(player_id player, quest_id quest) const -> accept_result;
 
     // Availability queries
-    [[nodiscard]] auto get_available_quests(player_id player, int16_t player_level, uint8_t faction) const
-        -> std::vector<quest_id>;
+    [[nodiscard]] auto
+    get_available_quests(player_id player, int16_t player_level, uint8_t faction) const -> std::vector<quest_id>;
     [[nodiscard]] auto get_quests_from_npc(npc_id npc) const -> std::vector<quest_id>;
 
     // Progress tracking - call these when game events occur
@@ -198,4 +215,4 @@ private:
     std::vector<quest_callback> completion_callbacks_;
 };
 
-}  // namespace hb::quest
+} // namespace hb::quest

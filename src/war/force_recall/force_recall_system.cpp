@@ -9,14 +9,23 @@
 #include <ctime>
 #include <unordered_set>
 
-namespace hb::war {
+namespace hb::war
+{
 
 // Legacy building maps from original Helbreath
-static const std::unordered_set<std::string> building_maps = {
-    "wrhus", "gshop_1", "bsmith_1", "cath_1", "CmdHall_1", "cityhall_1",
-    "gshop_2", "bsmith_2", "cath_2", "CmdHall_2", "cityhall_2",
-    "wzdtwr", "gldhall"
-};
+static const std::unordered_set<std::string> building_maps = {"wrhus",
+                                                              "gshop_1",
+                                                              "bsmith_1",
+                                                              "cath_1",
+                                                              "CmdHall_1",
+                                                              "cityhall_1",
+                                                              "gshop_2",
+                                                              "bsmith_2",
+                                                              "cath_2",
+                                                              "CmdHall_2",
+                                                              "cityhall_2",
+                                                              "wzdtwr",
+                                                              "gldhall"};
 
 // Building-to-faction mapping: _1 suffix = aresden, _2 suffix = elvine
 // Shared buildings (wrhus, wzdtwr, gldhall) are neutral
@@ -25,8 +34,10 @@ static auto faction_from_building_suffix(const std::string& map_name) -> war_fac
     if (map_name.size() >= 2)
     {
         auto suffix = map_name.substr(map_name.size() - 2);
-        if (suffix == "_1") return war_faction::aresden;
-        if (suffix == "_2") return war_faction::elvine;
+        if (suffix == "_1")
+            return war_faction::aresden;
+        if (suffix == "_2")
+            return war_faction::elvine;
     }
     return war_faction::neutral;
 }
@@ -53,8 +64,10 @@ void force_recall_system::shutdown()
 
 void force_recall_system::update(float delta_time)
 {
-    if (!config_.enabled) return;
-    if (trackers_.empty()) return;
+    if (!config_.enabled)
+        return;
+    if (trackers_.empty())
+        return;
 
     // Check for day-of-week transitions
     auto now = std::chrono::system_clock::now();
@@ -82,18 +95,21 @@ void force_recall_system::update(float delta_time)
 }
 
 void force_recall_system::check_player_territory(player_id pid,
-                                                   war_faction player_faction,
-                                                   war_faction map_faction,
-                                                   territory_flags flags)
+                                                 war_faction player_faction,
+                                                 war_faction map_faction,
+                                                 territory_flags flags)
 {
-    if (!config_.enabled) return;
+    if (!config_.enabled)
+        return;
 
     // Fight zone handling
     if (flags.is_fight_zone)
     {
-        if (!config_.fight_zone_recall_enabled) return;
+        if (!config_.fight_zone_recall_enabled)
+            return;
 
-        if (trackers_.contains(pid)) return;
+        if (trackers_.contains(pid))
+            return;
 
         bool crusade_active = is_crusade_active_ && is_crusade_active_();
 
@@ -133,7 +149,8 @@ void force_recall_system::check_player_territory(player_id pid,
     // Jail handling — fixed duration
     if (flags.is_jail)
     {
-        if (trackers_.contains(pid)) return;
+        if (trackers_.contains(pid))
+            return;
 
         bool crusade_active = is_crusade_active_ && is_crusade_active_();
         int32_t duration = config_.jail_duration_seconds;
@@ -153,8 +170,10 @@ void force_recall_system::check_player_territory(player_id pid,
     }
 
     // Neutral players or neutral maps don't trigger recall
-    if (player_faction == war_faction::neutral) return;
-    if (map_faction == war_faction::neutral) return;
+    if (player_faction == war_faction::neutral)
+        return;
+    if (map_faction == war_faction::neutral)
+        return;
 
     // Player is in friendly territory — stop tracking
     if (player_faction == map_faction)
@@ -164,7 +183,8 @@ void force_recall_system::check_player_territory(player_id pid,
     }
 
     // Player is in enemy territory — start tracking if not already
-    if (trackers_.contains(pid)) return;
+    if (trackers_.contains(pid))
+        return;
 
     bool crusade_active = is_crusade_active_ && is_crusade_active_();
     int32_t duration = get_current_raid_duration();
@@ -179,8 +199,11 @@ void force_recall_system::check_player_territory(player_id pid,
 
     trackers_.emplace(pid, tracker);
 
-    LOG_DEBUG(general, "Force recall: tracking player {} in enemy territory ({}s, crusade={})",
-        pid.value, duration, crusade_active);
+    LOG_DEBUG(general,
+              "Force recall: tracking player {} in enemy territory ({}s, crusade={})",
+              pid.value,
+              duration,
+              crusade_active);
 
     send_timer_update(pid, duration);
 }
@@ -241,7 +264,8 @@ auto force_recall_system::calculate_fight_zone_duration(int hour, int minute) ->
     int minutes_in_cycle = (hour % 2) * 60 + minute;
     int remaining_minutes = 120 - minutes_in_cycle - 2;
 
-    if (remaining_minutes <= 0) remaining_minutes = 1;  // Minimum 1 minute
+    if (remaining_minutes <= 0)
+        remaining_minutes = 1; // Minimum 1 minute
 
     return remaining_minutes * 60;
 }
@@ -254,9 +278,12 @@ void force_recall_system::check_day_transitions()
     {
         if (tracker.time_remaining_seconds > current_duration)
         {
-            LOG_DEBUG(general, "Force recall day transition: player {} timer {}s > {}s, resetting",
-                pid.value, tracker.time_remaining_seconds, current_duration);
-            tracker.time_remaining_seconds = 3;  // ~1 legacy tick (3 seconds)
+            LOG_DEBUG(general,
+                      "Force recall day transition: player {} timer {}s > {}s, resetting",
+                      pid.value,
+                      tracker.time_remaining_seconds,
+                      current_duration);
+            tracker.time_remaining_seconds = 3; // ~1 legacy tick (3 seconds)
         }
     }
 }
@@ -264,7 +291,8 @@ void force_recall_system::check_day_transitions()
 void force_recall_system::tick_trackers(float delta_time)
 {
     auto dt = static_cast<int32_t>(delta_time);
-    if (dt <= 0) dt = 1;
+    if (dt <= 0)
+        dt = 1;
 
     bool crusade_active = is_crusade_active_ && is_crusade_active_();
 
@@ -306,25 +334,28 @@ void force_recall_system::tick_trackers(float delta_time)
     }
 }
 
-void force_recall_system::check_building_recall(player_id pid,
-                                                 const std::string& map_name,
-                                                 war_faction player_faction)
+void force_recall_system::check_building_recall(player_id pid, const std::string& map_name, war_faction player_faction)
 {
     // Only during active crusade
-    if (!is_crusade_active_ || !is_crusade_active_()) return;
+    if (!is_crusade_active_ || !is_crusade_active_())
+        return;
 
-    if (!is_building_map(map_name)) return;
+    if (!is_building_map(map_name))
+        return;
 
     auto building_faction = get_building_faction(map_name);
 
     // Neutral buildings don't trigger recall
-    if (building_faction == war_faction::neutral) return;
+    if (building_faction == war_faction::neutral)
+        return;
 
     // Enemy in this faction's building — instant recall
     if (player_faction != building_faction && player_faction != war_faction::neutral)
     {
-        LOG_INFO(general, "Force recall: instant building recall for player {} from {} (faction mismatch)",
-            pid.value, map_name);
+        LOG_INFO(general,
+                 "Force recall: instant building recall for player {} from {} (faction mismatch)",
+                 pid.value,
+                 map_name);
 
         if (execute_fn_)
         {
@@ -335,7 +366,8 @@ void force_recall_system::check_building_recall(player_id pid,
 
 void force_recall_system::check_building_debuffs(player_id pid, const std::string& map_name)
 {
-    if (!is_building_map(map_name)) return;
+    if (!is_building_map(map_name))
+        return;
 
     if (debuff_removal_fn_)
     {
@@ -345,7 +377,7 @@ void force_recall_system::check_building_debuffs(player_id pid, const std::strin
 
 void force_recall_system::clear_crusade_trackers()
 {
-    for (auto it = trackers_.begin(); it != trackers_.end(); )
+    for (auto it = trackers_.begin(); it != trackers_.end();)
     {
         if (it->second.set_during_crusade)
         {
@@ -367,13 +399,15 @@ auto force_recall_system::is_building_map(const std::string& map_name) -> bool
 
 auto force_recall_system::get_building_faction(const std::string& map_name) -> war_faction
 {
-    if (!building_maps.contains(map_name)) return war_faction::neutral;
+    if (!building_maps.contains(map_name))
+        return war_faction::neutral;
     return faction_from_building_suffix(map_name);
 }
 
 void force_recall_system::send_timer_update(player_id pid, int32_t remaining)
 {
-    if (!broadcast_fn_) return;
+    if (!broadcast_fn_)
+        return;
 
     nlohmann::json data;
     data["time_remaining_s"] = remaining;
@@ -411,4 +445,4 @@ void force_recall_system::execute_recall(player_id pid)
     trackers_.erase(pid);
 }
 
-}  // namespace hb::war
+} // namespace hb::war

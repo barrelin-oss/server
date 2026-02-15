@@ -14,7 +14,8 @@
 #include <algorithm>
 #include <random>
 
-namespace hb::crafting {
+namespace hb::crafting
+{
 
 manufacturing_system::manufacturing_system() = default;
 manufacturing_system::~manufacturing_system() = default;
@@ -32,10 +33,10 @@ void manufacturing_system::shutdown()
 }
 
 void manufacturing_system::set_dependencies(player::player_system* players,
-                                             skill::skill_system* skills,
-                                             inventory::inventory_system* inventory,
-                                             item::item_system* items,
-                                             build_recipe_registry* recipes)
+                                            skill::skill_system* skills,
+                                            inventory::inventory_system* inventory,
+                                            item::item_system* items,
+                                            build_recipe_registry* recipes)
 {
     players_ = players;
     skills_ = skills;
@@ -44,14 +45,13 @@ void manufacturing_system::set_dependencies(player::player_system* players,
     recipes_ = recipes;
 }
 
-auto manufacturing_system::get_available_recipes(entity_id player)
-    -> std::vector<const build_recipe*>
+auto manufacturing_system::get_available_recipes(entity_id player) -> std::vector<const build_recipe*>
 {
     std::vector<const build_recipe*> available;
-    if (!recipes_ || !skills_) return available;
+    if (!recipes_ || !skills_)
+        return available;
 
-    auto skill_level = skills_->get_skill_level(
-        player_id{player.value}, skill::skill_type::manufacturing);
+    auto skill_level = skills_->get_skill_level(player_id{player.value}, skill::skill_type::manufacturing);
 
     for (const auto& recipe : recipes_->get_all())
     {
@@ -65,8 +65,8 @@ auto manufacturing_system::get_available_recipes(entity_id player)
 }
 
 auto manufacturing_system::calculate_success_chance(int16_t skill_level,
-                                                     int16_t dex,
-                                                     const build_recipe& recipe) -> int32_t
+                                                    int16_t dex,
+                                                    const build_recipe& recipe) -> int32_t
 {
     int32_t chance = recipe.success_rate;
 
@@ -81,8 +81,7 @@ auto manufacturing_system::calculate_success_chance(int16_t skill_level,
     return std::clamp(chance, 10, 95);
 }
 
-auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index)
-    -> craft_result
+auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index) -> craft_result
 {
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::crafting);
@@ -157,8 +156,7 @@ auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index)
                 return result;
             }
 
-            auto item_result = items_->create_from_template(
-                item_id{static_cast<uint32_t>(recipe->result_template_id)});
+            auto item_result = items_->create_from_template(item_id{static_cast<uint32_t>(recipe->result_template_id)});
             if (item_result.is_ok())
             {
                 auto created_id = item_result.value();
@@ -173,8 +171,7 @@ auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index)
                     int quality_base = skill_level - recipe->skill_req;
                     std::uniform_int_distribution<int> variance(-20, 20);
                     int quality = quality_base + variance(rng);
-                    created_item->attribute.custom_quality =
-                        static_cast<int8_t>(std::clamp(quality, -100, 100));
+                    created_item->attribute.custom_quality = static_cast<int8_t>(std::clamp(quality, -100, 100));
 
                     // Apply recipe enchantment if specified
                     if (recipe->result_attribute != 0)
@@ -204,8 +201,7 @@ auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index)
     return result;
 }
 
-auto manufacturing_system::check_ingredients(entity_id player,
-                                              const build_recipe& recipe) const -> bool
+auto manufacturing_system::check_ingredients(entity_id player, const build_recipe& recipe) const -> bool
 {
     // Aggregate ingredients by item_id (recipes can list same item_id multiple times)
     std::unordered_map<int32_t, int32_t> needed;
@@ -216,8 +212,7 @@ auto manufacturing_system::check_ingredients(entity_id player,
 
     for (const auto& [id, count] : needed)
     {
-        if (!inventory_->has_item(player, item_id{static_cast<uint32_t>(id)},
-                                   static_cast<int16_t>(count)))
+        if (!inventory_->has_item(player, item_id{static_cast<uint32_t>(id)}, static_cast<int16_t>(count)))
         {
             return false;
         }
@@ -226,8 +221,7 @@ auto manufacturing_system::check_ingredients(entity_id player,
     return true;
 }
 
-void manufacturing_system::consume_ingredients(entity_id player,
-                                                const build_recipe& recipe)
+void manufacturing_system::consume_ingredients(entity_id player, const build_recipe& recipe)
 {
     // Aggregate then consume
     std::unordered_map<int32_t, int32_t> needed;
@@ -238,9 +232,8 @@ void manufacturing_system::consume_ingredients(entity_id player,
 
     for (const auto& [id, count] : needed)
     {
-        inventory_->remove_item(player, item_id{static_cast<uint32_t>(id)},
-                                 static_cast<int16_t>(count));
+        inventory_->remove_item(player, item_id{static_cast<uint32_t>(id)}, static_cast<int16_t>(count));
     }
 }
 
-}  // namespace hb::crafting
+} // namespace hb::crafting

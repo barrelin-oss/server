@@ -10,10 +10,12 @@
 #include <optional>
 #include <vector>
 
-namespace hb::auth {
+namespace hb::auth
+{
 
 // Admin levels
-enum class admin_level : uint8_t {
+enum class admin_level : uint8_t
+{
     player = 0,
     helper = 1,
     gamemaster = 10,
@@ -22,7 +24,8 @@ enum class admin_level : uint8_t {
 };
 
 // Account data
-struct account {
+struct account
+{
     account_id id{};
     std::string username;
     std::string password_hash;
@@ -36,7 +39,8 @@ struct account {
 };
 
 // Character summary (for character selection screen)
-struct character_summary {
+struct character_summary
+{
     player_id id{};
     std::string name;
     int16_t level{1};
@@ -55,11 +59,12 @@ struct character_summary {
 };
 
 // Character creation request
-struct character_create_info {
+struct character_create_info
+{
     std::string name;
-    int16_t class_type{0};   // 0 = warrior, 1 = mage, etc.
-    int16_t nation{0};       // 0 = neutral, 1 = aresden, 2 = elvine
-    int16_t gender{1};       // 1 = male, 2 = female
+    int16_t class_type{0}; // 0 = warrior, 1 = mage, etc.
+    int16_t nation{0};     // 0 = neutral, 1 = aresden, 2 = elvine
+    int16_t gender{1};     // 1 = male, 2 = female
     int16_t hair_style{0};
     int16_t hair_color{0};
     int16_t skin_color{0};
@@ -75,7 +80,8 @@ struct character_create_info {
 };
 
 // Full character data for entering game
-struct character_full_data {
+struct character_full_data
+{
     player_id id{};
     account_id account{};
     std::string name;
@@ -124,16 +130,17 @@ struct character_full_data {
     int32_t reward_gold{0};
 
     // Serialized data (JSON strings stored in JSONB columns)
-    std::string skills_data;      // JSON: [{type, level, exp}, ...]
-    std::string inventory_data;   // JSON: [{slot, item_id, count}, ...]
-    std::string equipment_data;   // JSON: [{slot, item_id, durability, max_durability}, ...]
-    std::string bank_data;        // JSON: [{slot, item_id, count}, ...]
-    std::string magic_data;       // JSON: [{spell_id, level, total_casts}, ...]
-    std::string quest_data;       // JSON: {active: [...], completed: [...]}
+    std::string skills_data;    // JSON: [{type, level, exp}, ...]
+    std::string inventory_data; // JSON: [{slot, item_id, count}, ...]
+    std::string equipment_data; // JSON: [{slot, item_id, durability, max_durability}, ...]
+    std::string bank_data;      // JSON: [{slot, item_id, count}, ...]
+    std::string magic_data;     // JSON: [{spell_id, level, total_casts}, ...]
+    std::string quest_data;     // JSON: {active: [...], completed: [...]}
 };
 
 // Authentication errors
-enum class auth_error {
+enum class auth_error
+{
     success,
     invalid_credentials,
     account_banned,
@@ -154,27 +161,47 @@ enum class auth_error {
 };
 
 // Convert auth_error to string for logging
-[[nodiscard]] constexpr auto to_string(auth_error err) -> std::string_view {
-    switch (err) {
-        case auth_error::success: return "success";
-        case auth_error::invalid_credentials: return "invalid_credentials";
-        case auth_error::account_banned: return "account_banned";
-        case auth_error::username_taken: return "username_taken";
-        case auth_error::character_name_taken: return "character_name_taken";
-        case auth_error::max_characters_reached: return "max_characters_reached";
-        case auth_error::database_error: return "database_error";
-        case auth_error::invalid_password_format: return "invalid_password_format";
-        case auth_error::invalid_username_format: return "invalid_username_format";
-        case auth_error::invalid_character_name: return "invalid_character_name";
-        case auth_error::character_not_found: return "character_not_found";
-        case auth_error::character_not_owned: return "character_not_owned";
-        case auth_error::session_expired: return "session_expired";
-        case auth_error::session_not_found: return "session_not_found";
-        case auth_error::account_already_in_game: return "account_already_in_game";
-        case auth_error::forum_auth_failed: return "forum_auth_failed";
-        case auth_error::internal_error: return "internal_error";
-        default: return "unknown";
+[[nodiscard]] constexpr auto to_string(auth_error err) -> std::string_view
+{
+    switch (err)
+    {
+    case auth_error::success:
+        return "success";
+    case auth_error::invalid_credentials:
+        return "invalid_credentials";
+    case auth_error::account_banned:
+        return "account_banned";
+    case auth_error::username_taken:
+        return "username_taken";
+    case auth_error::character_name_taken:
+        return "character_name_taken";
+    case auth_error::max_characters_reached:
+        return "max_characters_reached";
+    case auth_error::database_error:
+        return "database_error";
+    case auth_error::invalid_password_format:
+        return "invalid_password_format";
+    case auth_error::invalid_username_format:
+        return "invalid_username_format";
+    case auth_error::invalid_character_name:
+        return "invalid_character_name";
+    case auth_error::character_not_found:
+        return "character_not_found";
+    case auth_error::character_not_owned:
+        return "character_not_owned";
+    case auth_error::session_expired:
+        return "session_expired";
+    case auth_error::session_not_found:
+        return "session_not_found";
+    case auth_error::account_already_in_game:
+        return "account_already_in_game";
+    case auth_error::forum_auth_failed:
+        return "forum_auth_failed";
+    case auth_error::internal_error:
+        return "internal_error";
+    default:
+        return "unknown";
     }
 }
 
-}  // namespace hb::auth
+} // namespace hb::auth

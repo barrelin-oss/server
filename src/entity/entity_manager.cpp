@@ -4,17 +4,21 @@
 #include "entity/entity_manager.h"
 #include "core/logger.h"
 
-namespace hb::entity {
+namespace hb::entity
+{
 
 entity_manager::entity_manager() = default;
 
-entity_manager::~entity_manager() {
-    if (is_initialized()) {
+entity_manager::~entity_manager()
+{
+    if (is_initialized())
+    {
         shutdown();
     }
 }
 
-void entity_manager::initialize() {
+void entity_manager::initialize()
+{
     LOG_INFO(general, "Entity manager initializing...");
 
     // Pre-allocate arrays
@@ -26,7 +30,8 @@ void entity_manager::initialize() {
     LOG_INFO(general, "Entity manager initialized (capacity: {})", config_.initial_capacity);
 }
 
-void entity_manager::shutdown() {
+void entity_manager::shutdown()
+{
     LOG_INFO(general, "Entity manager shutting down...");
 
     // Clear all storages
@@ -36,7 +41,8 @@ void entity_manager::shutdown() {
     generations_.clear();
     alive_.clear();
     types_.clear();
-    while (!free_indices_.empty()) free_indices_.pop();
+    while (!free_indices_.empty())
+        free_indices_.pop();
     next_index_ = 1;
     alive_count_ = 0;
 
@@ -44,31 +50,39 @@ void entity_manager::shutdown() {
     LOG_INFO(general, "Entity manager shutdown complete");
 }
 
-void entity_manager::set_config(const entity_manager_config& config) {
+void entity_manager::set_config(const entity_manager_config& config)
+{
     config_ = config;
 }
 
-auto entity_manager::create() -> entity {
+auto entity_manager::create() -> entity
+{
     return create(entity_type::none);
 }
 
-auto entity_manager::create(entity_type type) -> entity {
+auto entity_manager::create(entity_type type) -> entity
+{
     uint32_t index;
 
-    if (!free_indices_.empty()) {
+    if (!free_indices_.empty())
+    {
         // Recycle an index
         index = free_indices_.front();
         free_indices_.pop();
-    } else {
+    }
+    else
+    {
         // Use fresh index
-        if (next_index_ >= config_.max_entity_count) {
+        if (next_index_ >= config_.max_entity_count)
+        {
             LOG_ERROR(general, "Entity limit reached ({})", config_.max_entity_count);
             return entity::null();
         }
         index = next_index_++;
 
         // Ensure arrays are large enough
-        if (index >= generations_.size()) {
+        if (index >= generations_.size())
+        {
             auto new_size = std::min(static_cast<size_t>(index * 2), static_cast<size_t>(config_.max_entity_count));
             generations_.resize(new_size, 0);
             alive_.resize(new_size, false);
@@ -88,13 +102,16 @@ auto entity_manager::create(entity_type type) -> entity {
     return e;
 }
 
-void entity_manager::destroy(entity e) {
-    if (!is_alive(e)) return;
+void entity_manager::destroy(entity e)
+{
+    if (!is_alive(e))
+        return;
 
     auto index = e.index();
 
     // Remove from all component storages
-    for (auto& [type_id, storage] : storages_) {
+    for (auto& [type_id, storage] : storages_)
+    {
         storage->remove(e);
     }
 
@@ -110,25 +127,33 @@ void entity_manager::destroy(entity e) {
     LOG_DEBUG(general, "Destroyed entity {} (new gen={})", index, generations_[index]);
 }
 
-auto entity_manager::is_alive(entity e) const -> bool {
-    if (!e.is_valid()) return false;
+auto entity_manager::is_alive(entity e) const -> bool
+{
+    if (!e.is_valid())
+        return false;
     auto index = e.index();
-    if (index >= alive_.size()) return false;
+    if (index >= alive_.size())
+        return false;
     return alive_[index] && generations_[index] == e.generation();
 }
 
-auto entity_manager::get_type(entity e) const -> entity_type {
-    if (!is_alive(e)) return entity_type::none;
+auto entity_manager::get_type(entity e) const -> entity_type
+{
+    if (!is_alive(e))
+        return entity_type::none;
     return types_[e.index()];
 }
 
-auto entity_manager::entity_count() const -> size_t {
+auto entity_manager::entity_count() const -> size_t
+{
     return alive_count_;
 }
 
-auto entity_manager::generation_at(uint32_t index) const -> uint8_t {
-    if (index >= generations_.size()) return 0;
+auto entity_manager::generation_at(uint32_t index) const -> uint8_t
+{
+    if (index >= generations_.size())
+        return 0;
     return generations_[index];
 }
 
-}  // namespace hb::entity
+} // namespace hb::entity

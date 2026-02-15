@@ -10,7 +10,8 @@
 #include <algorithm>
 #include <chrono>
 
-namespace hb::effect {
+namespace hb::effect
+{
 
 effect_system::effect_system() = default;
 
@@ -71,23 +72,27 @@ void effect_system::update(float /*delta_time*/)
 
         // Collect expired effects
         std::vector<active_effect> expired;
-        std::erase_if(ee.effects, [&](const active_effect& eff)
-        {
-            if (eff.expires_at_ms > 0 && now >= eff.expires_at_ms)
-            {
-                expired.push_back(eff);
-                return true;
-            }
-            return false;
-        });
+        std::erase_if(ee.effects,
+                      [&](const active_effect& eff)
+                      {
+                          if (eff.expires_at_ms > 0 && now >= eff.expires_at_ms)
+                          {
+                              expired.push_back(eff);
+                              return true;
+                          }
+                          return false;
+                      });
 
         if (!expired.empty())
         {
             any_removed = true;
             for (const auto& eff : expired)
             {
-                LOG_DEBUG(magic, "Effect {} expired on entity {} (spell {})",
-                    eff.id.value, entity_key.id, eff.source_spell ? eff.source_spell->value : 0);
+                LOG_DEBUG(magic,
+                          "Effect {} expired on entity {} (spell {})",
+                          eff.id.value,
+                          entity_key.id,
+                          eff.source_spell ? eff.source_spell->value : 0);
                 for (const auto& cb : removed_callbacks_)
                 {
                     cb(entity_key, eff);
@@ -114,10 +119,7 @@ void effect_system::update(float /*delta_time*/)
     }
 
     // Clean up empty entries
-    std::erase_if(entities_, [](const auto& pair)
-    {
-        return pair.second.effects.empty();
-    });
+    std::erase_if(entities_, [](const auto& pair) { return pair.second.effects.empty(); });
 }
 
 auto effect_system::apply_effect(const apply_effect_params& params) -> effect_id
@@ -129,9 +131,12 @@ auto effect_system::apply_effect(const apply_effect_params& params) -> effect_id
     {
         if (eff.group == params.group)
         {
-            LOG_DEBUG(magic, "Effect group {} blocked on entity {} (slot occupied by effect {})",
-                static_cast<int>(params.group), params.target.id, eff.id.value);
-            return effect_id{};  // Application blocked
+            LOG_DEBUG(magic,
+                      "Effect group {} blocked on entity {} (slot occupied by effect {})",
+                      static_cast<int>(params.group),
+                      params.target.id,
+                      eff.id.value);
+            return effect_id{}; // Application blocked
         }
     }
 
@@ -156,9 +161,15 @@ auto effect_system::apply_effect(const apply_effect_params& params) -> effect_id
     recompute_modifiers(ee);
     push_modifiers_to_entity(params.target, ee.cached_modifiers);
 
-    LOG_DEBUG(magic, "Applied effect {} (group={}, type={}, mag={}, dur={}ms) to entity {} from entity {}",
-        id.value, static_cast<int>(params.group), static_cast<int>(params.type),
-        params.magnitude, params.duration_ms, params.target.id, params.source.id);
+    LOG_DEBUG(magic,
+              "Applied effect {} (group={}, type={}, mag={}, dur={}ms) to entity {} from entity {}",
+              id.value,
+              static_cast<int>(params.group),
+              static_cast<int>(params.type),
+              params.magnitude,
+              params.duration_ms,
+              params.target.id,
+              params.source.id);
 
     for (const auto& cb : applied_callbacks_)
     {
@@ -171,13 +182,15 @@ auto effect_system::apply_effect(const apply_effect_params& params) -> effect_id
 void effect_system::remove_effect(entity::entity target, effect_id id)
 {
     auto it = entities_.find(target);
-    if (it == entities_.end()) return;
+    if (it == entities_.end())
+        return;
 
     auto& ee = it->second;
-    auto eff_it = std::find_if(ee.effects.begin(), ee.effects.end(),
-        [id](const active_effect& e) { return e.id == id; });
+    auto eff_it =
+        std::find_if(ee.effects.begin(), ee.effects.end(), [id](const active_effect& e) { return e.id == id; });
 
-    if (eff_it == ee.effects.end()) return;
+    if (eff_it == ee.effects.end())
+        return;
 
     auto removed = *eff_it;
     ee.effects.erase(eff_it);
@@ -193,20 +206,22 @@ void effect_system::remove_effect(entity::entity target, effect_id id)
 void effect_system::remove_effects_by_group(entity::entity target, magic_type group)
 {
     auto it = entities_.find(target);
-    if (it == entities_.end()) return;
+    if (it == entities_.end())
+        return;
 
     auto& ee = it->second;
     std::vector<active_effect> removed;
 
-    std::erase_if(ee.effects, [&](const active_effect& e)
-    {
-        if (e.group == group)
-        {
-            removed.push_back(e);
-            return true;
-        }
-        return false;
-    });
+    std::erase_if(ee.effects,
+                  [&](const active_effect& e)
+                  {
+                      if (e.group == group)
+                      {
+                          removed.push_back(e);
+                          return true;
+                      }
+                      return false;
+                  });
 
     if (!removed.empty())
     {
@@ -226,7 +241,8 @@ void effect_system::remove_effects_by_group(entity::entity target, magic_type gr
 void effect_system::remove_all_effects(entity::entity target)
 {
     auto it = entities_.find(target);
-    if (it == entities_.end()) return;
+    if (it == entities_.end())
+        return;
 
     auto& ee = it->second;
     auto all = std::move(ee.effects);
@@ -248,11 +264,13 @@ void effect_system::remove_all_effects(entity::entity target)
 auto effect_system::has_effect_in_group(entity::entity target, magic_type group) const -> bool
 {
     auto it = entities_.find(target);
-    if (it == entities_.end()) return false;
+    if (it == entities_.end())
+        return false;
 
     for (const auto& eff : it->second.effects)
     {
-        if (eff.group == group) return true;
+        if (eff.group == group)
+            return true;
     }
     return false;
 }
@@ -260,11 +278,13 @@ auto effect_system::has_effect_in_group(entity::entity target, magic_type group)
 auto effect_system::has_effect(entity::entity target, spell_effect_type type) const -> bool
 {
     auto it = entities_.find(target);
-    if (it == entities_.end()) return false;
+    if (it == entities_.end())
+        return false;
 
     for (const auto& eff : it->second.effects)
     {
-        if (eff.type == type) return true;
+        if (eff.type == type)
+            return true;
     }
     return false;
 }
@@ -284,7 +304,8 @@ auto effect_system::get_effect_modifiers(entity::entity target) const -> const e
 auto effect_system::has_status(entity::entity target, player::player_status status) const -> bool
 {
     auto it = entities_.find(target);
-    if (it == entities_.end()) return false;
+    if (it == entities_.end())
+        return false;
 
     return (it->second.cached_modifiers.status & status) != player::player_status::none;
 }
@@ -317,8 +338,8 @@ auto effect_system::next_effect_id() -> effect_id
 
 auto effect_system::get_current_time_ms() const -> int64_t
 {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now().time_since_epoch()).count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+        .count();
 }
 
 auto effect_system::map_status_flag(magic_type group, spell_effect_type type) const -> player::player_status
@@ -326,43 +347,43 @@ auto effect_system::map_status_flag(magic_type group, spell_effect_type type) co
     // Map from magic_type group
     switch (group)
     {
-        case magic_type::protection:
-            return player::player_status::protection;
-        case magic_type::hold_paralyze:
-            return player::player_status::paralyzed;
-        case magic_type::invisibility:
-            return player::player_status::invisible;
-        case magic_type::confusion:
-            return player::player_status::cursed;
-        case magic_type::poison:
-            return player::player_status::poisoned;
-        case magic_type::berserk:
-            return player::player_status::berserk;
-        case magic_type::inhibition:
-            return player::player_status::silenced;
-        default:
-            break;
+    case magic_type::protection:
+        return player::player_status::protection;
+    case magic_type::hold_paralyze:
+        return player::player_status::paralyzed;
+    case magic_type::invisibility:
+        return player::player_status::invisible;
+    case magic_type::confusion:
+        return player::player_status::cursed;
+    case magic_type::poison:
+        return player::player_status::poisoned;
+    case magic_type::berserk:
+        return player::player_status::berserk;
+    case magic_type::inhibition:
+        return player::player_status::silenced;
+    default:
+        break;
     }
 
     // Map from spell_effect_type
     switch (type)
     {
-        case spell_effect_type::buff_attack:
-            return player::player_status::attack_up;
-        case spell_effect_type::buff_defense:
-            return player::player_status::defense_up;
-        case spell_effect_type::buff_speed:
-            return player::player_status::haste;
-        case spell_effect_type::debuff_slow:
-            return player::player_status::slow;
-        case spell_effect_type::stun:
-            return player::player_status::stunned;
-        case spell_effect_type::freeze:
-            return player::player_status::frozen;
-        case spell_effect_type::invisibility:
-            return player::player_status::invisible;
-        default:
-            return player::player_status::none;
+    case spell_effect_type::buff_attack:
+        return player::player_status::attack_up;
+    case spell_effect_type::buff_defense:
+        return player::player_status::defense_up;
+    case spell_effect_type::buff_speed:
+        return player::player_status::haste;
+    case spell_effect_type::debuff_slow:
+        return player::player_status::slow;
+    case spell_effect_type::stun:
+        return player::player_status::stunned;
+    case spell_effect_type::freeze:
+        return player::player_status::frozen;
+    case spell_effect_type::invisibility:
+        return player::player_status::invisible;
+    default:
+        return player::player_status::none;
     }
 }
 
@@ -374,16 +395,18 @@ void effect_system::recompute_modifiers(entity_effects& ee)
 void effect_system::push_modifiers_to_entity(entity::entity target, const effect_modifier_result& mods)
 {
     auto* player_sys = subsystems().get<player::player_system>();
-    if (!player_sys) return;
+    if (!player_sys)
+        return;
 
     // Check if this entity is a player
     player_id pid{target.id};
     auto* p = player_sys->get_player(pid);
-    if (!p) return;
+    if (!p)
+        return;
 
     // Update effect modifiers on player
     player_sys->set_effect_modifiers(pid, mods.modifiers);
     player_sys->set_effect_status(pid, mods.status);
 }
 
-}  // namespace hb::effect
+} // namespace hb::effect

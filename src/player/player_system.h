@@ -15,10 +15,12 @@
 #include <functional>
 #include <optional>
 
-namespace hb::player {
+namespace hb::player
+{
 
 // Player creation data
-struct player_create_info {
+struct player_create_info
+{
     std::string name;
     std::string account_name;
     gender sex{gender::male};
@@ -28,7 +30,8 @@ struct player_create_info {
 };
 
 // Player system configuration
-struct player_system_config {
+struct player_system_config
+{
     uint32_t max_players{2000};
     int32_t regen_tick_ms{1000};
     int32_t hunger_decay_interval_ms{60000};
@@ -37,7 +40,8 @@ struct player_system_config {
 };
 
 // Player system - manages all online players
-class player_system : public subsystem {
+class player_system : public subsystem
+{
 public:
     player_system();
     ~player_system() override;
@@ -71,10 +75,12 @@ public:
     [[nodiscard]] auto player_exists(player_id id) const -> bool { return players_.contains(id); }
 
     // Get all player IDs
-    [[nodiscard]] auto get_all_players() const -> std::vector<player_id> {
+    [[nodiscard]] auto get_all_players() const -> std::vector<player_id>
+    {
         std::vector<player_id> result;
         result.reserve(players_.size());
-        for (const auto& [id, _] : players_) {
+        for (const auto& [id, _] : players_)
+        {
             result.push_back(id);
         }
         return result;
@@ -113,19 +119,21 @@ public:
     void set_facing(player_id id, hb::world::direction facing);
 
     // Movement with collision detection
-    enum class move_result : uint8_t {
+    enum class move_result : uint8_t
+    {
         success,
-        blocked_terrain,      // Tile is not walkable
-        blocked_occupied,     // Tile is occupied by another entity
+        blocked_terrain,       // Tile is not walkable
+        blocked_occupied,      // Tile is occupied by another entity
         blocked_out_of_bounds, // Position outside map
-        blocked_status,       // Player has movement-blocking status
-        blocked_dead,         // Player is dead
-        teleport,             // Stepped on teleport tile
-        invalid_map,          // Map doesn't exist
-        invalid_player,       // Player doesn't exist
+        blocked_status,        // Player has movement-blocking status
+        blocked_dead,          // Player is dead
+        teleport,              // Stepped on teleport tile
+        invalid_map,           // Map doesn't exist
+        invalid_player,        // Player doesn't exist
     };
 
-    struct move_info {
+    struct move_info
+    {
         move_result result{move_result::success};
         std::string teleport_dest_map;
         hb::world::position teleport_dest_pos{};
@@ -133,14 +141,14 @@ public:
     };
 
     // Attempt to move player with full collision checking
-    [[nodiscard]] auto try_move(player_id id, hb::world::position target_pos,
-                                 hb::world::direction facing) -> move_info;
+    [[nodiscard]] auto try_move(player_id id, hb::world::position target_pos, hb::world::direction facing) -> move_info;
 
     // Check if player can move to position (doesn't actually move)
     [[nodiscard]] auto can_move_to(player_id id, hb::world::position target_pos) const -> move_result;
 
     // Teleport result structure
-    struct teleport_result {
+    struct teleport_result
+    {
         bool success{false};
         std::string error;
         map_id old_map{};
@@ -151,18 +159,18 @@ public:
 
     // Execute teleportation to a different position/map
     [[nodiscard]] auto execute_teleport(player_id id,
-                                         const std::string& dest_map_name,
-                                         hb::world::position dest_pos,
-                                         hb::world::direction dest_dir) -> teleport_result;
+                                        const std::string& dest_map_name,
+                                        hb::world::position dest_pos,
+                                        hb::world::direction dest_dir) -> teleport_result;
 
     // Get players on specific map who can see a position (uses each player's visibility_radius)
     [[nodiscard]] auto get_players_who_can_see(map_id map,
-                                                const hb::world::position& pos) const -> std::vector<player_id>;
+                                               const hb::world::position& pos) const -> std::vector<player_id>;
 
     // Get players on specific map within a specific radius of a position
     [[nodiscard]] auto get_players_on_map_in_range(map_id map,
-                                                    const hb::world::position& center,
-                                                    int radius) const -> std::vector<player_id>;
+                                                   const hb::world::position& center,
+                                                   int radius) const -> std::vector<player_id>;
 
     // Get players in range on same map
     [[nodiscard]] auto get_players_in_range(player_id id, int radius) const -> std::vector<player_id>;
@@ -180,26 +188,30 @@ public:
     void restore_hunger(player_id id, int8_t amount);
 
     // Iteration
-    template<typename Func>
-    void for_each_player(Func&& func) {
-        for (auto& [id, player_ptr] : players_) {
+    template<typename Func> void for_each_player(Func&& func)
+    {
+        for (auto& [id, player_ptr] : players_)
+        {
             func(id, *player_ptr);
         }
     }
 
-    template<typename Func>
-    void for_each_player(Func&& func) const {
-        for (const auto& [id, player_ptr] : players_) {
+    template<typename Func> void for_each_player(Func&& func) const
+    {
+        for (const auto& [id, player_ptr] : players_)
+        {
             func(id, *player_ptr);
         }
     }
 
     // Find players matching a predicate
-    template<typename Pred>
-    [[nodiscard]] auto find_players_if(Pred&& pred) const -> std::vector<player_id> {
+    template<typename Pred> [[nodiscard]] auto find_players_if(Pred&& pred) const -> std::vector<player_id>
+    {
         std::vector<player_id> result;
-        for (const auto& [id, player_ptr] : players_) {
-            if (pred(*player_ptr)) {
+        for (const auto& [id, player_ptr] : players_)
+        {
+            if (pred(*player_ptr))
+            {
                 result.push_back(id);
             }
         }
@@ -207,9 +219,7 @@ public:
     }
 
 private:
-    [[nodiscard]] auto next_player_id() -> player_id {
-        return player_id{next_id_++};
-    }
+    [[nodiscard]] auto next_player_id() -> player_id { return player_id{next_id_++}; }
 
     void update_regeneration(float delta_time);
     void update_hunger(float delta_time);
@@ -222,7 +232,7 @@ private:
     std::unordered_map<std::string, player_id> name_to_id_;
     std::unordered_map<connection_id, player_id> connection_to_id_;
     std::unordered_map<session_id, player_id> session_to_id_;
-    std::unordered_map<uint32_t, player_id> ecs_index_to_id_;  // ecs_entity.index() -> player_id
+    std::unordered_map<uint32_t, player_id> ecs_index_to_id_; // ecs_entity.index() -> player_id
 
     // Update accumulators
     float regen_accumulator_{0.0f};
@@ -233,4 +243,4 @@ private:
     hunger_change_callback hunger_callback_;
 };
 
-}  // namespace hb::player
+} // namespace hb::player

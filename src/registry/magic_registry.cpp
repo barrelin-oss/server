@@ -8,27 +8,31 @@
 #include <algorithm>
 #include <cctype>
 
-namespace hb {
+namespace hb
+{
 
-namespace {
+namespace
+{
 
-auto to_lower(std::string str) -> std::string {
-    std::transform(str.begin(), str.end(), str.begin(),
-        [](unsigned char c) { return std::tolower(c); });
+auto to_lower(std::string str) -> std::string
+{
+    std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
     return str;
 }
 
-}  // namespace
+} // namespace
 
 magic_registry::magic_registry() = default;
 magic_registry::~magic_registry() = default;
 
-void magic_registry::initialize() {
+void magic_registry::initialize()
+{
     LOG_INFO(magic, "Magic registry initialized");
     set_initialized(true);
 }
 
-void magic_registry::shutdown() {
+void magic_registry::shutdown()
+{
     LOG_INFO(magic, "Magic registry shut down ({} spells)", spells_.size());
     spells_.clear();
     id_index_.clear();
@@ -36,32 +40,35 @@ void magic_registry::shutdown() {
     set_initialized(false);
 }
 
-auto magic_registry::load_from_file(const std::filesystem::path& path)
-    -> result<size_t, std::string>
+auto magic_registry::load_from_file(const std::filesystem::path& path) -> result<size_t, std::string>
 {
     LOG_INFO(magic, "Loading spells from: {}", path.string());
 
     YAML::Node root;
-    try {
+    try
+    {
         root = YAML::LoadFile(path.string());
-    } catch (const YAML::Exception& e) {
-        return result<size_t, std::string>::err(
-            "Failed to parse magic YAML: " + std::string(e.what())
-        );
+    }
+    catch (const YAML::Exception& e)
+    {
+        return result<size_t, std::string>::err("Failed to parse magic YAML: " + std::string(e.what()));
     }
 
     auto spells_node = root["magic"];
-    if (!spells_node || !spells_node.IsSequence()) {
+    if (!spells_node || !spells_node.IsSequence())
+    {
         return result<size_t, std::string>::err("Missing or invalid 'magic' array in YAML");
     }
 
     size_t loaded = 0;
     size_t errors = 0;
 
-    for (size_t i = 0; i < spells_node.size(); ++i) {
+    for (size_t i = 0; i < spells_node.size(); ++i)
+    {
         const auto& node = spells_node[i];
 
-        if (!node["id"] || !node["name"]) {
+        if (!node["id"] || !node["name"])
+        {
             LOG_WARN(magic, "Entry {}: missing id or name", i);
             ++errors;
             continue;
@@ -71,7 +78,8 @@ auto magic_registry::load_from_file(const std::filesystem::path& path)
 
         spell.id = spell_id{static_cast<uint16_t>(node["id"].as<int>())};
 
-        if (id_index_.contains(spell.id.value)) {
+        if (id_index_.contains(spell.id.value))
+        {
             LOG_WARN(magic, "Entry {}: duplicate spell ID {}", i, spell.id.value);
             ++errors;
             continue;
@@ -85,12 +93,14 @@ auto magic_registry::load_from_file(const std::filesystem::path& path)
         spell.range = static_cast<int16_t>(node["range1"].as<int>(0));
         spell.area_radius = static_cast<int16_t>(node["range2"].as<int>(0));
 
-        if (node["duration"]) {
+        if (node["duration"])
+        {
             spell.effect_duration = duration_ms(node["duration"].as<int>(0) * 1000);
         }
 
         // Parse effect dice for base_damage approximation (dice * (sides+1)/2 + bonus)
-        if (node["effect1"]) {
+        if (node["effect1"])
+        {
             auto e = node["effect1"];
             int dice = e["dice"].as<int>(0);
             int sides = e["sides"].as<int>(0);
@@ -104,22 +114,23 @@ auto magic_registry::load_from_file(const std::filesystem::path& path)
         }
 
         // Determine offensive/targeting from type
-        switch (spell.type) {
-            case magic_type::damage_spot:
-            case magic_type::damage_area:
-            case magic_type::poison:
-            case magic_type::ice:
-                spell.is_offensive = true;
-                break;
-            case magic_type::hp_up_spot:
-            case magic_type::sp_up_spot:
-            case magic_type::resurrection:
-                spell.is_offensive = false;
-                spell.can_hit_ally = true;
-                spell.can_hit_enemy = false;
-                break;
-            default:
-                break;
+        switch (spell.type)
+        {
+        case magic_type::damage_spot:
+        case magic_type::damage_area:
+        case magic_type::poison:
+        case magic_type::ice:
+            spell.is_offensive = true;
+            break;
+        case magic_type::hp_up_spot:
+        case magic_type::sp_up_spot:
+        case magic_type::resurrection:
+            spell.is_offensive = false;
+            spell.can_hit_ally = true;
+            spell.can_hit_enemy = false;
+            break;
+        default:
+            break;
         }
 
         auto index = spells_.size();
@@ -133,83 +144,104 @@ auto magic_registry::load_from_file(const std::filesystem::path& path)
     return result<size_t, std::string>::ok(loaded);
 }
 
-auto magic_registry::get(spell_id id) const -> const spell_template* {
+auto magic_registry::get(spell_id id) const -> const spell_template*
+{
     auto it = id_index_.find(id.value);
-    if (it == id_index_.end()) {
+    if (it == id_index_.end())
+    {
         return nullptr;
     }
     return &spells_[it->second];
 }
 
-auto magic_registry::find_by_name(std::string_view name) const -> const spell_template* {
+auto magic_registry::find_by_name(std::string_view name) const -> const spell_template*
+{
     auto it = name_index_.find(to_lower(std::string(name)));
-    if (it == name_index_.end()) {
+    if (it == name_index_.end())
+    {
         return nullptr;
     }
     return &spells_[it->second];
 }
 
-auto magic_registry::by_type(magic_type type) const -> std::vector<const spell_template*> {
+auto magic_registry::by_type(magic_type type) const -> std::vector<const spell_template*>
+{
     std::vector<const spell_template*> result;
-    for (const auto& spell : spells_) {
-        if (spell.type == type) {
+    for (const auto& spell : spells_)
+    {
+        if (spell.type == type)
+        {
             result.push_back(&spell);
         }
     }
     return result;
 }
 
-auto magic_registry::offensive_spells() const -> std::vector<const spell_template*> {
+auto magic_registry::offensive_spells() const -> std::vector<const spell_template*>
+{
     std::vector<const spell_template*> result;
-    for (const auto& spell : spells_) {
-        if (spell.is_offensive) {
+    for (const auto& spell : spells_)
+    {
+        if (spell.is_offensive)
+        {
             result.push_back(&spell);
         }
     }
     return result;
 }
 
-auto magic_registry::healing_spells() const -> std::vector<const spell_template*> {
+auto magic_registry::healing_spells() const -> std::vector<const spell_template*>
+{
     std::vector<const spell_template*> result;
-    for (const auto& spell : spells_) {
-        if (spell.type == magic_type::hp_up_spot) {
+    for (const auto& spell : spells_)
+    {
+        if (spell.type == magic_type::hp_up_spot)
+        {
             result.push_back(&spell);
         }
     }
     return result;
 }
 
-auto magic_registry::buff_spells() const -> std::vector<const spell_template*> {
+auto magic_registry::buff_spells() const -> std::vector<const spell_template*>
+{
     std::vector<const spell_template*> result;
-    for (const auto& spell : spells_) {
-        if (spell.type == magic_type::berserk ||
-            spell.type == magic_type::invisibility) {
+    for (const auto& spell : spells_)
+    {
+        if (spell.type == magic_type::berserk || spell.type == magic_type::invisibility)
+        {
             result.push_back(&spell);
         }
     }
     return result;
 }
 
-auto magic_registry::by_level(int magic_level) const -> std::vector<const spell_template*> {
+auto magic_registry::by_level(int magic_level) const -> std::vector<const spell_template*>
+{
     std::vector<const spell_template*> result;
-    for (const auto& spell : spells_) {
-        if (spell.mag_level_req <= magic_level) {
+    for (const auto& spell : spells_)
+    {
+        if (spell.mag_level_req <= magic_level)
+        {
             result.push_back(&spell);
         }
     }
     return result;
 }
 
-auto magic_registry::count() const -> size_t {
+auto magic_registry::count() const -> size_t
+{
     return spells_.size();
 }
 
-auto magic_registry::exists(spell_id id) const -> bool {
+auto magic_registry::exists(spell_id id) const -> bool
+{
     return id_index_.contains(id.value);
 }
 
-auto magic_registry::all() const -> const std::vector<spell_template>& {
+auto magic_registry::all() const -> const std::vector<spell_template>&
+{
     return spells_;
 }
 
-}  // namespace hb
+} // namespace hb

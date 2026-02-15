@@ -11,15 +11,17 @@
 #include <functional>
 #include <vector>
 
-namespace hb::war {
+namespace hb::war
+{
 
 // Mana state for a single faction
-struct faction_mana_state {
+struct faction_mana_state
+{
     war_faction faction{war_faction::neutral};
-    int32_t mana_pool{0};           // Current mana collected
-    int32_t gmg_charge{0};          // GMG charge counter (meteor at threshold)
-    int32_t total_mana_collected{0}; // Lifetime for this crusade
-    int32_t meteors_fired{0};       // How many meteors launched
+    int32_t mana_pool{0};              // Current mana collected
+    int32_t gmg_charge{0};             // GMG charge counter (meteor at threshold)
+    int32_t total_mana_collected{0};   // Lifetime for this crusade
+    int32_t meteors_fired{0};          // How many meteors launched
     int32_t gmg_accumulated_damage{0}; // Damage accumulator for charge reduction
 
     void add_mana(int32_t amount)
@@ -39,15 +41,16 @@ struct faction_mana_state {
 };
 
 // Mana system configuration
-struct mana_config {
-    int32_t collector_scan_radius{5};   // Tiles around collector to scan for stones
-    int32_t collector_harvest_rate{3};  // Mana per tick per stone in range
-    int32_t collector_mp_restore{5};    // MP restored to allies in range per tick
+struct mana_config
+{
+    int32_t collector_scan_radius{5};       // Tiles around collector to scan for stones
+    int32_t collector_harvest_rate{3};      // Mana per tick per stone in range
+    int32_t collector_mp_restore{5};        // MP restored to allies in range per tick
     int32_t collector_mp_restore_radius{5}; // Tiles around collector for MP restore
-    int32_t gmg_mana_threshold{15};    // Mana needed for 1 GMG charge
-    int32_t gmg_charges_for_meteor{10}; // Charges needed to fire meteor
-    float tick_interval_seconds{5.0f}; // How often mana collection ticks
-    int32_t gmg_damage_threshold{500}; // Accumulated damage to remove 1 GMG charge
+    int32_t gmg_mana_threshold{15};         // Mana needed for 1 GMG charge
+    int32_t gmg_charges_for_meteor{10};     // Charges needed to fire meteor
+    float tick_interval_seconds{5.0f};      // How often mana collection ticks
+    int32_t gmg_damage_threshold{500};      // Accumulated damage to remove 1 GMG charge
 };
 
 // Individual mana stone state (shared between factions)
@@ -63,7 +66,8 @@ using meteor_trigger_fn = std::function<void(war_faction attacking_faction)>;
 
 // Mana collection pipeline
 // Ticked by crusade_system during active crusade
-class mana_system {
+class mana_system
+{
 public:
     mana_system() = default;
 
@@ -121,4 +125,4 @@ private:
     int32_t elvine_threshold_adjustment_{0};
 };
 
-}  // namespace hb::war
+} // namespace hb::war

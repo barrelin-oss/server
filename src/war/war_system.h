@@ -15,58 +15,67 @@
 #include <vector>
 #include <optional>
 
-namespace hb::war {
+namespace hb::war
+{
 
 // War events
-struct war_started_event {
+struct war_started_event
+{
     war_id war{};
     war_type type{};
 };
 
-struct war_ended_event {
+struct war_ended_event
+{
     war_id war{};
     war_type type{};
     war_faction winner{war_faction::neutral};
     bool draw{false};
 };
 
-struct war_phase_changed_event {
+struct war_phase_changed_event
+{
     war_id war{};
     war_phase old_phase{};
     war_phase new_phase{};
 };
 
-struct participant_joined_event {
+struct participant_joined_event
+{
     war_id war{};
     player_id player{};
     war_faction faction{};
 };
 
-struct participant_killed_event {
+struct participant_killed_event
+{
     war_id war{};
     player_id victim{};
     player_id killer{};
 };
 
-struct objective_captured_event {
+struct objective_captured_event
+{
     war_id war{};
     uint16_t objective_id{};
     war_faction old_faction{};
     war_faction new_faction{};
 };
 
-struct territory_captured_event {
+struct territory_captured_event
+{
     territory_id territory{};
     war_faction old_faction{};
     war_faction new_faction{};
 };
 
 // War configuration
-struct war_config {
+struct war_config
+{
     // Timing
-    int32_t preparation_seconds{300};       // 5 minutes prep
-    int32_t duration_seconds{3600};         // 1 hour combat
-    int32_t ending_seconds{60};             // 1 minute ending
+    int32_t preparation_seconds{300}; // 5 minutes prep
+    int32_t duration_seconds{3600};   // 1 hour combat
+    int32_t ending_seconds{60};       // 1 minute ending
 
     // Respawning
     int32_t base_respawn_seconds{30};
@@ -85,7 +94,8 @@ struct war_config {
 };
 
 // War system configuration
-struct war_system_config {
+struct war_system_config
+{
     bool enable_crusade{true};
     bool enable_heldenian{true};
     bool enable_apocalypse{false};
@@ -94,7 +104,8 @@ struct war_system_config {
 };
 
 // War state container
-struct war_state {
+struct war_state
+{
     war_id id{};
     war_type type{war_type::crusade};
     war_status state{war_status::inactive};
@@ -124,54 +135,56 @@ struct war_state {
     // Maps involved
     std::vector<map_id> war_maps;
 
-    [[nodiscard]] auto is_active() const -> bool {
-        return state == war_status::active;
+    [[nodiscard]] auto is_active() const -> bool { return state == war_status::active; }
+
+    [[nodiscard]] auto is_running() const -> bool
+    {
+        return state == war_status::preparing || state == war_status::active || state == war_status::ending;
     }
 
-    [[nodiscard]] auto is_running() const -> bool {
-        return state == war_status::preparing ||
-               state == war_status::active ||
-               state == war_status::ending;
-    }
-
-    [[nodiscard]] auto get_faction_score(war_faction faction) -> faction_score& {
+    [[nodiscard]] auto get_faction_score(war_faction faction) -> faction_score&
+    {
         return faction == war_faction::aresden ? aresden_score : elvine_score;
     }
 
-    [[nodiscard]] auto get_faction_score(war_faction faction) const -> const faction_score& {
+    [[nodiscard]] auto get_faction_score(war_faction faction) const -> const faction_score&
+    {
         return faction == war_faction::aresden ? aresden_score : elvine_score;
     }
 
-    [[nodiscard]] auto participant_count() const -> size_t {
-        return participants.size();
-    }
+    [[nodiscard]] auto participant_count() const -> size_t { return participants.size(); }
 
-    [[nodiscard]] auto get_participant(player_id player) -> war_participant* {
+    [[nodiscard]] auto get_participant(player_id player) -> war_participant*
+    {
         auto it = participants.find(player);
         return it != participants.end() ? &it->second : nullptr;
     }
 
-    [[nodiscard]] auto get_participant(player_id player) const -> const war_participant* {
+    [[nodiscard]] auto get_participant(player_id player) const -> const war_participant*
+    {
         auto it = participants.find(player);
         return it != participants.end() ? &it->second : nullptr;
     }
 
-    [[nodiscard]] auto is_participant(player_id player) const -> bool {
-        return participants.contains(player);
-    }
+    [[nodiscard]] auto is_participant(player_id player) const -> bool { return participants.contains(player); }
 
-    [[nodiscard]] auto get_leading_faction() const -> war_faction {
-        if (aresden_score.total_score > elvine_score.total_score) {
+    [[nodiscard]] auto get_leading_faction() const -> war_faction
+    {
+        if (aresden_score.total_score > elvine_score.total_score)
+        {
             return war_faction::aresden;
-        } else if (elvine_score.total_score > aresden_score.total_score) {
+        }
+        else if (elvine_score.total_score > aresden_score.total_score)
+        {
             return war_faction::elvine;
         }
-        return war_faction::neutral;  // Tie
+        return war_faction::neutral; // Tie
     }
 };
 
 // War operation results
-enum class war_result_code : uint8_t {
+enum class war_result_code : uint8_t
+{
     success = 0,
     war_not_found = 1,
     already_participant = 2,
@@ -184,7 +197,8 @@ enum class war_result_code : uint8_t {
 };
 
 // War system - manages faction wars and territory
-class war_system : public subsystem {
+class war_system : public subsystem
+{
 public:
     using war_callback = std::function<void(const war_started_event&)>;
     using war_end_callback = std::function<void(const war_ended_event&)>;
@@ -204,7 +218,8 @@ public:
 
     // ========== War Lifecycle ==========
 
-    auto schedule_war(war_type type, std::chrono::system_clock::time_point start_time) -> result<war_id, war_result_code>;
+    auto schedule_war(war_type type,
+                      std::chrono::system_clock::time_point start_time) -> result<war_id, war_result_code>;
     auto start_war(war_type type) -> result<war_id, war_result_code>;
     auto end_war(war_id id) -> war_result_code;
     auto cancel_war(war_id id) -> war_result_code;
@@ -220,8 +235,7 @@ public:
 
     // ========== Participation ==========
 
-    auto join_war(war_id war, player_id player, const std::string& player_name, war_faction faction)
-        -> war_result_code;
+    auto join_war(war_id war, player_id player, const std::string& player_name, war_faction faction) -> war_result_code;
     auto leave_war(war_id war, player_id player) -> war_result_code;
     auto respawn_participant(war_id war, player_id player) -> bool;
 
@@ -295,4 +309,4 @@ private:
     std::vector<territory_callback> territory_captured_callbacks_;
 };
 
-}  // namespace hb::war
+} // namespace hb::war

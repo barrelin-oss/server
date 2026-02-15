@@ -30,24 +30,26 @@
 #include "effect/effect_system.h"
 #include "registry/item_registry.h"
 
-namespace hb::bridge {
+namespace hb::bridge
+{
 
 auth_handlers::auth_handlers() = default;
 auth_handlers::~auth_handlers() = default;
 
 void auth_handlers::initialize(network::websocket_server* ws_server,
-                                auth::auth_system* auth,
-                                player::player_system* players,
-                                world::world_subsystem* world,
-                                inventory::inventory_system* inventory,
-                                admin::admin_system* admin,
-                                npc::npc_system* npc,
-                                item::item_system* item,
-                                social::social_system* social,
-                                scheduler* sched,
-                                war::war_persistence* war_persistence,
-                                effect::effect_system* effects,
-                                item_registry* item_reg) {
+                               auth::auth_system* auth,
+                               player::player_system* players,
+                               world::world_subsystem* world,
+                               inventory::inventory_system* inventory,
+                               admin::admin_system* admin,
+                               npc::npc_system* npc,
+                               item::item_system* item,
+                               social::social_system* social,
+                               scheduler* sched,
+                               war::war_persistence* war_persistence,
+                               effect::effect_system* effects,
+                               item_registry* item_reg)
+{
     ws_server_ = ws_server;
     auth_ = auth;
     players_ = players;
@@ -61,7 +63,9 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
     war_persistence_ = war_persistence;
     effects_ = effects;
     item_registry_ = item_reg;
-    LOG_INFO(bridge, "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {}, item: {}, social: {})",
+    LOG_INFO(
+        bridge,
+        "Auth handlers initialized (players: {}, world: {}, inventory: {}, admin: {}, npc: {}, item: {}, social: {})",
         players_ != nullptr ? "yes" : "no",
         world_ != nullptr ? "yes" : "no",
         inventory_ != nullptr ? "yes" : "no",
@@ -71,93 +75,97 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
         social_ != nullptr ? "yes" : "no");
 }
 
-void auth_handlers::handle_message(connection_id conn_id, const network::json_message& msg) {
-    switch (msg.type) {
-        case network::json_message_type::login_request:
-            handle_login(conn_id, msg);
-            break;
-        case network::json_message_type::logout_request:
-            handle_logout(conn_id, msg);
-            break;
-        case network::json_message_type::create_account_request:
-            handle_create_account(conn_id, msg);
-            break;
-        case network::json_message_type::get_characters_request:
-            handle_get_characters(conn_id, msg);
-            break;
-        case network::json_message_type::create_character_request:
-            handle_create_character(conn_id, msg);
-            break;
-        case network::json_message_type::delete_character_request:
-            handle_delete_character(conn_id, msg);
-            break;
-        case network::json_message_type::enter_game_request:
-            handle_enter_game(conn_id, msg);
-            break;
-        case network::json_message_type::ping:
-            handle_ping(conn_id, msg);
-            break;
-        case network::json_message_type::enter_admin_mode_request:
-            handle_enter_admin_mode(conn_id, msg);
-            break;
-        default:
-            LOG_WARN(bridge, "Unhandled auth message type: {}",
-                network::to_string(msg.type));
-            send_error(conn_id, msg.seq, "unknown_message_type",
-                "Message type not recognized by auth handler");
-            break;
+void auth_handlers::handle_message(connection_id conn_id, const network::json_message& msg)
+{
+    switch (msg.type)
+    {
+    case network::json_message_type::login_request:
+        handle_login(conn_id, msg);
+        break;
+    case network::json_message_type::logout_request:
+        handle_logout(conn_id, msg);
+        break;
+    case network::json_message_type::create_account_request:
+        handle_create_account(conn_id, msg);
+        break;
+    case network::json_message_type::get_characters_request:
+        handle_get_characters(conn_id, msg);
+        break;
+    case network::json_message_type::create_character_request:
+        handle_create_character(conn_id, msg);
+        break;
+    case network::json_message_type::delete_character_request:
+        handle_delete_character(conn_id, msg);
+        break;
+    case network::json_message_type::enter_game_request:
+        handle_enter_game(conn_id, msg);
+        break;
+    case network::json_message_type::ping:
+        handle_ping(conn_id, msg);
+        break;
+    case network::json_message_type::enter_admin_mode_request:
+        handle_enter_admin_mode(conn_id, msg);
+        break;
+    default:
+        LOG_WARN(bridge, "Unhandled auth message type: {}", network::to_string(msg.type));
+        send_error(conn_id, msg.seq, "unknown_message_type", "Message type not recognized by auth handler");
+        break;
     }
 }
 
-void auth_handlers::handle_login(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_login(connection_id conn_id, const network::json_message& msg)
+{
     auto* conn = get_connection_or_error(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     // Parse request data
     auto data_result = network::login_request_data::from_json(msg.data);
-    if (data_result.is_err()) {
+    if (data_result.is_err())
+    {
         send_error(conn_id, msg.seq, "invalid_request", data_result.error());
         return;
     }
 
     auto& data = data_result.value();
 
-    LOG_DEBUG(bridge, "Login request from {} for user '{}'",
-        conn->remote_address(), data.username);
+    LOG_DEBUG(bridge, "Login request from {} for user '{}'", conn->remote_address(), data.username);
 
     // Check IP ban
-    if (admin_ && admin_->is_ip_banned(conn->remote_address())) {
-        LOG_INFO(bridge, "Login blocked for '{}': IP {} is banned",
-            data.username, conn->remote_address());
+    if (admin_ && admin_->is_ip_banned(conn->remote_address()))
+    {
+        LOG_INFO(bridge, "Login blocked for '{}': IP {} is banned", data.username, conn->remote_address());
         auto response = network::make_login_response(msg.seq, false, std::nullopt, "ip_banned");
         conn->send(response);
         return;
     }
 
     // Check maintenance mode (allow admins through)
-    if (auth_->is_maintenance_mode()) {
+    if (auth_->is_maintenance_mode())
+    {
         // Try to look up account to check admin status
         auto acct_result = auth_->get_account_by_username(data.username);
-        bool is_admin = acct_result.is_ok() &&
-            acct_result.value().admin >= auth::admin_level::gamemaster;
-        if (!is_admin) {
+        bool is_admin = acct_result.is_ok() && acct_result.value().admin >= auth::admin_level::gamemaster;
+        if (!is_admin)
+        {
             LOG_INFO(bridge, "Login blocked for '{}': server in maintenance mode", data.username);
             auto response = network::make_login_response(
-                msg.seq, false, std::nullopt,
-                std::string("maintenance:") + auth_->maintenance_message());
+                msg.seq, false, std::nullopt, std::string("maintenance:") + auth_->maintenance_message());
             conn->send(response);
             return;
         }
     }
 
     // Forum auth path
-    if (auth_->forum_auth_enabled()) {
-        if (!data.forum_token.empty()) {
+    if (auth_->forum_auth_enabled())
+    {
+        if (!data.forum_token.empty())
+        {
             // Token-based auto-login
-            auto forum_result = auth_->authenticate_forum_token(
-                data.forum_token, conn->remote_address());
+            auto forum_result = auth_->authenticate_forum_token(data.forum_token, conn->remote_address());
 
-            if (forum_result.is_err()) {
+            if (forum_result.is_err())
+            {
                 std::string error_str(auth::to_string(forum_result.error()));
                 LOG_INFO(bridge, "Forum token login failed for '{}': {}", data.username, error_str);
                 auto response = network::make_login_response(msg.seq, false, std::nullopt, error_str);
@@ -171,8 +179,7 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
             conn->set_session_token(result.session.token);
             conn->set_username(data.username);
 
-            LOG_INFO(bridge, "User '{}' logged in via forum token from {}",
-                data.username, conn->remote_address());
+            LOG_INFO(bridge, "User '{}' logged in via forum token from {}", data.username, conn->remote_address());
 
             auto response = network::make_login_response(msg.seq, true, result.session.token);
             conn->send(response);
@@ -180,10 +187,10 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
         }
 
         // Password-based forum login
-        auto forum_result = auth_->authenticate_forum(
-            data.username, data.password, conn->remote_address());
+        auto forum_result = auth_->authenticate_forum(data.username, data.password, conn->remote_address());
 
-        if (forum_result.is_err()) {
+        if (forum_result.is_err())
+        {
             std::string error_str(auth::to_string(forum_result.error()));
             LOG_INFO(bridge, "Forum login failed for '{}': {}", data.username, error_str);
             auto response = network::make_login_response(msg.seq, false, std::nullopt, error_str);
@@ -199,8 +206,8 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
 
         LOG_INFO(bridge, "User '{}' logged in via forum from {}", data.username, conn->remote_address());
 
-        auto response = network::make_login_response(
-            msg.seq, true, result.session.token, std::nullopt, result.forum_token);
+        auto response =
+            network::make_login_response(msg.seq, true, result.session.token, std::nullopt, result.forum_token);
         conn->send(response);
         return;
     }
@@ -208,7 +215,8 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
     // Local auth path (default)
     auto auth_result = auth_->authenticate(data.username, data.password, conn->remote_address());
 
-    if (auth_result.is_err()) {
+    if (auth_result.is_err())
+    {
         auto error = auth_result.error();
         std::string error_str(auth::to_string(error));
 
@@ -234,12 +242,15 @@ void auth_handlers::handle_login(connection_id conn_id, const network::json_mess
     conn->send(response);
 }
 
-void auth_handlers::handle_logout(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_logout(connection_id conn_id, const network::json_message& msg)
+{
     auto* conn = require_authenticated(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     // If player was in game, save and clean up
-    if (conn->state() == network::ws_connection_state::in_game && conn->player().value != 0) {
+    if (conn->state() == network::ws_connection_state::in_game && conn->player().value != 0)
+    {
         auto pid = conn->player();
         LOG_INFO(bridge, "Player {} logging out, saving state...", pid.value);
 
@@ -247,16 +258,22 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
         save_player_state(pid);
 
         // Disconnect from guild and friends
-        if (social_ && players_) {
+        if (social_ && players_)
+        {
             auto* player = players_->get_player(pid);
-            if (player) {
+            if (player)
+            {
                 // Notify online friends before disconnecting
                 auto* friends = social_->get_friends(player->character_id);
-                if (friends && ws_server_) {
-                    for (const auto& f : *friends) {
-                        if (f.is_online()) {
+                if (friends && ws_server_)
+                {
+                    for (const auto& f : *friends)
+                    {
+                        if (f.is_online())
+                        {
                             auto* friend_conn = ws_server_->get_connection_by_player(f.runtime_id);
-                            if (friend_conn) {
+                            if (friend_conn)
+                            {
                                 friend_conn->send(network::make_friend_offline_notification(player->name));
                             }
                         }
@@ -269,21 +286,27 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
         }
 
         // Notify nearby players of despawn
-        if (players_ && ws_server_) {
+        if (players_ && ws_server_)
+        {
             auto* player = players_->get_player(pid);
-            if (player) {
+            if (player)
+            {
                 auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
                 auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
 
-                for (auto other_id : nearby) {
-                    if (other_id == pid) continue;
+                for (auto other_id : nearby)
+                {
+                    if (other_id == pid)
+                        continue;
 
                     auto* other = players_->get_player(other_id);
-                    if (!other || other->connection.value == 0) continue;
+                    if (!other || other->connection.value == 0)
+                        continue;
 
                     auto* other_conn = ws_server_->get_connection(other->connection);
-                    if (other_conn && other_conn->is_open()) {
+                    if (other_conn && other_conn->is_open())
+                    {
                         other_conn->send(despawn_msg);
                     }
                 }
@@ -294,13 +317,15 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
         }
 
         // Clean up inventory
-        if (inventory_) {
+        if (inventory_)
+        {
             inventory_->destroy_inventory(entity_id{pid.value});
         }
     }
 
     // Invalidate session
-    if (!conn->session_token().empty()) {
+    if (!conn->session_token().empty())
+    {
         auth_->invalidate_session(conn->session_token());
     }
 
@@ -317,13 +342,16 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
     conn->send(response);
 }
 
-void auth_handlers::handle_create_account(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_create_account(connection_id conn_id, const network::json_message& msg)
+{
     auto* conn = get_connection_or_error(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     // Parse request data
     auto data_result = network::create_account_request_data::from_json(msg.data);
-    if (data_result.is_err()) {
+    if (data_result.is_err())
+    {
         send_error(conn_id, msg.seq, "invalid_request", data_result.error());
         return;
     }
@@ -335,7 +363,8 @@ void auth_handlers::handle_create_account(connection_id conn_id, const network::
     // Attempt to create account
     auto create_result = auth_->create_account(data.username, data.password);
 
-    if (create_result.is_err()) {
+    if (create_result.is_err())
+    {
         auto error = create_result.error();
         std::string error_str(auth::to_string(error));
 
@@ -354,18 +383,20 @@ void auth_handlers::handle_create_account(connection_id conn_id, const network::
     conn->send(response);
 }
 
-void auth_handlers::handle_get_characters(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_get_characters(connection_id conn_id, const network::json_message& msg)
+{
     auto* conn = require_authenticated(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     auto chars_result = auth_->get_characters(conn->account());
 
-    if (chars_result.is_err()) {
+    if (chars_result.is_err())
+    {
         auto error = chars_result.error();
         std::string error_str(auth::to_string(error));
 
-        LOG_WARN(bridge, "Failed to get characters for account {}: {}",
-            conn->account().value, error_str);
+        LOG_WARN(bridge, "Failed to get characters for account {}: {}", conn->account().value, error_str);
 
         send_error(conn_id, msg.seq, error_str, "Failed to retrieve characters");
         return;
@@ -373,20 +404,22 @@ void auth_handlers::handle_get_characters(connection_id conn_id, const network::
 
     auto& characters = chars_result.value();
 
-    LOG_DEBUG(bridge, "Sending {} characters for account {}",
-        characters.size(), conn->account().value);
+    LOG_DEBUG(bridge, "Sending {} characters for account {}", characters.size(), conn->account().value);
 
     auto response = network::make_get_characters_response(msg.seq, characters);
     conn->send(response);
 }
 
-void auth_handlers::handle_create_character(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_create_character(connection_id conn_id, const network::json_message& msg)
+{
     auto* conn = require_authenticated(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     // Parse request data
     auto data_result = network::create_character_request_data::from_json(msg.data);
-    if (data_result.is_err()) {
+    if (data_result.is_err())
+    {
         send_error(conn_id, msg.seq, "invalid_request", data_result.error());
         return;
     }
@@ -394,28 +427,27 @@ void auth_handlers::handle_create_character(connection_id conn_id, const network
     auto& data = data_result.value();
     auto create_info = data.to_create_info();
 
-    LOG_DEBUG(bridge, "Character creation request for '{}' by account {}",
-        data.name, conn->account().value);
+    LOG_DEBUG(bridge, "Character creation request for '{}' by account {}", data.name, conn->account().value);
 
     // Attempt to create character
     auto create_result = auth_->create_character(conn->account(), create_info);
 
-    if (create_result.is_err()) {
+    if (create_result.is_err())
+    {
         auto error = create_result.error();
         std::string error_str(auth::to_string(error));
 
         LOG_INFO(bridge, "Character creation failed for '{}': {}", data.name, error_str);
 
-        auto response = network::make_create_character_response(
-            msg.seq, false, std::nullopt, error_str);
+        auto response = network::make_create_character_response(msg.seq, false, std::nullopt, error_str);
         conn->send(response);
         return;
     }
 
     auto char_id = create_result.value();
 
-    LOG_INFO(bridge, "Character '{}' created with id {} for account {}",
-        data.name, char_id.value, conn->account().value);
+    LOG_INFO(
+        bridge, "Character '{}' created with id {} for account {}", data.name, char_id.value, conn->account().value);
 
     // Send success response
     auto response = network::make_create_character_response(msg.seq, true, char_id.value);
@@ -423,19 +455,23 @@ void auth_handlers::handle_create_character(connection_id conn_id, const network
 
     // Re-send the full character list so the client updates immediately
     auto chars_result = auth_->get_characters(conn->account());
-    if (chars_result.is_ok()) {
+    if (chars_result.is_ok())
+    {
         auto list_response = network::make_get_characters_response(0, chars_result.value());
         conn->send(list_response);
     }
 }
 
-void auth_handlers::handle_delete_character(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_delete_character(connection_id conn_id, const network::json_message& msg)
+{
     auto* conn = require_authenticated(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     // Parse request data
     auto data_result = network::delete_character_request_data::from_json(msg.data);
-    if (data_result.is_err()) {
+    if (data_result.is_err())
+    {
         send_error(conn_id, msg.seq, "invalid_request", data_result.error());
         return;
     }
@@ -443,13 +479,13 @@ void auth_handlers::handle_delete_character(connection_id conn_id, const network
     auto& data = data_result.value();
     auto char_id = player_id{data.character_id};
 
-    LOG_DEBUG(bridge, "Character deletion request for id {} by account {}",
-        char_id.value, conn->account().value);
+    LOG_DEBUG(bridge, "Character deletion request for id {} by account {}", char_id.value, conn->account().value);
 
     // Attempt to delete character
     auto delete_result = auth_->delete_character(conn->account(), char_id);
 
-    if (delete_result.is_err()) {
+    if (delete_result.is_err())
+    {
         auto error = delete_result.error();
         std::string error_str(auth::to_string(error));
 
@@ -460,30 +496,33 @@ void auth_handlers::handle_delete_character(connection_id conn_id, const network
         return;
     }
 
-    LOG_INFO(bridge, "Character id {} deleted for account {}",
-        char_id.value, conn->account().value);
+    LOG_INFO(bridge, "Character id {} deleted for account {}", char_id.value, conn->account().value);
 
     auto response = network::make_delete_character_response(msg.seq, true);
     conn->send(response);
 
     // Re-send the full character list so the client updates immediately
     auto chars_result = auth_->get_characters(conn->account());
-    if (chars_result.is_ok()) {
+    if (chars_result.is_ok())
+    {
         auto list_response = network::make_get_characters_response(0, chars_result.value());
         conn->send(list_response);
     }
 }
 
-void auth_handlers::handle_enter_game(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_enter_game(connection_id conn_id, const network::json_message& msg)
+{
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::player_save);
 
     auto* conn = require_authenticated(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     // Parse request data
     auto data_result = network::enter_game_request_data::from_json(msg.data);
-    if (data_result.is_err()) {
+    if (data_result.is_err())
+    {
         send_error(conn_id, msg.seq, "invalid_request", data_result.error());
         return;
     }
@@ -494,12 +533,12 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     // Calculate initial visibility radii from client viewport
     auto vis_radii = network::calculate_visibility_radius(data.screen_width, data.screen_height);
 
-    LOG_DEBUG(bridge, "Enter game request for character {} by account {}",
-        char_id.value, conn->account().value);
+    LOG_DEBUG(bridge, "Enter game request for character {} by account {}", char_id.value, conn->account().value);
 
     // Load full character data with ownership verification
     auto char_result = auth_->load_character_full(char_id, conn->account());
-    if (char_result.is_err()) {
+    if (char_result.is_err())
+    {
         auto error = char_result.error();
         std::string error_str(auth::to_string(error));
 
@@ -513,36 +552,45 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     auto& char_data = char_result.value();
 
     // Check if this account already has a character in game (stale session not cleaned up)
-    if (players_) {
+    if (players_)
+    {
         player_id existing_player_id{0};
         connection_id old_connection{0};
 
         // Find any player belonging to this account
-        players_->for_each_player([&](player_id pid, const player::player& p) {
-            if (p.account == conn->account()) {
-                existing_player_id = pid;
-                old_connection = p.connection;
-            }
-        });
+        players_->for_each_player(
+            [&](player_id pid, const player::player& p)
+            {
+                if (p.account == conn->account())
+                {
+                    existing_player_id = pid;
+                    old_connection = p.connection;
+                }
+            });
 
-        if (existing_player_id.value != 0) {
+        if (existing_player_id.value != 0)
+        {
             auto* existing_player = players_->get_player(existing_player_id);
             std::string existing_name = existing_player ? existing_player->name : "unknown";
 
-            if (!data.force_disconnect) {
+            if (!data.force_disconnect)
+            {
                 // Account already has a character in game from a previous session
-                LOG_INFO(bridge, "Account {} already has character '{}' in game (stale session), rejecting new entry",
-                    conn->account().value, existing_name);
+                LOG_INFO(bridge,
+                         "Account {} already has character '{}' in game (stale session), rejecting new entry",
+                         conn->account().value,
+                         existing_name);
 
-                auto response = network::make_enter_game_response(
-                    msg.seq, false, nullptr, "account_already_in_game");
+                auto response = network::make_enter_game_response(msg.seq, false, nullptr, "account_already_in_game");
                 conn->send(response);
                 return;
             }
 
             // Force disconnect - clean up the stale player
-            LOG_INFO(bridge, "Force disconnecting stale session for account {} (character '{}')",
-                conn->account().value, existing_name);
+            LOG_INFO(bridge,
+                     "Force disconnecting stale session for account {} (character '{}')",
+                     conn->account().value,
+                     existing_name);
 
             // Save state before cleanup
             save_player_state(existing_player_id);
@@ -550,16 +598,21 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             // Notify nearby players of despawn (re-fetch in case save_player_state invalidated pointer)
             existing_player = players_->get_player(existing_player_id);
             auto nearby = existing_player
-                ? players_->get_players_who_can_see(existing_player->current_map, existing_player->pos)
-                : std::vector<player_id>{};
-            auto despawn_msg = network::make_entity_despawn(0, existing_player_id.value);
+                              ? players_->get_players_who_can_see(existing_player->current_map, existing_player->pos)
+                              : std::vector<player_id>{};
+            auto despawn_msg = network::make_entity_despawn(
+                0, existing_player ? existing_player->ecs_entity.id : existing_player_id.value);
 
-            for (auto other_id : nearby) {
-                if (other_id == existing_player_id) continue;
+            for (auto other_id : nearby)
+            {
+                if (other_id == existing_player_id)
+                    continue;
                 auto* other = players_->get_player(other_id);
-                if (!other || other->connection.value == 0) continue;
+                if (!other || other->connection.value == 0)
+                    continue;
                 auto* other_conn = ws_server_->get_connection(other->connection);
-                if (other_conn && other_conn->is_open()) {
+                if (other_conn && other_conn->is_open())
+                {
                     other_conn->send(despawn_msg);
                 }
             }
@@ -568,14 +621,15 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             players_->remove_player(existing_player_id);
 
             // Clean up inventory
-            if (inventory_) {
+            if (inventory_)
+            {
                 inventory_->destroy_inventory(entity_id{existing_player_id.value});
             }
 
             // Disconnect old connection if it still exists
-            if (old_connection.value != 0) {
-                ws_server_->disconnect(old_connection,
-                    "Disconnected: Another session logged in");
+            if (old_connection.value != 0)
+            {
+                ws_server_->disconnect(old_connection, "Disconnected: Another session logged in");
             }
         }
     }
@@ -583,26 +637,25 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     // Create player instance if player_system is available
     player_id live_player_id = char_id;
     bool was_dead_on_login = false;
-    if (players_) {
+    if (players_)
+    {
         // Build player creation info from loaded character
         player::player_create_info create_info{
             .name = char_data.name,
-            .account_name = "",  // Could look up account name if needed
+            .account_name = "", // Could look up account name if needed
             .sex = char_data.gender == 1 ? player::gender::male : player::gender::female,
             .profession = static_cast<player::player_class>(char_data.class_type),
             .faction = static_cast<hb::faction>(char_data.nation),
-            .initial_stats = player::base_stats{
-                .strength = char_data.strength,
-                .dexterity = char_data.dexterity,
-                .vitality = char_data.vitality,
-                .intelligence = char_data.intelligence,
-                .magic = char_data.magic,
-                .charisma = char_data.charisma
-            }
-        };
+            .initial_stats = player::base_stats{.strength = char_data.strength,
+                                                .dexterity = char_data.dexterity,
+                                                .vitality = char_data.vitality,
+                                                .intelligence = char_data.intelligence,
+                                                .magic = char_data.magic,
+                                                .charisma = char_data.charisma}};
 
         auto create_result = players_->create_player(create_info);
-        if (create_result.is_err()) {
+        if (create_result.is_err())
+        {
             LOG_ERROR(bridge, "Failed to create player instance: {}", create_result.error());
             auto response = network::make_enter_game_response(msg.seq, false, nullptr, "internal_error");
             conn->send(response);
@@ -611,7 +664,8 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
         live_player_id = create_result.value();
         auto* player = players_->get_player(live_player_id);
-        if (player) {
+        if (player)
+        {
             // Set database character ID for persistence
             player->character_id = char_id;
             // Set account for duplicate session detection
@@ -635,52 +689,63 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             player->underwear_color = char_data.underwear_color;
 
             // Deserialize and apply skills
-            if (!char_data.skills_data.empty()) {
+            if (!char_data.skills_data.empty())
+            {
                 player->skills = auth::deserialize_skills(char_data.skills_data);
                 LOG_DEBUG(bridge, "Loaded skills for player {}", live_player_id.value);
             }
 
             // Register skills with skill_system so record_skill_use/set_skill_level work
             auto* skill_sys = subsystems().get<skill::skill_system>();
-            if (skill_sys) {
+            if (skill_sys)
+            {
                 skill_sys->register_player(live_player_id);
                 auto* ps = skill_sys->get_player_skills(live_player_id);
-                if (ps) {
+                if (ps)
+                {
                     *ps = player->skills;
                 }
             }
 
             // Deserialize and apply equipment
-            if (!char_data.equipment_data.empty()) {
+            if (!char_data.equipment_data.empty())
+            {
                 player->equipment = auth::deserialize_equipment(char_data.equipment_data);
                 LOG_DEBUG(bridge, "Loaded equipment for player {}", live_player_id.value);
             }
 
             // Create and populate inventory
-            if (inventory_) {
+            if (inventory_)
+            {
                 auto entity = entity_id{live_player_id.value};
 
                 // Create inventory for this player
                 inventory_->create_inventory(entity);
 
                 // Deserialize inventory from DB
-                if (!char_data.inventory_data.empty()) {
+                if (!char_data.inventory_data.empty())
+                {
                     auto* inv = inventory_->get_inventory(entity);
-                    if (inv) {
+                    if (inv)
+                    {
                         auth::deserialize_inventory(char_data.inventory_data, *inv);
-                        LOG_DEBUG(bridge, "Loaded inventory for player {} ({} items)",
-                            live_player_id.value, inv->used_slots());
+                        LOG_DEBUG(bridge,
+                                  "Loaded inventory for player {} ({} items)",
+                                  live_player_id.value,
+                                  inv->used_slots());
                     }
                 }
 
                 // Create and populate bank
                 inventory_->create_bank(entity);
-                if (!char_data.bank_data.empty()) {
+                if (!char_data.bank_data.empty())
+                {
                     auto* bank = inventory_->get_bank(entity);
-                    if (bank) {
+                    if (bank)
+                    {
                         auth::deserialize_inventory(char_data.bank_data, *bank);
-                        LOG_DEBUG(bridge, "Loaded bank for player {} ({} items)",
-                            live_player_id.value, bank->used_slots());
+                        LOG_DEBUG(
+                            bridge, "Loaded bank for player {} ({} items)", live_player_id.value, bank->used_slots());
                     }
                 }
 
@@ -690,11 +755,14 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             }
 
             // Deserialize and apply magic (spell knowledge)
-            if (!char_data.magic_data.empty()) {
+            if (!char_data.magic_data.empty())
+            {
                 auto spells = auth::deserialize_magic(char_data.magic_data);
-                if (!spells.empty()) {
+                if (!spells.empty())
+                {
                     auto* magic_sys = subsystems().get<magic::magic_system>();
-                    if (magic_sys) {
+                    if (magic_sys)
+                    {
                         magic_sys->set_player_spells(player->ecs_entity, std::move(spells));
                         LOG_DEBUG(bridge, "Loaded magic data for player {}", live_player_id.value);
                     }
@@ -702,13 +770,16 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             }
 
             // Deserialize and apply quest data
-            if (!char_data.quest_data.empty()) {
+            if (!char_data.quest_data.empty())
+            {
                 auto* quest_sys = subsystems().get<quest::quest_system>();
-                if (quest_sys) {
+                if (quest_sys)
+                {
                     quest_sys->register_player(live_player_id);
                     auto journal = auth::deserialize_quests(char_data.quest_data);
                     auto* player_journal = quest_sys->get_journal(live_player_id);
-                    if (player_journal) {
+                    if (player_journal)
+                    {
                         *player_journal = std::move(journal);
                         LOG_DEBUG(bridge, "Loaded quest data for player {}", live_player_id.value);
                     }
@@ -720,26 +791,40 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             player->recalculate_stats();
 
             // If player logged in dead (hp <= 0), respawn at faction town
-            if (player->is_dead()) {
-                LOG_INFO(bridge, "Player {} ('{}') logged in dead (hp={}), respawning at faction town",
-                    live_player_id.value, char_data.name, player->hp);
+            if (player->is_dead())
+            {
+                LOG_INFO(bridge,
+                         "Player {} ('{}') logged in dead (hp={}), respawning at faction town",
+                         live_player_id.value,
+                         char_data.name,
+                         player->hp);
                 was_dead_on_login = true;
 
                 // Determine respawn map from faction
                 std::string respawn_map;
-                switch (player->faction) {
-                    case faction::aresden: respawn_map = "aresden"; break;
-                    case faction::elvine: respawn_map = "elvine"; break;
-                    default: respawn_map = "default"; break;
+                switch (player->faction)
+                {
+                case faction::aresden:
+                    respawn_map = "aresden";
+                    break;
+                case faction::elvine:
+                    respawn_map = "elvine";
+                    break;
+                default:
+                    respawn_map = "default";
+                    break;
                 }
 
                 // Find spawn position on the respawn map
                 world::position respawn_pos{18, 18};
-                if (world_) {
+                if (world_)
+                {
                     auto* spawn_map = world_->get_map_by_name(respawn_map);
-                    if (spawn_map) {
+                    if (spawn_map)
+                    {
                         auto pos = spawn_map->get_random_initial_point();
-                        if (pos.has_value()) respawn_pos = *pos;
+                        if (pos.has_value())
+                            respawn_pos = *pos;
                     }
                 }
 
@@ -756,14 +841,17 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             }
 
             // Connect guild membership
-            if (social_) {
+            if (social_)
+            {
                 social_->register_player(live_player_id, char_data.name);
                 social_->connect_guild_member(char_id, live_player_id, char_data.name);
 
                 auto guild = social_->get_player_guild(live_player_id);
-                if (guild.is_valid()) {
+                if (guild.is_valid())
+                {
                     auto* g = social_->get_guild(guild);
-                    if (g) {
+                    if (g)
+                    {
                         player->guild_name = g->name;
                         player->guild_tag = g->tag;
                         auto* member = g->get_member(live_player_id);
@@ -777,11 +865,15 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
                 // Notify online friends that this player came online
                 auto* friends = social_->get_friends(char_id);
-                if (friends && ws_server_) {
-                    for (const auto& f : *friends) {
-                        if (f.is_online()) {
+                if (friends && ws_server_)
+                {
+                    for (const auto& f : *friends)
+                    {
+                        if (f.is_online())
+                        {
                             auto* friend_conn = ws_server_->get_connection_by_player(f.runtime_id);
-                            if (friend_conn) {
+                            if (friend_conn)
+                            {
                                 friend_conn->send(network::make_friend_online_notification(char_data.name));
                             }
                         }
@@ -790,47 +882,61 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             }
 
             // Set position if world system is available
-            if (world_) {
+            if (world_)
+            {
                 auto* target_map = world_->get_map_by_name(char_data.map_name);
-                if (!target_map) {
+                if (!target_map)
+                {
                     // Try to get a default map (first loaded map)
-                    world_->for_each_map([&target_map](map_id, world::map& m) {
-                        if (!target_map) target_map = &m;
-                    });
-                    if (target_map) {
+                    world_->for_each_map(
+                        [&target_map](map_id, world::map& m)
+                        {
+                            if (!target_map)
+                                target_map = &m;
+                        });
+                    if (target_map)
+                    {
                         // Update map name to the actual map we're using
                         char_data.map_name = std::string(target_map->name());
                     }
                 }
-                if (target_map) {
+                if (target_map)
+                {
                     world::position spawn_pos{char_data.pos_x, char_data.pos_y};
 
                     // Check for invalid/default position marker (-1, -1)
                     // This indicates the player should spawn at the map's initial point
-                    if (char_data.pos_x == -1 || char_data.pos_y == -1) {
+                    if (char_data.pos_x == -1 || char_data.pos_y == -1)
+                    {
                         auto initial_pos = target_map->get_random_initial_point();
-                        if (initial_pos) {
+                        if (initial_pos)
+                        {
                             spawn_pos = *initial_pos;
                             // Update char_data so the client receives correct position
                             char_data.pos_x = spawn_pos.x;
                             char_data.pos_y = spawn_pos.y;
-                            LOG_DEBUG(bridge, "Player {} using map initial point: ({}, {})",
-                                live_player_id.value, spawn_pos.x, spawn_pos.y);
-                        } else {
+                            LOG_DEBUG(bridge,
+                                      "Player {} using map initial point: ({}, {})",
+                                      live_player_id.value,
+                                      spawn_pos.x,
+                                      spawn_pos.y);
+                        }
+                        else
+                        {
                             // Fallback to center of map if no initial points defined
-                            spawn_pos = world::position{
-                                static_cast<int16_t>(target_map->width() / 2),
-                                static_cast<int16_t>(target_map->height() / 2)
-                            };
+                            spawn_pos = world::position{static_cast<int16_t>(target_map->width() / 2),
+                                                        static_cast<int16_t>(target_map->height() / 2)};
                             char_data.pos_x = spawn_pos.x;
                             char_data.pos_y = spawn_pos.y;
-                            LOG_WARN(bridge, "Map '{}' has no initial points, using center: ({}, {})",
-                                target_map->name(), spawn_pos.x, spawn_pos.y);
+                            LOG_WARN(bridge,
+                                     "Map '{}' has no initial points, using center: ({}, {})",
+                                     target_map->name(),
+                                     spawn_pos.x,
+                                     spawn_pos.y);
                         }
                     }
 
-                    players_->set_position(live_player_id, target_map->id(),
-                        spawn_pos, world::direction::south);
+                    players_->set_position(live_player_id, target_map->id(), spawn_pos, world::direction::south);
                 }
             }
 
@@ -841,9 +947,14 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             // Bind connection to player
             players_->bind_connection(live_player_id, conn_id);
 
-            LOG_DEBUG(bridge, "Player instance created: id={}, hp={}/{}, mp={}/{}, level={}",
-                live_player_id.value, player->hp, player->computed.max_hp,
-                player->mp, player->computed.max_mp, player->experience.level);
+            LOG_DEBUG(bridge,
+                      "Player instance created: id={}, hp={}/{}, mp={}/{}, level={}",
+                      live_player_id.value,
+                      player->hp,
+                      player->computed.max_hp,
+                      player->mp,
+                      player->computed.max_mp,
+                      player->experience.level);
         }
     }
 
@@ -855,85 +966,101 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     ws_server_->register_player(conn_id, live_player_id);
 
     // Register with admin system for command access
-    if (admin_ && auth_) {
+    if (admin_ && auth_)
+    {
         // Get admin level from account
         auto auth_admin_level = auth_->get_admin_level(conn->account());
 
         // Convert auth::admin_level to admin::admin_level
         admin::admin_level cmd_level = admin::admin_level::player;
-        switch (auth_admin_level) {
-            case auth::admin_level::helper:
-                cmd_level = admin::admin_level::helper;
-                break;
-            case auth::admin_level::gamemaster:
-                cmd_level = admin::admin_level::game_master;
-                break;
-            case auth::admin_level::senior_gm:
-                cmd_level = admin::admin_level::senior_gm;
-                break;
-            case auth::admin_level::administrator:
-                cmd_level = admin::admin_level::admin;
-                break;
-            default:
-                cmd_level = admin::admin_level::player;
-                break;
+        switch (auth_admin_level)
+        {
+        case auth::admin_level::helper:
+            cmd_level = admin::admin_level::helper;
+            break;
+        case auth::admin_level::gamemaster:
+            cmd_level = admin::admin_level::game_master;
+            break;
+        case auth::admin_level::senior_gm:
+            cmd_level = admin::admin_level::senior_gm;
+            break;
+        case auth::admin_level::administrator:
+            cmd_level = admin::admin_level::admin;
+            break;
+        default:
+            cmd_level = admin::admin_level::player;
+            break;
         }
 
         admin_->register_admin(live_player_id, char_data.name, cmd_level);
 
         // Set player struct admin level so is_gm() works
-        if (auto* plr = players_->get_player(live_player_id)) {
-            if (auth_admin_level >= auth::admin_level::senior_gm) {
+        if (auto* plr = players_->get_player(live_player_id))
+        {
+            if (auth_admin_level >= auth::admin_level::senior_gm)
+            {
                 plr->admin = player::admin_level::admin;
-            } else if (auth_admin_level >= auth::admin_level::helper) {
+            }
+            else if (auth_admin_level >= auth::admin_level::helper)
+            {
                 plr->admin = player::admin_level::gamemaster;
             }
         }
     }
 
-    LOG_INFO(bridge, "Player {} (character '{}') entering game from account {}",
-        live_player_id.value, char_data.name, conn->account().value);
+    LOG_INFO(bridge,
+             "Player {} (character '{}') entering game from account {}",
+             live_player_id.value,
+             char_data.name,
+             conn->account().value);
 
     // Notify admin web tool of player connection
-    if (enter_game_callback_) {
+    if (enter_game_callback_)
+    {
         enter_game_callback_(char_data.name, static_cast<int16_t>(char_data.level), char_data.map_name);
     }
 
     // Build inventory data for network message
     std::vector<network::inventory_item_msg> inventory_list;
     int32_t player_gold = char_data.gold;
-    if (inventory_) {
+    if (inventory_)
+    {
         auto entity = entity_id{live_player_id.value};
         auto* inv = inventory_->get_inventory(entity);
-        if (inv) {
-            for (int16_t i = 0; i < inv->capacity(); ++i) {
+        if (inv)
+        {
+            for (int16_t i = 0; i < inv->capacity(); ++i)
+            {
                 const auto* slot = inv->get_slot(i);
-                if (slot && !slot->is_empty()) {
+                if (slot && !slot->is_empty())
+                {
                     // Look up item instance for attribute and name
                     std::string item_name;
                     item::item_attribute attr;
                     int16_t dur = 0, max_dur = 0;
-                    if (item_) {
-                        if (auto* itm = item_->get_item(slot->item)) {
+                    if (item_)
+                    {
+                        if (auto* itm = item_->get_item(slot->item))
+                        {
                             attr = itm->attribute;
                             dur = static_cast<int16_t>(itm->durability);
                             max_dur = static_cast<int16_t>(itm->max_durability);
-                            if (item_registry_) {
-                                if (auto* tmpl = item_registry_->get(itm->template_id)) {
+                            if (item_registry_)
+                            {
+                                if (auto* tmpl = item_registry_->get(itm->template_id))
+                                {
                                     item_name = network::get_display_name(tmpl->name, attr);
                                 }
                             }
                         }
                     }
-                    inventory_list.push_back({
-                        .slot = static_cast<uint8_t>(i),
-                        .item_id = slot->item.value,
-                        .name = std::move(item_name),
-                        .count = slot->count,
-                        .durability = dur,
-                        .max_durability = max_dur,
-                        .attribute = attr
-                    });
+                    inventory_list.push_back({.slot = static_cast<uint8_t>(i),
+                                              .item_id = slot->item.value,
+                                              .name = std::move(item_name),
+                                              .count = slot->count,
+                                              .durability = dur,
+                                              .max_durability = max_dur,
+                                              .attribute = attr});
                 }
             }
         }
@@ -942,33 +1069,39 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
     // Build equipment data for network message
     std::vector<network::equipment_item_msg> equipment_list;
-    if (players_) {
+    if (players_)
+    {
         auto* player = players_->get_player(live_player_id);
-        if (player) {
-            for (size_t i = 0; i < player::equip_slot_count; ++i) {
+        if (player)
+        {
+            for (size_t i = 0; i < player::equip_slot_count; ++i)
+            {
                 const auto& eq = player->equipment.slots[i];
-                if (!eq.is_empty()) {
+                if (!eq.is_empty())
+                {
                     // Look up item instance for attribute and name
                     std::string item_name;
                     item::item_attribute attr;
-                    if (item_) {
-                        if (auto* itm = item_->get_item(eq.id)) {
+                    if (item_)
+                    {
+                        if (auto* itm = item_->get_item(eq.id))
+                        {
                             attr = itm->attribute;
-                            if (item_registry_) {
-                                if (auto* tmpl = item_registry_->get(itm->template_id)) {
+                            if (item_registry_)
+                            {
+                                if (auto* tmpl = item_registry_->get(itm->template_id))
+                                {
                                     item_name = network::get_display_name(tmpl->name, attr);
                                 }
                             }
                         }
                     }
-                    equipment_list.push_back({
-                        .slot = static_cast<uint8_t>(i),
-                        .item_id = eq.id.value,
-                        .name = std::move(item_name),
-                        .durability = static_cast<int16_t>(eq.durability),
-                        .max_durability = static_cast<int16_t>(eq.max_durability),
-                        .attribute = attr
-                    });
+                    equipment_list.push_back({.slot = static_cast<uint8_t>(i),
+                                              .item_id = eq.id.value,
+                                              .name = std::move(item_name),
+                                              .durability = static_cast<int16_t>(eq.durability),
+                                              .max_durability = static_cast<int16_t>(eq.max_durability),
+                                              .attribute = attr});
                 }
             }
         }
@@ -976,20 +1109,22 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
     // Build skills data for network message
     std::vector<network::skill_entry_msg> skills_list;
-    if (players_) {
+    if (players_)
+    {
         auto* player = players_->get_player(live_player_id);
-        if (player) {
+        if (player)
+        {
             auto* skill_sys = subsystems().get<skill::skill_system>();
-            for (size_t i = 0; i < skill::max_skills; ++i) {
+            for (size_t i = 0; i < skill::max_skills; ++i)
+            {
                 const auto& sk = player->skills.skills[i];
                 auto st = static_cast<skill::skill_type>(i);
-                skills_list.push_back({
-                    .skill_id = static_cast<uint8_t>(i),
-                    .level = sk.level,
-                    .total_uses = sk.total_uses,
-                    .uses_this_level = sk.uses_this_level,
-                    .uses_to_next_level = skill_sys ? skill_sys->uses_to_next_level(st, sk.level) : 0
-                });
+                skills_list.push_back(
+                    {.skill_id = static_cast<uint8_t>(i),
+                     .level = sk.level,
+                     .total_uses = sk.total_uses,
+                     .uses_this_level = sk.uses_this_level,
+                     .uses_to_next_level = skill_sys ? skill_sys->uses_to_next_level(st, sk.level) : 0});
             }
         }
     }
@@ -998,17 +1133,18 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     std::vector<network::known_spell_msg> spells_list;
     {
         auto* magic_sys = subsystems().get<magic::magic_system>();
-        if (magic_sys && players_) {
+        if (magic_sys && players_)
+        {
             auto* player = players_->get_player(live_player_id);
-            if (player) {
+            if (player)
+            {
                 const auto* known = magic_sys->get_player_spells(player->ecs_entity);
-                if (known) {
-                    for (const auto& sk : *known) {
-                        spells_list.push_back({
-                            .spell_id = sk.spell.value,
-                            .level = sk.level,
-                            .total_casts = sk.total_casts
-                        });
+                if (known)
+                {
+                    for (const auto& sk : *known)
+                    {
+                        spells_list.push_back(
+                            {.spell_id = sk.spell.value, .level = sk.level, .total_casts = sk.total_casts});
                     }
                 }
             }
@@ -1020,24 +1156,27 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     std::vector<uint16_t> completed_quest_ids;
     {
         auto* quest_sys = subsystems().get<quest::quest_system>();
-        if (quest_sys) {
+        if (quest_sys)
+        {
             const auto* journal = quest_sys->get_journal(live_player_id);
-            if (journal) {
-                for (const auto& q : journal->active_quests) {
+            if (journal)
+            {
+                for (const auto& q : journal->active_quests)
+                {
                     network::active_quest_msg qm;
                     qm.quest_id = q.template_id.value;
                     qm.status = static_cast<uint8_t>(q.status);
-                    for (const auto& obj : q.objectives) {
-                        qm.objectives.push_back({
-                            .id = obj.template_id,
-                            .status = static_cast<uint8_t>(obj.status),
-                            .current = obj.current_count,
-                            .required = obj.required_count
-                        });
+                    for (const auto& obj : q.objectives)
+                    {
+                        qm.objectives.push_back({.id = obj.template_id,
+                                                 .status = static_cast<uint8_t>(obj.status),
+                                                 .current = obj.current_count,
+                                                 .required = obj.required_count});
                     }
                     quests_list.push_back(std::move(qm));
                 }
-                for (const auto& qid : journal->completed_quests) {
+                for (const auto& qid : journal->completed_quests)
+                {
                     completed_quest_ids.push_back(qid.value);
                 }
             }
@@ -1050,22 +1189,29 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     bool env_is_day = true;
     uint8_t env_weather = 0;
 
-    if (scheduler_) {
+    if (scheduler_)
+    {
         auto& clock = scheduler_->game_time();
         env_hour = static_cast<uint8_t>(clock.hour());
         env_minute = static_cast<uint8_t>(clock.minute());
         env_is_day = clock.is_day();
     }
 
-    if (world_ && players_) {
+    if (world_ && players_)
+    {
         auto* plr = players_->get_player(live_player_id);
-        if (plr) {
+        if (plr)
+        {
             auto* current_map = world_->get_map(plr->current_map);
-            if (current_map) {
-                if (current_map->config().is_fixed_day_mode) {
+            if (current_map)
+            {
+                if (current_map->config().is_fixed_day_mode)
+                {
                     env_is_day = true;
                     env_weather = 0;
-                } else {
+                }
+                else
+                {
                     env_weather = static_cast<uint8_t>(current_map->weather());
                 }
             }
@@ -1077,9 +1223,11 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     std::string enter_guild_tag;
     uint8_t enter_guild_rank = 0;
     uint32_t enter_entity_id = live_player_id.value;
-    if (players_) {
+    if (players_)
+    {
         auto* plr = players_->get_player(live_player_id);
-        if (plr) {
+        if (plr)
+        {
             enter_guild_name = plr->guild_name;
             enter_guild_tag = plr->guild_tag;
             enter_guild_rank = plr->guild_rank;
@@ -1090,52 +1238,48 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     }
 
     // Build full game state message
-    network::game_state_msg game_state{
-        .character = network::character_data_msg{
-            .id = enter_entity_id,
-            .name = char_data.name,
-            .level = char_data.level,
-            .class_type = char_data.class_type,
-            .nation = char_data.nation,
-            .gender = char_data.gender,
-            .map_name = char_data.map_name,
-            .pos_x = char_data.pos_x,
-            .pos_y = char_data.pos_y,
-            .hp = char_data.hp,
-            .hp_max = char_data.max_hp,
-            .mp = char_data.mp,
-            .mp_max = char_data.max_mp,
-            .sp = char_data.sp,
-            .sp_max = char_data.max_sp,
-            .gold = char_data.gold,
-            .str = char_data.strength,
-            .dex = char_data.dexterity,
-            .vit = char_data.vitality,
-            .int_ = char_data.intelligence,
-            .mag = char_data.magic,
-            .cha = char_data.charisma,
-            .hair_style = char_data.hair_style,
-            .hair_color = char_data.hair_color,
-            .skin_color = char_data.skin_color,
-            .experience = char_data.experience,
-            .pk_count = char_data.pk_count,
-            .hunger_level = char_data.hunger_level,
-            .guild_name = enter_guild_name,
-            .guild_tag = enter_guild_tag,
-            .guild_rank = enter_guild_rank
-        },
-        .inventory = inventory_list,
-        .equipment = equipment_list,
-        .skills = skills_list,
-        .spells = spells_list,
-        .quests = quests_list,
-        .completed_quests = completed_quest_ids,
-        .gold = player_gold,
-        .time_hour = env_hour,
-        .time_minute = env_minute,
-        .is_day = env_is_day,
-        .weather = env_weather
-    };
+    network::game_state_msg game_state{.character = network::character_data_msg{.id = enter_entity_id,
+                                                                                .name = char_data.name,
+                                                                                .level = char_data.level,
+                                                                                .class_type = char_data.class_type,
+                                                                                .nation = char_data.nation,
+                                                                                .gender = char_data.gender,
+                                                                                .map_name = char_data.map_name,
+                                                                                .pos_x = char_data.pos_x,
+                                                                                .pos_y = char_data.pos_y,
+                                                                                .hp = char_data.hp,
+                                                                                .hp_max = char_data.max_hp,
+                                                                                .mp = char_data.mp,
+                                                                                .mp_max = char_data.max_mp,
+                                                                                .sp = char_data.sp,
+                                                                                .sp_max = char_data.max_sp,
+                                                                                .gold = char_data.gold,
+                                                                                .str = char_data.strength,
+                                                                                .dex = char_data.dexterity,
+                                                                                .vit = char_data.vitality,
+                                                                                .int_ = char_data.intelligence,
+                                                                                .mag = char_data.magic,
+                                                                                .cha = char_data.charisma,
+                                                                                .hair_style = char_data.hair_style,
+                                                                                .hair_color = char_data.hair_color,
+                                                                                .skin_color = char_data.skin_color,
+                                                                                .experience = char_data.experience,
+                                                                                .pk_count = char_data.pk_count,
+                                                                                .hunger_level = char_data.hunger_level,
+                                                                                .guild_name = enter_guild_name,
+                                                                                .guild_tag = enter_guild_tag,
+                                                                                .guild_rank = enter_guild_rank},
+                                       .inventory = inventory_list,
+                                       .equipment = equipment_list,
+                                       .skills = skills_list,
+                                       .spells = spells_list,
+                                       .quests = quests_list,
+                                       .completed_quests = completed_quest_ids,
+                                       .gold = player_gold,
+                                       .time_hour = env_hour,
+                                       .time_minute = env_minute,
+                                       .is_day = env_is_day,
+                                       .weather = env_weather};
 
     // Send combined enter game response with full game state
     auto response = network::make_enter_game_response(msg.seq, true, &game_state);
@@ -1148,66 +1292,75 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
 
     // Player was dead on login: already auto-respawned at faction town with 50% HP/MP
     // (see above). No death notification sent — client receives alive game state.
-    if (was_dead_on_login) {
-        LOG_DEBUG(bridge, "Player {} was dead on login, auto-respawned at {}",
-            live_player_id.value, game_state.character.map_name);
+    if (was_dead_on_login)
+    {
+        LOG_DEBUG(bridge,
+                  "Player {} was dead on login, auto-respawned at {}",
+                  live_player_id.value,
+                  game_state.character.map_name);
     }
 
     // Send map teleporters
-    if (world_ && players_) {
+    if (world_ && players_)
+    {
         auto* player = players_->get_player(live_player_id);
-        if (player) {
+        if (player)
+        {
             auto* current_map = world_->get_map(player->current_map);
-            if (current_map) {
+            if (current_map)
+            {
                 const auto& teleports = current_map->get_all_teleports();
 
                 network::map_teleporters_msg teleporters_msg;
                 teleporters_msg.map_name = std::string(current_map->name());
 
-                for (const auto& [pos, dest] : teleports) {
-                    network::teleporter_info_msg tp_info{
-                        .id = (static_cast<uint32_t>(pos.x) << 16) |
-                              static_cast<uint32_t>(static_cast<uint16_t>(pos.y)),
-                        .x = pos.x,
-                        .y = pos.y,
-                        .dest_map = dest.dest_map,
-                        .dest_x = dest.dest_x,
-                        .dest_y = dest.dest_y,
-                        .dest_dir = static_cast<int16_t>(dest.dest_dir)
-                    };
+                for (const auto& [pos, dest] : teleports)
+                {
+                    network::teleporter_info_msg tp_info{.id = (static_cast<uint32_t>(pos.x) << 16) |
+                                                               static_cast<uint32_t>(static_cast<uint16_t>(pos.y)),
+                                                         .x = pos.x,
+                                                         .y = pos.y,
+                                                         .dest_map = dest.dest_map,
+                                                         .dest_x = dest.dest_x,
+                                                         .dest_y = dest.dest_y,
+                                                         .dest_dir = static_cast<int16_t>(dest.dest_dir)};
                     teleporters_msg.teleporters.push_back(tp_info);
                 }
 
                 conn->send(network::make_map_teleporters(teleporters_msg));
 
-                LOG_DEBUG(bridge, "Sent {} teleporters for map {} to player {}",
-                    teleporters_msg.teleporters.size(), current_map->name(), live_player_id.value);
+                LOG_DEBUG(bridge,
+                          "Sent {} teleporters for map {} to player {}",
+                          teleporters_msg.teleporters.size(),
+                          current_map->name(),
+                          live_player_id.value);
             }
 
             // Send visible ground items at player's position
-            if (item_) {
+            if (item_)
+            {
                 int rx = player->visibility_radius_x > 0 ? player->visibility_radius_x : 20;
                 int ry = player->visibility_radius_y > 0 ? player->visibility_radius_y : 15;
-                for (int16_t dx = static_cast<int16_t>(-rx); dx <= rx; ++dx) {
-                    for (int16_t dy = static_cast<int16_t>(-ry); dy <= ry; ++dy) {
-                        world::position tile_pos{
-                            static_cast<int16_t>(player->pos.x + dx),
-                            static_cast<int16_t>(player->pos.y + dy)
-                        };
+                for (int16_t dx = static_cast<int16_t>(-rx); dx <= rx; ++dx)
+                {
+                    for (int16_t dy = static_cast<int16_t>(-ry); dy <= ry; ++dy)
+                    {
+                        world::position tile_pos{static_cast<int16_t>(player->pos.x + dx),
+                                                 static_cast<int16_t>(player->pos.y + dy)};
 
                         auto items = world_->get_ground_items(player->current_map, tile_pos);
-                        for (auto ground_item : items) {
+                        for (auto ground_item : items)
+                        {
                             auto* itm = item_->get_item(ground_item);
-                            if (!itm) continue;
+                            if (!itm)
+                                continue;
 
-                            network::ground_item_spawn_data spawn_data{
-                                .item_id = ground_item.value,
-                                .template_id = itm->template_id.value,
-                                .item_name = itm->name,
-                                .count = itm->count,
-                                .x = tile_pos.x,
-                                .y = tile_pos.y
-                            };
+                            network::ground_item_spawn_data spawn_data{.item_id = ground_item.value,
+                                                                       .template_id = itm->template_id.value,
+                                                                       .item_name = itm->name,
+                                                                       .count = itm->count,
+                                                                       .x = tile_pos.x,
+                                                                       .y = tile_pos.y};
 
                             conn->send(network::make_ground_item_spawn(spawn_data));
                         }
@@ -1218,35 +1371,42 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     }
 
     // Notify nearby players of the new spawn
-    if (players_ && ws_server_) {
+    if (players_ && ws_server_)
+    {
         auto* player = players_->get_player(live_player_id);
-        if (player) {
+        if (player)
+        {
             auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
             // Send per-player (hostility is viewer-relative)
-            for (auto other_id : nearby) {
-                if (other_id == live_player_id) continue;
+            for (auto other_id : nearby)
+            {
+                if (other_id == live_player_id)
+                    continue;
 
                 auto* other = players_->get_player(other_id);
-                if (!other || other->connection.value == 0) continue;
+                if (!other || other->connection.value == 0)
+                    continue;
 
                 auto* other_conn = ws_server_->get_connection(other->connection);
-                if (!other_conn || !other_conn->is_open()) continue;
+                if (!other_conn || !other_conn->is_open())
+                    continue;
 
                 auto spawn_entity = build_player_spawn(
-                    *player, player_hostility(other->faction, player->faction),
-                    item_, item_registry_, effects_);
+                    *player, player_hostility(other->faction, player->faction), item_, item_registry_, effects_);
                 other_conn->send(network::make_entity_spawn(0, spawn_entity));
             }
 
-            LOG_DEBUG(bridge, "Notified {} nearby players of spawn for {}",
-                nearby.size() > 0 ? nearby.size() - 1 : 0, player->name);
+            LOG_DEBUG(bridge,
+                      "Notified {} nearby players of spawn for {}",
+                      nearby.size() > 0 ? nearby.size() - 1 : 0,
+                      player->name);
 
             // Forward to admin spectators (neutral perspective)
-            auto admin_spawn = build_player_spawn(
-                *player, "neutral", item_, item_registry_, effects_);
+            auto admin_spawn = build_player_spawn(*player, "neutral", item_, item_registry_, effects_);
             auto admin_msg = network::make_entity_spawn(0, admin_spawn);
-            for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map)) {
+            for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map))
+            {
                 ws_server_->send(admin_conn, admin_msg);
             }
         }
@@ -1271,93 +1431,114 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     }
 
                     // Send reward summary to client
-                    auto reward_msg = network::make_crusade_reward_summary(
-                        0, static_cast<uint8_t>(row.faction),
-                        row.contribution, row.reward_exp,
-                        row.reward_gold, row.reward_contribution);
+                    auto reward_msg = network::make_crusade_reward_summary(0,
+                                                                           static_cast<uint8_t>(row.faction),
+                                                                           row.contribution,
+                                                                           row.reward_exp,
+                                                                           row.reward_gold,
+                                                                           row.reward_contribution);
                     conn->send(reward_msg);
 
                     // Mark as claimed
                     war_persistence_->mark_rewards_claimed(row.id);
 
-                    LOG_INFO(bridge, "Applied deferred war reward to player {} (char_id={}): {} exp",
-                        live_player_id.value, db_char_id, row.reward_exp);
+                    LOG_INFO(bridge,
+                             "Applied deferred war reward to player {} (char_id={}): {} exp",
+                             live_player_id.value,
+                             db_char_id,
+                             row.reward_exp);
                 }
             }
         }
     }
 
     // Notify game handlers of enter_game completion (for command list, etc.)
-    if (post_enter_game_callback_) {
+    if (post_enter_game_callback_)
+    {
         post_enter_game_callback_(live_player_id, conn_id);
     }
 }
 
 void auth_handlers::send_visible_entity_spawns(network::ws_connection* conn, player_id pid)
 {
-    if (!players_ || !conn || !conn->is_open()) return;
+    if (!players_ || !conn || !conn->is_open())
+        return;
 
     auto* player = players_->get_player(pid);
-    if (!player) return;
+    if (!player)
+        return;
 
     // Send individual entity_spawn for each nearby player
-    auto nearby_players = players_->get_players_in_range(pid,
-        std::max(player->visibility_radius_x, player->visibility_radius_y));
+    auto nearby_players =
+        players_->get_players_in_range(pid, std::max(player->visibility_radius_x, player->visibility_radius_y));
 
-    for (auto other_id : nearby_players) {
-        if (other_id == pid) continue;
+    for (auto other_id : nearby_players)
+    {
+        if (other_id == pid)
+            continue;
 
         auto* other = players_->get_player(other_id);
-        if (!other) continue;
+        if (!other)
+            continue;
 
-        conn->send(network::make_entity_spawn(0, build_player_spawn(
-            *other, player_hostility(player->faction, other->faction),
-            item_, item_registry_, effects_)));
+        conn->send(network::make_entity_spawn(
+            0,
+            build_player_spawn(
+                *other, player_hostility(player->faction, other->faction), item_, item_registry_, effects_)));
     }
 
     // Send individual npc_spawn for each nearby NPC
-    if (npc_) {
-        npc_->for_each_npc_on_map(player->current_map, [&](entity::entity /*id*/, const npc::npc& n) {
-            if (n.ai_state.state == npc::ai_state::dead) return;
+    if (npc_)
+    {
+        npc_->for_each_npc_on_map(player->current_map,
+                                  [&](entity::entity /*id*/, const npc::npc& n)
+                                  {
+                                      if (n.ai_state.state == npc::ai_state::dead)
+                                          return;
 
-            if (std::abs(player->pos.x - n.pos.x) > player->visibility_radius_x
-                || std::abs(player->pos.y - n.pos.y) > player->visibility_radius_y) return;
+                                      if (std::abs(player->pos.x - n.pos.x) > player->visibility_radius_x ||
+                                          std::abs(player->pos.y - n.pos.y) > player->visibility_radius_y)
+                                          return;
 
-            network::npc_spawn_data data{
-                .entity_id = n.entity_id.id,
-                .template_id = n.template_id.value,
-                .sprite_id = n.sprite_id,
-                .name = n.name,
-                .x = n.pos.x,
-                .y = n.pos.y,
-                .direction = static_cast<uint8_t>(n.facing),
-                .hp = n.hp,
-                .max_hp = n.max_hp,
-                .level = n.level,
-                .category = std::string(npc::npc_category_to_string(n.category)),
-                .hostility = std::string(npc::npc_hostility_for_player(
-                    n, player->faction, player->pk.is_criminal(), player->pk.is_murderer()))
-            };
-            conn->send(network::make_npc_spawn_message(data));
-        });
+                                      network::npc_spawn_data data{
+                                          .entity_id = n.entity_id.id,
+                                          .template_id = n.template_id.value,
+                                          .sprite_id = n.sprite_id,
+                                          .name = n.name,
+                                          .x = n.pos.x,
+                                          .y = n.pos.y,
+                                          .direction = static_cast<uint8_t>(n.facing),
+                                          .hp = n.hp,
+                                          .max_hp = n.max_hp,
+                                          .level = n.level,
+                                          .category = std::string(npc::npc_category_to_string(n.category)),
+                                          .hostility = std::string(npc::npc_hostility_for_player(
+                                              n, player->faction, player->pk.is_criminal(), player->pk.is_murderer()))};
+                                      conn->send(network::make_npc_spawn_message(data));
+                                  });
     }
 }
 
-void auth_handlers::handle_ping(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_ping(connection_id conn_id, const network::json_message& msg)
+{
     auto* conn = get_connection_or_error(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     auto response = network::make_pong_response(msg.seq);
     conn->send(response);
 }
 
-void auth_handlers::handle_enter_admin_mode(connection_id conn_id, const network::json_message& msg) {
+void auth_handlers::handle_enter_admin_mode(connection_id conn_id, const network::json_message& msg)
+{
     auto* conn = require_authenticated(conn_id, msg.seq);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     // Look up account admin level
     auto account_result = auth_->get_account(conn->account());
-    if (account_result.is_err()) {
+    if (account_result.is_err())
+    {
         auto response = network::make_enter_admin_mode_response(msg.seq, false, 0, "account_not_found");
         conn->send(response);
         return;
@@ -1367,7 +1548,8 @@ void auth_handlers::handle_enter_admin_mode(connection_id conn_id, const network
     auto level = static_cast<uint8_t>(acct.admin);
 
     // Minimum gamemaster (10) required
-    if (level < static_cast<uint8_t>(auth::admin_level::gamemaster)) {
+    if (level < static_cast<uint8_t>(auth::admin_level::gamemaster))
+    {
         LOG_WARN(bridge, "Admin mode denied for account '{}' (level {})", acct.username, level);
         auto response = network::make_enter_admin_mode_response(msg.seq, false, 0, "insufficient_permissions");
         conn->send(response);
@@ -1384,27 +1566,32 @@ void auth_handlers::handle_enter_admin_mode(connection_id conn_id, const network
     conn->send(response);
 }
 
-void auth_handlers::send_error(connection_id conn_id, uint32_t seq,
-                                std::string_view error_code, std::string_view message)
+void auth_handlers::send_error(connection_id conn_id,
+                               uint32_t seq,
+                               std::string_view error_code,
+                               std::string_view message)
 {
-    if (!ws_server_) return;
+    if (!ws_server_)
+        return;
 
     auto* conn = ws_server_->get_connection(conn_id);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     auto response = network::make_error_response(seq, error_code, message);
     conn->send(response);
 }
 
-auto auth_handlers::get_connection_or_error(connection_id conn_id, uint32_t seq)
-    -> network::ws_connection*
+auto auth_handlers::get_connection_or_error(connection_id conn_id, uint32_t seq) -> network::ws_connection*
 {
-    if (!ws_server_) {
+    if (!ws_server_)
+    {
         return nullptr;
     }
 
     auto* conn = ws_server_->get_connection(conn_id);
-    if (!conn) {
+    if (!conn)
+    {
         LOG_WARN(bridge, "Message from unknown connection {}", conn_id.value);
         return nullptr;
     }
@@ -1412,14 +1599,15 @@ auto auth_handlers::get_connection_or_error(connection_id conn_id, uint32_t seq)
     return conn;
 }
 
-auto auth_handlers::require_authenticated(connection_id conn_id, uint32_t seq)
-    -> network::ws_connection*
+auto auth_handlers::require_authenticated(connection_id conn_id, uint32_t seq) -> network::ws_connection*
 {
     auto* conn = get_connection_or_error(conn_id, seq);
-    if (!conn) return nullptr;
+    if (!conn)
+        return nullptr;
 
     if (conn->state() != network::ws_connection_state::authenticated &&
-        conn->state() != network::ws_connection_state::in_game) {
+        conn->state() != network::ws_connection_state::in_game)
+    {
         LOG_WARN(bridge, "Unauthenticated request from connection {}", conn_id.value);
         send_error(conn_id, seq, "not_authenticated", "You must be logged in to perform this action");
         return nullptr;
@@ -1428,23 +1616,28 @@ auto auth_handlers::require_authenticated(connection_id conn_id, uint32_t seq)
     return conn;
 }
 
-void auth_handlers::save_player_state(player_id pid) {
+void auth_handlers::save_player_state(player_id pid)
+{
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::player_save);
 
-    if (!players_ || !auth_) return;
+    if (!players_ || !auth_)
+        return;
 
     auto* player = players_->get_player(pid);
-    if (!player) {
+    if (!player)
+    {
         LOG_WARN(bridge, "Cannot save player {}: not found", pid.value);
         return;
     }
 
     // Sync skills from skill_system back to player struct before saving
     auto* skill_sys = subsystems().get<skill::skill_system>();
-    if (skill_sys) {
+    if (skill_sys)
+    {
         auto* ps = skill_sys->get_player_skills(pid);
-        if (ps) {
+        if (ps)
+        {
             player->skills = *ps;
         }
     }
@@ -1459,23 +1652,24 @@ void auth_handlers::save_player_state(player_id pid) {
     std::string bank_json = "[]";
     int32_t player_gold = 0;
 
-    if (inventory_) {
+    if (inventory_)
+    {
         auto entity = entity_id{pid.value};
 
         // Serialize inventory
         auto* inv = inventory_->get_inventory(entity);
-        if (inv) {
+        if (inv)
+        {
             inventory_json = auth::serialize_inventory(*inv);
-            LOG_DEBUG(bridge, "Saving inventory for player {} ({} items)",
-                pid.value, inv->used_slots());
+            LOG_DEBUG(bridge, "Saving inventory for player {} ({} items)", pid.value, inv->used_slots());
         }
 
         // Serialize bank
         auto* bank = inventory_->get_bank(entity);
-        if (bank) {
+        if (bank)
+        {
             bank_json = auth::serialize_inventory(*bank);
-            LOG_DEBUG(bridge, "Saving bank for player {} ({} items)",
-                pid.value, bank->used_slots());
+            LOG_DEBUG(bridge, "Saving bank for player {} ({} items)", pid.value, bank->used_slots());
         }
 
         // Get gold
@@ -1486,12 +1680,13 @@ void auth_handlers::save_player_state(player_id pid) {
     std::string magic_json = "[]";
     {
         auto* magic_sys = subsystems().get<magic::magic_system>();
-        if (magic_sys) {
+        if (magic_sys)
+        {
             const auto* spells = magic_sys->get_player_spells(player->ecs_entity);
-            if (spells) {
+            if (spells)
+            {
                 magic_json = auth::serialize_magic(*spells);
-                LOG_DEBUG(bridge, "Saving magic data for player {} ({} spells)",
-                    pid.value, spells->size());
+                LOG_DEBUG(bridge, "Saving magic data for player {} ({} spells)", pid.value, spells->size());
             }
         }
     }
@@ -1500,95 +1695,107 @@ void auth_handlers::save_player_state(player_id pid) {
     std::string quest_json = "[]";
     {
         auto* quest_sys = subsystems().get<quest::quest_system>();
-        if (quest_sys) {
+        if (quest_sys)
+        {
             const auto* journal = quest_sys->get_journal(pid);
-            if (journal) {
+            if (journal)
+            {
                 quest_json = auth::serialize_quests(*journal);
-                LOG_DEBUG(bridge, "Saving quest data for player {} ({} active, {} completed)",
-                    pid.value, journal->active_quests.size(), journal->completed_quests.size());
+                LOG_DEBUG(bridge,
+                          "Saving quest data for player {} ({} active, {} completed)",
+                          pid.value,
+                          journal->active_quests.size(),
+                          journal->completed_quests.size());
             }
         }
     }
 
     // Build character data from current player state
     // Use the database character_id, not the runtime player_id
-    auth::character_full_data data{
-        .id = player->character_id,
-        .account = {},  // Not needed for save
-        .name = player->name,
-        .level = static_cast<int16_t>(player->experience.level),
-        .class_type = static_cast<int16_t>(player->profession),
-        .nation = static_cast<int16_t>(player->faction),
-        .gender = static_cast<int16_t>(player->sex),
-        .map_name = "",  // Will be filled from map
-        .pos_x = player->pos.x,
-        .pos_y = player->pos.y,
-        .experience = player->experience.experience,
-        .hp = player->hp,
-        .max_hp = player->computed.max_hp,
-        .mp = player->mp,
-        .max_mp = player->computed.max_mp,
-        .sp = player->sp,
-        .max_sp = player->computed.max_sp,
-        .gold = player_gold,
-        .strength = player->base.strength,
-        .dexterity = player->base.dexterity,
-        .vitality = player->base.vitality,
-        .intelligence = player->base.intelligence,
-        .magic = player->base.magic,
-        .charisma = player->base.charisma,
-        .hair_style = player->hair_style,
-        .hair_color = player->hair_color,
-        .skin_color = player->skin_color,
-        .underwear_color = player->underwear_color,
-        .pk_count = player->pk.count,
-        .pk_points = player->pk.points,
-        .hunger_level = player->hunger.level,
-        .enemy_kill_count = player->experience.enemy_kill_count,
-        .contribution = player->experience.contribution,
-        .stat_points_available = player->stats_pts.available,
-        .luck = 0,  // TODO: add luck to player struct when luck system is implemented
-        .reward_gold = 0,  // TODO: add reward_gold to player struct when bounty system is implemented
-        .skills_data = skills_json,
-        .inventory_data = inventory_json,
-        .equipment_data = equipment_json,
-        .bank_data = bank_json,
-        .magic_data = magic_json,
-        .quest_data = quest_json
-    };
+    auth::character_full_data data{.id = player->character_id,
+                                   .account = {}, // Not needed for save
+                                   .name = player->name,
+                                   .level = static_cast<int16_t>(player->experience.level),
+                                   .class_type = static_cast<int16_t>(player->profession),
+                                   .nation = static_cast<int16_t>(player->faction),
+                                   .gender = static_cast<int16_t>(player->sex),
+                                   .map_name = "", // Will be filled from map
+                                   .pos_x = player->pos.x,
+                                   .pos_y = player->pos.y,
+                                   .experience = player->experience.experience,
+                                   .hp = player->hp,
+                                   .max_hp = player->computed.max_hp,
+                                   .mp = player->mp,
+                                   .max_mp = player->computed.max_mp,
+                                   .sp = player->sp,
+                                   .max_sp = player->computed.max_sp,
+                                   .gold = player_gold,
+                                   .strength = player->base.strength,
+                                   .dexterity = player->base.dexterity,
+                                   .vitality = player->base.vitality,
+                                   .intelligence = player->base.intelligence,
+                                   .magic = player->base.magic,
+                                   .charisma = player->base.charisma,
+                                   .hair_style = player->hair_style,
+                                   .hair_color = player->hair_color,
+                                   .skin_color = player->skin_color,
+                                   .underwear_color = player->underwear_color,
+                                   .pk_count = player->pk.count,
+                                   .pk_points = player->pk.points,
+                                   .hunger_level = player->hunger.level,
+                                   .enemy_kill_count = player->experience.enemy_kill_count,
+                                   .contribution = player->experience.contribution,
+                                   .stat_points_available = player->stats_pts.available,
+                                   .luck = 0, // TODO: add luck to player struct when luck system is implemented
+                                   .reward_gold =
+                                       0, // TODO: add reward_gold to player struct when bounty system is implemented
+                                   .skills_data = skills_json,
+                                   .inventory_data = inventory_json,
+                                   .equipment_data = equipment_json,
+                                   .bank_data = bank_json,
+                                   .magic_data = magic_json,
+                                   .quest_data = quest_json};
 
     // Get map name
-    if (world_ && player->current_map.value != 0) {
+    if (world_ && player->current_map.value != 0)
+    {
         auto* map = world_->get_map(player->current_map);
-        if (map) {
+        if (map)
+        {
             data.map_name = std::string(map->name());
         }
     }
-    if (data.map_name.empty()) {
+    if (data.map_name.empty())
+    {
         data.map_name = "default";
     }
 
     auto save_result = auth_->save_character(data);
-    if (save_result.is_err()) {
-        LOG_ERROR(bridge, "Failed to save player {}: {}", pid.value,
-            auth::to_string(save_result.error()));
-    } else {
-        LOG_DEBUG(bridge, "Saved player {} at ({}, {}) on {}",
-            pid.value, data.pos_x, data.pos_y, data.map_name);
+    if (save_result.is_err())
+    {
+        LOG_ERROR(bridge, "Failed to save player {}: {}", pid.value, auth::to_string(save_result.error()));
+    }
+    else
+    {
+        LOG_DEBUG(bridge, "Saved player {} at ({}, {}) on {}", pid.value, data.pos_x, data.pos_y, data.map_name);
     }
 }
 
-void auth_handlers::handle_player_disconnect(connection_id conn_id) {
-    if (!ws_server_) return;
+void auth_handlers::handle_player_disconnect(connection_id conn_id)
+{
+    if (!ws_server_)
+        return;
 
     auto* conn = ws_server_->get_connection(conn_id);
-    if (!conn) return;
+    if (!conn)
+        return;
 
     // Check if player was in game by looking at the player_id
     // Note: We can't check conn->state() == in_game because the websocket layer
     // already set the state to 'disconnected' before calling this handler
     auto pid = conn->player();
-    if (!pid.is_valid()) return;
+    if (!pid.is_valid())
+        return;
 
     LOG_INFO(bridge, "Player {} disconnecting, saving state...", pid.value);
 
@@ -1596,16 +1803,22 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
     save_player_state(pid);
 
     // Disconnect from guild and friends (before removing player)
-    if (social_) {
+    if (social_)
+    {
         auto* player = players_ ? players_->get_player(pid) : nullptr;
-        if (player) {
+        if (player)
+        {
             // Notify online friends before disconnecting
             auto* friends = social_->get_friends(player->character_id);
-            if (friends && ws_server_) {
-                for (const auto& f : *friends) {
-                    if (f.is_online()) {
+            if (friends && ws_server_)
+            {
+                for (const auto& f : *friends)
+                {
+                    if (f.is_online())
+                    {
                         auto* friend_conn = ws_server_->get_connection_by_player(f.runtime_id);
-                        if (friend_conn) {
+                        if (friend_conn)
+                        {
                             friend_conn->send(network::make_friend_offline_notification(player->name));
                         }
                     }
@@ -1618,27 +1831,34 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
     }
 
     // Notify nearby players of despawn
-    if (players_ && ws_server_) {
+    if (players_ && ws_server_)
+    {
         auto* player = players_->get_player(pid);
-        if (player) {
+        if (player)
+        {
             auto nearby = players_->get_players_who_can_see(player->current_map, player->pos);
 
             auto despawn_msg = network::make_entity_despawn(0, player->ecs_entity.id);
 
-            for (auto other_id : nearby) {
-                if (other_id == pid) continue;
+            for (auto other_id : nearby)
+            {
+                if (other_id == pid)
+                    continue;
 
                 auto* other = players_->get_player(other_id);
-                if (!other || other->connection.value == 0) continue;
+                if (!other || other->connection.value == 0)
+                    continue;
 
                 auto* other_conn = ws_server_->get_connection(other->connection);
-                if (other_conn && other_conn->is_open()) {
+                if (other_conn && other_conn->is_open())
+                {
                     other_conn->send(despawn_msg);
                 }
             }
 
             // Forward to admin spectators
-            for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map)) {
+            for (auto admin_conn : ws_server_->get_admin_subscribers(player->current_map))
+            {
                 ws_server_->send(admin_conn, despawn_msg);
             }
         }
@@ -1648,40 +1868,48 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id) {
     }
 
     // Clean up inventory
-    if (inventory_) {
+    if (inventory_)
+    {
         inventory_->destroy_inventory(entity_id{pid.value});
     }
 
     // Unregister from skill system
     {
         auto* skill_sys = subsystems().get<skill::skill_system>();
-        if (skill_sys) {
+        if (skill_sys)
+        {
             skill_sys->unregister_player(pid);
         }
     }
 
     // Unregister from admin system
-    if (admin_) {
+    if (admin_)
+    {
         admin_->unregister_admin(pid);
     }
 
     LOG_INFO(bridge, "Player {} cleanup complete", pid.value);
 }
 
-void auth_handlers::save_player(player_id pid) {
+void auth_handlers::save_player(player_id pid)
+{
     save_player_state(pid);
 }
 
-void auth_handlers::set_enter_game_callback(enter_game_callback cb) {
+void auth_handlers::set_enter_game_callback(enter_game_callback cb)
+{
     enter_game_callback_ = std::move(cb);
 }
 
-void auth_handlers::set_post_enter_game_callback(post_enter_game_callback cb) {
+void auth_handlers::set_post_enter_game_callback(post_enter_game_callback cb)
+{
     post_enter_game_callback_ = std::move(cb);
 }
 
-auto auth_handlers::save_all_players() -> size_t {
-    if (!players_) {
+auto auth_handlers::save_all_players() -> size_t
+{
+    if (!players_)
+    {
         LOG_WARN(bridge, "Cannot save all players: player_system not available");
         return 0;
     }
@@ -1689,20 +1917,24 @@ auto auth_handlers::save_all_players() -> size_t {
     size_t saved_count = 0;
     size_t total_count = 0;
 
-    players_->for_each_player([this, &saved_count, &total_count](player_id pid, const player::player&) {
-        ++total_count;
-        // Only save players that have a valid connection (are actually in-game)
-        if (players_->get_player(pid)->connection.value != 0) {
-            save_player_state(pid);
-            ++saved_count;
-        }
-    });
+    players_->for_each_player(
+        [this, &saved_count, &total_count](player_id pid, const player::player&)
+        {
+            ++total_count;
+            // Only save players that have a valid connection (are actually in-game)
+            if (players_->get_player(pid)->connection.value != 0)
+            {
+                save_player_state(pid);
+                ++saved_count;
+            }
+        });
 
-    if (saved_count > 0) {
+    if (saved_count > 0)
+    {
         LOG_INFO(bridge, "Periodic save completed: {}/{} players saved", saved_count, total_count);
     }
 
     return saved_count;
 }
 
-}  // namespace hb::bridge
+} // namespace hb::bridge

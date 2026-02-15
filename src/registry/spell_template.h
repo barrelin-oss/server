@@ -10,10 +10,12 @@
 #include <vector>
 #include <cstdint>
 
-namespace hb {
+namespace hb
+{
 
 // Spell target types (must be defined before spell_template)
-enum class spell_target : uint8_t {
+enum class spell_target : uint8_t
+{
     self = 0,
     single_enemy = 1,
     single_ally = 2,
@@ -26,7 +28,8 @@ enum class spell_target : uint8_t {
 };
 
 // Spell effect types
-enum class spell_effect_type : uint8_t {
+enum class spell_effect_type : uint8_t
+{
     none = 0,
     damage = 1,
     heal = 2,
@@ -49,15 +52,17 @@ enum class spell_effect_type : uint8_t {
 };
 
 // Spell effect entry
-struct spell_effect {
+struct spell_effect
+{
     spell_effect_type type{spell_effect_type::none};
     int16_t base_value{0};
-    int16_t scaling{0};    // Per 10 magic/int
+    int16_t scaling{0}; // Per 10 magic/int
     duration_ms duration{0};
 };
 
 // Spell template - read-only data loaded from config
-struct spell_template {
+struct spell_template
+{
     // Identity
     spell_id id{0};
     std::string name;
@@ -70,12 +75,12 @@ struct spell_template {
     // Costs
     int16_t mana_cost{0};
     int16_t stamina_cost{0};
-    int16_t hp_cost{0};      // For blood magic
+    int16_t hp_cost{0}; // For blood magic
 
     // Requirements
     int16_t int_req{0};
     int16_t mag_level_req{0};
-    int16_t staff_required{0};  // 0 = any, >0 = specific staff type
+    int16_t staff_required{0}; // 0 = any, >0 = specific staff type
 
     // Casting
     int16_t cast_time_ms{0};
@@ -85,8 +90,8 @@ struct spell_template {
 
     // Damage/Healing
     int16_t base_damage{0};
-    int16_t int_scaling{0};     // Per 10 INT
-    int16_t mag_scaling{0};     // Per 10 MAG
+    int16_t int_scaling{0}; // Per 10 INT
+    int16_t mag_scaling{0}; // Per 10 MAG
 
     // Effect duration
     duration_ms effect_duration{0};
@@ -104,19 +109,14 @@ struct spell_template {
     bool is_channeled{false};
 
     // Helper methods
-    [[nodiscard]] auto is_aoe() const -> bool {
-        return area_radius > 0;
-    }
+    [[nodiscard]] auto is_aoe() const -> bool { return area_radius > 0; }
 
-    [[nodiscard]] auto is_instant() const -> bool {
-        return cast_time_ms == 0;
-    }
+    [[nodiscard]] auto is_instant() const -> bool { return cast_time_ms == 0; }
 
-    [[nodiscard]] auto calculate_damage(int intelligence, int magic_level) const -> int {
-        return base_damage +
-               (int_scaling * intelligence / 10) +
-               (mag_scaling * magic_level / 10);
+    [[nodiscard]] auto calculate_damage(int intelligence, int magic_level) const -> int
+    {
+        return base_damage + (int_scaling * intelligence / 10) + (mag_scaling * magic_level / 10);
     }
 };
 
-}  // namespace hb
+} // namespace hb

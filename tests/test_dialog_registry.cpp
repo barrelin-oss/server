@@ -7,22 +7,25 @@
 #include <fstream>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
-class dialog_registry_test : public ::testing::Test {
+class dialog_registry_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        registry_.initialize();
-    }
+    void SetUp() override { registry_.initialize(); }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         registry_.shutdown();
-        if (std::filesystem::exists(temp_path_)) {
+        if (std::filesystem::exists(temp_path_))
+        {
             std::filesystem::remove(temp_path_);
         }
     }
 
-    void write_yaml(const std::string& content) {
+    void write_yaml(const std::string& content)
+    {
         std::ofstream f(temp_path_);
         f << content;
         f.close();
@@ -32,7 +35,8 @@ protected:
     std::filesystem::path temp_path_{"test_dialogs_tmp.yaml"};
 };
 
-TEST_F(dialog_registry_test, load_valid_yaml) {
+TEST_F(dialog_registry_test, load_valid_yaml)
+{
     write_yaml(R"(
 dialogs:
   Howard:
@@ -56,7 +60,8 @@ dialogs:
     EXPECT_EQ(registry_.count(), 1u);
 }
 
-TEST_F(dialog_registry_test, get_dialog_by_name) {
+TEST_F(dialog_registry_test, get_dialog_by_name)
+{
     write_yaml(R"(
 dialogs:
   TestNPC:
@@ -77,7 +82,8 @@ dialogs:
     EXPECT_EQ(dialog->nodes.size(), 1u);
 }
 
-TEST_F(dialog_registry_test, get_missing_dialog_returns_nullptr) {
+TEST_F(dialog_registry_test, get_missing_dialog_returns_nullptr)
+{
     write_yaml(R"(
 dialogs:
   ExistingNPC:
@@ -93,7 +99,8 @@ dialogs:
     EXPECT_EQ(registry_.get_dialog("NonExistent"), nullptr);
 }
 
-TEST_F(dialog_registry_test, get_node_by_id) {
+TEST_F(dialog_registry_test, get_node_by_id)
+{
     write_yaml(R"(
 dialogs:
   TestNPC:
@@ -125,7 +132,8 @@ dialogs:
     EXPECT_EQ(node2->text, "Second node");
 }
 
-TEST_F(dialog_registry_test, get_missing_node_returns_nullptr) {
+TEST_F(dialog_registry_test, get_missing_node_returns_nullptr)
+{
     write_yaml(R"(
 dialogs:
   TestNPC:
@@ -142,7 +150,8 @@ dialogs:
     EXPECT_EQ(registry_.get_node("NonExistent", "start"), nullptr);
 }
 
-TEST_F(dialog_registry_test, dialog_action_types) {
+TEST_F(dialog_registry_test, dialog_action_types)
+{
     write_yaml(R"(
 dialogs:
   MultiAction:
@@ -167,7 +176,8 @@ dialogs:
     EXPECT_EQ(node->options[3].action, npc::dialog_action::offer_citizenship);
 }
 
-TEST_F(dialog_registry_test, custom_start_node) {
+TEST_F(dialog_registry_test, custom_start_node)
+{
     write_yaml(R"(
 dialogs:
   CustomStart:
@@ -190,19 +200,22 @@ dialogs:
     EXPECT_EQ(dialog->start_node, "intro");
 }
 
-TEST_F(dialog_registry_test, invalid_yaml_returns_error) {
+TEST_F(dialog_registry_test, invalid_yaml_returns_error)
+{
     write_yaml("not: valid: yaml: [[[");
     auto result = registry_.load_from_file(temp_path_);
     EXPECT_TRUE(result.is_err());
 }
 
-TEST_F(dialog_registry_test, missing_dialogs_section_returns_error) {
+TEST_F(dialog_registry_test, missing_dialogs_section_returns_error)
+{
     write_yaml("something_else: true");
     auto result = registry_.load_from_file(temp_path_);
     EXPECT_TRUE(result.is_err());
 }
 
-TEST_F(dialog_registry_test, multiple_npcs) {
+TEST_F(dialog_registry_test, multiple_npcs)
+{
     write_yaml(R"(
 dialogs:
   NPC1:
@@ -236,4 +249,4 @@ dialogs:
     EXPECT_NE(registry_.get_dialog("NPC3"), nullptr);
 }
 
-}  // namespace hb
+} // namespace hb

@@ -13,63 +13,81 @@
 #include <filesystem>
 #include <optional>
 
-namespace hb::skill {
+namespace hb::skill
+{
 
-namespace {
+namespace
+{
 
 auto skill_type_from_string(std::string_view name) -> std::optional<skill_type>
 {
-    if (name == "mining") return skill_type::mining;
-    if (name == "fishing") return skill_type::fishing;
-    if (name == "farming") return skill_type::farming;
-    if (name == "magic_resistance") return skill_type::magic_resistance;
-    if (name == "magic") return skill_type::magic;
-    if (name == "hand_attack") return skill_type::hand_attack;
-    if (name == "archery") return skill_type::archery;
-    if (name == "short_sword") return skill_type::short_sword;
-    if (name == "long_sword") return skill_type::long_sword;
-    if (name == "fencing") return skill_type::fencing;
-    if (name == "axe") return skill_type::axe;
-    if (name == "shield") return skill_type::shield;
-    if (name == "alchemy") return skill_type::alchemy;
-    if (name == "manufacturing") return skill_type::manufacturing;
-    if (name == "hammer") return skill_type::hammer;
-    if (name == "crafting") return skill_type::crafting;
-    if (name == "pretend_corpse") return skill_type::pretend_corpse;
-    if (name == "staff") return skill_type::staff;
-    if (name == "poison_resistance") return skill_type::poison_resistance;
+    if (name == "mining")
+        return skill_type::mining;
+    if (name == "fishing")
+        return skill_type::fishing;
+    if (name == "farming")
+        return skill_type::farming;
+    if (name == "magic_resistance")
+        return skill_type::magic_resistance;
+    if (name == "magic")
+        return skill_type::magic;
+    if (name == "hand_attack")
+        return skill_type::hand_attack;
+    if (name == "archery")
+        return skill_type::archery;
+    if (name == "short_sword")
+        return skill_type::short_sword;
+    if (name == "long_sword")
+        return skill_type::long_sword;
+    if (name == "fencing")
+        return skill_type::fencing;
+    if (name == "axe")
+        return skill_type::axe;
+    if (name == "shield")
+        return skill_type::shield;
+    if (name == "alchemy")
+        return skill_type::alchemy;
+    if (name == "manufacturing")
+        return skill_type::manufacturing;
+    if (name == "hammer")
+        return skill_type::hammer;
+    if (name == "crafting")
+        return skill_type::crafting;
+    if (name == "pretend_corpse")
+        return skill_type::pretend_corpse;
+    if (name == "staff")
+        return skill_type::staff;
+    if (name == "poison_resistance")
+        return skill_type::poison_resistance;
     return std::nullopt;
 }
 
-}  // namespace
+} // namespace
 
 skill_system::skill_system()
 {
     // Set up default tier table
     default_config_.max_level = 100;
-    default_config_.tiers = {
-        {20, 10},
-        {40, 25},
-        {60, 50},
-        {80, 75},
-        {90, 100},
-        {200, 125}
-    };
+    default_config_.tiers = {{20, 10}, {40, 25}, {60, 50}, {80, 75}, {90, 100}, {200, 125}};
 }
 
-skill_system::~skill_system() {
-    if (is_initialized()) {
+skill_system::~skill_system()
+{
+    if (is_initialized())
+    {
         shutdown();
     }
 }
 
-void skill_system::initialize() {
+void skill_system::initialize()
+{
     LOG_INFO(general, "Skill system initializing...");
     set_initialized(true);
     LOG_INFO(general, "Skill system initialized");
 }
 
-void skill_system::shutdown() {
+void skill_system::shutdown()
+{
     LOG_INFO(general, "Skill system shutting down...");
 
     player_skills_.clear();
@@ -79,10 +97,10 @@ void skill_system::shutdown() {
     LOG_INFO(general, "Skill system shutdown complete");
 }
 
-void skill_system::update(float /*delta_time*/) {
-}
+void skill_system::update(float /*delta_time*/) {}
 
-void skill_system::set_config(const skill_system_config& config) {
+void skill_system::set_config(const skill_system_config& config)
+{
     config_ = config;
 }
 
@@ -152,8 +170,7 @@ void skill_system::load_config(const std::string& yaml_path)
             }
         }
 
-        LOG_INFO(general, "Loaded skill config from {} ({} per-skill overrides)",
-            yaml_path, skill_configs_.size());
+        LOG_INFO(general, "Loaded skill config from {} ({} per-skill overrides)", yaml_path, skill_configs_.size());
     }
     catch (const std::exception& e)
     {
@@ -161,37 +178,47 @@ void skill_system::load_config(const std::string& yaml_path)
     }
 }
 
-void skill_system::register_player(player_id id) {
-    if (player_skills_.contains(id)) return;
+void skill_system::register_player(player_id id)
+{
+    if (player_skills_.contains(id))
+        return;
 
     player_skills_.emplace(id, player_skills{});
     LOG_DEBUG(general, "Registered skills for player {}", id.value);
 }
 
-void skill_system::unregister_player(player_id id) {
+void skill_system::unregister_player(player_id id)
+{
     player_skills_.erase(id);
     LOG_DEBUG(general, "Unregistered skills for player {}", id.value);
 }
 
-auto skill_system::get_skill_level(player_id player, skill_type skill) const -> int16_t {
+auto skill_system::get_skill_level(player_id player, skill_type skill) const -> int16_t
+{
     auto it = player_skills_.find(player);
-    if (it == player_skills_.end()) return 0;
+    if (it == player_skills_.end())
+        return 0;
     return it->second.level(skill);
 }
 
-auto skill_system::get_uses_this_level(player_id player, skill_type skill) const -> int32_t {
+auto skill_system::get_uses_this_level(player_id player, skill_type skill) const -> int32_t
+{
     auto it = player_skills_.find(player);
-    if (it == player_skills_.end()) return 0;
+    if (it == player_skills_.end())
+        return 0;
     return it->second.get(skill).uses_this_level;
 }
 
-auto skill_system::get_total_uses(player_id player, skill_type skill) const -> int32_t {
+auto skill_system::get_total_uses(player_id player, skill_type skill) const -> int32_t
+{
     auto it = player_skills_.find(player);
-    if (it == player_skills_.end()) return 0;
+    if (it == player_skills_.end())
+        return 0;
     return it->second.get(skill).total_uses;
 }
 
-auto skill_system::get_mastery(player_id player, skill_type skill) const -> mastery_level {
+auto skill_system::get_mastery(player_id player, skill_type skill) const -> mastery_level
+{
     return get_mastery_level(get_skill_level(player, skill));
 }
 
@@ -200,7 +227,7 @@ auto skill_system::uses_to_next_level(skill_type type, int16_t level) const -> i
     const auto& cfg = get_config_for(type);
 
     // Find the tier bracket for this level
-    int32_t multiplier = 125;  // fallback if no tier matches
+    int32_t multiplier = 125; // fallback if no tier matches
     for (const auto& tier : cfg.tiers)
     {
         if (level < tier.max_level)
@@ -213,31 +240,37 @@ auto skill_system::uses_to_next_level(skill_type type, int16_t level) const -> i
     return static_cast<int32_t>(level + 1) * multiplier;
 }
 
-void skill_system::set_skill_level(player_id player, skill_type skill, int16_t level) {
+void skill_system::set_skill_level(player_id player, skill_type skill, int16_t level)
+{
     auto it = player_skills_.find(player);
-    if (it == player_skills_.end()) return;
+    if (it == player_skills_.end())
+        return;
 
     auto& ss = it->second.get(skill);
     int16_t old_level = ss.level;
     ss.level = level;
     ss.uses_this_level = 0;
 
-    if (level > old_level) {
+    if (level > old_level)
+    {
         notify_level_up(player, skill, old_level, level);
     }
 }
 
-auto skill_system::record_skill_use(player_id player, skill_type skill) -> int16_t {
+auto skill_system::record_skill_use(player_id player, skill_type skill) -> int16_t
+{
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::skill_training);
 
     auto it = player_skills_.find(player);
-    if (it == player_skills_.end()) return 0;
+    if (it == player_skills_.end())
+        return 0;
 
     auto& ss = it->second.get(skill);
     const auto& cfg = get_config_for(skill);
 
-    if (ss.level >= cfg.max_level) return 0;
+    if (ss.level >= cfg.max_level)
+        return 0;
 
     ss.total_uses++;
     ss.uses_this_level++;
@@ -252,10 +285,15 @@ auto skill_system::record_skill_use(player_id player, skill_type skill) -> int16
         ++levels_gained;
     }
 
-    if (levels_gained > 0) {
+    if (levels_gained > 0)
+    {
         notify_level_up(player, skill, old_level, ss.level);
-        LOG_DEBUG(general, "Player {} gained {} levels in skill {} (now level {})",
-            player.value, levels_gained, static_cast<int>(skill), ss.level);
+        LOG_DEBUG(general,
+                  "Player {} gained {} levels in skill {} (now level {})",
+                  player.value,
+                  levels_gained,
+                  static_cast<int>(skill),
+                  ss.level);
     }
 
     return levels_gained;
@@ -264,12 +302,14 @@ auto skill_system::record_skill_use(player_id player, skill_type skill) -> int16
 void skill_system::add_skill_uses(player_id player, skill_type skill, int32_t count)
 {
     auto it = player_skills_.find(player);
-    if (it == player_skills_.end()) return;
+    if (it == player_skills_.end())
+        return;
 
     auto& ss = it->second.get(skill);
     const auto& cfg = get_config_for(skill);
 
-    if (ss.level >= cfg.max_level) return;
+    if (ss.level >= cfg.max_level)
+        return;
 
     int16_t old_level = ss.level;
 
@@ -285,14 +325,20 @@ void skill_system::add_skill_uses(player_id player, skill_type skill, int32_t co
     if (ss.level > old_level)
     {
         notify_level_up(player, skill, old_level, ss.level);
-        LOG_DEBUG(general, "Player {} bulk leveled skill {} from {} to {}",
-            player.value, static_cast<int>(skill), old_level, ss.level);
+        LOG_DEBUG(general,
+                  "Player {} bulk leveled skill {} from {} to {}",
+                  player.value,
+                  static_cast<int>(skill),
+                  old_level,
+                  ss.level);
     }
 }
 
-void skill_system::reset_skill(player_id player, skill_type skill) {
+void skill_system::reset_skill(player_id player, skill_type skill)
+{
     auto it = player_skills_.find(player);
-    if (it == player_skills_.end()) return;
+    if (it == player_skills_.end())
+        return;
 
     auto& ss = it->second.get(skill);
     ss.level = 0;
@@ -300,11 +346,14 @@ void skill_system::reset_skill(player_id player, skill_type skill) {
     ss.uses_this_level = 0;
 }
 
-void skill_system::reset_all_skills(player_id player) {
+void skill_system::reset_all_skills(player_id player)
+{
     auto it = player_skills_.find(player);
-    if (it == player_skills_.end()) return;
+    if (it == player_skills_.end())
+        return;
 
-    for (size_t i = 0; i < max_skills; ++i) {
+    for (size_t i = 0; i < max_skills; ++i)
+    {
         auto& ss = it->second.skills[i];
         ss.level = 0;
         ss.total_uses = 0;
@@ -312,8 +361,10 @@ void skill_system::reset_all_skills(player_id player) {
     }
 }
 
-auto skill_system::train_skill(player_id player, skill_type skill) -> skill_use_result {
-    if (!can_train(player, skill)) {
+auto skill_system::train_skill(player_id player, skill_type skill) -> skill_use_result
+{
+    if (!can_train(player, skill))
+    {
         return skill_use_result::cooldown;
     }
 
@@ -321,18 +372,22 @@ auto skill_system::train_skill(player_id player, skill_type skill) -> skill_use_
     return skill_use_result::success;
 }
 
-auto skill_system::can_train(player_id player, skill_type /*skill*/) const -> bool {
+auto skill_system::can_train(player_id player, skill_type /*skill*/) const -> bool
+{
     return player_skills_.contains(player);
 }
 
-auto skill_system::get_weapon_skill_for_item(player_id player, item_id weapon) const -> int16_t {
+auto skill_system::get_weapon_skill_for_item(player_id player, item_id weapon) const -> int16_t
+{
     auto* item_sys = subsystems().get<item::item_system>();
-    if (!item_sys) {
+    if (!item_sys)
+    {
         return get_skill_level(player, skill_type::short_sword);
     }
 
     auto* itm = item_sys->get_item(weapon);
-    if (!itm || itm->type != item::item_type::weapon) {
+    if (!itm || itm->type != item::item_type::weapon)
+    {
         return get_skill_level(player, skill_type::hand_attack);
     }
 
@@ -340,38 +395,45 @@ auto skill_system::get_weapon_skill_for_item(player_id player, item_id weapon) c
     return get_skill_level(player, weapon_skill);
 }
 
-auto skill_system::calculate_damage_bonus(player_id player, skill_type weapon_skill) const -> int16_t {
+auto skill_system::calculate_damage_bonus(player_id player, skill_type weapon_skill) const -> int16_t
+{
     int16_t skill_level = get_skill_level(player, weapon_skill);
     return skill_level / 10;
 }
 
-auto skill_system::calculate_hit_bonus(player_id player, skill_type weapon_skill) const -> int16_t {
+auto skill_system::calculate_hit_bonus(player_id player, skill_type weapon_skill) const -> int16_t
+{
     int16_t skill_level = get_skill_level(player, weapon_skill);
     return skill_level / 5;
 }
 
-void skill_system::on_level_up(level_up_callback callback) {
+void skill_system::on_level_up(level_up_callback callback)
+{
     level_up_callbacks_.push_back(std::move(callback));
 }
 
-auto skill_system::get_player_skills(player_id player) -> player_skills* {
+auto skill_system::get_player_skills(player_id player) -> player_skills*
+{
     auto it = player_skills_.find(player);
     return it != player_skills_.end() ? &it->second : nullptr;
 }
 
-auto skill_system::get_player_skills(player_id player) const -> const player_skills* {
+auto skill_system::get_player_skills(player_id player) const -> const player_skills*
+{
     auto it = player_skills_.find(player);
     return it != player_skills_.end() ? &it->second : nullptr;
 }
 
-void skill_system::notify_level_up(player_id player, skill_type skill, int16_t old_level, int16_t new_level) {
+void skill_system::notify_level_up(player_id player, skill_type skill, int16_t old_level, int16_t new_level)
+{
     skill_level_event event;
     event.player = player;
     event.skill = skill;
     event.old_level = old_level;
     event.new_level = new_level;
 
-    for (const auto& callback : level_up_callbacks_) {
+    for (const auto& callback : level_up_callbacks_)
+    {
         callback(event);
     }
 }
@@ -386,4 +448,4 @@ auto skill_system::get_config_for(skill_type type) const -> const skill_config_e
     return default_config_;
 }
 
-}  // namespace hb::skill
+} // namespace hb::skill

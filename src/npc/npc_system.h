@@ -23,10 +23,12 @@
 #include <string_view>
 #include <functional>
 
-namespace hb::npc {
+namespace hb::npc
+{
 
 // NPC system configuration
-struct npc_system_config {
+struct npc_system_config
+{
     uint32_t max_npcs{10000};
     int32_t ai_update_interval_ms{100};
     int32_t spawn_check_interval_ms{1000};
@@ -36,7 +38,8 @@ struct npc_system_config {
 };
 
 // NPC system - manages all NPCs
-class npc_system : public subsystem {
+class npc_system : public subsystem
+{
 public:
     npc_system();
     ~npc_system() override;
@@ -133,32 +136,36 @@ public:
     [[nodiscard]] auto has_pending_deaths() const -> bool { return !pending_npc_deaths_.empty(); }
 
     // Iteration
-    template<typename Func>
-    void for_each_npc(Func&& func) {
-        for (auto& [id, npc_ptr] : npcs_) {
+    template<typename Func> void for_each_npc(Func&& func)
+    {
+        for (auto& [id, npc_ptr] : npcs_)
+        {
             func(id, *npc_ptr);
         }
     }
 
-    template<typename Func>
-    void for_each_spawn_point(Func&& func) const {
-        for (const auto& sp : spawn_points_) {
+    template<typename Func> void for_each_spawn_point(Func&& func) const
+    {
+        for (const auto& sp : spawn_points_)
+        {
             func(sp);
         }
     }
 
-    template<typename Func>
-    void for_each_npc_on_map(map_id map, Func&& func) {
-        for (auto& [id, npc_ptr] : npcs_) {
-            if (npc_ptr->current_map == map) {
+    template<typename Func> void for_each_npc_on_map(map_id map, Func&& func)
+    {
+        for (auto& [id, npc_ptr] : npcs_)
+        {
+            if (npc_ptr->current_map == map)
+            {
                 func(id, *npc_ptr);
             }
         }
     }
 
     // Find NPCs in range
-    [[nodiscard]] auto get_npcs_in_range(map_id map, hb::world::position center, int range) const
-        -> std::vector<entity::entity>;
+    [[nodiscard]] auto
+    get_npcs_in_range(map_id map, hb::world::position center, int range) const -> std::vector<entity::entity>;
 
 private:
     void update_spawns(float delta_time);
@@ -187,7 +194,7 @@ private:
     void try_form_pack(npc& npc_ref);
 
     npc_system_config config_;
-    entity::entity_manager* entity_manager_{nullptr};  // Cached pointer to entity manager
+    entity::entity_manager* entity_manager_{nullptr}; // Cached pointer to entity manager
 
     std::unordered_map<entity::entity, std::unique_ptr<npc>> npcs_;
     std::vector<spawn_point> spawn_points_;
@@ -220,7 +227,8 @@ private:
     on_npc_damage_callback on_damage_callback_;
 
     // Deferred NPC death queue — stores snapshots so callbacks fire after caller finishes
-    struct pending_npc_death {
+    struct pending_npc_death
+    {
         npc snapshot;
         entity::entity killer;
         int32_t damage{0};
@@ -228,4 +236,4 @@ private:
     std::vector<pending_npc_death> pending_npc_deaths_;
 };
 
-}  // namespace hb::npc
+} // namespace hb::npc

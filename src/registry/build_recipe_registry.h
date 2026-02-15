@@ -13,7 +13,8 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 class item_registry;
 
@@ -29,8 +30,7 @@ public:
     void shutdown() override;
 
     // Load recipes from YAML file, resolving item names via item_registry
-    auto load_from_file(const std::filesystem::path& path, const item_registry& items)
-        -> result<size_t, std::string>;
+    auto load_from_file(const std::filesystem::path& path, const item_registry& items) -> result<size_t, std::string>;
 
     // Lookup
     [[nodiscard]] auto get(int32_t index) const -> const crafting::build_recipe*;
@@ -43,4 +43,4 @@ private:
     std::unordered_map<std::string, size_t> name_index_;
 };
 
-}  // namespace hb
+} // namespace hb

@@ -6,7 +6,8 @@
 
 #include <gtest/gtest.h>
 
-namespace hb::crafting {
+namespace hb::crafting
+{
 
 // === Config defaults ===
 
@@ -82,8 +83,8 @@ TEST(fishing_test, get_node_out_of_range)
 {
     fishing_system sys;
     sys.initialize();
-    EXPECT_EQ(sys.get_node(0), nullptr);    // Index 0 reserved
-    EXPECT_EQ(sys.get_node(999), nullptr);  // Beyond max
+    EXPECT_EQ(sys.get_node(0), nullptr);   // Index 0 reserved
+    EXPECT_EQ(sys.get_node(999), nullptr); // Beyond max
     sys.shutdown();
 }
 
@@ -159,4 +160,4 @@ TEST(fishing_test, catch_result_values)
     EXPECT_EQ(static_cast<uint8_t>(catch_result::rod_broken), 7);
 }
 
-}  // namespace hb::crafting
+} // namespace hb::crafting

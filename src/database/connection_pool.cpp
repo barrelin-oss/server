@@ -7,7 +7,8 @@
 
 #include <sstream>
 
-namespace hb::database {
+namespace hb::database
+{
 
 // pooled_connection implementation
 
@@ -18,7 +19,8 @@ pooled_connection::pooled_connection(std::shared_ptr<pqxx::connection> conn,
 {
 }
 
-pooled_connection::~pooled_connection() {
+pooled_connection::~pooled_connection()
+{
     release();
 }
 
@@ -30,8 +32,10 @@ pooled_connection::pooled_connection(pooled_connection&& other) noexcept
     other.release_fn_ = nullptr;
 }
 
-auto pooled_connection::operator=(pooled_connection&& other) noexcept -> pooled_connection& {
-    if (this != &other) {
+auto pooled_connection::operator=(pooled_connection&& other) noexcept -> pooled_connection&
+{
+    if (this != &other)
+    {
         release();
         connection_ = std::move(other.connection_);
         release_fn_ = std::move(other.release_fn_);
@@ -41,40 +45,50 @@ auto pooled_connection::operator=(pooled_connection&& other) noexcept -> pooled_
     return *this;
 }
 
-auto pooled_connection::get() -> pqxx::connection* {
+auto pooled_connection::get() -> pqxx::connection*
+{
     return connection_.get();
 }
 
-auto pooled_connection::get() const -> const pqxx::connection* {
+auto pooled_connection::get() const -> const pqxx::connection*
+{
     return connection_.get();
 }
 
-auto pooled_connection::operator->() -> pqxx::connection* {
+auto pooled_connection::operator->() -> pqxx::connection*
+{
     return connection_.get();
 }
 
-auto pooled_connection::operator->() const -> const pqxx::connection* {
+auto pooled_connection::operator->() const -> const pqxx::connection*
+{
     return connection_.get();
 }
 
-auto pooled_connection::operator*() -> pqxx::connection& {
+auto pooled_connection::operator*() -> pqxx::connection&
+{
     return *connection_;
 }
 
-auto pooled_connection::operator*() const -> const pqxx::connection& {
+auto pooled_connection::operator*() const -> const pqxx::connection&
+{
     return *connection_;
 }
 
-pooled_connection::operator bool() const {
+pooled_connection::operator bool() const
+{
     return is_valid();
 }
 
-auto pooled_connection::is_valid() const -> bool {
+auto pooled_connection::is_valid() const -> bool
+{
     return connection_ && connection_->is_open();
 }
 
-void pooled_connection::release() {
-    if (connection_ && release_fn_) {
+void pooled_connection::release()
+{
+    if (connection_ && release_fn_)
+    {
         release_fn_(std::move(connection_));
         connection_ = nullptr;
         release_fn_ = nullptr;
@@ -85,40 +99,45 @@ void pooled_connection::release() {
 
 connection_pool::connection_pool() = default;
 
-connection_pool::connection_pool(const pool_config& config)
-    : config_(config)
-{
-}
+connection_pool::connection_pool(const pool_config& config) : config_(config) {}
 
-connection_pool::~connection_pool() {
+connection_pool::~connection_pool()
+{
     shutdown();
 }
 
-auto connection_pool::initialize(const pool_config& config) -> result<void, std::string> {
+auto connection_pool::initialize(const pool_config& config) -> result<void, std::string>
+{
     std::lock_guard lock{mutex_};
 
-    if (initialized_) {
+    if (initialized_)
+    {
         return result<void, std::string>::err("Connection pool already initialized");
     }
 
     config_ = config;
     shutdown_ = false;
 
-    LOG_INFO(database, "Initializing connection pool with {} connections to {}:{}",
-        config_.pool_size, config_.host, config_.port);
+    LOG_INFO(database,
+             "Initializing connection pool with {} connections to {}:{}",
+             config_.pool_size,
+             config_.host,
+             config_.port);
 
     // Create initial connections
-    for (uint32_t i = 0; i < config_.pool_size; ++i) {
+    for (uint32_t i = 0; i < config_.pool_size; ++i)
+    {
         auto conn_result = create_connection();
-        if (conn_result.is_err()) {
+        if (conn_result.is_err())
+        {
             // Clean up any created connections
             all_connections_.clear();
-            while (!available_.empty()) {
+            while (!available_.empty())
+            {
                 available_.pop();
             }
-            return result<void, std::string>::err(
-                "Failed to create connection " + std::to_string(i + 1) + ": " + conn_result.error()
-            );
+            return result<void, std::string>::err("Failed to create connection " + std::to_string(i + 1) + ": " +
+                                                  conn_result.error());
         }
 
         auto conn = std::move(conn_result).value();
@@ -132,10 +151,12 @@ auto connection_pool::initialize(const pool_config& config) -> result<void, std:
     return result<void, std::string>::ok();
 }
 
-void connection_pool::shutdown() {
+void connection_pool::shutdown()
+{
     std::lock_guard lock{mutex_};
 
-    if (!initialized_) {
+    if (!initialized_)
+    {
         return;
     }
 
@@ -145,16 +166,22 @@ void connection_pool::shutdown() {
     initialized_ = false;
 
     // Clear the available queue
-    while (!available_.empty()) {
+    while (!available_.empty())
+    {
         available_.pop();
     }
 
     // Close all connections
-    for (auto& conn : all_connections_) {
-        if (conn && conn->is_open()) {
-            try {
+    for (auto& conn : all_connections_)
+    {
+        if (conn && conn->is_open())
+        {
+            try
+            {
                 conn->close();
-            } catch (const std::exception& e) {
+            }
+            catch (const std::exception& e)
+            {
                 LOG_WARN(database, "Error closing connection: {}", e.what());
             }
         }
@@ -166,35 +193,40 @@ void connection_pool::shutdown() {
     LOG_INFO(database, "Connection pool shut down");
 }
 
-auto connection_pool::acquire() -> result<pooled_connection, std::string> {
+auto connection_pool::acquire() -> result<pooled_connection, std::string>
+{
     return acquire(config_.acquire_timeout);
 }
 
-auto connection_pool::acquire(std::chrono::milliseconds timeout)
-    -> result<pooled_connection, std::string>
+auto connection_pool::acquire(std::chrono::milliseconds timeout) -> result<pooled_connection, std::string>
 {
     PERF_TIMER(perf_stats_, perf::metric_category::db_pool_acquire);
 
     std::unique_lock lock{mutex_};
 
-    if (!initialized_) {
+    if (!initialized_)
+    {
         return result<pooled_connection, std::string>::err("Connection pool not initialized");
     }
 
-    if (shutdown_) {
+    if (shutdown_)
+    {
         return result<pooled_connection, std::string>::err("Connection pool is shutting down");
     }
 
     // Wait for an available connection
     auto deadline = std::chrono::steady_clock::now() + timeout;
 
-    while (available_.empty() && !shutdown_) {
-        if (cv_.wait_until(lock, deadline) == std::cv_status::timeout) {
+    while (available_.empty() && !shutdown_)
+    {
+        if (cv_.wait_until(lock, deadline) == std::cv_status::timeout)
+        {
             return result<pooled_connection, std::string>::err("Timeout waiting for database connection");
         }
     }
 
-    if (shutdown_ || available_.empty()) {
+    if (shutdown_ || available_.empty())
+    {
         return result<pooled_connection, std::string>::err("Connection pool is shutting down");
     }
 
@@ -202,110 +234,126 @@ auto connection_pool::acquire(std::chrono::milliseconds timeout)
     available_.pop();
 
     // Verify the connection is still valid
-    if (!conn || !conn->is_open()) {
+    if (!conn || !conn->is_open())
+    {
         LOG_WARN(database, "Acquired stale connection, attempting reconnect");
 
         // Try to create a new connection
         auto new_conn_result = create_connection();
-        if (new_conn_result.is_err()) {
+        if (new_conn_result.is_err())
+        {
             // Put a nullptr back to maintain pool size tracking
-            return result<pooled_connection, std::string>::err(
-                "Failed to reconnect: " + new_conn_result.error()
-            );
+            return result<pooled_connection, std::string>::err("Failed to reconnect: " + new_conn_result.error());
         }
 
         conn = std::move(new_conn_result).value();
     }
 
     // Create the pooled connection with release callback
-    auto release_fn = [this](std::shared_ptr<pqxx::connection> c) {
+    auto release_fn = [this](std::shared_ptr<pqxx::connection> c)
+    {
         return_connection(std::move(c));
     };
 
-    return result<pooled_connection, std::string>::ok(
-        pooled_connection{std::move(conn), std::move(release_fn)}
-    );
+    return result<pooled_connection, std::string>::ok(pooled_connection{std::move(conn), std::move(release_fn)});
 }
 
-auto connection_pool::try_acquire() -> std::optional<pooled_connection> {
+auto connection_pool::try_acquire() -> std::optional<pooled_connection>
+{
     std::lock_guard lock{mutex_};
 
-    if (!initialized_ || shutdown_ || available_.empty()) {
+    if (!initialized_ || shutdown_ || available_.empty())
+    {
         return std::nullopt;
     }
 
     auto conn = available_.front();
     available_.pop();
 
-    if (!conn || !conn->is_open()) {
+    if (!conn || !conn->is_open())
+    {
         // Don't try to reconnect in non-blocking mode, just return nothing
         return std::nullopt;
     }
 
-    auto release_fn = [this](std::shared_ptr<pqxx::connection> c) {
+    auto release_fn = [this](std::shared_ptr<pqxx::connection> c)
+    {
         return_connection(std::move(c));
     };
 
     return pooled_connection{std::move(conn), std::move(release_fn)};
 }
 
-auto connection_pool::available_connections() const -> size_t {
+auto connection_pool::available_connections() const -> size_t
+{
     std::lock_guard lock{mutex_};
     return available_.size();
 }
 
-auto connection_pool::total_connections() const -> size_t {
+auto connection_pool::total_connections() const -> size_t
+{
     std::lock_guard lock{mutex_};
     return all_connections_.size();
 }
 
-auto connection_pool::is_initialized() const -> bool {
+auto connection_pool::is_initialized() const -> bool
+{
     std::lock_guard lock{mutex_};
     return initialized_;
 }
 
-auto connection_pool::connection_string() const -> std::string {
+auto connection_pool::connection_string() const -> std::string
+{
     return build_connection_string();
 }
 
-auto connection_pool::create_connection() -> result<std::shared_ptr<pqxx::connection>, std::string> {
-    try {
+auto connection_pool::create_connection() -> result<std::shared_ptr<pqxx::connection>, std::string>
+{
+    try
+    {
         auto conn_str = build_connection_string();
         auto conn = std::make_shared<pqxx::connection>(conn_str);
 
-        if (!conn->is_open()) {
-            return result<std::shared_ptr<pqxx::connection>, std::string>::err(
-                "Failed to open connection"
-            );
+        if (!conn->is_open())
+        {
+            return result<std::shared_ptr<pqxx::connection>, std::string>::err("Failed to open connection");
         }
 
         LOG_DEBUG(database, "Created new database connection");
         return result<std::shared_ptr<pqxx::connection>, std::string>::ok(std::move(conn));
-
-    } catch (const pqxx::broken_connection& e) {
+    }
+    catch (const pqxx::broken_connection& e)
+    {
+        return result<std::shared_ptr<pqxx::connection>, std::string>::err(std::string("Connection failed: ") +
+                                                                           e.what());
+    }
+    catch (const std::exception& e)
+    {
         return result<std::shared_ptr<pqxx::connection>, std::string>::err(
-            std::string("Connection failed: ") + e.what()
-        );
-    } catch (const std::exception& e) {
-        return result<std::shared_ptr<pqxx::connection>, std::string>::err(
-            std::string("Exception creating connection: ") + e.what()
-        );
+            std::string("Exception creating connection: ") + e.what());
     }
 }
 
-void connection_pool::return_connection(std::shared_ptr<pqxx::connection> conn) {
-    if (!conn) {
+void connection_pool::return_connection(std::shared_ptr<pqxx::connection> conn)
+{
+    if (!conn)
+    {
         return;
     }
 
     std::lock_guard lock{mutex_};
 
-    if (shutdown_) {
+    if (shutdown_)
+    {
         // Pool is shutting down, close the connection
-        if (conn->is_open()) {
-            try {
+        if (conn->is_open())
+        {
+            try
+            {
                 conn->close();
-            } catch (...) {
+            }
+            catch (...)
+            {
                 // Ignore errors during shutdown
             }
         }
@@ -313,10 +361,13 @@ void connection_pool::return_connection(std::shared_ptr<pqxx::connection> conn) 
     }
 
     // Check if connection is still valid
-    if (conn->is_open()) {
+    if (conn->is_open())
+    {
         available_.push(std::move(conn));
         cv_.notify_one();
-    } else {
+    }
+    else
+    {
         LOG_WARN(database, "Returned connection is closed, discarding");
         // The connection is invalid, we should create a new one
         // For simplicity, we'll let the pool size decrease
@@ -324,14 +375,14 @@ void connection_pool::return_connection(std::shared_ptr<pqxx::connection> conn) 
     }
 }
 
-auto connection_pool::build_connection_string() const -> std::string {
+auto connection_pool::build_connection_string() const -> std::string
+{
     std::ostringstream ss;
-    ss << "host=" << config_.host
-       << " port=" << config_.port
-       << " dbname=" << config_.database
+    ss << "host=" << config_.host << " port=" << config_.port << " dbname=" << config_.database
        << " user=" << config_.username;
 
-    if (!config_.password.empty()) {
+    if (!config_.password.empty())
+    {
         ss << " password=" << config_.password;
     }
 
@@ -340,4 +391,4 @@ auto connection_pool::build_connection_string() const -> std::string {
     return ss.str();
 }
 
-}  // namespace hb::database
+} // namespace hb::database

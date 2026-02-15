@@ -6,20 +6,22 @@
 #include "social/guild.h"
 #include "social/social_system.h"
 
-using hb::player_id;
 using hb::guild_id;
+using hb::player_id;
 using namespace hb::social;
 
 // ========== guild_member character_id tests ==========
 
-TEST(guild_persistence_test, member_has_character_id_field) {
+TEST(guild_persistence_test, member_has_character_id_field)
+{
     guild_member m;
     EXPECT_EQ(m.character_id.value, 0u);
     m.character_id = player_id{42};
     EXPECT_EQ(m.character_id.value, 42u);
 }
 
-TEST(guild_persistence_test, get_member_by_character_id) {
+TEST(guild_persistence_test, get_member_by_character_id)
+{
     guild g;
     g.add_member(player_id{100}, "Alice", guild_rank::guild_master);
     g.add_member(player_id{200}, "Bob", guild_rank::member);
@@ -40,7 +42,8 @@ TEST(guild_persistence_test, get_member_by_character_id) {
     EXPECT_EQ(nobody, nullptr);
 }
 
-TEST(guild_persistence_test, get_member_by_character_id_const) {
+TEST(guild_persistence_test, get_member_by_character_id_const)
+{
     guild g;
     g.add_member(player_id{1}, "Player1", guild_rank::recruit);
     g.members[0].character_id = player_id{50};
@@ -53,9 +56,11 @@ TEST(guild_persistence_test, get_member_by_character_id_const) {
 
 // ========== connect/disconnect guild member tests ==========
 
-class guild_persistence_fixture : public ::testing::Test {
+class guild_persistence_fixture : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         sys_.initialize();
 
         social_system_config config;
@@ -66,21 +71,21 @@ protected:
         sys_.set_config(config);
     }
 
-    void TearDown() override {
-        sys_.shutdown();
-    }
+    void TearDown() override { sys_.shutdown(); }
 
     social_system sys_;
 };
 
-TEST_F(guild_persistence_fixture, create_guild_basic) {
+TEST_F(guild_persistence_fixture, create_guild_basic)
+{
     sys_.register_player(player_id{1}, "Founder");
     auto result = sys_.create_guild(player_id{1}, "TestGuild", "TG");
     ASSERT_TRUE(result.is_ok());
     EXPECT_EQ(sys_.guild_count(), 1);
 }
 
-TEST_F(guild_persistence_fixture, connect_guild_member_resolves_runtime_id) {
+TEST_F(guild_persistence_fixture, connect_guild_member_resolves_runtime_id)
+{
     // Register player and create a guild
     sys_.register_player(player_id{1}, "Founder");
     auto result = sys_.create_guild(player_id{1}, "TestGuild", "TG");
@@ -89,11 +94,11 @@ TEST_F(guild_persistence_fixture, connect_guild_member_resolves_runtime_id) {
 
     auto* g = sys_.get_guild(gid);
     ASSERT_NE(g, nullptr);
-    EXPECT_EQ(g->member_count(), 1u);  // Founder only
+    EXPECT_EQ(g->member_count(), 1u); // Founder only
 
     // Simulate an offline-loaded member: add a member with character_id but no runtime ID
     guild_member offline_member;
-    offline_member.player = player_id{};  // offline
+    offline_member.player = player_id{}; // offline
     offline_member.character_id = player_id{999};
     offline_member.name = "OfflineGuy";
     offline_member.rank = guild_rank::member;
@@ -117,7 +122,8 @@ TEST_F(guild_persistence_fixture, connect_guild_member_resolves_runtime_id) {
     EXPECT_EQ(sys_.get_player_guild(player_id{42}), gid);
 }
 
-TEST_F(guild_persistence_fixture, disconnect_guild_member_clears_runtime_id) {
+TEST_F(guild_persistence_fixture, disconnect_guild_member_clears_runtime_id)
+{
     sys_.register_player(player_id{1}, "Founder");
     auto result = sys_.create_guild(player_id{1}, "TestGuild", "TG");
     ASSERT_TRUE(result.is_ok());
@@ -148,10 +154,11 @@ TEST_F(guild_persistence_fixture, disconnect_guild_member_clears_runtime_id) {
     ASSERT_NE(g, nullptr);
     auto* member = g->get_member_by_character_id(player_id{888});
     ASSERT_NE(member, nullptr);
-    EXPECT_EQ(member->player.value, 0u);  // offline
+    EXPECT_EQ(member->player.value, 0u); // offline
 }
 
-TEST_F(guild_persistence_fixture, connect_sets_guild_master) {
+TEST_F(guild_persistence_fixture, connect_sets_guild_master)
+{
     sys_.register_player(player_id{1}, "Master");
     auto result = sys_.create_guild(player_id{1}, "TestGuild", "TG");
     ASSERT_TRUE(result.is_ok());

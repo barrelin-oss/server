@@ -6,11 +6,13 @@
 
 #include <gtest/gtest.h>
 
-namespace hb::crafting {
+namespace hb::crafting
+{
 
 // === Success chance calculation tests ===
 
-class manufacturing_success_test : public ::testing::Test {
+class manufacturing_success_test : public ::testing::Test
+{
 protected:
     build_recipe make_recipe(int16_t skill_req, int32_t success_rate, int16_t skill_limit = 0)
     {
@@ -36,7 +38,7 @@ TEST_F(manufacturing_success_test, skill_bonus)
     auto recipe = make_recipe(10, 50);
     // skill = 20, skill_req = 10: bonus = min(40, (20-10)*2) = 20
     auto chance = manufacturing_system::calculate_success_chance(20, 0, recipe);
-    EXPECT_EQ(chance, 70);  // 50 + 20 + 0
+    EXPECT_EQ(chance, 70); // 50 + 20 + 0
 }
 
 TEST_F(manufacturing_success_test, skill_bonus_capped_at_40)
@@ -44,7 +46,7 @@ TEST_F(manufacturing_success_test, skill_bonus_capped_at_40)
     auto recipe = make_recipe(10, 50);
     // skill = 50, skill_req = 10: bonus = min(40, (50-10)*2) = min(40, 80) = 40
     auto chance = manufacturing_system::calculate_success_chance(50, 0, recipe);
-    EXPECT_EQ(chance, 90);  // 50 + 40 + 0
+    EXPECT_EQ(chance, 90); // 50 + 40 + 0
 }
 
 TEST_F(manufacturing_success_test, dex_bonus)
@@ -52,7 +54,7 @@ TEST_F(manufacturing_success_test, dex_bonus)
     auto recipe = make_recipe(10, 50);
     // dex = 20: bonus = 20/2 = 10
     auto chance = manufacturing_system::calculate_success_chance(10, 20, recipe);
-    EXPECT_EQ(chance, 60);  // 50 + 0 + 10
+    EXPECT_EQ(chance, 60); // 50 + 0 + 10
 }
 
 TEST_F(manufacturing_success_test, combined_bonuses)
@@ -62,7 +64,7 @@ TEST_F(manufacturing_success_test, combined_bonuses)
     // skill_bonus = min(40, (15-10)*2) = 10
     // dex_bonus = 30/2 = 15
     auto chance = manufacturing_system::calculate_success_chance(15, 30, recipe);
-    EXPECT_EQ(chance, 65);  // 40 + 10 + 15
+    EXPECT_EQ(chance, 65); // 40 + 10 + 15
 }
 
 TEST_F(manufacturing_success_test, clamp_minimum_10)
@@ -70,7 +72,7 @@ TEST_F(manufacturing_success_test, clamp_minimum_10)
     auto recipe = make_recipe(10, 5);
     // Very low base rate
     auto chance = manufacturing_system::calculate_success_chance(10, 0, recipe);
-    EXPECT_EQ(chance, 10);  // clamped up from 5
+    EXPECT_EQ(chance, 10); // clamped up from 5
 }
 
 TEST_F(manufacturing_success_test, clamp_maximum_95)
@@ -88,7 +90,7 @@ TEST_F(manufacturing_success_test, negative_skill_difference)
     auto recipe = make_recipe(20, 50);
     // skill = 15: bonus = min(40, (15-20)*2) = min(40, -10) = -10
     auto chance = manufacturing_system::calculate_success_chance(15, 0, recipe);
-    EXPECT_EQ(chance, 40);  // 50 + (-10) + 0 = 40
+    EXPECT_EQ(chance, 40); // 50 + (-10) + 0 = 40
 }
 
 // === Recipe config tests ===
@@ -124,7 +126,7 @@ TEST_F(manufacturing_success_test, zero_base_rate)
 {
     auto recipe = make_recipe(0, 0);
     auto chance = manufacturing_system::calculate_success_chance(0, 0, recipe);
-    EXPECT_EQ(chance, 10);  // clamped to minimum
+    EXPECT_EQ(chance, 10); // clamped to minimum
 }
 
 TEST_F(manufacturing_success_test, max_skill_no_extra_bonus)
@@ -132,7 +134,7 @@ TEST_F(manufacturing_success_test, max_skill_no_extra_bonus)
     auto recipe = make_recipe(0, 50);
     // skill = 100: bonus = min(40, 200) = 40
     auto chance = manufacturing_system::calculate_success_chance(100, 0, recipe);
-    EXPECT_EQ(chance, 90);  // 50 + 40 = 90
+    EXPECT_EQ(chance, 90); // 50 + 40 = 90
 }
 
-}  // namespace hb::crafting
+} // namespace hb::crafting

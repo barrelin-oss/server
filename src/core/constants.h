@@ -7,7 +7,8 @@
 #include <cstdint>
 #include <chrono>
 
-namespace hb::constants {
+namespace hb::constants
+{
 
 // Server limits
 inline constexpr uint16_t max_clients = 2000;
@@ -128,4 +129,4 @@ inline constexpr uint8_t stat_vit = 0x04;
 inline constexpr uint8_t stat_mag = 0x05;
 inline constexpr uint8_t stat_chr = 0x06;
 
-}  // namespace hb::constants
+} // namespace hb::constants

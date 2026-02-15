@@ -14,7 +14,8 @@ using namespace hb::perf;
 // timing_stats tests
 // ============================================================================
 
-TEST(perf_stats, timing_stats_accumulation) {
+TEST(perf_stats, timing_stats_accumulation)
+{
     timing_stats stats;
     stats.add_sample(100.0);
     stats.add_sample(200.0);
@@ -27,7 +28,8 @@ TEST(perf_stats, timing_stats_accumulation) {
     EXPECT_DOUBLE_EQ(stats.total_us, 600.0);
 }
 
-TEST(perf_stats, timing_stats_reset) {
+TEST(perf_stats, timing_stats_reset)
+{
     timing_stats stats;
     stats.add_sample(100.0);
     stats.add_sample(200.0);
@@ -38,7 +40,8 @@ TEST(perf_stats, timing_stats_reset) {
     EXPECT_DOUBLE_EQ(stats.total_us, 0.0);
 }
 
-TEST(perf_stats, timing_stats_single_sample) {
+TEST(perf_stats, timing_stats_single_sample)
+{
     timing_stats stats;
     stats.add_sample(42.5);
 
@@ -52,11 +55,13 @@ TEST(perf_stats, timing_stats_single_sample) {
 // sample_buffer tests
 // ============================================================================
 
-TEST(perf_stats, sample_buffer_percentile) {
+TEST(perf_stats, sample_buffer_percentile)
+{
     sample_buffer buf;
 
     // Add 100 samples: 1.0, 2.0, ..., 100.0
-    for (int i = 1; i <= 100; ++i) {
+    for (int i = 1; i <= 100; ++i)
+    {
         buf.add(static_cast<double>(i));
     }
 
@@ -75,16 +80,19 @@ TEST(perf_stats, sample_buffer_percentile) {
     EXPECT_DOUBLE_EQ(p100, 100.0);
 }
 
-TEST(perf_stats, sample_buffer_empty) {
+TEST(perf_stats, sample_buffer_empty)
+{
     sample_buffer buf;
     EXPECT_DOUBLE_EQ(buf.percentile(99.0), 0.0);
 }
 
-TEST(perf_stats, sample_buffer_wraparound) {
+TEST(perf_stats, sample_buffer_wraparound)
+{
     sample_buffer buf;
 
     // Fill buffer and then some to test circular behavior
-    for (size_t i = 0; i < sample_buffer_capacity + 100; ++i) {
+    for (size_t i = 0; i < sample_buffer_capacity + 100; ++i)
+    {
         buf.add(static_cast<double>(i));
     }
 
@@ -96,7 +104,8 @@ TEST(perf_stats, sample_buffer_wraparound) {
     EXPECT_GE(p1, 100.0);
 }
 
-TEST(perf_stats, sample_buffer_reset) {
+TEST(perf_stats, sample_buffer_reset)
+{
     sample_buffer buf;
     buf.add(1.0);
     buf.add(2.0);
@@ -110,7 +119,8 @@ TEST(perf_stats, sample_buffer_reset) {
 // scoped_timer tests
 // ============================================================================
 
-TEST(perf_stats, scoped_timer_measures_duration) {
+TEST(perf_stats, scoped_timer_measures_duration)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -127,12 +137,16 @@ TEST(perf_stats, scoped_timer_measures_duration) {
     EXPECT_LE(snap.avg_ms, 100.0);
 }
 
-TEST(perf_stats, scoped_timer_null_stats_noop) {
+TEST(perf_stats, scoped_timer_null_stats_noop)
+{
     // Should not crash when stats pointer is null
-    { scoped_timer timer(nullptr, metric_category::tick_total); }
+    {
+        scoped_timer timer(nullptr, metric_category::tick_total);
+    }
 }
 
-TEST(perf_stats, scoped_timer_disabled_noop) {
+TEST(perf_stats, scoped_timer_disabled_noop)
+{
     perf_stats_system sys;
     sys.initialize();
     sys.set_enabled(false);
@@ -150,7 +164,8 @@ TEST(perf_stats, scoped_timer_disabled_noop) {
 // Counter tests
 // ============================================================================
 
-TEST(perf_stats, counter_increment) {
+TEST(perf_stats, counter_increment)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -163,7 +178,8 @@ TEST(perf_stats, counter_increment) {
     EXPECT_EQ(std::string(snap.name), "messages_received");
 }
 
-TEST(perf_stats, counter_per_second_rate) {
+TEST(perf_stats, counter_per_second_rate)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -188,7 +204,8 @@ TEST(perf_stats, counter_per_second_rate) {
 // Thread safety tests
 // ============================================================================
 
-TEST(perf_stats, thread_safety_timing) {
+TEST(perf_stats, thread_safety_timing)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -196,16 +213,20 @@ TEST(perf_stats, thread_safety_timing) {
     constexpr int samples_per_thread = 1000;
     std::vector<std::thread> threads;
 
-    for (int t = 0; t < num_threads; ++t) {
-        threads.emplace_back([&sys, t]() {
-            for (int i = 0; i < samples_per_thread; ++i) {
-                sys.record_timing(metric_category::tick_total,
-                    static_cast<double>(t * 1000 + i));
-            }
-        });
+    for (int t = 0; t < num_threads; ++t)
+    {
+        threads.emplace_back(
+            [&sys, t]()
+            {
+                for (int i = 0; i < samples_per_thread; ++i)
+                {
+                    sys.record_timing(metric_category::tick_total, static_cast<double>(t * 1000 + i));
+                }
+            });
     }
 
-    for (auto& t : threads) {
+    for (auto& t : threads)
+    {
         t.join();
     }
 
@@ -219,7 +240,8 @@ TEST(perf_stats, thread_safety_timing) {
     EXPECT_LE(snap.min_ms, snap.max_ms);
 }
 
-TEST(perf_stats, thread_safety_counters) {
+TEST(perf_stats, thread_safety_counters)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -227,15 +249,20 @@ TEST(perf_stats, thread_safety_counters) {
     constexpr int increments_per_thread = 10000;
     std::vector<std::thread> threads;
 
-    for (int t = 0; t < num_threads; ++t) {
-        threads.emplace_back([&sys]() {
-            for (int i = 0; i < increments_per_thread; ++i) {
-                sys.increment_counter(metric_category::bytes_received);
-            }
-        });
+    for (int t = 0; t < num_threads; ++t)
+    {
+        threads.emplace_back(
+            [&sys]()
+            {
+                for (int i = 0; i < increments_per_thread; ++i)
+                {
+                    sys.increment_counter(metric_category::bytes_received);
+                }
+            });
     }
 
-    for (auto& t : threads) {
+    for (auto& t : threads)
+    {
         t.join();
     }
 
@@ -247,7 +274,8 @@ TEST(perf_stats, thread_safety_counters) {
 // Batch query tests
 // ============================================================================
 
-TEST(perf_stats, get_all_timing_snapshots) {
+TEST(perf_stats, get_all_timing_snapshots)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -262,16 +290,19 @@ TEST(perf_stats, get_all_timing_snapshots) {
 
     bool found_tick = false;
     bool found_npc = false;
-    for (const auto& s : snapshots) {
-        if (s.name == "tick_total") {
+    for (const auto& s : snapshots)
+    {
+        if (s.name == "tick_total")
+        {
             found_tick = true;
             EXPECT_EQ(s.sample_count, 1u);
-            EXPECT_DOUBLE_EQ(s.avg_ms, 1.0);  // 1000us = 1ms
+            EXPECT_DOUBLE_EQ(s.avg_ms, 1.0); // 1000us = 1ms
         }
-        if (s.name == "npc_ai_update") {
+        if (s.name == "npc_ai_update")
+        {
             found_npc = true;
             EXPECT_EQ(s.sample_count, 1u);
-            EXPECT_DOUBLE_EQ(s.avg_ms, 0.5);  // 500us = 0.5ms
+            EXPECT_DOUBLE_EQ(s.avg_ms, 0.5); // 500us = 0.5ms
         }
     }
     EXPECT_TRUE(found_tick);
@@ -281,7 +312,8 @@ TEST(perf_stats, get_all_timing_snapshots) {
     EXPECT_LT(static_cast<int>(snapshots[0].importance), static_cast<int>(snapshots[25].importance));
 }
 
-TEST(perf_stats, get_all_counter_snapshots_skips_zero) {
+TEST(perf_stats, get_all_counter_snapshots_skips_zero)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -292,8 +324,10 @@ TEST(perf_stats, get_all_counter_snapshots_skips_zero) {
     // Should only contain non-zero counters
     EXPECT_GE(snapshots.size(), 1u);
     bool found = false;
-    for (const auto& s : snapshots) {
-        if (s.name == "messages_received") {
+    for (const auto& s : snapshots)
+    {
+        if (s.name == "messages_received")
+        {
             EXPECT_EQ(s.total, 42u);
             found = true;
         }
@@ -305,7 +339,8 @@ TEST(perf_stats, get_all_counter_snapshots_skips_zero) {
 // Gauge snapshot tests
 // ============================================================================
 
-TEST(perf_stats, gauge_snapshot_defaults) {
+TEST(perf_stats, gauge_snapshot_defaults)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -322,14 +357,16 @@ TEST(perf_stats, gauge_snapshot_defaults) {
 // Category metadata tests
 // ============================================================================
 
-TEST(perf_stats, category_names) {
+TEST(perf_stats, category_names)
+{
     EXPECT_EQ(category_name(metric_category::tick_total), "tick_total");
     EXPECT_EQ(category_name(metric_category::npc_ai_update), "npc_ai_update");
     EXPECT_EQ(category_name(metric_category::messages_received), "messages_received");
     EXPECT_EQ(category_name(metric_category::db_queries), "db_queries");
 }
 
-TEST(perf_stats, is_timing_category_classification) {
+TEST(perf_stats, is_timing_category_classification)
+{
     EXPECT_TRUE(is_timing_category(metric_category::tick_total));
     EXPECT_TRUE(is_timing_category(metric_category::message_handler));
     EXPECT_FALSE(is_timing_category(metric_category::messages_received));
@@ -340,7 +377,8 @@ TEST(perf_stats, is_timing_category_classification) {
 // Protocol tests
 // ============================================================================
 
-TEST(perf_stats, protocol_request_data_defaults) {
+TEST(perf_stats, protocol_request_data_defaults)
+{
     auto result = hb::network::admin_perf_stats_request_data::from_json(nlohmann::json::object());
     ASSERT_TRUE(result.is_ok());
     auto& data = result.value();
@@ -349,12 +387,9 @@ TEST(perf_stats, protocol_request_data_defaults) {
     EXPECT_TRUE(data.include_gauges);
 }
 
-TEST(perf_stats, protocol_request_data_custom) {
-    nlohmann::json j = {
-        {"include_timing", false},
-        {"include_counters", true},
-        {"include_gauges", false}
-    };
+TEST(perf_stats, protocol_request_data_custom)
+{
+    nlohmann::json j = {{"include_timing", false}, {"include_counters", true}, {"include_gauges", false}};
     auto result = hb::network::admin_perf_stats_request_data::from_json(j);
     ASSERT_TRUE(result.is_ok());
     auto& data = result.value();
@@ -363,14 +398,16 @@ TEST(perf_stats, protocol_request_data_custom) {
     EXPECT_FALSE(data.include_gauges);
 }
 
-TEST(perf_stats, protocol_message_types) {
+TEST(perf_stats, protocol_message_types)
+{
     auto req_str = hb::network::to_string(hb::network::json_message_type::admin_perf_stats_request);
     auto resp_str = hb::network::to_string(hb::network::json_message_type::admin_perf_stats_response);
     EXPECT_EQ(req_str, "admin_perf_stats_request");
     EXPECT_EQ(resp_str, "admin_perf_stats_response");
 }
 
-TEST(perf_stats, protocol_message_type_parsing) {
+TEST(perf_stats, protocol_message_type_parsing)
+{
     auto type = hb::network::parse_message_type("admin_perf_stats_request");
     EXPECT_EQ(type, hb::network::json_message_type::admin_perf_stats_request);
 }
@@ -379,7 +416,8 @@ TEST(perf_stats, protocol_message_type_parsing) {
 // Enable/disable tests
 // ============================================================================
 
-TEST(perf_stats, enable_disable) {
+TEST(perf_stats, enable_disable)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -403,13 +441,15 @@ TEST(perf_stats, enable_disable) {
 // Health status enum tests
 // ============================================================================
 
-TEST(perf_stats, health_status_string_values) {
+TEST(perf_stats, health_status_string_values)
+{
     EXPECT_EQ(health_status_string(health_status::good), "good");
     EXPECT_EQ(health_status_string(health_status::warning), "warning");
     EXPECT_EQ(health_status_string(health_status::critical), "critical");
 }
 
-TEST(perf_stats, worse_status_picks_worst) {
+TEST(perf_stats, worse_status_picks_worst)
+{
     EXPECT_EQ(worse_status(health_status::good, health_status::good), health_status::good);
     EXPECT_EQ(worse_status(health_status::good, health_status::warning), health_status::warning);
     EXPECT_EQ(worse_status(health_status::warning, health_status::good), health_status::warning);
@@ -421,7 +461,8 @@ TEST(perf_stats, worse_status_picks_worst) {
 // Welford's online algorithm tests
 // ============================================================================
 
-TEST(perf_stats, welford_mean_and_variance) {
+TEST(perf_stats, welford_mean_and_variance)
+{
     sample_buffer buf;
 
     // Add known values: 2, 4, 4, 4, 5, 5, 7, 9
@@ -437,11 +478,12 @@ TEST(perf_stats, welford_mean_and_variance) {
 
     EXPECT_EQ(buf.welford_n, 8u);
     EXPECT_DOUBLE_EQ(buf.welford_mean, 5.0);
-    EXPECT_NEAR(buf.welford_variance(), 4.571, 0.001);  // Sample variance: 32/7
+    EXPECT_NEAR(buf.welford_variance(), 4.571, 0.001); // Sample variance: 32/7
     EXPECT_NEAR(buf.welford_stddev(), 2.138, 0.001);
 }
 
-TEST(perf_stats, welford_reset_clears_state) {
+TEST(perf_stats, welford_reset_clears_state)
+{
     sample_buffer buf;
     buf.add(10.0);
     buf.add(20.0);
@@ -454,19 +496,22 @@ TEST(perf_stats, welford_reset_clears_state) {
     EXPECT_DOUBLE_EQ(buf.welford_stddev(), 0.0);
 }
 
-TEST(perf_stats, welford_single_sample) {
+TEST(perf_stats, welford_single_sample)
+{
     sample_buffer buf;
     buf.add(42.0);
 
     EXPECT_EQ(buf.welford_n, 1u);
     EXPECT_DOUBLE_EQ(buf.welford_mean, 42.0);
-    EXPECT_DOUBLE_EQ(buf.welford_variance(), 0.0);  // Can't compute with n<2
+    EXPECT_DOUBLE_EQ(buf.welford_variance(), 0.0); // Can't compute with n<2
     EXPECT_DOUBLE_EQ(buf.welford_stddev(), 0.0);
 }
 
-TEST(perf_stats, welford_constant_values) {
+TEST(perf_stats, welford_constant_values)
+{
     sample_buffer buf;
-    for (int i = 0; i < 100; ++i) buf.add(5.0);
+    for (int i = 0; i < 100; ++i)
+        buf.add(5.0);
 
     EXPECT_DOUBLE_EQ(buf.welford_mean, 5.0);
     EXPECT_NEAR(buf.welford_variance(), 0.0, 1e-10);
@@ -477,7 +522,8 @@ TEST(perf_stats, welford_constant_values) {
 // Static timing threshold tests
 // ============================================================================
 
-TEST(perf_stats, default_timing_thresholds) {
+TEST(perf_stats, default_timing_thresholds)
+{
     auto tick = default_timing_threshold(metric_category::tick_total);
     EXPECT_DOUBLE_EQ(tick.warning_ms, 12.0);
     EXPECT_DOUBLE_EQ(tick.critical_ms, 16.0);
@@ -500,62 +546,71 @@ TEST(perf_stats, default_timing_thresholds) {
 // Timing health status tests
 // ============================================================================
 
-TEST(perf_stats, timing_status_good_under_threshold) {
+TEST(perf_stats, timing_status_good_under_threshold)
+{
     perf_stats_system sys;
     sys.initialize();
 
     // Record samples well under warning threshold (tick_total warn=12ms)
     // 1ms = 1000us
-    for (int i = 0; i < 50; ++i) {
-        sys.record_timing(metric_category::tick_total, 1000.0);  // 1ms
+    for (int i = 0; i < 50; ++i)
+    {
+        sys.record_timing(metric_category::tick_total, 1000.0); // 1ms
     }
 
     auto snap = sys.get_timing_snapshot(metric_category::tick_total);
     EXPECT_EQ(snap.status, health_status::good);
 }
 
-TEST(perf_stats, timing_status_warning_above_threshold) {
+TEST(perf_stats, timing_status_warning_above_threshold)
+{
     perf_stats_system sys;
     sys.initialize();
 
     // Record samples above warning threshold (tick_total warn=12ms, crit=16ms)
     // 13ms = 13000us
-    for (int i = 0; i < 50; ++i) {
-        sys.record_timing(metric_category::tick_total, 13000.0);  // 13ms
+    for (int i = 0; i < 50; ++i)
+    {
+        sys.record_timing(metric_category::tick_total, 13000.0); // 13ms
     }
 
     auto snap = sys.get_timing_snapshot(metric_category::tick_total);
     EXPECT_EQ(snap.status, health_status::warning);
 }
 
-TEST(perf_stats, timing_status_critical_above_threshold) {
+TEST(perf_stats, timing_status_critical_above_threshold)
+{
     perf_stats_system sys;
     sys.initialize();
 
     // Record samples above critical threshold (tick_total crit=16ms)
     // 20ms = 20000us
-    for (int i = 0; i < 50; ++i) {
-        sys.record_timing(metric_category::tick_total, 20000.0);  // 20ms
+    for (int i = 0; i < 50; ++i)
+    {
+        sys.record_timing(metric_category::tick_total, 20000.0); // 20ms
     }
 
     auto snap = sys.get_timing_snapshot(metric_category::tick_total);
     EXPECT_EQ(snap.status, health_status::critical);
 }
 
-TEST(perf_stats, timing_status_few_samples_always_good) {
+TEST(perf_stats, timing_status_few_samples_always_good)
+{
     perf_stats_system sys;
     sys.initialize();
 
     // With < 10 samples, status should always be good (not enough data)
-    for (int i = 0; i < 5; ++i) {
-        sys.record_timing(metric_category::tick_total, 50000.0);  // 50ms, way above critical
+    for (int i = 0; i < 5; ++i)
+    {
+        sys.record_timing(metric_category::tick_total, 50000.0); // 50ms, way above critical
     }
 
     auto snap = sys.get_timing_snapshot(metric_category::tick_total);
     EXPECT_EQ(snap.status, health_status::good);
 }
 
-TEST(perf_stats, timing_status_anomaly_detection_with_static_threshold) {
+TEST(perf_stats, timing_status_anomaly_detection_with_static_threshold)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -564,20 +619,23 @@ TEST(perf_stats, timing_status_anomaly_detection_with_static_threshold) {
     // simulate in a unit test since all samples are instant. Instead, verify
     // that a spike above the static threshold triggers warning/critical.
     // broadcast: warn=5ms, crit=15ms
-    for (int i = 0; i < 50; ++i) {
-        sys.record_timing(metric_category::broadcast, 6000.0);  // 6ms, above 5ms warning
+    for (int i = 0; i < 50; ++i)
+    {
+        sys.record_timing(metric_category::broadcast, 6000.0); // 6ms, above 5ms warning
     }
 
     auto snap = sys.get_timing_snapshot(metric_category::broadcast);
     EXPECT_EQ(snap.status, health_status::warning);
 }
 
-TEST(perf_stats, welford_anomaly_math_direct) {
+TEST(perf_stats, welford_anomaly_math_direct)
+{
     // Directly test the Welford math that anomaly detection relies on
     sample_buffer buf;
 
     // 500 stable samples at 1000us (mean ≈ 1000, low stddev)
-    for (int i = 0; i < 500; ++i) {
+    for (int i = 0; i < 500; ++i)
+    {
         buf.add(1000.0);
     }
 
@@ -594,7 +652,8 @@ TEST(perf_stats, welford_anomaly_math_direct) {
 // Counter health status tests
 // ============================================================================
 
-TEST(perf_stats, counter_status_good_with_few_samples) {
+TEST(perf_stats, counter_status_good_with_few_samples)
+{
     perf_stats_system sys;
     sys.initialize();
 
@@ -606,12 +665,14 @@ TEST(perf_stats, counter_status_good_with_few_samples) {
     EXPECT_EQ(snap.status, health_status::good);
 }
 
-TEST(perf_stats, counter_status_stable_rate_is_good) {
+TEST(perf_stats, counter_status_stable_rate_is_good)
+{
     perf_stats_system sys;
     sys.initialize();
 
     // Build stable baseline over 30+ ticks
-    for (int i = 0; i < 40; ++i) {
+    for (int i = 0; i < 40; ++i)
+    {
         sys.increment_counter(metric_category::messages_received, 100);
         sys.update(1.0f);
     }
@@ -624,10 +685,11 @@ TEST(perf_stats, counter_status_stable_rate_is_good) {
 // Gauge health status tests
 // ============================================================================
 
-TEST(perf_stats, gauge_statuses_present) {
+TEST(perf_stats, gauge_statuses_present)
+{
     perf_stats_system sys;
     sys.initialize();
-    sys.update(0.016f);  // Trigger gauge update
+    sys.update(0.016f); // Trigger gauge update
 
     auto g = sys.get_gauge_snapshot();
     // All gauges should have status entries
@@ -639,14 +701,16 @@ TEST(perf_stats, gauge_statuses_present) {
     EXPECT_TRUE(g.statuses.count("scheduled_tasks") > 0);
 }
 
-TEST(perf_stats, gauge_statuses_default_good) {
+TEST(perf_stats, gauge_statuses_default_good)
+{
     perf_stats_system sys;
     sys.initialize();
     sys.update(0.016f);
 
     auto g = sys.get_gauge_snapshot();
     // With 0 connections and 0 max, all should be good
-    for (const auto& [name, status] : g.statuses) {
+    for (const auto& [name, status] : g.statuses)
+    {
         EXPECT_EQ(status, health_status::good) << "Gauge " << name << " should be good";
     }
 }
@@ -655,7 +719,8 @@ TEST(perf_stats, gauge_statuses_default_good) {
 // Overall health rollup tests
 // ============================================================================
 
-TEST(perf_stats, overall_health_good_when_all_good) {
+TEST(perf_stats, overall_health_good_when_all_good)
+{
     perf_stats_system sys;
     sys.initialize();
     sys.update(0.016f);
@@ -664,14 +729,16 @@ TEST(perf_stats, overall_health_good_when_all_good) {
     EXPECT_EQ(health, health_status::good);
 }
 
-TEST(perf_stats, overall_health_reflects_worst_timing) {
+TEST(perf_stats, overall_health_reflects_worst_timing)
+{
     perf_stats_system sys;
     sys.initialize();
     sys.update(0.016f);
 
     // Push tick_total above critical (16ms)
-    for (int i = 0; i < 50; ++i) {
-        sys.record_timing(metric_category::tick_total, 25000.0);  // 25ms
+    for (int i = 0; i < 50; ++i)
+    {
+        sys.record_timing(metric_category::tick_total, 25000.0); // 25ms
     }
 
     auto health = sys.compute_overall_health();
@@ -682,12 +749,14 @@ TEST(perf_stats, overall_health_reflects_worst_timing) {
 // Timing snapshot includes status field
 // ============================================================================
 
-TEST(perf_stats, timing_snapshot_has_status_field) {
+TEST(perf_stats, timing_snapshot_has_status_field)
+{
     perf_stats_system sys;
     sys.initialize();
 
-    for (int i = 0; i < 20; ++i) {
-        sys.record_timing(metric_category::tick_total, 500.0);  // 0.5ms, well under threshold
+    for (int i = 0; i < 20; ++i)
+    {
+        sys.record_timing(metric_category::tick_total, 500.0); // 0.5ms, well under threshold
     }
 
     auto snap = sys.get_timing_snapshot(metric_category::tick_total);
@@ -695,7 +764,8 @@ TEST(perf_stats, timing_snapshot_has_status_field) {
     EXPECT_EQ(std::string(snap.name), "tick_total");
 }
 
-TEST(perf_stats, counter_snapshot_has_status_field) {
+TEST(perf_stats, counter_snapshot_has_status_field)
+{
     perf_stats_system sys;
     sys.initialize();
 

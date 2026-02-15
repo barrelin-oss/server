@@ -6,8 +6,8 @@
 
 using namespace hb::item;
 using namespace hb::network;
-using hb::item_id;
 using hb::entity_id;
+using hb::item_id;
 
 // Helper to create a test weapon
 static auto make_weapon(uint8_t upgrade_level = 0) -> item
@@ -127,7 +127,8 @@ TEST(item_upgrade_test, max_level_item_cannot_upgrade)
 TEST(item_upgrade_test, stone_always_consumed)
 {
     // Run several trials - stone_consumed should always be true
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 20; ++i)
+    {
         auto weapon = make_weapon(0);
         auto result = attempt_upgrade(weapon);
         EXPECT_TRUE(result.stone_consumed);
@@ -138,10 +139,12 @@ TEST(item_upgrade_test, successful_upgrade_increments_level)
 {
     // +0 has 30% chance, run enough trials to get at least one success
     bool got_success = false;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i)
+    {
         auto weapon = make_weapon(0);
         auto result = attempt_upgrade(weapon);
-        if (result.success) {
+        if (result.success)
+        {
             EXPECT_EQ(result.new_level, 1);
             EXPECT_EQ(weapon.attribute.upgrade_level, 1);
             got_success = true;
@@ -155,11 +158,13 @@ TEST(item_upgrade_test, failed_upgrade_keeps_level)
 {
     // +9 has 3% chance, run a few trials to get a failure
     bool got_failure = false;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i)
+    {
         auto weapon = make_weapon(9);
         uint8_t before = weapon.attribute.upgrade_level;
         auto result = attempt_upgrade(weapon);
-        if (!result.success) {
+        if (!result.success)
+        {
             EXPECT_EQ(result.new_level, before);
             EXPECT_EQ(weapon.attribute.upgrade_level, before);
             got_failure = true;
@@ -177,10 +182,12 @@ TEST(item_upgrade_test, upgrade_modifies_item_attribute_directly)
     weapon.attribute.main_value = 1;
 
     // Run until we get a success
-    for (int i = 0; i < 200; ++i) {
+    for (int i = 0; i < 200; ++i)
+    {
         weapon.attribute.upgrade_level = 0;
         auto result = attempt_upgrade(weapon);
-        if (result.success) {
+        if (result.success)
+        {
             // Verify only upgrade_level changed, other attributes preserved
             EXPECT_EQ(weapon.attribute.upgrade_level, 1);
             EXPECT_EQ(weapon.attribute.main_type, enchantment_type::sharp);
@@ -193,12 +200,14 @@ TEST(item_upgrade_test, upgrade_modifies_item_attribute_directly)
 
 TEST(item_upgrade_test, level_never_exceeds_max)
 {
-    auto weapon = make_weapon(14);  // +14, one away from max
+    auto weapon = make_weapon(14); // +14, one away from max
     // Run until success
-    for (int i = 0; i < 2000; ++i) {
+    for (int i = 0; i < 2000; ++i)
+    {
         weapon.attribute.upgrade_level = 14;
         auto result = attempt_upgrade(weapon);
-        if (result.success) {
+        if (result.success)
+        {
             EXPECT_EQ(result.new_level, 15);
             EXPECT_LE(weapon.attribute.upgrade_level, max_upgrade_level);
             return;
@@ -216,10 +225,12 @@ TEST(item_upgrade_test, upgrade_probability_roughly_matches_table)
     int successes = 0;
     constexpr int trials = 10000;
 
-    for (int i = 0; i < trials; ++i) {
+    for (int i = 0; i < trials; ++i)
+    {
         auto weapon = make_weapon(0);
         auto result = attempt_upgrade(weapon);
-        if (result.success) ++successes;
+        if (result.success)
+            ++successes;
     }
 
     // 30% = 3000 successes expected, allow ±5% margin
@@ -237,18 +248,22 @@ TEST(item_upgrade_test, custom_made_high_quality_increases_success_rate)
     int normal_successes = 0;
     int custom_successes = 0;
 
-    for (int i = 0; i < trials; ++i) {
-        auto weapon = make_weapon(4);  // +4 = 10% base
+    for (int i = 0; i < trials; ++i)
+    {
+        auto weapon = make_weapon(4); // +4 = 10% base
         auto result = attempt_upgrade(weapon);
-        if (result.success) ++normal_successes;
+        if (result.success)
+            ++normal_successes;
     }
 
-    for (int i = 0; i < trials; ++i) {
-        auto weapon = make_weapon(4);  // +4 = 10% base
+    for (int i = 0; i < trials; ++i)
+    {
+        auto weapon = make_weapon(4); // +4 = 10% base
         weapon.attribute.custom_made = true;
         weapon.attribute.custom_quality = 120;
         auto result = attempt_upgrade(weapon);
-        if (result.success) ++custom_successes;
+        if (result.success)
+            ++custom_successes;
     }
 
     // Custom-made should have higher success rate
@@ -263,18 +278,22 @@ TEST(item_upgrade_test, custom_made_low_quality_no_bonus)
     int normal_successes = 0;
     int custom_successes = 0;
 
-    for (int i = 0; i < trials; ++i) {
+    for (int i = 0; i < trials; ++i)
+    {
         auto weapon = make_weapon(0);
         auto result = attempt_upgrade(weapon);
-        if (result.success) ++normal_successes;
+        if (result.success)
+            ++normal_successes;
     }
 
-    for (int i = 0; i < trials; ++i) {
+    for (int i = 0; i < trials; ++i)
+    {
         auto weapon = make_weapon(0);
         weapon.attribute.custom_made = true;
-        weapon.attribute.custom_quality = 50;  // below 100 threshold
+        weapon.attribute.custom_quality = 50; // below 100 threshold
         auto result = attempt_upgrade(weapon);
-        if (result.success) ++custom_successes;
+        if (result.success)
+            ++custom_successes;
     }
 
     // Should be roughly the same rate (within ±5%)

@@ -15,9 +15,11 @@ using hb::player_id;
 
 // ========== War Reward Calculation Tests ==========
 
-class war_reward_test : public ::testing::Test {
+class war_reward_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         sys_.initialize();
 
         war_system_config cfg;
@@ -27,14 +29,13 @@ protected:
         sys_.set_config(cfg);
     }
 
-    void TearDown() override {
-        sys_.shutdown();
-    }
+    void TearDown() override { sys_.shutdown(); }
 
     war_system sys_;
 };
 
-TEST_F(war_reward_test, no_war_returns_empty) {
+TEST_F(war_reward_test, no_war_returns_empty)
+{
     auto rewards = sys_.calculate_rewards(war_id(999), player_id(1));
     EXPECT_EQ(rewards.experience, 0);
     EXPECT_EQ(rewards.gold, 0);
@@ -42,7 +43,8 @@ TEST_F(war_reward_test, no_war_returns_empty) {
     EXPECT_FALSE(rewards.has_rewards());
 }
 
-TEST_F(war_reward_test, no_participant_returns_empty) {
+TEST_F(war_reward_test, no_participant_returns_empty)
+{
     auto result = sys_.start_war(war_type::crusade);
     ASSERT_TRUE(result.is_ok());
     auto wid = result.value();
@@ -51,7 +53,8 @@ TEST_F(war_reward_test, no_participant_returns_empty) {
     EXPECT_FALSE(rewards.has_rewards());
 }
 
-TEST_F(war_reward_test, participant_gets_contribution_based_rewards) {
+TEST_F(war_reward_test, participant_gets_contribution_based_rewards)
+{
     auto result = sys_.start_war(war_type::crusade);
     ASSERT_TRUE(result.is_ok());
     auto wid = result.value();
@@ -78,7 +81,8 @@ TEST_F(war_reward_test, participant_gets_contribution_based_rewards) {
     EXPECT_EQ(rewards.contribution_points, participant->contribution_score);
 }
 
-TEST_F(war_reward_test, winner_gets_bonus_multiplier) {
+TEST_F(war_reward_test, winner_gets_bonus_multiplier)
+{
     auto result = sys_.start_war(war_type::crusade);
     ASSERT_TRUE(result.is_ok());
     auto wid = result.value();
@@ -105,14 +109,15 @@ TEST_F(war_reward_test, winner_gets_bonus_multiplier) {
     // Winner gets 1.5x, loser gets 0.5x
     EXPECT_GT(winner_rewards.experience, loser_rewards.experience);
     // With same base contribution, winner_exp / loser_exp should be ~3x (1.5 / 0.5)
-    if (loser_rewards.experience > 0) {
-        float ratio = static_cast<float>(winner_rewards.experience)
-                    / static_cast<float>(loser_rewards.experience);
+    if (loser_rewards.experience > 0)
+    {
+        float ratio = static_cast<float>(winner_rewards.experience) / static_cast<float>(loser_rewards.experience);
         EXPECT_NEAR(ratio, 3.0f, 0.5f);
     }
 }
 
-TEST_F(war_reward_test, draw_uses_participation_mult) {
+TEST_F(war_reward_test, draw_uses_participation_mult)
+{
     auto result = sys_.start_war(war_type::crusade);
     ASSERT_TRUE(result.is_ok());
     auto wid = result.value();
@@ -136,7 +141,8 @@ TEST_F(war_reward_test, draw_uses_participation_mult) {
 
 // ========== War History Row Tests ==========
 
-TEST(war_history_row_test, default_values) {
+TEST(war_history_row_test, default_values)
+{
     war_history_row row;
     EXPECT_EQ(row.id, 0);
     EXPECT_EQ(row.type, war_type::crusade);
@@ -146,7 +152,8 @@ TEST(war_history_row_test, default_values) {
     EXPECT_EQ(row.elvine_score, 0);
 }
 
-TEST(war_participant_row_test, default_values) {
+TEST(war_participant_row_test, default_values)
+{
     war_participant_row row;
     EXPECT_EQ(row.war_id, 0);
     EXPECT_EQ(row.character_id, 0);
@@ -158,7 +165,8 @@ TEST(war_participant_row_test, default_values) {
 
 // ========== War Persistence Without DB ==========
 
-TEST(war_persistence_test, null_db_returns_error) {
+TEST(war_persistence_test, null_db_returns_error)
+{
     war_persistence persistence(nullptr);
 
     war_result wr;
@@ -184,7 +192,8 @@ TEST(war_persistence_test, null_db_returns_error) {
 
 // ========== War Result Type Tests ==========
 
-TEST(war_result_test, winning_score) {
+TEST(war_result_test, winning_score)
+{
     war_result wr;
     wr.winner = war_faction::aresden;
     wr.aresden_score = faction_score{war_faction::aresden};
@@ -196,7 +205,8 @@ TEST(war_result_test, winning_score) {
     EXPECT_EQ(wr.losing_score().total_score, 50);
 }
 
-TEST(war_result_test, draw_result) {
+TEST(war_result_test, draw_result)
+{
     war_result wr;
     wr.winner = war_faction::neutral;
     wr.draw = true;
@@ -205,9 +215,9 @@ TEST(war_result_test, draw_result) {
 
 // ========== Crusade Reward Summary Builder ==========
 
-TEST(crusade_reward_summary_test, builds_correct_message) {
-    auto msg = hb::network::make_crusade_reward_summary(
-        42, 1, 500, 10000, 5000, 200);
+TEST(crusade_reward_summary_test, builds_correct_message)
+{
+    auto msg = hb::network::make_crusade_reward_summary(42, 1, 500, 10000, 5000, 200);
 
     EXPECT_EQ(msg.type, hb::network::json_message_type::crusade_reward_summary);
     EXPECT_EQ(msg.seq, 42u);
@@ -220,20 +230,19 @@ TEST(crusade_reward_summary_test, builds_correct_message) {
 
 // ========== Phase 6 Protocol Message Tests ==========
 
-TEST(phase6_protocol_test, reward_message_type) {
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_reward_summary),
-              "crusade_reward_summary");
+TEST(phase6_protocol_test, reward_message_type)
+{
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_reward_summary), "crusade_reward_summary");
 }
 
-TEST(phase6_protocol_test, admin_war_message_types) {
+TEST(phase6_protocol_test, admin_war_message_types)
+{
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::admin_start_war_request),
               "admin_start_war_request");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::admin_start_war_response),
               "admin_start_war_response");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::admin_end_war_request),
-              "admin_end_war_request");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::admin_end_war_response),
-              "admin_end_war_response");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::admin_end_war_request), "admin_end_war_request");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::admin_end_war_response), "admin_end_war_response");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::admin_war_history_request),
               "admin_war_history_request");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::admin_war_history_response),
@@ -244,7 +253,8 @@ TEST(phase6_protocol_test, admin_war_message_types) {
               "admin_war_participants_response");
 }
 
-TEST(phase6_protocol_test, message_type_roundtrip) {
+TEST(phase6_protocol_test, message_type_roundtrip)
+{
     auto parsed = hb::network::parse_message_type("crusade_reward_summary");
     EXPECT_EQ(parsed, hb::network::json_message_type::crusade_reward_summary);
 
@@ -260,7 +270,8 @@ TEST(phase6_protocol_test, message_type_roundtrip) {
 
 // ========== Crusade System Persistence Integration ==========
 
-TEST(crusade_persistence_integration, persistence_setter) {
+TEST(crusade_persistence_integration, persistence_setter)
+{
     // Verify the setter compiles and can be called with nullptr
     crusade_system sys;
     sys.initialize();
@@ -270,7 +281,8 @@ TEST(crusade_persistence_integration, persistence_setter) {
 
 // ========== War Rewards Struct Tests ==========
 
-TEST(war_rewards_test, has_rewards_checks_all_fields) {
+TEST(war_rewards_test, has_rewards_checks_all_fields)
+{
     war_rewards r;
     EXPECT_FALSE(r.has_rewards());
 
@@ -292,7 +304,8 @@ TEST(war_rewards_test, has_rewards_checks_all_fields) {
 
 // ========== War Participant Tests ==========
 
-TEST(war_participant_test, record_operations) {
+TEST(war_participant_test, record_operations)
+{
     war_participant p;
     p.record_kill();
     EXPECT_EQ(p.kills, 1);
@@ -308,7 +321,8 @@ TEST(war_participant_test, record_operations) {
     EXPECT_FLOAT_EQ(p.kd_ratio(), 1.0f);
 }
 
-TEST(war_participant_test, kd_ratio_no_deaths) {
+TEST(war_participant_test, kd_ratio_no_deaths)
+{
     war_participant p;
     p.record_kill();
     p.record_kill();

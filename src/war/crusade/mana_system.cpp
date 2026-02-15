@@ -6,7 +6,8 @@
 
 #include <algorithm>
 
-namespace hb::war {
+namespace hb::war
+{
 
 void mana_system::reset()
 {
@@ -28,9 +29,7 @@ void mana_system::tick(int32_t aresden_collectors, int32_t elvine_collectors)
     // Step 1: Regenerate all stones
     for (auto& stone : stones_)
     {
-        stone.current_mana = std::min(
-            stone.current_mana + mana_stone_state::regen_rate,
-            mana_stone_state::max_mana);
+        stone.current_mana = std::min(stone.current_mana + mana_stone_state::regen_rate, mana_stone_state::max_mana);
     }
 
     // Step 2: Aresden collectors drain first (legacy ordering)
@@ -40,8 +39,11 @@ void mana_system::tick(int32_t aresden_collectors, int32_t elvine_collectors)
         if (harvested > 0)
         {
             aresden_state_.add_mana(harvested);
-            LOG_DEBUG(general, "Aresden collected {} mana ({} collectors), pool={}",
-                harvested, aresden_collectors, aresden_state_.mana_pool);
+            LOG_DEBUG(general,
+                      "Aresden collected {} mana ({} collectors), pool={}",
+                      harvested,
+                      aresden_collectors,
+                      aresden_state_.mana_pool);
             check_gmg(war_faction::aresden);
         }
     }
@@ -53,8 +55,11 @@ void mana_system::tick(int32_t aresden_collectors, int32_t elvine_collectors)
         if (harvested > 0)
         {
             elvine_state_.add_mana(harvested);
-            LOG_DEBUG(general, "Elvine collected {} mana ({} collectors), pool={}",
-                harvested, elvine_collectors, elvine_state_.mana_pool);
+            LOG_DEBUG(general,
+                      "Elvine collected {} mana ({} collectors), pool={}",
+                      harvested,
+                      elvine_collectors,
+                      elvine_state_.mana_pool);
             check_gmg(war_faction::elvine);
         }
     }
@@ -84,7 +89,8 @@ int32_t mana_system::harvest_from_stones(int32_t collector_count)
 
 void mana_system::tick_faction_mana(war_faction faction, int32_t collector_count, int32_t stones_in_range)
 {
-    if (collector_count <= 0) return;
+    if (collector_count <= 0)
+        return;
 
     // Each collector harvests mana from stones in range
     int32_t mana_gained = stones_in_range * config_.collector_harvest_rate;
@@ -94,8 +100,13 @@ void mana_system::tick_faction_mana(war_faction faction, int32_t collector_count
         auto& state = get_state(faction);
         state.add_mana(mana_gained);
 
-        LOG_DEBUG(general, "Faction {} collected {} mana ({} collectors, {} stones), pool={}",
-            static_cast<int>(faction), mana_gained, collector_count, stones_in_range, state.mana_pool);
+        LOG_DEBUG(general,
+                  "Faction {} collected {} mana ({} collectors, {} stones), pool={}",
+                  static_cast<int>(faction),
+                  mana_gained,
+                  collector_count,
+                  stones_in_range,
+                  state.mana_pool);
 
         check_gmg(faction);
     }
@@ -103,7 +114,8 @@ void mana_system::tick_faction_mana(war_faction faction, int32_t collector_count
 
 void mana_system::add_mana(war_faction faction, int32_t amount)
 {
-    if (amount <= 0) return;
+    if (amount <= 0)
+        return;
 
     auto& state = get_state(faction);
     state.add_mana(amount);
@@ -112,10 +124,12 @@ void mana_system::add_mana(war_faction faction, int32_t amount)
 
 auto mana_system::try_consume(war_faction faction, int32_t amount) -> bool
 {
-    if (amount <= 0) return true;
+    if (amount <= 0)
+        return true;
 
     auto& state = get_state(faction);
-    if (state.mana_pool < amount) return false;
+    if (state.mana_pool < amount)
+        return false;
 
     state.mana_pool -= amount;
     return true;
@@ -133,7 +147,8 @@ auto mana_system::get_state(war_faction faction) const -> const faction_mana_sta
 
 void mana_system::apply_gmg_damage(war_faction faction, int32_t damage)
 {
-    if (damage <= 0) return;
+    if (damage <= 0)
+        return;
 
     auto& state = get_state(faction);
     state.gmg_accumulated_damage += damage;
@@ -144,8 +159,10 @@ void mana_system::apply_gmg_damage(war_faction faction, int32_t damage)
         if (state.gmg_charge > 0)
         {
             state.gmg_charge--;
-            LOG_INFO(general, "GMG ({}) lost a charge from damage. Charges: {}",
-                static_cast<int>(faction), state.gmg_charge);
+            LOG_INFO(general,
+                     "GMG ({}) lost a charge from damage. Charges: {}",
+                     static_cast<int>(faction),
+                     state.gmg_charge);
         }
     }
 }
@@ -160,16 +177,19 @@ void mana_system::check_gmg(war_faction faction)
         threshold += aresden_threshold_adjustment_;
     else
         threshold += elvine_threshold_adjustment_;
-    threshold = std::max(threshold, 1);  // Never zero or negative
+    threshold = std::max(threshold, 1); // Never zero or negative
 
     // Convert mana pool into GMG charge (legacy: reset to 0, discard remainder)
     if (state.mana_pool >= threshold)
     {
-        state.mana_pool = 0;  // Discard remainder (legacy behavior)
+        state.mana_pool = 0; // Discard remainder (legacy behavior)
         state.gmg_charge++;
 
-        LOG_DEBUG(general, "Faction {} GMG charged (charge={}/{})",
-            static_cast<int>(faction), state.gmg_charge, config_.gmg_charges_for_meteor);
+        LOG_DEBUG(general,
+                  "Faction {} GMG charged (charge={}/{})",
+                  static_cast<int>(faction),
+                  state.gmg_charge,
+                  config_.gmg_charges_for_meteor);
 
         // Fire meteor when enough charges
         if (state.gmg_charge >= config_.gmg_charges_for_meteor)
@@ -187,4 +207,4 @@ void mana_system::check_gmg(war_faction faction)
     }
 }
 
-}  // namespace hb::war
+} // namespace hb::war

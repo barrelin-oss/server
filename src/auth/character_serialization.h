@@ -16,7 +16,8 @@
 #include <string>
 #include <vector>
 
-namespace hb::auth {
+namespace hb::auth
+{
 
 // Serialize player skills to JSON string
 [[nodiscard]] auto serialize_skills(const skill::player_skills& skills) -> std::string;
@@ -31,26 +32,29 @@ namespace hb::auth {
 [[nodiscard]] auto deserialize_equipment(const std::string& json_str) -> player::equipment_state;
 
 // Equipment slot data with optional attribute (for attribute-aware serialization)
-struct equipment_slot_attribute {
+struct equipment_slot_attribute
+{
     size_t slot{0};
     item::item_attribute attribute;
 };
 
 // Serialize equipment with item attributes (called during save)
-[[nodiscard]] auto serialize_equipment_with_attributes(
-    const player::equipment_state& equipment,
-    const std::vector<equipment_slot_attribute>& attributes) -> std::string;
+[[nodiscard]] auto
+serialize_equipment_with_attributes(const player::equipment_state& equipment,
+                                    const std::vector<equipment_slot_attribute>& attributes) -> std::string;
 
 // Deserialize equipment with attributes from JSON string
 // Returns equipment state + per-slot attribute data
-struct equipment_with_attributes {
+struct equipment_with_attributes
+{
     player::equipment_state equipment;
     std::vector<equipment_slot_attribute> attributes;
 };
 [[nodiscard]] auto deserialize_equipment_with_attributes(const std::string& json_str) -> equipment_with_attributes;
 
 // Inventory slot data for serialization
-struct inventory_slot_data {
+struct inventory_slot_data
+{
     int16_t slot{0};
     uint32_t item_id{0};
     int16_t count{0};
@@ -66,23 +70,25 @@ void deserialize_inventory(const std::string& json_str, inventory::inventory& in
 [[nodiscard]] auto get_inventory_data(const inventory::inventory& inv) -> std::vector<inventory_slot_data>;
 
 // Inventory slot attribute data (for attribute-aware serialization)
-struct inventory_slot_attribute {
+struct inventory_slot_attribute
+{
     int16_t slot{0};
     item::item_attribute attribute;
 };
 
 // Serialize inventory with item attributes
-[[nodiscard]] auto serialize_inventory_with_attributes(
-    const inventory::inventory& inv,
-    const std::vector<inventory_slot_attribute>& attributes) -> std::string;
+[[nodiscard]] auto
+serialize_inventory_with_attributes(const inventory::inventory& inv,
+                                    const std::vector<inventory_slot_attribute>& attributes) -> std::string;
 
 // Deserialize inventory with attributes
-struct inventory_with_attributes {
+struct inventory_with_attributes
+{
     std::vector<std::pair<int16_t, inventory_slot_attribute>> slot_attributes;
 };
 void deserialize_inventory_with_attributes(const std::string& json_str,
-    inventory::inventory& inv,
-    std::vector<inventory_slot_attribute>& attributes);
+                                           inventory::inventory& inv,
+                                           std::vector<inventory_slot_attribute>& attributes);
 
 // Serialize player spell knowledge to JSON string
 [[nodiscard]] auto serialize_magic(const std::vector<magic::spell_knowledge>& spells) -> std::string;
@@ -96,4 +102,4 @@ void deserialize_inventory_with_attributes(const std::string& json_str,
 // Deserialize quest journal from JSON string
 [[nodiscard]] auto deserialize_quests(const std::string& json_str) -> quest::quest_journal;
 
-}  // namespace hb::auth
+} // namespace hb::auth

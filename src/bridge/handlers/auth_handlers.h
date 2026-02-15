@@ -6,61 +6,75 @@
 #include "core/types.h"
 #include "network/json_protocol.h"
 
-namespace hb::network {
-    class websocket_server;
-    class ws_connection;
+namespace hb::network
+{
+class websocket_server;
+class ws_connection;
+} // namespace hb::network
+
+namespace hb::auth
+{
+class auth_system;
 }
 
-namespace hb::auth {
-    class auth_system;
+namespace hb::player
+{
+class player_system;
 }
 
-namespace hb::player {
-    class player_system;
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::world {
-    class world_subsystem;
+namespace hb::inventory
+{
+class inventory_system;
 }
 
-namespace hb::inventory {
-    class inventory_system;
+namespace hb::admin
+{
+class admin_system;
 }
 
-namespace hb::admin {
-    class admin_system;
+namespace hb::npc
+{
+class npc_system;
 }
 
-namespace hb::npc {
-    class npc_system;
+namespace hb::item
+{
+class item_system;
 }
 
-namespace hb::item {
-    class item_system;
+namespace hb::social
+{
+class social_system;
 }
 
-namespace hb::social {
-    class social_system;
+namespace hb::effect
+{
+class effect_system;
 }
 
-namespace hb::effect {
-    class effect_system;
+namespace hb
+{
+class scheduler;
+class item_registry;
+} // namespace hb
+
+namespace hb::war
+{
+class war_persistence;
 }
 
-namespace hb {
-    class scheduler;
-    class item_registry;
-}
-
-namespace hb::war {
-    class war_persistence;
-}
-
-namespace hb::bridge {
+namespace hb::bridge
+{
 
 // Authentication message handler
 // Handles login, account creation, character management, and game entry
-class auth_handlers {
+class auth_handlers
+{
 public:
     auth_handlers();
     ~auth_handlers();
@@ -114,16 +128,13 @@ private:
     void handle_enter_admin_mode(connection_id conn_id, const network::json_message& msg);
 
     // Helper to send error response
-    void send_error(connection_id conn_id, uint32_t seq,
-                    std::string_view error_code, std::string_view message);
+    void send_error(connection_id conn_id, uint32_t seq, std::string_view error_code, std::string_view message);
 
     // Get connection or send error
-    [[nodiscard]] auto get_connection_or_error(connection_id conn_id, uint32_t seq)
-        -> network::ws_connection*;
+    [[nodiscard]] auto get_connection_or_error(connection_id conn_id, uint32_t seq) -> network::ws_connection*;
 
     // Require authenticated state
-    [[nodiscard]] auto require_authenticated(connection_id conn_id, uint32_t seq)
-        -> network::ws_connection*;
+    [[nodiscard]] auto require_authenticated(connection_id conn_id, uint32_t seq) -> network::ws_connection*;
 
     // Send individual entity_spawn and npc_spawn messages for visible entities
     void send_visible_entity_spawns(network::ws_connection* conn, player_id player_id);
@@ -148,4 +159,4 @@ private:
     post_enter_game_callback post_enter_game_callback_;
 };
 
-}  // namespace hb::bridge
+} // namespace hb::bridge

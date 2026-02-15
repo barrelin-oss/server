@@ -6,7 +6,8 @@
 
 #include <gtest/gtest.h>
 
-namespace hb::crafting {
+namespace hb::crafting
+{
 
 // === Success chance calculation tests ===
 
@@ -114,4 +115,4 @@ TEST(mining_test, get_node_at_empty_system)
     sys.shutdown();
 }
 
-}  // namespace hb::crafting
+} // namespace hb::crafting

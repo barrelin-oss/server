@@ -7,23 +7,26 @@
 #include <fstream>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
-class shop_registry_test : public ::testing::Test {
+class shop_registry_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        registry_.initialize();
-    }
+    void SetUp() override { registry_.initialize(); }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         registry_.shutdown();
         // Clean up temp file
-        if (std::filesystem::exists(temp_path_)) {
+        if (std::filesystem::exists(temp_path_))
+        {
             std::filesystem::remove(temp_path_);
         }
     }
 
-    void write_yaml(const std::string& content) {
+    void write_yaml(const std::string& content)
+    {
         std::ofstream f(temp_path_);
         f << content;
         f.close();
@@ -33,7 +36,8 @@ protected:
     std::filesystem::path temp_path_{"test_shops_tmp.yaml"};
 };
 
-TEST_F(shop_registry_test, load_valid_yaml) {
+TEST_F(shop_registry_test, load_valid_yaml)
+{
     write_yaml(R"(
 shops:
   TestShop:
@@ -57,7 +61,8 @@ shops:
     EXPECT_EQ(registry_.count(), 2u);
 }
 
-TEST_F(shop_registry_test, get_shop_by_name) {
+TEST_F(shop_registry_test, get_shop_by_name)
+{
     write_yaml(R"(
 shops:
   MyShop:
@@ -82,7 +87,8 @@ shops:
     EXPECT_EQ(shop->items[0].default_count, 1);
 }
 
-TEST_F(shop_registry_test, get_missing_shop_returns_nullptr) {
+TEST_F(shop_registry_test, get_missing_shop_returns_nullptr)
+{
     write_yaml(R"(
 shops:
   ExistingShop:
@@ -96,7 +102,8 @@ shops:
     EXPECT_EQ(registry_.get_shop("NonExistent"), nullptr);
 }
 
-TEST_F(shop_registry_test, blacksmith_type) {
+TEST_F(shop_registry_test, blacksmith_type)
+{
     write_yaml(R"(
 shops:
   Gandlf:
@@ -113,19 +120,22 @@ shops:
     EXPECT_EQ(shop->type, npc::shop_type::blacksmith);
 }
 
-TEST_F(shop_registry_test, invalid_yaml_returns_error) {
+TEST_F(shop_registry_test, invalid_yaml_returns_error)
+{
     write_yaml("not: valid: yaml: [[[");
     auto result = registry_.load_from_file(temp_path_);
     EXPECT_TRUE(result.is_err());
 }
 
-TEST_F(shop_registry_test, missing_shops_section_returns_error) {
+TEST_F(shop_registry_test, missing_shops_section_returns_error)
+{
     write_yaml("something_else: true");
     auto result = registry_.load_from_file(temp_path_);
     EXPECT_TRUE(result.is_err());
 }
 
-TEST_F(shop_registry_test, item_default_count) {
+TEST_F(shop_registry_test, item_default_count)
+{
     write_yaml(R"(
 shops:
   TestShop:
@@ -141,8 +151,8 @@ shops:
     auto* shop = registry_.get_shop("TestShop");
     ASSERT_NE(shop, nullptr);
     ASSERT_EQ(shop->items.size(), 2u);
-    EXPECT_EQ(shop->items[0].default_count, 1);  // default
+    EXPECT_EQ(shop->items[0].default_count, 1); // default
     EXPECT_EQ(shop->items[1].default_count, 10);
 }
 
-}  // namespace hb
+} // namespace hb

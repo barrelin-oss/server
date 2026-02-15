@@ -16,19 +16,20 @@ using namespace hb::network;
 
 // Message buffer tests
 
-class message_buffer_test : public ::testing::Test {
+class message_buffer_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         // Initialize sockets for any socket-related tests
         initialize_sockets();
     }
 
-    void TearDown() override {
-        cleanup_sockets();
-    }
+    void TearDown() override { cleanup_sockets(); }
 };
 
-TEST_F(message_buffer_test, writer_primitives) {
+TEST_F(message_buffer_test, writer_primitives)
+{
     message_writer writer;
 
     writer.write_u8(0x12);
@@ -40,15 +41,16 @@ TEST_F(message_buffer_test, writer_primitives) {
 
     // Check little-endian encoding
     EXPECT_EQ(data[0], 0x12);
-    EXPECT_EQ(data[1], 0x56);  // Low byte of u16
-    EXPECT_EQ(data[2], 0x34);  // High byte of u16
-    EXPECT_EQ(data[3], 0xDE);  // Low byte of u32
+    EXPECT_EQ(data[1], 0x56); // Low byte of u16
+    EXPECT_EQ(data[2], 0x34); // High byte of u16
+    EXPECT_EQ(data[3], 0xDE); // Low byte of u32
     EXPECT_EQ(data[4], 0xBC);
     EXPECT_EQ(data[5], 0x9A);
-    EXPECT_EQ(data[6], 0x78);  // High byte of u32
+    EXPECT_EQ(data[6], 0x78); // High byte of u32
 }
 
-TEST_F(message_buffer_test, writer_signed_values) {
+TEST_F(message_buffer_test, writer_signed_values)
+{
     message_writer writer;
 
     writer.write_i8(-1);
@@ -65,7 +67,8 @@ TEST_F(message_buffer_test, writer_signed_values) {
     EXPECT_EQ(reader.read_i32(), -100000);
 }
 
-TEST_F(message_buffer_test, writer_string) {
+TEST_F(message_buffer_test, writer_string)
+{
     message_writer writer;
 
     writer.write_string("Hello");
@@ -78,21 +81,23 @@ TEST_F(message_buffer_test, writer_string) {
     EXPECT_EQ(reader.read_string(), "World!");
 }
 
-TEST_F(message_buffer_test, writer_fixed_string) {
+TEST_F(message_buffer_test, writer_fixed_string)
+{
     message_writer writer;
 
     // Write a string shorter than the fixed length
     writer.write_fixed_string("Hi", 10);
 
     auto data = writer.data();
-    ASSERT_EQ(data.size(), 10);  // Fixed length
+    ASSERT_EQ(data.size(), 10); // Fixed length
 
     message_reader reader{data};
     auto str = reader.read_fixed_string(10);
     EXPECT_EQ(str, "Hi");
 }
 
-TEST_F(message_buffer_test, writer_fixed_string_truncate) {
+TEST_F(message_buffer_test, writer_fixed_string_truncate)
+{
     message_writer writer;
 
     // Write a string longer than the fixed length
@@ -106,11 +111,16 @@ TEST_F(message_buffer_test, writer_fixed_string_truncate) {
     EXPECT_EQ(str, "Hello");
 }
 
-TEST_F(message_buffer_test, reader_primitives) {
+TEST_F(message_buffer_test, reader_primitives)
+{
     std::vector<uint8_t> data = {
-        0x12,                   // u8
-        0x34, 0x12,             // u16 = 0x1234
-        0x78, 0x56, 0x34, 0x12  // u32 = 0x12345678
+        0x12, // u8
+        0x34,
+        0x12, // u16 = 0x1234
+        0x78,
+        0x56,
+        0x34,
+        0x12 // u32 = 0x12345678
     };
 
     message_reader reader{data};
@@ -121,7 +131,8 @@ TEST_F(message_buffer_test, reader_primitives) {
     EXPECT_TRUE(reader.is_eof());
 }
 
-TEST_F(message_buffer_test, reader_u64) {
+TEST_F(message_buffer_test, reader_u64)
+{
     message_writer writer;
     writer.write_u64(0x123456789ABCDEF0ULL);
 
@@ -129,7 +140,8 @@ TEST_F(message_buffer_test, reader_u64) {
     EXPECT_EQ(reader.read_u64(), 0x123456789ABCDEF0ULL);
 }
 
-TEST_F(message_buffer_test, reader_bounds_check) {
+TEST_F(message_buffer_test, reader_bounds_check)
+{
     std::vector<uint8_t> data = {0x12, 0x34};
 
     message_reader reader{data};
@@ -137,7 +149,8 @@ TEST_F(message_buffer_test, reader_bounds_check) {
     EXPECT_THROW((void)reader.read_u8(), std::out_of_range);
 }
 
-TEST_F(message_buffer_test, reader_seek) {
+TEST_F(message_buffer_test, reader_seek)
+{
     std::vector<uint8_t> data = {0x01, 0x02, 0x03, 0x04};
 
     message_reader reader{data};
@@ -151,7 +164,8 @@ TEST_F(message_buffer_test, reader_seek) {
     EXPECT_EQ(reader.read_u8(), 0x01);
 }
 
-TEST_F(message_buffer_test, reader_remaining) {
+TEST_F(message_buffer_test, reader_remaining)
+{
     std::vector<uint8_t> data = {0x01, 0x02, 0x03, 0x04};
 
     message_reader reader{data};
@@ -162,13 +176,14 @@ TEST_F(message_buffer_test, reader_remaining) {
     EXPECT_EQ(reader.remaining(), 2);
 }
 
-TEST_F(message_buffer_test, receive_buffer_basic) {
+TEST_F(message_buffer_test, receive_buffer_basic)
+{
     receive_buffer buffer;
 
     EXPECT_FALSE(buffer.has_complete_message());
 
     // Add partial message (just length prefix)
-    std::vector<uint8_t> header = {0x05, 0x00};  // Length = 5
+    std::vector<uint8_t> header = {0x05, 0x00}; // Length = 5
     buffer.append(header);
     EXPECT_FALSE(buffer.has_complete_message());
 
@@ -183,13 +198,21 @@ TEST_F(message_buffer_test, receive_buffer_basic) {
     EXPECT_EQ(message[4], 0x05);
 }
 
-TEST_F(message_buffer_test, receive_buffer_multiple_messages) {
+TEST_F(message_buffer_test, receive_buffer_multiple_messages)
+{
     receive_buffer buffer;
 
     // Two complete messages
     std::vector<uint8_t> data = {
-        0x02, 0x00, 0xAA, 0xBB,  // Message 1: length=2, data=0xAA,0xBB
-        0x03, 0x00, 0x11, 0x22, 0x33  // Message 2: length=3, data=0x11,0x22,0x33
+        0x02,
+        0x00,
+        0xAA,
+        0xBB, // Message 1: length=2, data=0xAA,0xBB
+        0x03,
+        0x00,
+        0x11,
+        0x22,
+        0x33 // Message 2: length=3, data=0x11,0x22,0x33
     };
     buffer.append(data);
 
@@ -210,13 +233,15 @@ TEST_F(message_buffer_test, receive_buffer_multiple_messages) {
 
 // Socket tests
 
-TEST_F(message_buffer_test, socket_error_strings) {
+TEST_F(message_buffer_test, socket_error_strings)
+{
     EXPECT_EQ(error_string(socket_error::none), "No error");
     EXPECT_EQ(error_string(socket_error::would_block), "Operation would block");
     EXPECT_EQ(error_string(socket_error::connection_reset), "Connection reset by peer");
 }
 
-TEST_F(message_buffer_test, socket_create_close) {
+TEST_F(message_buffer_test, socket_create_close)
+{
     tcp_socket sock;
     EXPECT_FALSE(sock.is_valid());
 
@@ -228,7 +253,8 @@ TEST_F(message_buffer_test, socket_create_close) {
     EXPECT_FALSE(sock.is_valid());
 }
 
-TEST_F(message_buffer_test, listener_start_stop) {
+TEST_F(message_buffer_test, listener_start_stop)
+{
     tcp_listener listener;
     EXPECT_FALSE(listener.is_listening());
 
@@ -242,7 +268,8 @@ TEST_F(message_buffer_test, listener_start_stop) {
     EXPECT_FALSE(listener.is_listening());
 }
 
-TEST_F(message_buffer_test, listener_double_bind_fails) {
+TEST_F(message_buffer_test, listener_double_bind_fails)
+{
     // Note: On some platforms with SO_REUSEADDR, this test may not fail as expected
     // because the socket option allows multiple binds. This is expected behavior.
     tcp_listener listener1;
@@ -260,26 +287,25 @@ TEST_F(message_buffer_test, listener_double_bind_fails) {
 
 // Network subsystem tests
 
-class network_subsystem_test : public ::testing::Test {
+class network_subsystem_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        subsystem_.initialize();
-    }
+    void SetUp() override { subsystem_.initialize(); }
 
-    void TearDown() override {
-        subsystem_.shutdown();
-    }
+    void TearDown() override { subsystem_.shutdown(); }
 
     network_subsystem subsystem_;
 };
 
-TEST_F(network_subsystem_test, lifecycle) {
+TEST_F(network_subsystem_test, lifecycle)
+{
     EXPECT_TRUE(subsystem_.is_initialized());
     EXPECT_EQ(subsystem_.name(), "network");
     EXPECT_FALSE(subsystem_.is_running());
 }
 
-TEST_F(network_subsystem_test, start_stop) {
+TEST_F(network_subsystem_test, start_stop)
+{
     auto result = subsystem_.start(19997);
     ASSERT_TRUE(result.is_ok()) << result.error();
     EXPECT_TRUE(subsystem_.is_running());
@@ -289,7 +315,8 @@ TEST_F(network_subsystem_test, start_stop) {
     EXPECT_FALSE(subsystem_.is_running());
 }
 
-TEST_F(network_subsystem_test, start_with_config) {
+TEST_F(network_subsystem_test, start_with_config)
+{
     network_config config;
     config.port = 19996;
     config.max_connections = 100;
@@ -304,7 +331,8 @@ TEST_F(network_subsystem_test, start_with_config) {
     subsystem_.stop();
 }
 
-TEST_F(network_subsystem_test, double_start_fails) {
+TEST_F(network_subsystem_test, double_start_fails)
+{
     auto result1 = subsystem_.start(19995);
     ASSERT_TRUE(result1.is_ok()) << result1.error();
 
@@ -314,7 +342,8 @@ TEST_F(network_subsystem_test, double_start_fails) {
     subsystem_.stop();
 }
 
-TEST_F(network_subsystem_test, client_connect) {
+TEST_F(network_subsystem_test, client_connect)
+{
     // Start server
     auto server_result = subsystem_.start(19993);
     ASSERT_TRUE(server_result.is_ok()) << server_result.error();
@@ -346,14 +375,17 @@ TEST_F(network_subsystem_test, client_connect) {
     subsystem_.stop();
 }
 
-TEST_F(network_subsystem_test, message_callback) {
+TEST_F(network_subsystem_test, message_callback)
+{
     std::atomic<int> message_count{0};
     std::vector<uint8_t> received_data;
 
-    subsystem_.set_message_callback([&](connection_id id, std::span<const uint8_t> data) {
-        ++message_count;
-        received_data.assign(data.begin(), data.end());
-    });
+    subsystem_.set_message_callback(
+        [&](connection_id id, std::span<const uint8_t> data)
+        {
+            ++message_count;
+            received_data.assign(data.begin(), data.end());
+        });
 
     // Start server
     auto server_result = subsystem_.start(19992);
@@ -394,7 +426,8 @@ TEST_F(network_subsystem_test, message_callback) {
     subsystem_.stop();
 }
 
-TEST_F(network_subsystem_test, broadcast) {
+TEST_F(network_subsystem_test, broadcast)
+{
     auto server_result = subsystem_.start(19991);
     ASSERT_TRUE(server_result.is_ok()) << server_result.error();
 

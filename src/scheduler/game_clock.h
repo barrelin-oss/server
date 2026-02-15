@@ -7,27 +7,29 @@
 
 #include <chrono>
 
-namespace hb {
+namespace hb
+{
 
 // Game clock manages in-game time separate from real time
 // Default: 1 real minute = 1 game hour (24 real minutes = 1 game day)
-class game_clock {
+class game_clock
+{
 public:
     game_clock();
 
     // Current game time
-    [[nodiscard]] auto hour() const -> int;       // 0-23
-    [[nodiscard]] auto minute() const -> int;     // 0-59
-    [[nodiscard]] auto second() const -> int;     // 0-59
+    [[nodiscard]] auto hour() const -> int;   // 0-23
+    [[nodiscard]] auto minute() const -> int; // 0-59
+    [[nodiscard]] auto second() const -> int; // 0-59
 
     // Day/night checks (day = 6:00 to 17:59, night = 18:00 to 5:59)
     [[nodiscard]] auto is_day() const -> bool;
     [[nodiscard]] auto is_night() const -> bool;
-    [[nodiscard]] auto is_dawn() const -> bool;   // 5:00 to 6:59
-    [[nodiscard]] auto is_dusk() const -> bool;   // 17:00 to 18:59
+    [[nodiscard]] auto is_dawn() const -> bool; // 5:00 to 6:59
+    [[nodiscard]] auto is_dusk() const -> bool; // 17:00 to 18:59
 
     // Day tracking
-    [[nodiscard]] auto day() const -> int;        // Days since server start
+    [[nodiscard]] auto day() const -> int;         // Days since server start
     [[nodiscard]] auto day_of_week() const -> int; // 0-6 (0 = Sunday)
 
     // Total game time in minutes since start
@@ -59,4 +61,4 @@ private:
     float fractional_seconds_{0.0f};
 };
 
-}  // namespace hb
+} // namespace hb

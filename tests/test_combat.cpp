@@ -11,7 +11,8 @@ using namespace hb::entity;
 
 // Combat events tests
 
-TEST(hit_flags_test, operators) {
+TEST(hit_flags_test, operators)
+{
     hit_flags flags = hit_flags::hit | hit_flags::critical;
 
     EXPECT_TRUE((flags & hit_flags::hit) != hit_flags::none);
@@ -19,7 +20,8 @@ TEST(hit_flags_test, operators) {
     EXPECT_FALSE((flags & hit_flags::miss) != hit_flags::none);
 }
 
-TEST(hit_result_test, queries) {
+TEST(hit_result_test, queries)
+{
     hit_result result;
     result.flags = hit_flags::hit | hit_flags::critical;
     result.raw_damage = 100;
@@ -31,7 +33,8 @@ TEST(hit_result_test, queries) {
     EXPECT_FALSE(result.is_blocked());
 }
 
-TEST(hit_result_test, miss) {
+TEST(hit_result_test, miss)
+{
     hit_result result;
     result.flags = hit_flags::miss;
 
@@ -39,7 +42,8 @@ TEST(hit_result_test, miss) {
     EXPECT_TRUE(result.is_miss());
 }
 
-TEST(combat_context_test, initialization) {
+TEST(combat_context_test, initialization)
+{
     combat_context ctx;
     ctx.attacker = entity{1};
     ctx.defender = entity{2};
@@ -55,24 +59,28 @@ TEST(combat_context_test, initialization) {
 
 // Damage calculation tests
 
-TEST(damage_calc_test, physical_damage) {
+TEST(damage_calc_test, physical_damage)
+{
     int32_t damage = calc_physical_damage(100, 50);
     EXPECT_GT(damage, 0);
-    EXPECT_LT(damage, 100);  // Defense should reduce damage
+    EXPECT_LT(damage, 100); // Defense should reduce damage
 }
 
-TEST(damage_calc_test, physical_damage_no_defense) {
+TEST(damage_calc_test, physical_damage_no_defense)
+{
     int32_t damage = calc_physical_damage(100, 0);
     EXPECT_GT(damage, 0);
     // Should be close to attack value with some variance
 }
 
-TEST(damage_calc_test, magic_damage) {
+TEST(damage_calc_test, magic_damage)
+{
     int32_t damage = calc_magic_damage(100, 50);
     EXPECT_GT(damage, 0);
 }
 
-TEST(damage_calc_test, hit_chance) {
+TEST(damage_calc_test, hit_chance)
+{
     int chance = calc_hit_chance(100, 50);
     EXPECT_GE(chance, 5);
     EXPECT_LE(chance, 95);
@@ -82,21 +90,24 @@ TEST(damage_calc_test, hit_chance) {
     EXPECT_GT(high_hit, low_hit);
 }
 
-TEST(damage_calc_test, critical_chance) {
+TEST(damage_calc_test, critical_chance)
+{
     int normal_crit = calc_critical_chance(10, false);
     int backstab_crit = calc_critical_chance(10, true);
 
     EXPECT_LT(normal_crit, backstab_crit);
-    EXPECT_LE(normal_crit, 75);  // Max cap
+    EXPECT_LE(normal_crit, 75); // Max cap
 }
 
-TEST(damage_calc_test, block_chance) {
+TEST(damage_calc_test, block_chance)
+{
     EXPECT_EQ(calc_block_chance(30), 30);
-    EXPECT_EQ(calc_block_chance(60), 50);  // Capped at 50
+    EXPECT_EQ(calc_block_chance(60), 50); // Capped at 50
     EXPECT_EQ(calc_block_chance(-10), 0);
 }
 
-TEST(damage_calc_test, damage_reduction) {
+TEST(damage_calc_test, damage_reduction)
+{
     int32_t reduced = apply_damage_reduction(100, 50);
     EXPECT_EQ(reduced, 50);
 
@@ -109,7 +120,8 @@ TEST(damage_calc_test, damage_reduction) {
     EXPECT_GE(reduced, 0);
 }
 
-TEST(damage_calc_test, critical_damage) {
+TEST(damage_calc_test, critical_damage)
+{
     int32_t crit = apply_critical_damage(100, 150);
     EXPECT_EQ(crit, 150);
 
@@ -117,13 +129,14 @@ TEST(damage_calc_test, critical_damage) {
     EXPECT_EQ(crit, 200);
 }
 
-TEST(damage_calc_test, calculate_final_damage) {
+TEST(damage_calc_test, calculate_final_damage)
+{
     combat_context ctx;
     ctx.attacker = entity{1};
     ctx.defender = entity{2};
     ctx.attack_power = 100;
     ctx.defense = 50;
-    ctx.hit_rate = 100;  // Guaranteed hit for testing
+    ctx.hit_rate = 100; // Guaranteed hit for testing
     ctx.dodge_rate = 0;
     ctx.critical_rate = 0;
     ctx.critical_damage = 150;
@@ -134,7 +147,8 @@ TEST(damage_calc_test, calculate_final_damage) {
     EXPECT_GT(result.final_damage, 0);
 }
 
-TEST(damage_calc_test, guaranteed_critical) {
+TEST(damage_calc_test, guaranteed_critical)
+{
     combat_context ctx;
     ctx.attack_power = 100;
     ctx.defense = 0;
@@ -146,7 +160,8 @@ TEST(damage_calc_test, guaranteed_critical) {
     EXPECT_TRUE(result.is_critical());
 }
 
-TEST(damage_calc_test, ignore_defense) {
+TEST(damage_calc_test, ignore_defense)
+{
     combat_context ctx1;
     ctx1.attack_power = 100;
     ctx1.defense = 100;
@@ -164,34 +179,34 @@ TEST(damage_calc_test, ignore_defense) {
 
 // Combat system tests
 
-class combat_system_test : public ::testing::Test {
+class combat_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        system_.initialize();
-    }
+    void SetUp() override { system_.initialize(); }
 
-    void TearDown() override {
-        system_.shutdown();
-    }
+    void TearDown() override { system_.shutdown(); }
 
     combat_system system_;
 };
 
-TEST_F(combat_system_test, lifecycle) {
+TEST_F(combat_system_test, lifecycle)
+{
     EXPECT_TRUE(system_.is_initialized());
     EXPECT_EQ(system_.name(), "combat_system");
 }
 
-TEST_F(combat_system_test, can_attack) {
+TEST_F(combat_system_test, can_attack)
+{
     entity attacker{1};
     entity defender{2};
 
     EXPECT_TRUE(system_.can_attack(attacker, defender));
-    EXPECT_FALSE(system_.can_attack(attacker, attacker));  // Can't attack self
+    EXPECT_FALSE(system_.can_attack(attacker, attacker)); // Can't attack self
     EXPECT_FALSE(system_.can_attack(entity::null(), defender));
 }
 
-TEST_F(combat_system_test, invulnerability) {
+TEST_F(combat_system_test, invulnerability)
+{
     entity e{1};
 
     EXPECT_FALSE(system_.is_invulnerable(e));
@@ -200,7 +215,8 @@ TEST_F(combat_system_test, invulnerability) {
     EXPECT_TRUE(system_.is_invulnerable(e));
 }
 
-TEST_F(combat_system_test, combat_state) {
+TEST_F(combat_system_test, combat_state)
+{
     entity e{1};
 
     EXPECT_FALSE(system_.is_in_combat(e));
@@ -212,7 +228,8 @@ TEST_F(combat_system_test, combat_state) {
     EXPECT_FALSE(system_.is_in_combat(e));
 }
 
-TEST_F(combat_system_test, kill_death_tracking) {
+TEST_F(combat_system_test, kill_death_tracking)
+{
     entity killer{1};
     entity victim{2};
 
@@ -220,7 +237,8 @@ TEST_F(combat_system_test, kill_death_tracking) {
     EXPECT_EQ(system_.get_death_count(victim), 0);
 }
 
-TEST_F(combat_system_test, process_attack) {
+TEST_F(combat_system_test, process_attack)
+{
     attack_event attack;
     attack.attacker = entity{1};
     attack.defender = entity{2};
@@ -231,7 +249,8 @@ TEST_F(combat_system_test, process_attack) {
     // Result depends on RNG, but should complete without error
 }
 
-TEST_F(combat_system_test, resolve_hit) {
+TEST_F(combat_system_test, resolve_hit)
+{
     combat_context ctx;
     ctx.attacker = entity{1};
     ctx.defender = entity{2};
@@ -242,21 +261,25 @@ TEST_F(combat_system_test, resolve_hit) {
     EXPECT_TRUE(result.is_hit());
 }
 
-TEST_F(combat_system_test, deal_damage) {
+TEST_F(combat_system_test, deal_damage)
+{
     entity target{1};
 
     // This should not crash even if target doesn't exist in player/npc system
     system_.deal_damage(target, 50, damage_type::physical, entity{2});
 }
 
-TEST_F(combat_system_test, damage_callback) {
+TEST_F(combat_system_test, damage_callback)
+{
     bool callback_called = false;
     damage_event received_event;
 
-    system_.on_damage([&](const damage_event& event) {
-        callback_called = true;
-        received_event = event;
-    });
+    system_.on_damage(
+        [&](const damage_event& event)
+        {
+            callback_called = true;
+            received_event = event;
+        });
 
     entity target{1};
     hit_result result;
@@ -270,12 +293,14 @@ TEST_F(combat_system_test, damage_callback) {
 
 // Additional combat tests
 
-TEST_F(combat_system_test, cannot_attack_null_entity) {
+TEST_F(combat_system_test, cannot_attack_null_entity)
+{
     EXPECT_FALSE(system_.can_attack(entity::null(), entity{1}));
     EXPECT_FALSE(system_.can_attack(entity{1}, entity::null()));
 }
 
-TEST_F(combat_system_test, cannot_attack_invulnerable_target) {
+TEST_F(combat_system_test, cannot_attack_invulnerable_target)
+{
     entity attacker{1};
     entity defender{2};
 
@@ -285,7 +310,8 @@ TEST_F(combat_system_test, cannot_attack_invulnerable_target) {
     EXPECT_TRUE(system_.is_invulnerable(defender));
 }
 
-TEST_F(combat_system_test, process_attack_with_context) {
+TEST_F(combat_system_test, process_attack_with_context)
+{
     attack_event attack;
     attack.attacker = entity{1};
     attack.defender = entity{2};
@@ -296,7 +322,8 @@ TEST_F(combat_system_test, process_attack_with_context) {
     // Should complete without error regardless of RNG
 }
 
-TEST_F(combat_system_test, process_attack_magic_damage) {
+TEST_F(combat_system_test, process_attack_magic_damage)
+{
     attack_event attack;
     attack.attacker = entity{1};
     attack.defender = entity{2};
@@ -307,13 +334,14 @@ TEST_F(combat_system_test, process_attack_magic_damage) {
     // Magic damage should complete without error
 }
 
-TEST_F(combat_system_test, resolve_hit_with_dodge) {
+TEST_F(combat_system_test, resolve_hit_with_dodge)
+{
     combat_context ctx;
     ctx.attacker = entity{1};
     ctx.defender = entity{2};
     ctx.attack_power = 50;
-    ctx.hit_rate = 5;      // Very low hit rate
-    ctx.dodge_rate = 95;   // Very high dodge
+    ctx.hit_rate = 5;    // Very low hit rate
+    ctx.dodge_rate = 95; // Very high dodge
     ctx.guaranteed_hit = false;
 
     // With these stats, most hits should miss, but this is RNG
@@ -321,7 +349,8 @@ TEST_F(combat_system_test, resolve_hit_with_dodge) {
     auto result = system_.resolve_hit(ctx);
 }
 
-TEST_F(combat_system_test, resolve_hit_blocked) {
+TEST_F(combat_system_test, resolve_hit_blocked)
+{
     combat_context ctx;
     ctx.attacker = entity{1};
     ctx.defender = entity{2};
@@ -331,15 +360,18 @@ TEST_F(combat_system_test, resolve_hit_blocked) {
 
     // Run multiple times - statistically some should block
     int block_count = 0;
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i)
+    {
         auto result = system_.resolve_hit(ctx);
-        if (result.is_blocked()) ++block_count;
+        if (result.is_blocked())
+            ++block_count;
     }
     // With 50% block rate and guaranteed hit, expect some blocks
     EXPECT_GT(block_count, 0);
 }
 
-TEST_F(combat_system_test, kill_increments_counters) {
+TEST_F(combat_system_test, kill_increments_counters)
+{
     entity killer{1};
     entity victim{2};
 
@@ -355,43 +387,51 @@ TEST_F(combat_system_test, kill_increments_counters) {
 
 // Damage calculation edge cases
 
-TEST(damage_calc_test, zero_attack_power) {
+TEST(damage_calc_test, zero_attack_power)
+{
     int32_t damage = calc_physical_damage(0, 50);
     EXPECT_GE(damage, 0);
 }
 
-TEST(damage_calc_test, massive_defense) {
+TEST(damage_calc_test, massive_defense)
+{
     int32_t damage = calc_physical_damage(100, 10000);
-    EXPECT_GE(damage, 0);  // Should not underflow
+    EXPECT_GE(damage, 0); // Should not underflow
 }
 
-TEST(damage_calc_test, magic_damage_no_defense) {
+TEST(damage_calc_test, magic_damage_no_defense)
+{
     int32_t damage = calc_magic_damage(100, 0);
     EXPECT_GT(damage, 0);
 }
 
-TEST(damage_calc_test, hit_chance_equal_stats) {
+TEST(damage_calc_test, hit_chance_equal_stats)
+{
     int chance = calc_hit_chance(100, 100);
     EXPECT_GE(chance, 5);
     EXPECT_LE(chance, 95);
 }
 
-TEST(damage_calc_test, block_chance_zero) {
+TEST(damage_calc_test, block_chance_zero)
+{
     EXPECT_EQ(calc_block_chance(0), 0);
 }
 
-TEST(damage_calc_test, damage_reduction_zero_percent) {
+TEST(damage_calc_test, damage_reduction_zero_percent)
+{
     int32_t reduced = apply_damage_reduction(100, 0);
     EXPECT_EQ(reduced, 100);
 }
 
-TEST(damage_calc_test, minimum_damage_zero) {
+TEST(damage_calc_test, minimum_damage_zero)
+{
     // High reduction can produce 0 damage (anti-physical "Failed!" on client)
     int32_t reduced = apply_damage_reduction(1, 80);
     EXPECT_GE(reduced, 0);
 }
 
-TEST(damage_calc_test, critical_damage_minimum_100) {
+TEST(damage_calc_test, critical_damage_minimum_100)
+{
     // Critical should not reduce below base
     int32_t crit = apply_critical_damage(100, 100);
     EXPECT_EQ(crit, 100);

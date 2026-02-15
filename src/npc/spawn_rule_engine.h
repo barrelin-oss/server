@@ -27,44 +27,31 @@ public:
     void shutdown() override;
 
     // Load spawn tables from YAML file
-    auto load_from_file(const std::filesystem::path& path)
-        -> result<size_t, std::string>;
+    auto load_from_file(const std::filesystem::path& path) -> result<size_t, std::string>;
 
     // Reload spawn tables (hot-reload)
     auto reload() -> result<void, std::string>;
 
     // Select a random NPC based on context
-    auto select_npc(const spawn_context& ctx) const
-        -> std::optional<npc_id>;
+    auto select_npc(const spawn_context& ctx) const -> std::optional<npc_id>;
 
     // Get all matching NPCs with weights (for debugging)
-    auto get_matching_npcs(const spawn_context& ctx) const
-        -> std::vector<weighted_npc_entry>;
+    auto get_matching_npcs(const spawn_context& ctx) const -> std::vector<weighted_npc_entry>;
 
     // Get rule statistics (for debugging)
     auto get_rule_count() const -> size_t { return global_rules_.size(); }
     auto get_map_rule_count(std::string_view map_name) const -> size_t;
 
     // Get the random spawn whitelist
-    [[nodiscard]] auto whitelist() const -> const random_spawn_whitelist&
-    {
-        return whitelist_;
-    }
+    [[nodiscard]] auto whitelist() const -> const random_spawn_whitelist& { return whitelist_; }
 
     // Check if an NPC can be randomly spawned
-    [[nodiscard]] auto can_random_spawn(std::string_view name) const -> bool
-    {
-        return whitelist_.is_allowed(name);
-    }
+    [[nodiscard]] auto can_random_spawn(std::string_view name) const -> bool { return whitelist_.is_allowed(name); }
 
-    [[nodiscard]] auto can_random_spawn(npc_id id) const -> bool
-    {
-        return whitelist_.is_allowed(id);
-    }
+    [[nodiscard]] auto can_random_spawn(npc_id id) const -> bool { return whitelist_.is_allowed(id); }
 
     // Get special attack info for a spawned NPC
-    [[nodiscard]] auto get_spawn_entry(std::string_view name) const
-        -> std::optional<random_spawn_entry>
+    [[nodiscard]] auto get_spawn_entry(std::string_view name) const -> std::optional<random_spawn_entry>
     {
         return whitelist_.get(name);
     }
@@ -74,8 +61,7 @@ private:
     auto merge_weighted_lists(const std::vector<std::vector<weighted_npc_entry>>& lists) const
         -> std::vector<weighted_npc_entry>;
 
-    auto select_from_weighted(const std::vector<weighted_npc_entry>& entries) const
-        -> std::optional<npc_id>;
+    auto select_from_weighted(const std::vector<weighted_npc_entry>& entries) const -> std::optional<npc_id>;
 
     // Storage
     std::filesystem::path config_path_;

@@ -19,19 +19,20 @@
 // Only use hb namespace — qualify everything else explicitly to avoid ambiguity
 using namespace hb;
 
-namespace {
+namespace
+{
 
 // Helper to write a minimal YAML config with safe zones and load it into a map
-void setup_safe_zone_map(world::world_subsystem& world, map_id mid, int16_t sz_left, int16_t sz_top,
-                         int16_t sz_right, int16_t sz_bottom)
+void setup_safe_zone_map(
+    world::world_subsystem& world, map_id mid, int16_t sz_left, int16_t sz_top, int16_t sz_right, int16_t sz_bottom)
 {
     auto tmp = std::filesystem::temp_directory_path() / "test_safe_zone.yaml";
     {
         std::ofstream f(tmp);
         f << "name: test_map\n";
         f << "safe_zones:\n";
-        f << "  - { id: 1, left: " << sz_left << ", top: " << sz_top
-          << ", right: " << sz_right << ", bottom: " << sz_bottom << " }\n";
+        f << "  - { id: 1, left: " << sz_left << ", top: " << sz_top << ", right: " << sz_right
+          << ", bottom: " << sz_bottom << " }\n";
     }
     auto* m = world.get_map(mid);
     ASSERT_NE(m, nullptr);
@@ -46,7 +47,8 @@ void setup_safe_zone_map(world::world_subsystem& world, map_id mid, int16_t sz_l
 // Safe Zone PvP Combat Tests
 // ============================================================================
 
-class safe_zone_combat_test : public ::testing::Test {
+class safe_zone_combat_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -78,10 +80,7 @@ protected:
         ASSERT_FALSE(m->is_safe_zone({50, 50}));
     }
 
-    void TearDown() override
-    {
-        subsystems().clear_all();
-    }
+    void TearDown() override { subsystems().clear_all(); }
 
     auto create_player_at(world::position pos) -> player_id
     {
@@ -102,8 +101,8 @@ protected:
 
 TEST_F(safe_zone_combat_test, pvp_blocked_when_attacker_in_safe_zone)
 {
-    auto p1 = create_player_at({15, 15});  // In safe zone
-    auto p2 = create_player_at({50, 50});  // Outside safe zone
+    auto p1 = create_player_at({15, 15}); // In safe zone
+    auto p2 = create_player_at({50, 50}); // Outside safe zone
 
     entity::entity e1(p1.value);
     entity::entity e2(p2.value);
@@ -113,8 +112,8 @@ TEST_F(safe_zone_combat_test, pvp_blocked_when_attacker_in_safe_zone)
 
 TEST_F(safe_zone_combat_test, pvp_blocked_when_defender_in_safe_zone)
 {
-    auto p1 = create_player_at({50, 50});  // Outside safe zone
-    auto p2 = create_player_at({15, 15});  // In safe zone
+    auto p1 = create_player_at({50, 50}); // Outside safe zone
+    auto p2 = create_player_at({15, 15}); // In safe zone
 
     entity::entity e1(p1.value);
     entity::entity e2(p2.value);
@@ -124,8 +123,8 @@ TEST_F(safe_zone_combat_test, pvp_blocked_when_defender_in_safe_zone)
 
 TEST_F(safe_zone_combat_test, pvp_blocked_when_both_in_safe_zone)
 {
-    auto p1 = create_player_at({12, 12});  // In safe zone
-    auto p2 = create_player_at({18, 18});  // In safe zone
+    auto p1 = create_player_at({12, 12}); // In safe zone
+    auto p2 = create_player_at({18, 18}); // In safe zone
 
     entity::entity e1(p1.value);
     entity::entity e2(p2.value);
@@ -135,8 +134,8 @@ TEST_F(safe_zone_combat_test, pvp_blocked_when_both_in_safe_zone)
 
 TEST_F(safe_zone_combat_test, pvp_allowed_when_neither_in_safe_zone)
 {
-    auto p1 = create_player_at({50, 50});  // Outside safe zone
-    auto p2 = create_player_at({60, 60});  // Outside safe zone
+    auto p1 = create_player_at({50, 50}); // Outside safe zone
+    auto p2 = create_player_at({60, 60}); // Outside safe zone
 
     entity::entity e1(p1.value);
     entity::entity e2(p2.value);
@@ -147,10 +146,10 @@ TEST_F(safe_zone_combat_test, pvp_allowed_when_neither_in_safe_zone)
 TEST_F(safe_zone_combat_test, player_vs_npc_allowed_in_safe_zone)
 {
     // PvE should always be allowed even in safe zones
-    auto p1 = create_player_at({15, 15});  // In safe zone
+    auto p1 = create_player_at({15, 15}); // In safe zone
 
     entity::entity player_e(p1.value);
-    entity::entity npc_e(9999u);  // Not a player ID
+    entity::entity npc_e(9999u); // Not a player ID
 
     EXPECT_TRUE(combat_->can_attack(player_e, npc_e));
 }
@@ -158,10 +157,10 @@ TEST_F(safe_zone_combat_test, player_vs_npc_allowed_in_safe_zone)
 TEST_F(safe_zone_combat_test, npc_vs_player_allowed_in_safe_zone)
 {
     // NPC attacking a player in safe zone should be allowed
-    auto p1 = create_player_at({15, 15});  // In safe zone
+    auto p1 = create_player_at({15, 15}); // In safe zone
 
     entity::entity player_e(p1.value);
-    entity::entity npc_e(9999u);  // Not a player ID
+    entity::entity npc_e(9999u); // Not a player ID
 
     EXPECT_TRUE(combat_->can_attack(npc_e, player_e));
 }
@@ -170,7 +169,8 @@ TEST_F(safe_zone_combat_test, npc_vs_player_allowed_in_safe_zone)
 // Safe Zone Magic Tests
 // ============================================================================
 
-class safe_zone_magic_test : public ::testing::Test {
+class safe_zone_magic_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -203,7 +203,7 @@ protected:
         offensive.target_type = magic::spell_target::single_enemy;
         offensive.mana_cost = 10;
         offensive.base_damage = 50;
-        offensive.range = 10;  // 10 screens = 120 tiles (enough for test map)
+        offensive.range = 10; // 10 screens = 120 tiles (enough for test map)
         magic_->register_spell(offensive);
 
         // Register a defensive/buff test spell
@@ -229,10 +229,7 @@ protected:
         magic_->register_spell(aoe);
     }
 
-    void TearDown() override
-    {
-        subsystems().clear_all();
-    }
+    void TearDown() override { subsystems().clear_all(); }
 
     auto create_player_at(world::position pos) -> player_id
     {
@@ -244,7 +241,8 @@ protected:
 
         // Give enough stats/mana to cast
         auto* p = player_sys_->get_player(pid);
-        if (p) {
+        if (p)
+        {
             p->mp = 1000;
             p->experience.level = 100;
             p->computed.intelligence = 100;
@@ -263,8 +261,8 @@ protected:
 
 TEST_F(safe_zone_magic_test, offensive_spell_blocked_on_player_in_safe_zone)
 {
-    auto caster = create_player_at({50, 50});  // Outside safe zone
-    auto target = create_player_at({15, 15});  // In safe zone
+    auto caster = create_player_at({50, 50}); // Outside safe zone
+    auto target = create_player_at({15, 15}); // In safe zone
 
     entity::entity caster_e(caster.value);
     entity::entity target_e(target.value);
@@ -281,8 +279,8 @@ TEST_F(safe_zone_magic_test, offensive_spell_blocked_on_player_in_safe_zone)
 
 TEST_F(safe_zone_magic_test, offensive_spell_blocked_when_caster_in_safe_zone)
 {
-    auto caster = create_player_at({15, 15});  // In safe zone
-    auto target = create_player_at({50, 50});  // Outside
+    auto caster = create_player_at({15, 15}); // In safe zone
+    auto target = create_player_at({50, 50}); // Outside
 
     entity::entity caster_e(caster.value);
     entity::entity target_e(target.value);
@@ -298,8 +296,8 @@ TEST_F(safe_zone_magic_test, offensive_spell_blocked_when_caster_in_safe_zone)
 
 TEST_F(safe_zone_magic_test, buff_spell_allowed_in_safe_zone)
 {
-    auto caster = create_player_at({15, 15});  // In safe zone
-    auto target = create_player_at({16, 16});  // Also in safe zone
+    auto caster = create_player_at({15, 15}); // In safe zone
+    auto target = create_player_at({16, 16}); // Also in safe zone
 
     entity::entity caster_e(caster.value);
     entity::entity target_e(target.value);
@@ -315,9 +313,9 @@ TEST_F(safe_zone_magic_test, buff_spell_allowed_in_safe_zone)
 
 TEST_F(safe_zone_magic_test, offensive_spell_on_npc_allowed_in_safe_zone)
 {
-    auto caster = create_player_at({15, 15});  // In safe zone
+    auto caster = create_player_at({15, 15}); // In safe zone
     entity::entity caster_e(caster.value);
-    entity::entity npc_e(9999u);  // Not a player
+    entity::entity npc_e(9999u); // Not a player
 
     magic_->learn_spell(caster_e, spell_id(1));
 
@@ -333,7 +331,8 @@ TEST_F(safe_zone_magic_test, offensive_spell_on_npc_allowed_in_safe_zone)
 // Guard Behavior Tests
 // ============================================================================
 
-class guard_behavior_test : public ::testing::Test {
+class guard_behavior_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -358,10 +357,7 @@ protected:
         map_id_ = result.value();
     }
 
-    void TearDown() override
-    {
-        subsystems().clear_all();
-    }
+    void TearDown() override { subsystems().clear_all(); }
 
     auto create_player_at(world::position pos, int32_t pk_points = 0) -> player_id
     {
@@ -372,7 +368,8 @@ protected:
         player_sys_->set_position(pid, map_id_, pos, world::direction::south);
 
         auto* p = player_sys_->get_player(pid);
-        if (p) {
+        if (p)
+        {
             p->hp = 1000;
             p->pk.points = pk_points;
 
@@ -381,7 +378,8 @@ protected:
             p->ecs_entity = eid;
 
             auto* m = world_->get_map(map_id_);
-            if (m) {
+            if (m)
+            {
                 m->spatial().add(entity_id{eid.index()}, pos);
             }
         }
@@ -448,9 +446,8 @@ TEST_F(guard_behavior_test, guard_ignores_innocent)
 
     // Simulating the guard filter logic from find_aggro_target:
     // if guard && !criminal && !murderer -> skip
-    bool should_skip = guard_npc.ai.has_flag(npc::ai_flags::guard) &&
-                       !innocent_p->pk.is_criminal() &&
-                       !innocent_p->pk.is_murderer();
+    bool should_skip =
+        guard_npc.ai.has_flag(npc::ai_flags::guard) && !innocent_p->pk.is_criminal() && !innocent_p->pk.is_murderer();
     EXPECT_TRUE(should_skip);
 }
 

@@ -12,10 +12,12 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 // Shop registry subsystem - loads shop configs from YAML
-class shop_registry : public subsystem {
+class shop_registry : public subsystem
+{
 public:
     shop_registry();
     ~shop_registry() override;
@@ -38,4 +40,4 @@ private:
     std::unordered_map<std::string, npc::shop_config> shops_;
 };
 
-}  // namespace hb
+} // namespace hb

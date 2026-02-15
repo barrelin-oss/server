@@ -6,11 +6,13 @@
 
 #include <gtest/gtest.h>
 
-namespace hb::crafting {
+namespace hb::crafting
+{
 
 // === Success chance calculation tests ===
 
-class alchemy_success_test : public ::testing::Test {
+class alchemy_success_test : public ::testing::Test
+{
 protected:
     craft_recipe make_recipe(int16_t skill_limit, int16_t difficulty)
     {
@@ -34,7 +36,7 @@ TEST_F(alchemy_success_test, skill_bonus)
     auto recipe = make_recipe(0, 30);
     // skill = 40: bonus = 40/2 = 20
     auto chance = alchemy_system::calculate_success_chance(40, 0, recipe);
-    EXPECT_EQ(chance, 90);  // 70 + 20 + 0
+    EXPECT_EQ(chance, 90); // 70 + 20 + 0
 }
 
 TEST_F(alchemy_success_test, int_bonus)
@@ -42,7 +44,7 @@ TEST_F(alchemy_success_test, int_bonus)
     auto recipe = make_recipe(0, 30);
     // int = 30: bonus = 30/3 = 10
     auto chance = alchemy_system::calculate_success_chance(0, 30, recipe);
-    EXPECT_EQ(chance, 80);  // 70 + 0 + 10
+    EXPECT_EQ(chance, 80); // 70 + 0 + 10
 }
 
 TEST_F(alchemy_success_test, combined_bonuses)
@@ -53,7 +55,7 @@ TEST_F(alchemy_success_test, combined_bonuses)
     // skill: 20/2 = 10
     // int: 30/3 = 10
     auto chance = alchemy_system::calculate_success_chance(20, 30, recipe);
-    EXPECT_EQ(chance, 80);  // 60 + 10 + 10
+    EXPECT_EQ(chance, 80); // 60 + 10 + 10
 }
 
 TEST_F(alchemy_success_test, clamp_minimum_5)
@@ -61,7 +63,7 @@ TEST_F(alchemy_success_test, clamp_minimum_5)
     auto recipe = make_recipe(0, 99);
     // Base: 100 - 99 = 1
     auto chance = alchemy_system::calculate_success_chance(0, 0, recipe);
-    EXPECT_EQ(chance, 5);  // clamped up from 1
+    EXPECT_EQ(chance, 5); // clamped up from 1
 }
 
 TEST_F(alchemy_success_test, clamp_maximum_98)
@@ -87,7 +89,7 @@ TEST_F(alchemy_success_test, difficulty_exceeds_100)
     auto recipe = make_recipe(0, 120);
     // Base: 100 - 120 = -20
     auto chance = alchemy_system::calculate_success_chance(0, 0, recipe);
-    EXPECT_EQ(chance, 5);  // clamped to minimum
+    EXPECT_EQ(chance, 5); // clamped to minimum
 }
 
 TEST_F(alchemy_success_test, high_skill_overcomes_difficulty)
@@ -97,7 +99,7 @@ TEST_F(alchemy_success_test, high_skill_overcomes_difficulty)
     // skill = 80: 80/2 = 40
     // int = 60: 60/3 = 20
     auto chance = alchemy_system::calculate_success_chance(80, 60, recipe);
-    EXPECT_EQ(chance, 70);  // 10 + 40 + 20
+    EXPECT_EQ(chance, 70); // 10 + 40 + 20
 }
 
 TEST_F(alchemy_success_test, zero_difficulty)
@@ -128,7 +130,7 @@ TEST_F(alchemy_success_test, odd_skill_truncates)
     auto recipe = make_recipe(0, 50);
     // skill = 11: 11/2 = 5 (integer division)
     auto chance = alchemy_system::calculate_success_chance(11, 0, recipe);
-    EXPECT_EQ(chance, 55);  // 50 + 5 + 0
+    EXPECT_EQ(chance, 55); // 50 + 5 + 0
 }
 
 TEST_F(alchemy_success_test, odd_int_truncates)
@@ -136,7 +138,7 @@ TEST_F(alchemy_success_test, odd_int_truncates)
     auto recipe = make_recipe(0, 50);
     // int = 10: 10/3 = 3 (integer division)
     auto chance = alchemy_system::calculate_success_chance(0, 10, recipe);
-    EXPECT_EQ(chance, 53);  // 50 + 0 + 3
+    EXPECT_EQ(chance, 53); // 50 + 0 + 3
 }
 
-}  // namespace hb::crafting
+} // namespace hb::crafting

@@ -12,7 +12,8 @@ namespace sess = hb::session;
 
 // Session tests
 
-TEST(session_test, construction) {
+TEST(session_test, construction)
+{
     sess::session s{session_id{1}, connection_id{100}};
 
     EXPECT_EQ(s.id().value, 1);
@@ -23,7 +24,8 @@ TEST(session_test, construction) {
     EXPECT_FALSE(s.is_admin());
 }
 
-TEST(session_test, state_transitions) {
+TEST(session_test, state_transitions)
+{
     sess::session s{session_id{1}, connection_id{100}};
 
     EXPECT_EQ(s.state(), sess::session_state::connected);
@@ -39,7 +41,8 @@ TEST(session_test, state_transitions) {
     EXPECT_TRUE(s.is_in_game());
 }
 
-TEST(session_test, authentication) {
+TEST(session_test, authentication)
+{
     sess::session s{session_id{1}, connection_id{100}};
 
     EXPECT_FALSE(s.is_authenticated());
@@ -59,7 +62,8 @@ TEST(session_test, authentication) {
     EXPECT_FALSE(s.is_admin());
 }
 
-TEST(session_test, admin_detection) {
+TEST(session_test, admin_detection)
+{
     sess::session s{session_id{1}, connection_id{100}};
 
     sess::account_info account;
@@ -72,7 +76,8 @@ TEST(session_test, admin_detection) {
     EXPECT_TRUE(s.is_admin());
 }
 
-TEST(session_test, current_player) {
+TEST(session_test, current_player)
+{
     sess::session s{session_id{1}, connection_id{100}};
 
     EXPECT_FALSE(s.current_player().has_value());
@@ -83,7 +88,8 @@ TEST(session_test, current_player) {
     EXPECT_EQ(s.current_player()->value, 500);
 }
 
-TEST(session_test, character_list) {
+TEST(session_test, character_list)
+{
     sess::session s{session_id{1}, connection_id{100}};
 
     EXPECT_TRUE(s.characters().empty());
@@ -99,7 +105,8 @@ TEST(session_test, character_list) {
     EXPECT_EQ(s.characters()[1].level, 30);
 }
 
-TEST(session_test, state_strings) {
+TEST(session_test, state_strings)
+{
     EXPECT_EQ(sess::state_string(sess::session_state::connected), "connected");
     EXPECT_EQ(sess::state_string(sess::session_state::authenticating), "authenticating");
     EXPECT_EQ(sess::state_string(sess::session_state::character_select), "character_select");
@@ -110,26 +117,25 @@ TEST(session_test, state_strings) {
 
 // Session manager tests
 
-class session_manager_test : public ::testing::Test {
+class session_manager_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        manager_.initialize();
-    }
+    void SetUp() override { manager_.initialize(); }
 
-    void TearDown() override {
-        manager_.shutdown();
-    }
+    void TearDown() override { manager_.shutdown(); }
 
     sess::session_manager manager_;
 };
 
-TEST_F(session_manager_test, lifecycle) {
+TEST_F(session_manager_test, lifecycle)
+{
     EXPECT_TRUE(manager_.is_initialized());
     EXPECT_EQ(manager_.name(), "session_manager");
     EXPECT_EQ(manager_.count(), 0);
 }
 
-TEST_F(session_manager_test, create_session) {
+TEST_F(session_manager_test, create_session)
+{
     auto result = manager_.create_session(connection_id{100});
     ASSERT_TRUE(result.is_ok()) << result.error();
 
@@ -142,7 +148,8 @@ TEST_F(session_manager_test, create_session) {
     EXPECT_EQ(s->connection().value, 100);
 }
 
-TEST_F(session_manager_test, create_duplicate_connection_fails) {
+TEST_F(session_manager_test, create_duplicate_connection_fails)
+{
     auto result1 = manager_.create_session(connection_id{100});
     ASSERT_TRUE(result1.is_ok());
 
@@ -150,7 +157,8 @@ TEST_F(session_manager_test, create_duplicate_connection_fails) {
     EXPECT_TRUE(result2.is_err());
 }
 
-TEST_F(session_manager_test, destroy_session) {
+TEST_F(session_manager_test, destroy_session)
+{
     auto result = manager_.create_session(connection_id{100});
     ASSERT_TRUE(result.is_ok());
     auto id = result.value();
@@ -161,7 +169,8 @@ TEST_F(session_manager_test, destroy_session) {
     EXPECT_EQ(manager_.get(id), nullptr);
 }
 
-TEST_F(session_manager_test, destroy_by_connection) {
+TEST_F(session_manager_test, destroy_by_connection)
+{
     auto result = manager_.create_session(connection_id{100});
     ASSERT_TRUE(result.is_ok());
 
@@ -170,7 +179,8 @@ TEST_F(session_manager_test, destroy_by_connection) {
     EXPECT_EQ(manager_.count(), 0);
 }
 
-TEST_F(session_manager_test, get_by_connection) {
+TEST_F(session_manager_test, get_by_connection)
+{
     auto result = manager_.create_session(connection_id{100});
     ASSERT_TRUE(result.is_ok());
 
@@ -182,7 +192,8 @@ TEST_F(session_manager_test, get_by_connection) {
     EXPECT_EQ(manager_.get_by_connection(connection_id{999}), nullptr);
 }
 
-TEST_F(session_manager_test, get_by_player) {
+TEST_F(session_manager_test, get_by_player)
+{
     auto result = manager_.create_session(connection_id{100});
     ASSERT_TRUE(result.is_ok());
     auto id = result.value();
@@ -198,7 +209,8 @@ TEST_F(session_manager_test, get_by_player) {
     EXPECT_EQ(s->id(), id);
 }
 
-TEST_F(session_manager_test, authenticate_session) {
+TEST_F(session_manager_test, authenticate_session)
+{
     auto result = manager_.create_session(connection_id{100});
     ASSERT_TRUE(result.is_ok());
     auto id = result.value();
@@ -217,7 +229,8 @@ TEST_F(session_manager_test, authenticate_session) {
     EXPECT_EQ(s->account()->account_name, "TestUser");
 }
 
-TEST_F(session_manager_test, enter_game) {
+TEST_F(session_manager_test, enter_game)
+{
     auto result = manager_.create_session(connection_id{100});
     ASSERT_TRUE(result.is_ok());
     auto id = result.value();
@@ -230,7 +243,8 @@ TEST_F(session_manager_test, enter_game) {
     EXPECT_EQ(s->current_player()->value, 500);
 }
 
-TEST_F(session_manager_test, count_authenticated) {
+TEST_F(session_manager_test, count_authenticated)
+{
     manager_.create_session(connection_id{100});
     manager_.create_session(connection_id{101});
     manager_.create_session(connection_id{102});
@@ -245,7 +259,8 @@ TEST_F(session_manager_test, count_authenticated) {
     EXPECT_EQ(manager_.count_authenticated(), 1);
 }
 
-TEST_F(session_manager_test, count_in_game) {
+TEST_F(session_manager_test, count_in_game)
+{
     auto r1 = manager_.create_session(connection_id{100});
     auto r2 = manager_.create_session(connection_id{101});
 
@@ -258,7 +273,8 @@ TEST_F(session_manager_test, count_in_game) {
     EXPECT_EQ(manager_.count_in_game(), 2);
 }
 
-TEST_F(session_manager_test, session_limit) {
+TEST_F(session_manager_test, session_limit)
+{
     sess::session_config config;
     config.max_sessions = 3;
     manager_.set_config(config);
@@ -272,15 +288,14 @@ TEST_F(session_manager_test, session_limit) {
     EXPECT_TRUE(result.is_err());
 }
 
-TEST_F(session_manager_test, for_each) {
+TEST_F(session_manager_test, for_each)
+{
     manager_.create_session(connection_id{100});
     manager_.create_session(connection_id{101});
     manager_.create_session(connection_id{102});
 
     int count = 0;
-    manager_.for_each([&count](const sess::session& /*s*/) {
-        ++count;
-    });
+    manager_.for_each([&count](const sess::session& /*s*/) { ++count; });
 
     EXPECT_EQ(count, 3);
 }

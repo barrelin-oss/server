@@ -6,7 +6,8 @@
 
 #include <yaml-cpp/yaml.h>
 
-namespace hb {
+namespace hb
+{
 
 shop_registry::shop_registry() = default;
 shop_registry::~shop_registry() = default;
@@ -24,18 +25,18 @@ void shop_registry::shutdown()
     set_initialized(false);
 }
 
-auto shop_registry::load_from_file(const std::filesystem::path& path)
-    -> result<size_t, std::string>
+auto shop_registry::load_from_file(const std::filesystem::path& path) -> result<size_t, std::string>
 {
     LOG_INFO(general, "Loading shops from: {}", path.string());
 
     YAML::Node root;
-    try {
+    try
+    {
         root = YAML::LoadFile(path.string());
-    } catch (const YAML::Exception& e) {
-        return result<size_t, std::string>::err(
-            "Failed to parse shops YAML: " + std::string(e.what())
-        );
+    }
+    catch (const YAML::Exception& e)
+    {
+        return result<size_t, std::string>::err("Failed to parse shops YAML: " + std::string(e.what()));
     }
 
     if (!root["shops"] || !root["shops"].IsMap())
@@ -98,8 +99,11 @@ auto shop_registry::load_from_file(const std::filesystem::path& path)
             }
         }
 
-        LOG_DEBUG(general, "  Shop '{}': {} items for sale, {} buy categories",
-            npc_name, shop.items.size(), shop.buy_categories.size());
+        LOG_DEBUG(general,
+                  "  Shop '{}': {} items for sale, {} buy categories",
+                  npc_name,
+                  shop.items.size(),
+                  shop.buy_categories.size());
         shops_[npc_name] = std::move(shop);
         ++count;
     }
@@ -114,4 +118,4 @@ auto shop_registry::get_shop(std::string_view npc_name) const -> const npc::shop
     return it != shops_.end() ? &it->second : nullptr;
 }
 
-}  // namespace hb
+} // namespace hb

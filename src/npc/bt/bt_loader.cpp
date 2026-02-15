@@ -8,16 +8,19 @@
 
 #include <yaml-cpp/yaml.h>
 
-namespace hb::npc::bt {
+namespace hb::npc::bt
+{
 
-namespace {
+namespace
+{
 
 auto parse_node(const YAML::Node& yaml) -> std::unique_ptr<bt_node>;
 
 auto parse_children(const YAML::Node& yaml) -> std::vector<std::unique_ptr<bt_node>>
 {
     std::vector<std::unique_ptr<bt_node>> children;
-    if (!yaml["children"] || !yaml["children"].IsSequence()) return children;
+    if (!yaml["children"] || !yaml["children"].IsSequence())
+        return children;
 
     for (const auto& child_yaml : yaml["children"])
     {
@@ -46,7 +49,8 @@ auto parse_single_child(const YAML::Node& yaml) -> std::unique_ptr<bt_node>
 
 auto parse_node(const YAML::Node& yaml) -> std::unique_ptr<bt_node>
 {
-    if (!yaml["type"]) return nullptr;
+    if (!yaml["type"])
+        return nullptr;
 
     std::string type = yaml["type"].as<std::string>();
 
@@ -180,10 +184,9 @@ auto parse_node(const YAML::Node& yaml) -> std::unique_ptr<bt_node>
     return nullptr;
 }
 
-}  // anonymous namespace
+} // anonymous namespace
 
-auto bt_loader::load_from_file(const std::filesystem::path& path)
-    -> result<std::string, std::string>
+auto bt_loader::load_from_file(const std::filesystem::path& path) -> result<std::string, std::string>
 {
     try
     {
@@ -193,15 +196,13 @@ auto bt_loader::load_from_file(const std::filesystem::path& path)
 
         if (!config["root"])
         {
-            return result<std::string, std::string>::err(
-                "Missing 'root' node in behavior tree: " + path.string());
+            return result<std::string, std::string>::err("Missing 'root' node in behavior tree: " + path.string());
         }
 
         auto root = parse_node(config["root"]);
         if (!root)
         {
-            return result<std::string, std::string>::err(
-                "Failed to parse root node in: " + path.string());
+            return result<std::string, std::string>::err("Failed to parse root node in: " + path.string());
         }
 
         trees_[name] = std::move(root);
@@ -209,18 +210,15 @@ auto bt_loader::load_from_file(const std::filesystem::path& path)
     }
     catch (const YAML::Exception& e)
     {
-        return result<std::string, std::string>::err(
-            std::string("YAML error loading BT: ") + e.what());
+        return result<std::string, std::string>::err(std::string("YAML error loading BT: ") + e.what());
     }
     catch (const std::exception& e)
     {
-        return result<std::string, std::string>::err(
-            std::string("Error loading BT: ") + e.what());
+        return result<std::string, std::string>::err(std::string("Error loading BT: ") + e.what());
     }
 }
 
-auto bt_loader::load_directory(const std::filesystem::path& dir)
-    -> result<size_t, std::string>
+auto bt_loader::load_directory(const std::filesystem::path& dir) -> result<size_t, std::string>
 {
     trees_dir_ = dir;
 
@@ -232,10 +230,12 @@ auto bt_loader::load_directory(const std::filesystem::path& dir)
     size_t count = 0;
     for (const auto& entry : std::filesystem::directory_iterator(dir))
     {
-        if (!entry.is_regular_file()) continue;
+        if (!entry.is_regular_file())
+            continue;
 
         auto ext = entry.path().extension().string();
-        if (ext != ".yaml" && ext != ".yml") continue;
+        if (ext != ".yaml" && ext != ".yml")
+            continue;
 
         auto res = load_from_file(entry.path());
         if (res.is_ok())
@@ -244,8 +244,7 @@ auto bt_loader::load_directory(const std::filesystem::path& dir)
         }
         else
         {
-            LOG_WARN(general, "Failed to load behavior tree {}: {}",
-                entry.path().string(), res.error());
+            LOG_WARN(general, "Failed to load behavior tree {}: {}", entry.path().string(), res.error());
         }
     }
 
@@ -275,4 +274,4 @@ void bt_loader::clear()
     trees_.clear();
 }
 
-}  // namespace hb::npc::bt
+} // namespace hb::npc::bt

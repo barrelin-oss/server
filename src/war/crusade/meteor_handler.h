@@ -13,33 +13,38 @@
 #include <string>
 #include <vector>
 
-namespace hb {
-    class scheduler;
+namespace hb
+{
+class scheduler;
 }
 
-namespace hb::war {
+namespace hb::war
+{
 
 // Meteor strike configuration
-struct meteor_config {
-    int32_t warning_time_ms{5000};          // Time between announce and impact
-    int32_t player_wave1_delay_ms{6000};    // Delay after impact for wave 1
-    int32_t player_wave2_delay_ms{9000};    // Delay after impact for wave 2
-    int32_t result_delay_ms{11000};         // Delay for final results
-    int32_t esg_protection_radius{10};      // Tiles around strike point to check for ESGs
-    int32_t base_strike_damage{2};          // Base damage to strike point per meteor
+struct meteor_config
+{
+    int32_t warning_time_ms{5000};       // Time between announce and impact
+    int32_t player_wave1_delay_ms{6000}; // Delay after impact for wave 1
+    int32_t player_wave2_delay_ms{9000}; // Delay after impact for wave 2
+    int32_t result_delay_ms{11000};      // Delay for final results
+    int32_t esg_protection_radius{10};   // Tiles around strike point to check for ESGs
+    int32_t base_strike_damage{2};       // Base damage to strike point per meteor
 };
 
 // Result of a meteor strike on a single strike point
-struct meteor_strike_result {
+struct meteor_strike_result
+{
     uint16_t strike_point_id{0};
     war_faction target_faction{war_faction::neutral};
-    int32_t esg_count{0};              // ESG shields near this point
-    int32_t damage_applied{0};         // Actual damage dealt
+    int32_t esg_count{0};      // ESG shields near this point
+    int32_t damage_applied{0}; // Actual damage dealt
     bool point_destroyed{false};
 };
 
 // Full result of a meteor event
-struct meteor_event_result {
+struct meteor_event_result
+{
     war_faction attacking_faction{war_faction::neutral};
     war_faction target_faction{war_faction::neutral};
     std::vector<meteor_strike_result> strike_results;
@@ -48,7 +53,8 @@ struct meteor_event_result {
 };
 
 // Callbacks the meteor handler needs
-struct meteor_callbacks {
+struct meteor_callbacks
+{
     // Get ESG count near a strike point (within esg_protection_radius tiles)
     std::function<int32_t(war_faction, uint16_t strike_point_id)> get_esg_count;
 
@@ -70,7 +76,8 @@ struct meteor_callbacks {
 
 // Meteor strike handler
 // Manages the multi-stage meteor sequence using the scheduler
-class meteor_handler {
+class meteor_handler
+{
 public:
     meteor_handler() = default;
 
@@ -102,4 +109,4 @@ private:
     int32_t pending_meteors_{0};
 };
 
-}  // namespace hb::war
+} // namespace hb::war

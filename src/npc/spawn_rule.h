@@ -24,15 +24,9 @@ struct rule_result
     bool matches;
     std::vector<weighted_npc_entry> npcs;
 
-    static auto pass(std::vector<weighted_npc_entry> npcs) -> rule_result
-    {
-        return rule_result{true, std::move(npcs)};
-    }
+    static auto pass(std::vector<weighted_npc_entry> npcs) -> rule_result { return rule_result{true, std::move(npcs)}; }
 
-    static auto fail() -> rule_result
-    {
-        return rule_result{false, {}};
-    }
+    static auto fail() -> rule_result { return rule_result{false, {}}; }
 };
 
 // Base interface for all spawn rules
@@ -112,8 +106,11 @@ enum class time_period
 class time_rule : public spawn_rule
 {
 public:
-    time_rule(std::string name, time_period period, std::vector<weighted_npc_entry> npcs,
-              int start_hour = 0, int end_hour = 0)
+    time_rule(std::string name,
+              time_period period,
+              std::vector<weighted_npc_entry> npcs,
+              int start_hour = 0,
+              int end_hour = 0)
         : name_(std::move(name))
         , period_(period)
         , start_hour_(start_hour)
@@ -156,16 +153,19 @@ private:
 // Proximity-based rule
 enum class proximity_condition
 {
-    min_distance,   // Nearest player must be at least N tiles away
-    max_distance,   // Nearest player must be at most N tiles away
-    player_count    // At least N players within range
+    min_distance, // Nearest player must be at least N tiles away
+    max_distance, // Nearest player must be at most N tiles away
+    player_count  // At least N players within range
 };
 
 class proximity_rule : public spawn_rule
 {
 public:
-    proximity_rule(std::string name, proximity_condition condition, int threshold,
-                   std::vector<weighted_npc_entry> npcs, int range = 20)
+    proximity_rule(std::string name,
+                   proximity_condition condition,
+                   int threshold,
+                   std::vector<weighted_npc_entry> npcs,
+                   int range = 20)
         : name_(std::move(name))
         , condition_(condition)
         , threshold_(threshold)
@@ -181,7 +181,7 @@ private:
     std::string name_;
     proximity_condition condition_;
     int threshold_;
-    int range_;  // Only used for player_count condition
+    int range_; // Only used for player_count condition
     std::vector<weighted_npc_entry> npcs_;
 };
 
@@ -216,7 +216,8 @@ enum class composite_operator
 class composite_rule : public spawn_rule
 {
 public:
-    composite_rule(std::string name, composite_operator op,
+    composite_rule(std::string name,
+                   composite_operator op,
                    std::vector<std::unique_ptr<spawn_rule>> children,
                    std::vector<weighted_npc_entry> npcs)
         : name_(std::move(name))

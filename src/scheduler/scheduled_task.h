@@ -9,10 +9,12 @@
 #include <string>
 #include <chrono>
 
-namespace hb {
+namespace hb
+{
 
 // Unique identifier for a scheduled task
-struct task_id {
+struct task_id
+{
     uint64_t value{0};
 
     constexpr task_id() = default;
@@ -26,7 +28,8 @@ struct task_id {
 using task_callback = std::function<void()>;
 
 // Internal task representation
-struct scheduled_task {
+struct scheduled_task
+{
     task_id id;
     task_callback callback;
 
@@ -47,42 +50,39 @@ struct scheduled_task {
     bool cancelled{false};
 
     // Create a one-shot task
-    static auto one_shot(task_id id, time_point when, task_callback cb) -> scheduled_task {
-        return scheduled_task{
-            .id = id,
-            .callback = std::move(cb),
-            .execute_at = when,
-            .interval = duration_ms{0},
-            .tag = "",
-            .active = true,
-            .cancelled = false
-        };
+    static auto one_shot(task_id id, time_point when, task_callback cb) -> scheduled_task
+    {
+        return scheduled_task{.id = id,
+                              .callback = std::move(cb),
+                              .execute_at = when,
+                              .interval = duration_ms{0},
+                              .tag = "",
+                              .active = true,
+                              .cancelled = false};
     }
 
     // Create a repeating task
-    static auto repeating(task_id id, time_point first_run, duration_ms interval, task_callback cb) -> scheduled_task {
-        return scheduled_task{
-            .id = id,
-            .callback = std::move(cb),
-            .execute_at = first_run,
-            .interval = interval,
-            .tag = "",
-            .active = true,
-            .cancelled = false
-        };
+    static auto repeating(task_id id, time_point first_run, duration_ms interval, task_callback cb) -> scheduled_task
+    {
+        return scheduled_task{.id = id,
+                              .callback = std::move(cb),
+                              .execute_at = first_run,
+                              .interval = interval,
+                              .tag = "",
+                              .active = true,
+                              .cancelled = false};
     }
 };
 
-}  // namespace hb
+} // namespace hb
 
 // Hash specialization for task_id
-namespace std {
+namespace std
+{
 
-template<>
-struct hash<hb::task_id> {
-    auto operator()(const hb::task_id& id) const noexcept -> size_t {
-        return hash<uint64_t>{}(id.value);
-    }
+template<> struct hash<hb::task_id>
+{
+    auto operator()(const hb::task_id& id) const noexcept -> size_t { return hash<uint64_t>{}(id.value); }
 };
 
-}  // namespace std
+} // namespace std

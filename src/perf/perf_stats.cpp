@@ -13,7 +13,8 @@
 #include <algorithm>
 #include <cmath>
 
-namespace hb::perf {
+namespace hb::perf
+{
 
 // timing_stats implementation
 
@@ -21,8 +22,10 @@ void timing_stats::add_sample(double us)
 {
     total_us += us;
     ++sample_count;
-    if (us < min_us) min_us = us;
-    if (us > max_us) max_us = us;
+    if (us < min_us)
+        min_us = us;
+    if (us > max_us)
+        max_us = us;
 }
 
 void timing_stats::reset()
@@ -35,7 +38,8 @@ void timing_stats::reset()
 
 auto timing_stats::avg_us() const -> double
 {
-    if (sample_count == 0) return 0.0;
+    if (sample_count == 0)
+        return 0.0;
     return total_us / static_cast<double>(sample_count);
 }
 
@@ -46,7 +50,8 @@ void sample_buffer::add(double value)
     samples[write_pos] = value;
     timestamps[write_pos] = std::chrono::system_clock::now();
     write_pos = (write_pos + 1) % sample_buffer_capacity;
-    if (count < sample_buffer_capacity) ++count;
+    if (count < sample_buffer_capacity)
+        ++count;
 
     // Welford's online algorithm update
     ++welford_n;
@@ -67,7 +72,8 @@ void sample_buffer::reset()
 
 auto sample_buffer::welford_variance() const -> double
 {
-    if (welford_n < 2) return 0.0;
+    if (welford_n < 2)
+        return 0.0;
     return welford_m2 / static_cast<double>(welford_n - 1);
 }
 
@@ -78,7 +84,8 @@ auto sample_buffer::welford_stddev() const -> double
 
 auto sample_buffer::percentile(double p) const -> double
 {
-    if (count == 0) return 0.0;
+    if (count == 0)
+        return 0.0;
 
     // Copy valid samples and sort
     std::vector<double> sorted(count);
@@ -96,7 +103,8 @@ auto sample_buffer::percentile(double p) const -> double
 
     // Calculate percentile index
     auto index = static_cast<size_t>(std::ceil(p / 100.0 * static_cast<double>(count))) - 1;
-    if (index >= count) index = count - 1;
+    if (index >= count)
+        index = count - 1;
     return sorted[index];
 }
 
@@ -114,15 +122,18 @@ auto sample_buffer::get_windowed_stats(std::chrono::system_clock::time_point win
         if (timestamps[i] >= window_start)
         {
             double val = samples[i];
-            if (val < min_val) min_val = val;
-            if (val > max_val) max_val = val;
+            if (val < min_val)
+                min_val = val;
+            if (val > max_val)
+                max_val = val;
             sum += val;
             ++windowed_count;
         }
     }
 
     double avg = windowed_count > 0 ? sum / static_cast<double>(windowed_count) : 0.0;
-    if (min_val == 1e18) min_val = 0.0;
+    if (min_val == 1e18)
+        min_val = 0.0;
 
     return std::make_tuple(min_val, max_val, avg);
 }
@@ -155,7 +166,8 @@ void perf_stats_system::shutdown()
 
 void perf_stats_system::update(float delta_time)
 {
-    if (!enabled_.load(std::memory_order_relaxed)) return;
+    if (!enabled_.load(std::memory_order_relaxed))
+        return;
 
     // Update per-second rates every second
     rate_accumulator_ += delta_time;
@@ -187,10 +199,12 @@ void perf_stats_system::update(float delta_time)
 
 void perf_stats_system::record_timing(metric_category cat, double duration_us)
 {
-    if (!enabled_.load(std::memory_order_relaxed)) return;
+    if (!enabled_.load(std::memory_order_relaxed))
+        return;
 
     auto idx = static_cast<size_t>(cat);
-    if (idx >= metric_category_count) return;
+    if (idx >= metric_category_count)
+        return;
 
     std::lock_guard lock(timing_[idx].mutex);
     timing_[idx].stats.add_sample(duration_us);
@@ -200,14 +214,16 @@ void perf_stats_system::record_timing(metric_category cat, double duration_us)
 void perf_stats_system::increment_counter(metric_category cat, uint64_t delta)
 {
     auto idx = static_cast<size_t>(cat);
-    if (idx >= metric_category_count) return;
+    if (idx >= metric_category_count)
+        return;
     counters_[idx].fetch_add(delta, std::memory_order_relaxed);
 }
 
 auto perf_stats_system::get_timing_snapshot(metric_category cat) -> timing_snapshot
 {
     auto idx = static_cast<size_t>(cat);
-    if (idx >= metric_category_count) return {};
+    if (idx >= metric_category_count)
+        return {};
 
     std::lock_guard lock(timing_[idx].mutex);
     auto& buf = timing_[idx].samples;
@@ -233,7 +249,8 @@ auto perf_stats_system::get_timing_snapshot(metric_category cat) -> timing_snaps
 auto perf_stats_system::get_counter_snapshot(metric_category cat) -> counter_snapshot
 {
     auto idx = static_cast<size_t>(cat);
-    if (idx >= metric_category_count) return {};
+    if (idx >= metric_category_count)
+        return {};
 
     auto rate = rates_per_second_[idx];
 
@@ -257,19 +274,23 @@ auto perf_stats_system::get_all_timing_snapshots() -> std::vector<timing_snapsho
     for (size_t i = 0; i < metric_category_count; ++i)
     {
         auto cat = static_cast<metric_category>(i);
-        if (!is_timing_category(cat)) continue;
+        if (!is_timing_category(cat))
+            continue;
 
         result.push_back(get_timing_snapshot(cat));
     }
 
     // Sort by importance (critical first), then by name
-    std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
-        if (a.importance != b.importance)
-        {
-            return a.importance < b.importance;  // Lower value = more important
-        }
-        return a.name < b.name;
-    });
+    std::sort(result.begin(),
+              result.end(),
+              [](const auto& a, const auto& b)
+              {
+                  if (a.importance != b.importance)
+                  {
+                      return a.importance < b.importance; // Lower value = more important
+                  }
+                  return a.name < b.name;
+              });
 
     return result;
 }
@@ -280,20 +301,25 @@ auto perf_stats_system::get_all_counter_snapshots() -> std::vector<counter_snaps
     for (size_t i = 0; i < metric_category_count; ++i)
     {
         auto cat = static_cast<metric_category>(i);
-        if (is_timing_category(cat)) continue;
-        if (cat == metric_category::count) continue;
+        if (is_timing_category(cat))
+            continue;
+        if (cat == metric_category::count)
+            continue;
 
         result.push_back(get_counter_snapshot(cat));
     }
 
     // Sort by importance (critical first), then by name
-    std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
-        if (a.importance != b.importance)
-        {
-            return a.importance < b.importance;  // Lower value = more important
-        }
-        return a.name < b.name;
-    });
+    std::sort(result.begin(),
+              result.end(),
+              [](const auto& a, const auto& b)
+              {
+                  if (a.importance != b.importance)
+                  {
+                      return a.importance < b.importance; // Lower value = more important
+                  }
+                  return a.name < b.name;
+              });
 
     return result;
 }
@@ -320,11 +346,13 @@ void perf_stats_system::update_gauges()
 
 // Health computation helpers
 
-auto perf_stats_system::compute_timing_status(metric_category cat, double avg_ms,
-    const sample_buffer& buf) const -> health_status
+auto perf_stats_system::compute_timing_status(metric_category cat,
+                                              double avg_ms,
+                                              const sample_buffer& buf) const -> health_status
 {
     // Not enough samples to evaluate
-    if (buf.count < 10) return health_status::good;
+    if (buf.count < 10)
+        return health_status::good;
 
     auto threshold = default_timing_threshold(cat);
 
@@ -358,17 +386,20 @@ auto perf_stats_system::compute_timing_status(metric_category cat, double avg_ms
 auto perf_stats_system::compute_counter_status(metric_category cat, double per_second) const -> health_status
 {
     auto idx = static_cast<size_t>(cat);
-    if (idx >= metric_category_count) return health_status::good;
+    if (idx >= metric_category_count)
+        return health_status::good;
 
     const auto& cw = counter_welford_[idx];
 
     // Need enough rate samples for stable statistics
-    if (cw.n < 30) return health_status::good;
+    if (cw.n < 30)
+        return health_status::good;
 
     double variance = cw.n >= 2 ? cw.m2 / static_cast<double>(cw.n - 1) : 0.0;
     double stddev = std::sqrt(variance);
 
-    if (stddev <= 0.0) return health_status::good;
+    if (stddev <= 0.0)
+        return health_status::good;
 
     if (per_second > cw.mean + 3.0 * stddev)
         return health_status::critical;
@@ -385,8 +416,7 @@ void perf_stats_system::compute_gauge_statuses(gauge_snapshot& snapshot) const
     // Connection capacity check
     if (snapshot.max_connections > 0)
     {
-        double ratio = static_cast<double>(snapshot.active_connections)
-                     / static_cast<double>(snapshot.max_connections);
+        double ratio = static_cast<double>(snapshot.active_connections) / static_cast<double>(snapshot.max_connections);
         if (ratio >= 0.95)
             snapshot.statuses["active_connections"] = health_status::critical;
         else if (ratio >= 0.80)
@@ -415,31 +445,37 @@ auto perf_stats_system::compute_overall_health() -> health_status
     for (size_t i = 0; i < metric_category_count; ++i)
     {
         auto cat = static_cast<metric_category>(i);
-        if (!is_timing_category(cat)) continue;
+        if (!is_timing_category(cat))
+            continue;
         auto snap = get_timing_snapshot(cat);
         result = worse_status(result, snap.status);
-        if (result == health_status::critical) return result;
+        if (result == health_status::critical)
+            return result;
     }
 
     // Check all counter metrics
     for (size_t i = 0; i < metric_category_count; ++i)
     {
         auto cat = static_cast<metric_category>(i);
-        if (is_timing_category(cat)) continue;
-        if (cat == metric_category::count) continue;
+        if (is_timing_category(cat))
+            continue;
+        if (cat == metric_category::count)
+            continue;
         auto snap = get_counter_snapshot(cat);
         result = worse_status(result, snap.status);
-        if (result == health_status::critical) return result;
+        if (result == health_status::critical)
+            return result;
     }
 
     // Check gauge statuses
     for (const auto& [name, status] : cached_gauges_.statuses)
     {
         result = worse_status(result, status);
-        if (result == health_status::critical) return result;
+        if (result == health_status::critical)
+            return result;
     }
 
     return result;
 }
 
-}  // namespace hb::perf
+} // namespace hb::perf

@@ -15,43 +15,50 @@
 #include <chrono>
 #include <cstdint>
 
-namespace hb {
-    class fishing_registry;
-    class scheduler;
+namespace hb
+{
+class fishing_registry;
+class scheduler;
+} // namespace hb
+
+namespace hb::skill
+{
+class skill_system;
 }
 
-namespace hb::skill {
-    class skill_system;
+namespace hb::inventory
+{
+class inventory_system;
 }
 
-namespace hb::inventory {
-    class inventory_system;
+namespace hb::item
+{
+class item_system;
 }
 
-namespace hb::item {
-    class item_system;
+namespace hb::player
+{
+class player_system;
 }
 
-namespace hb::player {
-    class player_system;
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::world {
-    class world_subsystem;
-}
-
-namespace hb::crafting {
+namespace hb::crafting
+{
 
 // Active fish node on the map (like legacy CFish class)
 struct fish_node
 {
-    uint32_t index{};                   // Node ID (1-199, 0 reserved = empty)
-    int32_t type_id{};                  // fish_type_config ID
+    uint32_t index{};  // Node ID (1-199, 0 reserved = empty)
+    int32_t type_id{}; // fish_type_config ID
     std::string map_name;
     int16_t x{};
     int16_t y{};
     const fish_type_config* config{};
-    int32_t engaging_count{};           // # players currently fishing this node
+    int32_t engaging_count{}; // # players currently fishing this node
     std::chrono::steady_clock::time_point spawn_time{};
     duration_ms lifespan{};
 };
@@ -80,8 +87,10 @@ public:
     void start_generation();
 
     // Engagement flow: find a fish within 2 tiles of player
-    auto check_fish_nearby(entity_id player_eid, const std::string& map_name,
-                           int16_t player_x, int16_t player_y) -> std::optional<uint32_t>;
+    auto check_fish_nearby(entity_id player_eid,
+                           const std::string& map_name,
+                           int16_t player_x,
+                           int16_t player_y) -> std::optional<uint32_t>;
 
     // Player attempts catch (clicks "Try Now!")
     auto attempt_catch(entity_id player_eid) -> fish_catch_result;
@@ -108,14 +117,14 @@ public:
 
     // Static for unit testing
     [[nodiscard]] static auto calculate_chance_change(int16_t skill, int16_t difficulty)
-        -> std::pair<int32_t, int32_t>;  // {effective_skill, max_change}
+        -> std::pair<int32_t, int32_t>; // {effective_skill, max_change}
 
 private:
-    void generate_fish();           // Periodic scheduler callback — spawn new fish
-    void update_fishing_chances();  // Every 4s — update all engaged players' catch %
-    void cleanup_expired_fish();    // Remove timed-out fish nodes
+    void generate_fish();          // Periodic scheduler callback — spawn new fish
+    void update_fishing_chances(); // Every 4s — update all engaged players' catch %
+    void cleanup_expired_fish();   // Remove timed-out fish nodes
 
-    auto find_free_slot() -> uint32_t;  // Find empty slot in fish_nodes_ (0 = none)
+    auto find_free_slot() -> uint32_t; // Find empty slot in fish_nodes_ (0 = none)
     void delete_fish_node(uint32_t index, catch_result reason);
 
     player::player_system* players_{nullptr};
@@ -136,4 +145,4 @@ private:
     catch_complete_callback catch_complete_callback_;
 };
 
-}  // namespace hb::crafting
+} // namespace hb::crafting

@@ -15,60 +15,66 @@
 #include <optional>
 #include <chrono>
 
-namespace hb::world {
+namespace hb::world
+{
 
 // Random mob generator configuration
-struct random_mob_generator_config {
+struct random_mob_generator_config
+{
     bool enabled{false};
-    int level{0};  // 1-7+ determines which NPC groups can spawn
+    int level{0}; // 1-7+ determines which NPC groups can spawn
 };
 
 // Mineral generator configuration (controls which mineral types can spawn)
-struct mineral_generator_config {
+struct mineral_generator_config
+{
     bool enabled{false};
-    int level{0};  // 1-6, max mineral type that can spawn
+    int level{0}; // 1-6, max mineral type that can spawn
 };
 
 // Mineral spawn point (predefined position where minerals can appear)
-struct mineral_point {
+struct mineral_point
+{
     int16_t id{0};
     int16_t x{0};
     int16_t y{0};
 };
 
 // Fish spawn point (predefined position where fish can appear, near water)
-struct fish_point {
+struct fish_point
+{
     int16_t id{0};
     int16_t x{0};
     int16_t y{0};
 };
 
 // Map configuration
-struct map_config {
+struct map_config
+{
     std::string name;
     std::string location_name;
     int16_t width{0};
     int16_t height{0};
 
     // Map properties
-    bool is_fixed_day_mode{false};      // Always daylight
-    bool is_attack_enabled{true};       // PvP allowed
-    bool is_fight_zone{false};          // Arena map
-    bool is_snow_enabled{false};        // Snow instead of rain
-    bool is_recall_impossible{false};   // Cannot use recall
-    bool is_potions_disabled{false};    // Cannot use potions
-    bool is_apocalypse_map{false};      // Special apocalypse map
-    bool is_heldenian_map{false};       // Heldenian event map
+    bool is_fixed_day_mode{false};    // Always daylight
+    bool is_attack_enabled{true};     // PvP allowed
+    bool is_fight_zone{false};        // Arena map
+    bool is_snow_enabled{false};      // Snow instead of rain
+    bool is_recall_impossible{false}; // Cannot use recall
+    bool is_potions_disabled{false};  // Cannot use potions
+    bool is_apocalypse_map{false};    // Special apocalypse map
+    bool is_heldenian_map{false};     // Heldenian event map
 
-    int level_limit{0};                 // Minimum level to enter
-    int upper_level_limit{0};           // Maximum level to enter (0 = no limit)
+    int level_limit{0};       // Minimum level to enter
+    int upper_level_limit{0}; // Maximum level to enter (0 = no limit)
 
-    uint8_t map_type{0};                // 0 = normal, 1 = no penalty/reward
+    uint8_t map_type{0}; // 0 = normal, 1 = no penalty/reward
 
     // View mode override (nullopt = use server default)
     std::optional<uint8_t> view_mode_override;   // 0=scaled, 1=extended, 2=special
-    std::optional<int16_t> fair_width_override;   // Per-map fair zone width
-    std::optional<int16_t> fair_height_override;  // Per-map fair zone height
+    std::optional<int16_t> fair_width_override;  // Per-map fair zone width
+    std::optional<int16_t> fair_height_override; // Per-map fair zone height
 
     // Random mob spawning outside of defined spawners
     random_mob_generator_config random_mob_generator;
@@ -79,44 +85,50 @@ struct map_config {
 };
 
 // Teleport destination info
-struct teleport_dest {
+struct teleport_dest
+{
     std::string dest_map;
     int16_t dest_x{0};
     int16_t dest_y{0};
-    direction dest_dir{direction::south};  // Default facing south
+    direction dest_dir{direction::south}; // Default facing south
 };
 
 // Initial spawn point for new characters
-struct initial_point {
+struct initial_point
+{
     int16_t id{0};
     int16_t x{0};
     int16_t y{0};
 };
 
 // No-attack area (safe zone)
-struct safe_zone {
+struct safe_zone
+{
     rect area;
 };
 
 // Spot mob generator - defines NPC spawn areas
-struct spot_mob_generator {
+struct spot_mob_generator
+{
     int16_t id{0};
-    int16_t type{0};              // 1 = rect area, 2 = waypoint path
-    rect area;                     // Spawn bounding box
-    int16_t npc_type{0};          // NPC template ID to spawn
-    int16_t max_count{0};         // Maximum NPCs to spawn
+    int16_t type{0};      // 1 = rect area, 2 = waypoint path
+    rect area;            // Spawn bounding box
+    int16_t npc_type{0};  // NPC template ID to spawn
+    int16_t max_count{0}; // Maximum NPCs to spawn
     bool enabled{true};
 };
 
 // Waypoint for NPC pathing
-struct waypoint {
+struct waypoint
+{
     int16_t id{0};
     int16_t x{0};
     int16_t y{0};
 };
 
 // Weather status
-enum class weather_type : uint8_t {
+enum class weather_type : uint8_t
+{
     clear = 0,
     light_rain = 1,
     rain = 2,
@@ -129,7 +141,8 @@ enum class weather_type : uint8_t {
 };
 
 // Game map class
-class map {
+class map
+{
 public:
     map() = default;
     ~map() = default;
@@ -163,12 +176,13 @@ public:
     [[nodiscard]] auto height() const -> int16_t { return config_.height; }
 
     // Position validation
-    [[nodiscard]] auto is_valid_position(const position& pos) const -> bool {
-        return pos.x >= 0 && pos.x < config_.width &&
-               pos.y >= 0 && pos.y < config_.height;
+    [[nodiscard]] auto is_valid_position(const position& pos) const -> bool
+    {
+        return pos.x >= 0 && pos.x < config_.width && pos.y >= 0 && pos.y < config_.height;
     }
 
-    [[nodiscard]] auto is_valid_position(int16_t x, int16_t y) const -> bool {
+    [[nodiscard]] auto is_valid_position(int16_t x, int16_t y) const -> bool
+    {
         return x >= 0 && x < config_.width && y >= 0 && y < config_.height;
     }
 
@@ -185,7 +199,7 @@ public:
     // Movement queries
     [[nodiscard]] auto is_walkable(const position& pos) const -> bool;
     [[nodiscard]] auto is_walkable(int16_t x, int16_t y) const -> bool;
-    [[nodiscard]] auto can_move_to(const position& pos) const -> bool;  // Walkable and not occupied
+    [[nodiscard]] auto can_move_to(const position& pos) const -> bool; // Walkable and not occupied
 
     // Tile property queries
     [[nodiscard]] auto is_teleport(const position& pos) const -> bool;
@@ -195,8 +209,7 @@ public:
     // Teleport lookup and management
     [[nodiscard]] auto get_teleport_dest(const position& pos) const -> std::optional<teleport_dest>;
     void add_teleport(const position& pos, const teleport_dest& dest);
-    [[nodiscard]] auto get_all_teleports() const
-        -> const std::unordered_map<position, teleport_dest>&;
+    [[nodiscard]] auto get_all_teleports() const -> const std::unordered_map<position, teleport_dest>&;
     auto remove_teleport(const position& pos) -> bool;
     [[nodiscard]] auto teleport_count() const -> size_t;
 
@@ -217,17 +230,16 @@ public:
     [[nodiscard]] auto get_waypoint(int16_t id) const -> std::optional<position>;
 
     // Random mob generator
-    [[nodiscard]] auto random_mob_generator_enabled() const -> bool {
-        return config_.random_mob_generator.enabled;
-    }
-    [[nodiscard]] auto random_mob_generator_level() const -> int {
-        return config_.random_mob_generator.level;
-    }
+    [[nodiscard]] auto random_mob_generator_enabled() const -> bool { return config_.random_mob_generator.enabled; }
+    [[nodiscard]] auto random_mob_generator_level() const -> int { return config_.random_mob_generator.level; }
 
     // Mineral points
     [[nodiscard]] auto get_mineral_points() const -> const std::vector<mineral_point>& { return mineral_points_; }
     [[nodiscard]] auto mineral_point_count() const -> size_t { return mineral_points_.size(); }
-    [[nodiscard]] auto get_mineral_generator() const -> const mineral_generator_config& { return config_.mineral_generator; }
+    [[nodiscard]] auto get_mineral_generator() const -> const mineral_generator_config&
+    {
+        return config_.mineral_generator;
+    }
     [[nodiscard]] auto max_mineral() const -> int16_t { return config_.max_mineral; }
 
     // Fish points
@@ -282,18 +294,15 @@ public:
     }
 
     // Statistics
-    [[nodiscard]] auto total_tiles() const -> size_t {
-        return static_cast<size_t>(config_.width) * config_.height;
-    }
+    [[nodiscard]] auto total_tiles() const -> size_t { return static_cast<size_t>(config_.width) * config_.height; }
 
 private:
-    [[nodiscard]] auto tile_index(int16_t x, int16_t y) const -> size_t {
+    [[nodiscard]] auto tile_index(int16_t x, int16_t y) const -> size_t
+    {
         return static_cast<size_t>(y) * config_.width + x;
     }
 
-    [[nodiscard]] auto tile_index(const position& pos) const -> size_t {
-        return tile_index(pos.x, pos.y);
-    }
+    [[nodiscard]] auto tile_index(const position& pos) const -> size_t { return tile_index(pos.x, pos.y); }
 
     map_id id_{0};
     map_config config_;
@@ -338,4 +347,4 @@ private:
     std::filesystem::path source_path_;
 };
 
-}  // namespace hb::world
+} // namespace hb::world

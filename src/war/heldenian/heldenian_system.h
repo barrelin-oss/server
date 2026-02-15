@@ -15,32 +15,39 @@
 #include <unordered_map>
 #include <vector>
 
-namespace hb {
-    class scheduler;
+namespace hb
+{
+class scheduler;
 }
 
-namespace hb::war {
-    class war_system;
-    class war_persistence;
+namespace hb::war
+{
+class war_system;
+class war_persistence;
+} // namespace hb::war
+
+namespace hb::player
+{
+class player_system;
 }
 
-namespace hb::player {
-    class player_system;
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::world {
-    class world_subsystem;
+namespace hb::npc
+{
+class npc_system;
 }
 
-namespace hb::npc {
-    class npc_system;
+namespace hb::network
+{
+struct json_message;
 }
 
-namespace hb::network {
-    struct json_message;
-}
-
-namespace hb::war {
+namespace hb::war
+{
 
 // Broadcast callbacks
 using heldenian_broadcast_fn = std::function<void(player_id, const network::json_message&)>;
@@ -48,7 +55,8 @@ using heldenian_broadcast_all_fn = std::function<void(const network::json_messag
 using heldenian_evacuate_fn = std::function<void(player_id, const std::string&)>;
 
 // Result codes
-enum class heldenian_result : uint8_t {
+enum class heldenian_result : uint8_t
+{
     success = 0,
     not_active = 1,
     already_active = 2,
@@ -56,7 +64,8 @@ enum class heldenian_result : uint8_t {
     config_error = 4,
 };
 
-class heldenian_system : public subsystem {
+class heldenian_system : public subsystem
+{
 public:
     heldenian_system();
     ~heldenian_system() override;
@@ -113,8 +122,8 @@ public:
 
     // ========== Teleportation ==========
 
-    [[nodiscard]] auto get_teleport_destination(war_faction player_faction) const
-        -> std::optional<heldenian_teleport_coords>;
+    [[nodiscard]] auto
+    get_teleport_destination(war_faction player_faction) const -> std::optional<heldenian_teleport_coords>;
 
     // ========== Player State ==========
 
@@ -199,4 +208,4 @@ private:
     heldenian_evacuate_fn evacuate_fn_;
 };
 
-}  // namespace hb::war
+} // namespace hb::war

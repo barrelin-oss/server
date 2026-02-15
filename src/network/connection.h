@@ -17,10 +17,12 @@
 #include <atomic>
 #include <unordered_map>
 
-namespace hb::network {
+namespace hb::network
+{
 
 // Connection state
-enum class connection_state : uint8_t {
+enum class connection_state : uint8_t
+{
     connecting = 0,
     connected,
     disconnecting,
@@ -28,7 +30,8 @@ enum class connection_state : uint8_t {
 };
 
 // Connection statistics
-struct connection_stats {
+struct connection_stats
+{
     uint64_t bytes_sent{0};
     uint64_t bytes_received{0};
     uint64_t messages_sent{0};
@@ -38,7 +41,8 @@ struct connection_stats {
 };
 
 // Individual client connection
-class connection {
+class connection
+{
 public:
     explicit connection(connection_id id, tcp_socket socket, socket_address address);
     ~connection();
@@ -99,7 +103,8 @@ private:
 };
 
 // Connection manager (internal to network subsystem)
-class connection_manager {
+class connection_manager
+{
 public:
     connection_manager() = default;
     ~connection_manager() = default;
@@ -119,18 +124,20 @@ public:
     [[nodiscard]] auto count() const -> size_t;
 
     // Iteration
-    template<typename F>
-    void for_each(F&& func) {
+    template<typename F> void for_each(F&& func)
+    {
         std::lock_guard lock{mutex_};
-        for (auto& [id, conn] : connections_) {
+        for (auto& [id, conn] : connections_)
+        {
             func(*conn);
         }
     }
 
-    template<typename F>
-    void for_each(F&& func) const {
+    template<typename F> void for_each(F&& func) const
+    {
         std::lock_guard lock{mutex_};
-        for (const auto& [id, conn] : connections_) {
+        for (const auto& [id, conn] : connections_)
+        {
             func(*conn);
         }
     }
@@ -143,4 +150,4 @@ private:
     uint32_t next_id_{1};
 };
 
-}  // namespace hb::network
+} // namespace hb::network

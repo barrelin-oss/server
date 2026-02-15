@@ -23,7 +23,8 @@
 #include <random>
 #include <unordered_set>
 
-namespace hb::war {
+namespace hb::war
+{
 
 crusade_system::crusade_system() = default;
 
@@ -46,8 +47,7 @@ void crusade_system::initialize()
         if (winner_result.is_ok())
         {
             last_crusade_winner_ = winner_result.value();
-            LOG_INFO(general, "Loaded last crusade winner: faction {}",
-                static_cast<int>(last_crusade_winner_));
+            LOG_INFO(general, "Loaded last crusade winner: faction {}", static_cast<int>(last_crusade_winner_));
         }
 
         auto advantage_result = persistence_->load_crusade_advantage();
@@ -124,7 +124,7 @@ void crusade_system::update(float delta_time)
             }
             else
             {
-                end_crusade(war_faction::neutral);  // Draw
+                end_crusade(war_faction::neutral); // Draw
             }
         }
     }
@@ -148,10 +148,10 @@ void crusade_system::update(float delta_time)
 }
 
 void crusade_system::set_dependencies(war_system* war,
-                                       player::player_system* players,
-                                       world::world_subsystem* world,
-                                       npc::npc_system* npcs,
-                                       scheduler* sched)
+                                      player::player_system* players,
+                                      world::world_subsystem* world,
+                                      npc::npc_system* npcs,
+                                      scheduler* sched)
 {
     war_ = war;
     players_ = players;
@@ -163,10 +163,11 @@ void crusade_system::set_dependencies(war_system* war,
 void crusade_system::set_config(const crusade_config& config)
 {
     config_ = config;
-    LOG_INFO(general, "Crusade config loaded: {} schedule entries, {} aresden strike points, {} elvine strike points",
-        config_.schedule.size(),
-        config_.aresden_strike_points.size(),
-        config_.elvine_strike_points.size());
+    LOG_INFO(general,
+             "Crusade config loaded: {} schedule entries, {} aresden strike points, {} elvine strike points",
+             config_.schedule.size(),
+             config_.aresden_strike_points.size(),
+             config_.elvine_strike_points.size());
 }
 
 // ========== Lifecycle ==========
@@ -234,7 +235,7 @@ auto crusade_system::start_crusade() -> result<war_id, crusade_result>
                 {
                     war_structure_instance ws;
                     ws.eid = npc_result.value();
-                    ws.type = static_cast<war_unit_type>(0);  // pre-placed, not player-summonable type
+                    ws.type = static_cast<war_unit_type>(0); // pre-placed, not player-summonable type
                     ws.faction = is.faction;
                     ws.map_name = is.map_name;
                     ws.x = is.x;
@@ -243,17 +244,33 @@ auto crusade_system::start_crusade() -> result<war_id, crusade_result>
                     // Map NPC type to war_unit_type if possible
                     switch (is.npc_type)
                     {
-                        case 36: ws.type = war_unit_type::agt; break;
-                        case 37: ws.type = war_unit_type::cgt; break;
-                        case 38: ws.type = war_unit_type::mana_collector; break;
-                        case 39: ws.type = war_unit_type::detector; break;
-                        case 40: ws.type = war_unit_type::esg; break;
-                        default: break;
+                    case 36:
+                        ws.type = war_unit_type::agt;
+                        break;
+                    case 37:
+                        ws.type = war_unit_type::cgt;
+                        break;
+                    case 38:
+                        ws.type = war_unit_type::mana_collector;
+                        break;
+                    case 39:
+                        ws.type = war_unit_type::detector;
+                        break;
+                    case 40:
+                        ws.type = war_unit_type::esg;
+                        break;
+                    default:
+                        break;
                     }
 
                     war_structures_.push_back(ws);
-                    LOG_DEBUG(general, "Spawned initial structure NPC type {} at {}({},{}) for faction {}",
-                        is.npc_type, is.map_name, is.x, is.y, static_cast<int>(is.faction));
+                    LOG_DEBUG(general,
+                              "Spawned initial structure NPC type {} at {}({},{}) for faction {}",
+                              is.npc_type,
+                              is.map_name,
+                              is.x,
+                              is.y,
+                              static_cast<int>(is.faction));
                 }
             }
         }
@@ -279,32 +296,35 @@ auto crusade_system::start_crusade() -> result<war_id, crusade_result>
     // Force recall players in enemy territory (legacy: m_iTimeLeft_ForceRecall = 0)
     if (force_recall_ && players_ && world_)
     {
-        players_->for_each_player([&](player_id pid, player::player& plr)
-        {
-            if (plr.faction == hb::faction::neutral) return;
-
-            war_faction plr_faction = (plr.faction == hb::faction::aresden)
-                ? war_faction::aresden : war_faction::elvine;
-
-            auto* m = world_->get_map(plr.current_map);
-            if (!m) return;
-
-            std::string map_name_str(m->name());
-            war_faction map_faction = war_faction::neutral;
-
-            // Determine map faction from name
-            if (map_name_str.starts_with("aresden"))
-                map_faction = war_faction::aresden;
-            else if (map_name_str.starts_with("elvine"))
-                map_faction = war_faction::elvine;
-            else if (force_recall_system::is_building_map(map_name_str))
-                map_faction = force_recall_system::get_building_faction(map_name_str);
-
-            if (map_faction != war_faction::neutral && map_faction != plr_faction)
+        players_->for_each_player(
+            [&](player_id pid, player::player& plr)
             {
-                force_recall_->check_player_territory(pid, plr_faction, map_faction, {});
-            }
-        });
+                if (plr.faction == hb::faction::neutral)
+                    return;
+
+                war_faction plr_faction =
+                    (plr.faction == hb::faction::aresden) ? war_faction::aresden : war_faction::elvine;
+
+                auto* m = world_->get_map(plr.current_map);
+                if (!m)
+                    return;
+
+                std::string map_name_str(m->name());
+                war_faction map_faction = war_faction::neutral;
+
+                // Determine map faction from name
+                if (map_name_str.starts_with("aresden"))
+                    map_faction = war_faction::aresden;
+                else if (map_name_str.starts_with("elvine"))
+                    map_faction = war_faction::elvine;
+                else if (force_recall_system::is_building_map(map_name_str))
+                    map_faction = force_recall_system::get_building_faction(map_name_str);
+
+                if (map_faction != war_faction::neutral && map_faction != plr_faction)
+                {
+                    force_recall_->check_player_territory(pid, plr_faction, map_faction, {});
+                }
+            });
     }
 
     return result<war_id, crusade_result>::ok(wid);
@@ -317,8 +337,7 @@ auto crusade_system::end_crusade(war_faction winner) -> crusade_result
         return crusade_result::not_active;
     }
 
-    LOG_INFO(general, "Crusade ending. Winner: faction {} (elapsed: {}s)",
-        static_cast<int>(winner), elapsed_seconds_);
+    LOG_INFO(general, "Crusade ending. Winner: faction {} (elapsed: {}s)", static_cast<int>(winner), elapsed_seconds_);
 
     // Track winner for next crusade's commander bonus
     last_crusade_winner_ = winner;
@@ -339,18 +358,17 @@ auto crusade_system::end_crusade(war_faction winner) -> crusade_result
     // (Offline players get rewards delivered at login via war_persistence)
     for (const auto& [pid, pdata] : player_data_)
     {
-        if (!players_) continue;
+        if (!players_)
+            continue;
         auto* plr = players_->get_player(pid);
-        if (!plr) continue;  // Offline — rewards persisted for login delivery
+        if (!plr)
+            continue; // Offline — rewards persisted for login delivery
 
-        auto reward = calculate_crusade_reward(
-            pdata.war_contribution, plr->experience.level, pdata.faction, winner);
+        auto reward = calculate_crusade_reward(pdata.war_contribution, plr->experience.level, pdata.faction, winner);
 
         // Send reward summary (gold is always 0 for crusade)
         auto msg = network::make_crusade_reward_summary(
-            0, static_cast<uint8_t>(winner),
-            pdata.war_contribution, reward.experience,
-            0, 0);
+            0, static_cast<uint8_t>(winner), pdata.war_contribution, reward.experience, 0, 0);
         send_to_player(pid, msg);
 
         // Apply EXP
@@ -372,7 +390,8 @@ auto crusade_system::end_crusade(war_faction winner) -> crusade_result
 
 void crusade_system::cancel_crusade()
 {
-    if (!active_) return;
+    if (!active_)
+        return;
 
     LOG_INFO(general, "Crusade cancelled");
 
@@ -397,9 +416,12 @@ auto crusade_system::get_strike_points(war_faction faction) const -> const std::
     static const std::vector<strike_point> empty;
     switch (faction)
     {
-        case war_faction::aresden: return aresden_strike_points_;
-        case war_faction::elvine: return elvine_strike_points_;
-        default: return empty;
+    case war_faction::aresden:
+        return aresden_strike_points_;
+    case war_faction::elvine:
+        return elvine_strike_points_;
+    default:
+        return empty;
     }
 }
 
@@ -412,15 +434,23 @@ auto crusade_system::damage_strike_point(war_faction faction, uint16_t point_id,
         if (sp.id == point_id && !sp.is_destroyed())
         {
             sp.hp = std::max(0, sp.hp - damage);
-            LOG_DEBUG(general, "Strike point {}/{} took {} damage, hp={}/{}",
-                static_cast<int>(faction), point_id, damage, sp.hp, sp.max_hp);
+            LOG_DEBUG(general,
+                      "Strike point {}/{} took {} damage, hp={}/{}",
+                      static_cast<int>(faction),
+                      point_id,
+                      damage,
+                      sp.hp,
+                      sp.max_hp);
 
             // Disable linked map when strike point is destroyed (legacy: m_bIsDisabled)
             if (sp.is_destroyed() && !sp.linked_map.empty() && world_)
             {
                 world_->set_map_disabled(sp.linked_map, true);
-                LOG_INFO(general, "Map '{}' disabled — strike point {}/{} destroyed",
-                    sp.linked_map, static_cast<int>(faction), point_id);
+                LOG_INFO(general,
+                         "Map '{}' disabled — strike point {}/{} destroyed",
+                         sp.linked_map,
+                         static_cast<int>(faction),
+                         point_id);
             }
 
             broadcast_strike_point_update(faction);
@@ -434,8 +464,7 @@ auto crusade_system::damage_strike_point(war_faction faction, uint16_t point_id,
 auto crusade_system::all_strike_points_destroyed(war_faction faction) const -> bool
 {
     const auto& points = (faction == war_faction::aresden) ? aresden_strike_points_ : elvine_strike_points_;
-    return std::all_of(points.begin(), points.end(),
-        [](const strike_point& sp) { return sp.is_destroyed(); });
+    return std::all_of(points.begin(), points.end(), [](const strike_point& sp) { return sp.is_destroyed(); });
 }
 
 // ========== Player War State ==========
@@ -454,7 +483,7 @@ auto crusade_system::join_crusade(player_id pid, war_faction faction) -> crusade
 
     if (player_data_.contains(pid))
     {
-        return crusade_result::success;  // Already in, no-op
+        return crusade_result::success; // Already in, no-op
     }
 
     crusade_player_data data;
@@ -523,10 +552,12 @@ auto crusade_system::select_duty(player_id pid, crusade_duty duty) -> crusade_re
     if (duty == crusade_duty::commander && social_)
     {
         auto gid = social_->get_player_guild(pid);
-        if (!gid.is_valid()) return crusade_result::not_guild_master;
+        if (!gid.is_valid())
+            return crusade_result::not_guild_master;
 
         auto* g = social_->get_guild(gid);
-        if (!g) return crusade_result::not_guild_master;
+        if (!g)
+            return crusade_result::not_guild_master;
 
         auto* member = g->get_member(pid);
         if (!member || member->rank != social::guild_rank::guild_master)
@@ -538,16 +569,14 @@ auto crusade_system::select_duty(player_id pid, crusade_duty duty) -> crusade_re
     data->duty = duty;
 
     // Award bonus construction points to commanders of the previous winning faction
-    if (duty == crusade_duty::commander &&
-        last_crusade_winner_ == data->faction &&
+    if (duty == crusade_duty::commander && last_crusade_winner_ == data->faction &&
         last_crusade_winner_ != war_faction::neutral)
     {
         data->construction_points += config_.construction.commander_bonus_points;
         data->construction_points = std::min(data->construction_points, max_construction_points);
     }
 
-    LOG_DEBUG(general, "Player {} selected duty {} in crusade",
-        pid.value, static_cast<int>(duty));
+    LOG_DEBUG(general, "Player {} selected duty {} in crusade", pid.value, static_cast<int>(duty));
 
     return crusade_result::success;
 }
@@ -597,7 +626,8 @@ void crusade_system::award_contribution(player_id pid, int32_t amount)
 
 auto crusade_system::check_schedule() const -> bool
 {
-    if (config_.schedule.empty()) return false;
+    if (config_.schedule.empty())
+        return false;
 
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
@@ -610,9 +640,7 @@ auto crusade_system::check_schedule() const -> bool
 
     for (const auto& entry : config_.schedule)
     {
-        if (local_tm.tm_wday == entry.day_of_week &&
-            local_tm.tm_hour == entry.hour &&
-            local_tm.tm_min == entry.minute)
+        if (local_tm.tm_wday == entry.day_of_week && local_tm.tm_hour == entry.hour && local_tm.tm_min == entry.minute)
         {
             return true;
         }
@@ -701,11 +729,7 @@ void crusade_system::broadcast_strike_point_update(war_faction faction)
     nlohmann::json sp_array = nlohmann::json::array();
     for (const auto& sp : points)
     {
-        sp_array.push_back({
-            {"id", sp.id},
-            {"hp", sp.hp},
-            {"max_hp", sp.max_hp}
-        });
+        sp_array.push_back({{"id", sp.id}, {"hp", sp.hp}, {"max_hp", sp.max_hp}});
     }
     data["strike_points"] = std::move(sp_array);
 
@@ -718,7 +742,8 @@ void crusade_system::broadcast_strike_point_update(war_faction faction)
 
 void crusade_system::check_victory_condition()
 {
-    if (!active_) return;
+    if (!active_)
+        return;
 
     // If all of a faction's strike points are destroyed, the OTHER faction wins
     if (all_strike_points_destroyed(war_faction::aresden))
@@ -735,11 +760,14 @@ void crusade_system::check_victory_condition()
 
 void crusade_system::persist_war_result(war_faction winner)
 {
-    if (!persistence_) return;
-    if (!war_) return;
+    if (!persistence_)
+        return;
+    if (!war_)
+        return;
 
     auto* war = war_->get_war(current_war_id_);
-    if (!war) return;
+    if (!war)
+        return;
 
     // Build war_result from current state
     war_result wr;
@@ -767,11 +795,13 @@ void crusade_system::persist_war_result(war_faction winner)
     for (const auto& [pid, pdata] : player_data_)
     {
         // Use character_id captured at join time (works even if player is offline now)
-        if (pdata.character_id == 0) continue;
+        if (pdata.character_id == 0)
+            continue;
 
         // Get participant stats from war_system
         auto* participant = war->get_participant(pid);
-        if (!participant) continue;
+        if (!participant)
+            continue;
 
         // Use level captured at join time, but prefer current level if player is still online
         int32_t level = pdata.level;
@@ -786,8 +816,7 @@ void crusade_system::persist_war_result(war_faction winner)
             }
         }
 
-        auto crusade_rwd = calculate_crusade_reward(
-            pdata.war_contribution, level, pdata.faction, winner);
+        auto crusade_rwd = calculate_crusade_reward(pdata.war_contribution, level, pdata.faction, winner);
 
         war_rewards rewards;
         rewards.experience = crusade_rwd.experience;
@@ -795,12 +824,10 @@ void crusade_system::persist_war_result(war_faction winner)
         rewards.contribution_points = pdata.war_contribution;
 
         persistence_->save_participant_with_claimed(
-            war_db_id, pdata.character_id, *participant,
-            static_cast<uint8_t>(pdata.duty), rewards, is_online);
+            war_db_id, pdata.character_id, *participant, static_cast<uint8_t>(pdata.duty), rewards, is_online);
     }
 
-    LOG_INFO(general, "Persisted crusade result (db_id={}, participants={})",
-        war_db_id, player_data_.size());
+    LOG_INFO(general, "Persisted crusade result (db_id={}, participants={})", war_db_id, player_data_.size());
 }
 
 void crusade_system::cleanup_crusade()
@@ -861,7 +888,8 @@ void crusade_system::cleanup_crusade()
     war_structures_.clear();
 
     // Flush deferred NPC deaths from war unit kills
-    if (npcs_) npcs_->flush_pending_deaths();
+    if (npcs_)
+        npcs_->flush_pending_deaths();
 
     // Clean up mana and meteor state
     mana_system_.reset();
@@ -896,28 +924,32 @@ void crusade_system::setup_mana_and_meteor()
     meteor_handler_.set_scheduler(scheduler_);
 
     // Wire meteor trigger: when mana system accumulates enough, fire meteor
-    mana_system_.set_meteor_trigger([this](war_faction attacking_faction) {
-        meteor_handler_.fire_meteor(attacking_faction);
-    });
+    mana_system_.set_meteor_trigger([this](war_faction attacking_faction)
+                                    { meteor_handler_.fire_meteor(attacking_faction); });
 
     // Wire meteor callbacks
     meteor_callbacks cbs;
 
-    cbs.get_esg_count = [this](war_faction faction, uint16_t point_id) -> int32_t {
+    cbs.get_esg_count = [this](war_faction faction, uint16_t point_id) -> int32_t
+    {
         const auto& points = get_strike_points(faction);
         const strike_point* sp = nullptr;
         for (const auto& p : points)
         {
-            if (p.id == point_id) { sp = &p; break; }
+            if (p.id == point_id)
+            {
+                sp = &p;
+                break;
+            }
         }
-        if (!sp) return 0;
+        if (!sp)
+            return 0;
 
         int32_t radius = meteor_handler_.get_config().esg_protection_radius;
         int32_t count = 0;
         for (const auto& ws : war_structures_)
         {
-            if (ws.type == war_unit_type::esg && ws.faction == faction
-                && ws.map_name == sp->map_name)
+            if (ws.type == war_unit_type::esg && ws.faction == faction && ws.map_name == sp->map_name)
             {
                 // Legacy uses rectangular (Manhattan-style) scan, not Euclidean
                 if (std::abs(ws.x - sp->x) <= radius && std::abs(ws.y - sp->y) <= radius)
@@ -929,32 +961,39 @@ void crusade_system::setup_mana_and_meteor()
         return count;
     };
 
-    cbs.damage_strike_point = [this](war_faction faction, uint16_t point_id, int32_t damage) -> bool {
+    cbs.damage_strike_point = [this](war_faction faction, uint16_t point_id, int32_t damage) -> bool
+    {
         return damage_strike_point(faction, point_id, damage);
     };
 
-    cbs.get_strike_points = [this](war_faction faction) -> std::vector<strike_point> {
+    cbs.get_strike_points = [this](war_faction faction) -> std::vector<strike_point>
+    {
         return get_strike_points(faction);
     };
 
-    cbs.broadcast_warning = [this](war_faction target, int32_t time_ms) {
+    cbs.broadcast_warning = [this](war_faction target, int32_t time_ms)
+    {
         broadcast_meteor_warning(target, time_ms);
     };
 
-    cbs.broadcast_result = [this](const meteor_event_result& result) {
+    cbs.broadcast_result = [this](const meteor_event_result& result)
+    {
         broadcast_meteor_result(result);
 
         // Check victory AFTER the full meteor sequence completes (legacy: CalcMeteorStrikeEffectHandler)
         check_victory_condition();
     };
 
-    cbs.damage_players = [this](war_faction target, int32_t /*wave*/) -> int32_t {
-        if (!players_) return 0;
+    cbs.damage_players = [this](war_faction target, int32_t /*wave*/) -> int32_t
+    {
+        if (!players_)
+            return 0;
         int32_t casualties = 0;
 
         // Get maps belonging to target faction
         const auto& target_points = get_strike_points(target);
-        if (target_points.empty()) return 0;
+        if (target_points.empty())
+            return 0;
 
         std::unordered_set<std::string> target_maps;
         for (const auto& sp : target_points)
@@ -962,62 +1001,66 @@ void crusade_system::setup_mana_and_meteor()
             target_maps.insert(sp.map_name);
         }
 
-        players_->for_each_player([&](player_id /*pid*/, player::player& plr) {
-            // Only damage players on target faction maps
-            if (world_)
+        players_->for_each_player(
+            [&](player_id /*pid*/, player::player& plr)
             {
-                auto* m = world_->get_map(plr.current_map);
-                if (!m || target_maps.find(std::string(m->name())) == target_maps.end()) return;
-            }
-
-            // Admin immunity
-            if (plr.admin != player::admin_level::player) return;
-
-            int32_t damage = meteor_handler_.calculate_player_damage(plr.experience.level);
-
-            // Magic protection reduces meteor damage
-            // Protection From Magic (magnitude 2): damage = damage/2 - 2
-            // Absolute Magic Protection (magnitude 5): damage = 0
-            if (effects_ && plr.ecs_entity.id != 0)
-            {
-                auto* effs = effects_->get_effects(plr.ecs_entity);
-                if (effs)
+                // Only damage players on target faction maps
+                if (world_)
                 {
-                    for (const auto& eff : *effs)
+                    auto* m = world_->get_map(plr.current_map);
+                    if (!m || target_maps.find(std::string(m->name())) == target_maps.end())
+                        return;
+                }
+
+                // Admin immunity
+                if (plr.admin != player::admin_level::player)
+                    return;
+
+                int32_t damage = meteor_handler_.calculate_player_damage(plr.experience.level);
+
+                // Magic protection reduces meteor damage
+                // Protection From Magic (magnitude 2): damage = damage/2 - 2
+                // Absolute Magic Protection (magnitude 5): damage = 0
+                if (effects_ && plr.ecs_entity.id != 0)
+                {
+                    auto* effs = effects_->get_effects(plr.ecs_entity);
+                    if (effs)
                     {
-                        if (eff.group == magic_type::protection)
+                        for (const auto& eff : *effs)
                         {
-                            if (eff.magnitude >= 5)
+                            if (eff.group == magic_type::protection)
                             {
-                                damage = 0;
+                                if (eff.magnitude >= 5)
+                                {
+                                    damage = 0;
+                                }
+                                else if (eff.magnitude >= 2)
+                                {
+                                    damage = std::max(0, damage / 2 - 2);
+                                }
+                                break;
                             }
-                            else if (eff.magnitude >= 2)
-                            {
-                                damage = std::max(0, damage / 2 - 2);
-                            }
-                            break;
                         }
                     }
                 }
-            }
 
-            // TODO: equipment magic resistance/absorption when equipment stats are implemented
+                // TODO: equipment magic resistance/absorption when equipment stats are implemented
 
-            plr.hp -= damage;
-            if (plr.hp <= 0)
-            {
-                plr.hp = 0;
-                casualties++;
-            }
-            else if (damage > 0)
-            {
-                // Break hold/paralyze effects on surviving players (legacy: DEF_MAGICTYPE_HOLDOBJECT)
-                if (effects_ && plr.ecs_entity.id != 0)
+                plr.hp -= damage;
+                if (plr.hp <= 0)
                 {
-                    effects_->remove_effects_by_group(plr.ecs_entity, magic_type::hold_paralyze);
+                    plr.hp = 0;
+                    casualties++;
                 }
-            }
-        });
+                else if (damage > 0)
+                {
+                    // Break hold/paralyze effects on surviving players (legacy: DEF_MAGICTYPE_HOLDOBJECT)
+                    if (effects_ && plr.ecs_entity.id != 0)
+                    {
+                        effects_->remove_effects_by_group(plr.ecs_entity, magic_type::hold_paralyze);
+                    }
+                }
+            });
 
         return casualties;
     };
@@ -1030,7 +1073,8 @@ void crusade_system::tick_mana(float delta_time)
     mana_tick_accumulator_ += delta_time;
 
     auto interval = mana_system_.get_config().tick_interval_seconds;
-    if (mana_tick_accumulator_ < interval) return;
+    if (mana_tick_accumulator_ < interval)
+        return;
 
     mana_tick_accumulator_ -= interval;
 
@@ -1043,10 +1087,12 @@ void crusade_system::tick_mana(float delta_time)
     {
         for (const auto& ws : war_structures_)
         {
-            if (ws.type != war_unit_type::mana_collector) continue;
+            if (ws.type != war_unit_type::mana_collector)
+                continue;
 
             auto* m = world_->get_map_by_name(ws.map_name);
-            if (!m) continue;
+            if (!m)
+                continue;
 
             int32_t radius = mana_system_.get_config().collector_mp_restore_radius;
 
@@ -1056,13 +1102,13 @@ void crusade_system::tick_mana(float delta_time)
             for (auto viewer_pid : viewers)
             {
                 auto* plr = players_->get_player(viewer_pid);
-                if (!plr) continue;
+                if (!plr)
+                    continue;
 
                 int32_t restore = 0;
 
                 // Check if viewer is within restore radius AND same faction
-                bool in_range = std::abs(plr->pos.x - ws.x) <= radius &&
-                                std::abs(plr->pos.y - ws.y) <= radius;
+                bool in_range = std::abs(plr->pos.x - ws.x) <= radius && std::abs(plr->pos.y - ws.y) <= radius;
 
                 war_faction plr_faction = war_faction::neutral;
                 if (plr->faction == hb::faction::aresden)
@@ -1093,7 +1139,7 @@ void crusade_system::tick_mana(float delta_time)
 
     // Periodic mana broadcast to commanders
     mana_broadcast_accumulator_ += interval;
-    if (mana_broadcast_accumulator_ >= 10.0f)  // Every 10 seconds
+    if (mana_broadcast_accumulator_ >= 10.0f) // Every 10 seconds
     {
         mana_broadcast_accumulator_ = 0.0f;
         broadcast_mana_update();
@@ -1144,12 +1190,10 @@ void crusade_system::broadcast_meteor_result(const meteor_event_result& result)
     nlohmann::json sp_array = nlohmann::json::array();
     for (const auto& sr : result.strike_results)
     {
-        sp_array.push_back({
-            {"id", sr.strike_point_id},
-            {"esg_count", sr.esg_count},
-            {"damage", sr.damage_applied},
-            {"destroyed", sr.point_destroyed}
-        });
+        sp_array.push_back({{"id", sr.strike_point_id},
+                            {"esg_count", sr.esg_count},
+                            {"damage", sr.damage_applied},
+                            {"destroyed", sr.point_destroyed}});
     }
     data["strike_results"] = std::move(sp_array);
 
@@ -1158,7 +1202,8 @@ void crusade_system::broadcast_meteor_result(const meteor_event_result& result)
     const auto& points = get_strike_points(result.target_faction);
     for (const auto& sp : points)
     {
-        if (!sp.is_destroyed()) ++remaining;
+        if (!sp.is_destroyed())
+            ++remaining;
     }
     data["structures_remaining"] = remaining;
 
@@ -1173,7 +1218,8 @@ void crusade_system::broadcast_meteor_result(const meteor_event_result& result)
 
 void crusade_system::on_gmg_damage(entity::entity eid, int32_t damage)
 {
-    if (!active_ || damage <= 0) return;
+    if (!active_ || damage <= 0)
+        return;
 
     // Find which faction owns this GMG
     for (const auto& ws : war_structures_)
@@ -1188,13 +1234,14 @@ void crusade_system::on_gmg_damage(entity::entity eid, int32_t damage)
 
 // ========== Phase 3: Construction Points & Combat ==========
 
-void crusade_system::on_player_kill(player_id killer, player_id victim,
-                                    int32_t victim_level, int32_t exp_reward)
+void crusade_system::on_player_kill(player_id killer, player_id victim, int32_t victim_level, int32_t exp_reward)
 {
-    if (!active_) return;
+    if (!active_)
+        return;
 
     auto* killer_data = get_player_data(killer);
-    if (!killer_data) return;
+    if (!killer_data)
+        return;
 
     // All duties earn from kills (legacy behavior)
 
@@ -1202,8 +1249,7 @@ void crusade_system::on_player_kill(player_id killer, player_id victim,
     int32_t points = victim_level / 2;
     points = std::max(points, 1);
 
-    killer_data->construction_points = std::min(
-        killer_data->construction_points + points, max_construction_points);
+    killer_data->construction_points = std::min(killer_data->construction_points + points, max_construction_points);
 
     // Contribution from kill: (exp_reward - exp_reward/3) * 12 (legacy formula)
     if (exp_reward > 0)
@@ -1211,13 +1257,13 @@ void crusade_system::on_player_kill(player_id killer, player_id victim,
         int32_t contribution = (exp_reward - exp_reward / 3) * 12;
         if (contribution > 0)
         {
-            killer_data->war_contribution = std::min(
-                killer_data->war_contribution + contribution, max_war_contribution);
+            killer_data->war_contribution =
+                std::min(killer_data->war_contribution + contribution, max_war_contribution);
         }
     }
 
-    LOG_DEBUG(general, "Player {} earned {} construction points (kill, victim level {})",
-        killer.value, points, victim_level);
+    LOG_DEBUG(
+        general, "Player {} earned {} construction points (kill, victim level {})", killer.value, points, victim_level);
 
     broadcast_construction_point_update(killer);
 
@@ -1230,37 +1276,44 @@ void crusade_system::on_player_kill(player_id killer, player_id victim,
 
 void crusade_system::on_npc_kill(player_id killer, int16_t npc_sprite_id)
 {
-    if (!active_) return;
+    if (!active_)
+        return;
 
     auto* killer_data = get_player_data(killer);
-    if (!killer_data) return;
+    if (!killer_data)
+        return;
 
     auto [construction, contribution] = get_npc_kill_rewards(npc_sprite_id);
     if (construction > 0)
     {
-        killer_data->construction_points = std::min(
-            killer_data->construction_points + construction, max_construction_points);
+        killer_data->construction_points =
+            std::min(killer_data->construction_points + construction, max_construction_points);
     }
     if (contribution > 0)
     {
-        killer_data->war_contribution = std::min(
-            killer_data->war_contribution + contribution, max_war_contribution);
+        killer_data->war_contribution = std::min(killer_data->war_contribution + contribution, max_war_contribution);
     }
 
     if (construction > 0 || contribution > 0)
     {
-        LOG_DEBUG(general, "Player {} earned {} construction, {} contribution (NPC kill, sprite {})",
-            killer.value, construction, contribution, npc_sprite_id);
+        LOG_DEBUG(general,
+                  "Player {} earned {} construction, {} contribution (NPC kill, sprite {})",
+                  killer.value,
+                  construction,
+                  contribution,
+                  npc_sprite_id);
         broadcast_construction_point_update(killer);
     }
 }
 
 void crusade_system::on_friendly_npc_kill(player_id killer)
 {
-    if (!active_) return;
+    if (!active_)
+        return;
 
     auto* killer_data = get_player_data(killer);
-    if (!killer_data) return;
+    if (!killer_data)
+        return;
 
     // Penalty: lose all contribution (legacy subtracts 2x, clamped to 0)
     killer_data->war_contribution = 0;
@@ -1269,57 +1322,74 @@ void crusade_system::on_friendly_npc_kill(player_id killer)
     broadcast_construction_point_update(killer);
 }
 
-auto crusade_system::get_npc_kill_rewards(int16_t npc_sprite_id)
-    -> std::pair<int32_t, int32_t>
+auto crusade_system::get_npc_kill_rewards(int16_t npc_sprite_id) -> std::pair<int32_t, int32_t>
 {
     // Legacy hardcoded rewards per NPC type (construction, contribution)
     switch (npc_sprite_id)
     {
-    case 36: return {700, 4000};   // AGT
-    case 37: return {700, 4000};   // CGT
-    case 38: return {500, 2000};   // Mana Collector
-    case 39: return {500, 2000};   // Detector
-    case 40: return {1500, 5000};  // ESG
-    case 41: return {5000, 10000}; // GMG
-    case 43: return {500, 1000};   // LWB
-    case 44: return {1000, 2000};  // GHK
-    case 45: return {1500, 3000};  // GHKABS
-    case 46: return {1000, 2000};  // TK
-    case 47: return {1500, 3000};  // BG
-    case 51: return {500, 1500};   // Catapult
+    case 36:
+        return {700, 4000}; // AGT
+    case 37:
+        return {700, 4000}; // CGT
+    case 38:
+        return {500, 2000}; // Mana Collector
+    case 39:
+        return {500, 2000}; // Detector
+    case 40:
+        return {1500, 5000}; // ESG
+    case 41:
+        return {5000, 10000}; // GMG
+    case 43:
+        return {500, 1000}; // LWB
+    case 44:
+        return {1000, 2000}; // GHK
+    case 45:
+        return {1500, 3000}; // GHKABS
+    case 46:
+        return {1000, 2000}; // TK
+    case 47:
+        return {1500, 3000}; // BG
+    case 51:
+        return {500, 1500}; // Catapult
     default:
-        if (npc_sprite_id >= 1 && npc_sprite_id <= 6) return {50, 100};
+        if (npc_sprite_id >= 1 && npc_sprite_id <= 6)
+            return {50, 100};
         return {0, 0};
     }
 }
 
 void crusade_system::transfer_construction_points()
 {
-    if (!active_) return;
+    if (!active_)
+        return;
 
     for (auto& [pid, data] : player_data_)
     {
         // Only transfer from fighters/constructors who have accumulated points
-        if (data.construction_points <= 0) continue;
-        if (data.duty == crusade_duty::commander) continue;  // Commanders don't transfer
+        if (data.construction_points <= 0)
+            continue;
+        if (data.duty == crusade_duty::commander)
+            continue; // Commanders don't transfer
 
         auto commander_pid = find_guild_commander(pid);
-        if (!commander_pid.is_valid()) continue;
+        if (!commander_pid.is_valid())
+            continue;
 
         auto* commander_data = get_player_data(commander_pid);
-        if (!commander_data) continue;
+        if (!commander_data)
+            continue;
 
         int32_t transferred = data.construction_points;
-        commander_data->construction_points = std::min(
-            commander_data->construction_points + transferred, max_construction_points);
+        commander_data->construction_points =
+            std::min(commander_data->construction_points + transferred, max_construction_points);
 
         // Award contribution to COMMANDER (1/10 of transferred points) — legacy behavior
-        int32_t contribution = static_cast<int32_t>(
-            static_cast<float>(transferred) * config_.construction.transfer_contribution_ratio);
+        int32_t contribution =
+            static_cast<int32_t>(static_cast<float>(transferred) * config_.construction.transfer_contribution_ratio);
         if (contribution > 0)
         {
-            commander_data->war_contribution = std::min(
-                commander_data->war_contribution + contribution, max_war_contribution);
+            commander_data->war_contribution =
+                std::min(commander_data->war_contribution + contribution, max_war_contribution);
 
             if (war_ && current_war_id_.is_valid())
             {
@@ -1329,8 +1399,12 @@ void crusade_system::transfer_construction_points()
 
         data.construction_points = 0;
 
-        LOG_DEBUG(general, "Transferred {} construction points from player {} to commander {} (+{} contribution)",
-            transferred, pid.value, commander_pid.value, contribution);
+        LOG_DEBUG(general,
+                  "Transferred {} construction points from player {} to commander {} (+{} contribution)",
+                  transferred,
+                  pid.value,
+                  commander_pid.value,
+                  contribution);
 
         broadcast_construction_point_update(pid);
         broadcast_construction_point_update(commander_pid);
@@ -1339,19 +1413,24 @@ void crusade_system::transfer_construction_points()
 
 auto crusade_system::find_guild_commander(player_id fighter) -> player_id
 {
-    if (!social_) return player_id{};
+    if (!social_)
+        return player_id{};
 
     auto guild_id = social_->get_player_guild(fighter);
-    if (!guild_id.is_valid()) return player_id{};
+    if (!guild_id.is_valid())
+        return player_id{};
 
     auto* guild = social_->get_guild(guild_id);
-    if (!guild) return player_id{};
+    if (!guild)
+        return player_id{};
 
     // Look for an online guild member who is a commander in this crusade
     for (const auto& member : guild->members)
     {
-        if (!member.player.is_valid()) continue;  // Offline
-        if (member.player == fighter) continue;    // Not self
+        if (!member.player.is_valid())
+            continue; // Offline
+        if (member.player == fighter)
+            continue; // Not self
 
         auto* member_data = get_player_data(member.player);
         if (member_data && member_data->duty == crusade_duty::commander &&
@@ -1369,7 +1448,8 @@ void crusade_system::tick_construction_transfer(float delta_time)
     construction_transfer_accumulator_ += delta_time;
 
     auto interval = static_cast<float>(config_.construction.transfer_interval_seconds);
-    if (construction_transfer_accumulator_ < interval) return;
+    if (construction_transfer_accumulator_ < interval)
+        return;
 
     construction_transfer_accumulator_ -= interval;
     transfer_construction_points();
@@ -1378,7 +1458,8 @@ void crusade_system::tick_construction_transfer(float delta_time)
 void crusade_system::broadcast_construction_point_update(player_id pid)
 {
     auto* data = get_player_data(pid);
-    if (!data) return;
+    if (!data)
+        return;
 
     nlohmann::json msg_data;
     msg_data["construction_pts"] = data->construction_points;
@@ -1394,20 +1475,26 @@ void crusade_system::broadcast_construction_point_update(player_id pid)
 // ========== Guild Construct Location ==========
 
 auto crusade_system::set_guild_construct_location(player_id commander,
-    const std::string& map, int16_t x, int16_t y) -> crusade_result
+                                                  const std::string& map,
+                                                  int16_t x,
+                                                  int16_t y) -> crusade_result
 {
-    if (!active_) return crusade_result::not_active;
+    if (!active_)
+        return crusade_result::not_active;
 
     auto* data = get_player_data(commander);
-    if (!data) return crusade_result::not_in_crusade;
+    if (!data)
+        return crusade_result::not_in_crusade;
 
     if (data->duty != crusade_duty::commander)
         return crusade_result::not_guild_master;
 
-    if (!social_) return crusade_result::config_error;
+    if (!social_)
+        return crusade_result::config_error;
 
     auto guild_id = social_->get_player_guild(commander);
-    if (!guild_id.is_valid()) return crusade_result::not_guild_master;
+    if (!guild_id.is_valid())
+        return crusade_result::not_guild_master;
 
     guild_construct_location loc;
     loc.guild_id = guild_id.value;
@@ -1418,8 +1505,13 @@ auto crusade_system::set_guild_construct_location(player_id commander,
 
     guild_construct_locations_[guild_id.value] = loc;
 
-    LOG_INFO(general, "Guild {} set construct location at {}({},{}) by commander {}",
-        guild_id.value, map, x, y, commander.value);
+    LOG_INFO(general,
+             "Guild {} set construct location at {}({},{}) by commander {}",
+             guild_id.value,
+             map,
+             x,
+             y,
+             commander.value);
 
     return crusade_result::success;
 }
@@ -1433,24 +1525,31 @@ auto crusade_system::get_guild_construct_location(uint32_t guild_id) const -> co
 // ========== Guild Teleport ==========
 
 auto crusade_system::set_guild_teleport_location(player_id commander,
-    const std::string& map, int16_t x, int16_t y) -> crusade_result
+                                                 const std::string& map,
+                                                 int16_t x,
+                                                 int16_t y) -> crusade_result
 {
-    if (!active_) return crusade_result::not_active;
+    if (!active_)
+        return crusade_result::not_active;
 
     auto* data = get_player_data(commander);
-    if (!data) return crusade_result::not_in_crusade;
+    if (!data)
+        return crusade_result::not_in_crusade;
 
     if (data->duty != crusade_duty::commander)
         return crusade_result::not_guild_master;
 
-    if (!social_) return crusade_result::config_error;
+    if (!social_)
+        return crusade_result::config_error;
 
     auto guild_id = social_->get_player_guild(commander);
-    if (!guild_id.is_valid()) return crusade_result::not_guild_master;
+    if (!guild_id.is_valid())
+        return crusade_result::not_guild_master;
 
     // Verify guild master rank
     auto* g = social_->get_guild(guild_id);
-    if (!g) return crusade_result::not_guild_master;
+    if (!g)
+        return crusade_result::not_guild_master;
     auto* member = g->get_member(commander);
     if (!member || member->rank != social::guild_rank::guild_master)
         return crusade_result::not_guild_master;
@@ -1459,7 +1558,8 @@ auto crusade_system::set_guild_teleport_location(player_id commander,
     if (world_)
     {
         auto* m = world_->get_map_by_name(map);
-        if (!m) return crusade_result::invalid_position;
+        if (!m)
+            return crusade_result::invalid_position;
     }
 
     guild_teleport_location loc;
@@ -1470,27 +1570,36 @@ auto crusade_system::set_guild_teleport_location(player_id commander,
 
     guild_teleport_locations_[guild_id.value] = loc;
 
-    LOG_INFO(general, "Guild {} set teleport location at {}({},{}) by commander {}",
-        guild_id.value, map, x, y, commander.value);
+    LOG_INFO(general,
+             "Guild {} set teleport location at {}({},{}) by commander {}",
+             guild_id.value,
+             map,
+             x,
+             y,
+             commander.value);
 
     return crusade_result::success;
 }
 
 auto crusade_system::use_guild_teleport(player_id pid) -> crusade_result
 {
-    if (!active_) return crusade_result::not_active;
+    if (!active_)
+        return crusade_result::not_active;
 
     auto* data = get_player_data(pid);
-    if (!data) return crusade_result::not_in_crusade;
+    if (!data)
+        return crusade_result::not_in_crusade;
 
-    if (!social_) return crusade_result::config_error;
+    if (!social_)
+        return crusade_result::config_error;
 
     auto guild_id = social_->get_player_guild(pid);
-    if (!guild_id.is_valid()) return crusade_result::not_in_faction;
+    if (!guild_id.is_valid())
+        return crusade_result::not_in_faction;
 
     auto it = guild_teleport_locations_.find(guild_id.value);
     if (it == guild_teleport_locations_.end())
-        return crusade_result::no_construct_location;  // Reuse: no teleport set
+        return crusade_result::no_construct_location; // Reuse: no teleport set
 
     return crusade_result::success;
 }
@@ -1503,23 +1612,27 @@ auto crusade_system::get_guild_teleport_location(uint32_t guild_id) const -> con
 
 auto crusade_system::get_guild_teleport_dest(player_id pid) const -> const guild_teleport_location*
 {
-    if (!social_) return nullptr;
+    if (!social_)
+        return nullptr;
 
     auto guild_id = social_->get_player_guild(pid);
-    if (!guild_id.is_valid()) return nullptr;
+    if (!guild_id.is_valid())
+        return nullptr;
 
     return get_guild_teleport_location(guild_id.value);
 }
 
 // ========== War Unit Summoning ==========
 
-auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
-                                     const std::string& map_name, int16_t x, int16_t y) -> crusade_result
+auto crusade_system::summon_war_unit(
+    player_id pid, war_unit_type type, const std::string& map_name, int16_t x, int16_t y) -> crusade_result
 {
-    if (!active_) return crusade_result::not_active;
+    if (!active_)
+        return crusade_result::not_active;
 
     auto* data = get_player_data(pid);
-    if (!data) return crusade_result::not_in_crusade;
+    if (!data)
+        return crusade_result::not_in_crusade;
 
     // Only constructors can summon
     if (data->duty != crusade_duty::constructor)
@@ -1529,7 +1642,8 @@ auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
 
     // Validate unit type
     int32_t cost = get_construction_cost(type);
-    if (cost < 0) return crusade_result::invalid_unit;
+    if (cost < 0)
+        return crusade_result::invalid_unit;
 
     // Map restrictions
     if (!map_name.empty())
@@ -1548,10 +1662,12 @@ auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
     // Structure placement validation
     if (is_structure_type(type))
     {
-        if (!social_) return crusade_result::no_construct_location;
+        if (!social_)
+            return crusade_result::no_construct_location;
 
         auto guild_id = social_->get_player_guild(data->pid);
-        if (!guild_id.is_valid()) return crusade_result::no_construct_location;
+        if (!guild_id.is_valid())
+            return crusade_result::no_construct_location;
 
         auto loc_it = guild_construct_locations_.find(guild_id.value);
         if (loc_it == guild_construct_locations_.end())
@@ -1564,8 +1680,7 @@ auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
             return crusade_result::wrong_map;
 
         // Must be within 10 tiles of construct location
-        if (std::abs(x - loc.x) > construct_location_radius ||
-            std::abs(y - loc.y) > construct_location_radius)
+        if (std::abs(x - loc.x) > construct_location_radius || std::abs(y - loc.y) > construct_location_radius)
             return crusade_result::too_far_from_construct_location;
 
         // Per-guild build limit
@@ -1578,8 +1693,7 @@ auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
             for (const auto& ws : war_structures_)
             {
                 if (is_guard_tower_type(ws.type) && ws.map_name == map_name &&
-                    std::abs(ws.x - x) <= guard_tower_min_distance &&
-                    std::abs(ws.y - y) <= guard_tower_min_distance)
+                    std::abs(ws.x - x) <= guard_tower_min_distance && std::abs(ws.y - y) <= guard_tower_min_distance)
                 {
                     return crusade_result::too_close_to_tower;
                 }
@@ -1638,8 +1752,15 @@ auto crusade_system::summon_war_unit(player_id pid, war_unit_type type,
     structure.y = y;
     war_structures_.push_back(structure);
 
-    LOG_INFO(general, "Player {} summoned war unit type {} at {}({},{}) (cost={}, remaining={})",
-        pid.value, static_cast<int>(type), map_name, x, y, cost, data->construction_points);
+    LOG_INFO(general,
+             "Player {} summoned war unit type {} at {}({},{}) (cost={}, remaining={})",
+             pid.value,
+             static_cast<int>(type),
+             map_name,
+             x,
+             y,
+             cost,
+             data->construction_points);
 
     broadcast_construction_point_update(pid);
 
@@ -1651,7 +1772,8 @@ auto crusade_system::get_war_structures(war_faction faction) const -> std::vecto
     std::vector<war_structure_instance> result;
     for (const auto& ws : war_structures_)
     {
-        if (ws.faction == faction) result.push_back(ws);
+        if (ws.faction == faction)
+            result.push_back(ws);
     }
     return result;
 }
@@ -1661,9 +1783,10 @@ auto crusade_system::count_structures_by_type(war_faction faction, war_unit_type
     int32_t count = 0;
     for (const auto& ws : war_structures_)
     {
-        if (ws.faction == faction && ws.type == type) ++count;
+        if (ws.faction == faction && ws.type == type)
+            ++count;
     }
     return count;
 }
 
-}  // namespace hb::war
+} // namespace hb::war

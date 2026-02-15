@@ -9,7 +9,8 @@
 #include <chrono>
 #include <cstdint>
 
-namespace hb::social {
+namespace hb::social
+{
 
 // Friend request - pending friend request
 struct friend_request
@@ -24,8 +25,8 @@ struct friend_request
 // Friend entry - represents an accepted friendship
 struct friend_entry
 {
-    player_id runtime_id{};       // Runtime ID (0 when offline)
-    player_id character_id{};     // Persistent DB character ID
+    player_id runtime_id{};   // Runtime ID (0 when offline)
+    player_id character_id{}; // Persistent DB character ID
     std::string name;
     std::chrono::system_clock::time_point created_at{};
 
@@ -58,19 +59,30 @@ enum class friend_result : uint8_t
 {
     switch (r)
     {
-        case friend_result::success: return "success";
-        case friend_result::friend_not_found: return "friend_not_found";
-        case friend_result::already_friends: return "already_friends";
-        case friend_result::friend_limit_reached: return "friend_limit_reached";
-        case friend_result::cannot_add_self: return "cannot_add_self";
-        case friend_result::is_blocked: return "is_blocked";
-        case friend_result::player_not_found: return "player_not_found";
-        case friend_result::not_friends: return "not_friends";
-        case friend_result::request_already_exists: return "request_already_exists";
-        case friend_result::no_pending_request: return "no_pending_request";
-        case friend_result::target_limit_reached: return "target_limit_reached";
+    case friend_result::success:
+        return "success";
+    case friend_result::friend_not_found:
+        return "friend_not_found";
+    case friend_result::already_friends:
+        return "already_friends";
+    case friend_result::friend_limit_reached:
+        return "friend_limit_reached";
+    case friend_result::cannot_add_self:
+        return "cannot_add_self";
+    case friend_result::is_blocked:
+        return "is_blocked";
+    case friend_result::player_not_found:
+        return "player_not_found";
+    case friend_result::not_friends:
+        return "not_friends";
+    case friend_result::request_already_exists:
+        return "request_already_exists";
+    case friend_result::no_pending_request:
+        return "no_pending_request";
+    case friend_result::target_limit_reached:
+        return "target_limit_reached";
     }
     return "unknown";
 }
 
-}  // namespace hb::social
+} // namespace hb::social

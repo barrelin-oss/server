@@ -14,10 +14,12 @@
 #include <functional>
 #include <string_view>
 
-namespace hb::magic {
+namespace hb::magic
+{
 
 // Magic system configuration
-struct magic_system_config {
+struct magic_system_config
+{
     float global_cooldown_modifier{1.0f};
     float global_mana_cost_modifier{1.0f};
     float global_damage_modifier{1.0f};
@@ -25,7 +27,8 @@ struct magic_system_config {
 };
 
 // Spell effect result
-struct spell_effect_result {
+struct spell_effect_result
+{
     bool success{false};
     int32_t damage_dealt{0};
     int32_t heal_applied{0};
@@ -33,9 +36,11 @@ struct spell_effect_result {
 };
 
 // Magic system - handles spell casting and effects
-class magic_system : public subsystem {
+class magic_system : public subsystem
+{
 public:
-    using spell_callback = std::function<void(hb::entity::entity caster, const spell_template& spell, const spell_effect_result& result)>;
+    using spell_callback =
+        std::function<void(hb::entity::entity caster, const spell_template& spell, const spell_effect_result& result)>;
 
     magic_system();
     ~magic_system() override;
@@ -50,15 +55,17 @@ public:
     void set_config(const magic_system_config& config);
 
     // Spell casting
-    auto begin_cast(hb::entity::entity caster, spell_id spell, const cast_target& target)
-        -> result<cast_result, std::string>;
+    auto begin_cast(hb::entity::entity caster,
+                    spell_id spell,
+                    const cast_target& target) -> result<cast_result, std::string>;
     void cancel_cast(hb::entity::entity caster);
-    auto instant_cast(hb::entity::entity caster, spell_id spell, const cast_target& target)
-        -> result<spell_effect_result, std::string>;
+    auto instant_cast(hb::entity::entity caster,
+                      spell_id spell,
+                      const cast_target& target) -> result<spell_effect_result, std::string>;
 
     // Spell queries
-    [[nodiscard]] auto can_cast(hb::entity::entity caster, spell_id spell, const cast_target& target) const
-        -> cast_result;
+    [[nodiscard]] auto
+    can_cast(hb::entity::entity caster, spell_id spell, const cast_target& target) const -> cast_result;
     [[nodiscard]] auto is_casting(hb::entity::entity caster) const -> bool;
     [[nodiscard]] auto get_cast_state(hb::entity::entity caster) const -> const spell_cast_state*;
 
@@ -76,10 +83,10 @@ public:
     [[nodiscard]] auto get_spell(spell_id id) const -> const spell_template*;
 
     // Iteration
-    template<typename Func>
-    void for_each_spell(Func&& func) const
+    template<typename Func> void for_each_spell(Func&& func) const
     {
-        for (const auto& [id, spell] : spells_) {
+        for (const auto& [id, spell] : spells_)
+        {
             func(id, spell);
         }
     }
@@ -99,13 +106,15 @@ public:
 
 private:
     void process_active_casts(float delta_time);
-    auto apply_spell_effect(hb::entity::entity caster, const spell_template& spell, const cast_target& target)
-        -> spell_effect_result;
+    auto apply_spell_effect(hb::entity::entity caster,
+                            const spell_template& spell,
+                            const cast_target& target) -> spell_effect_result;
     void notify_spell_cast(hb::entity::entity caster, const spell_template& spell, const spell_effect_result& result);
 
     // Helper functions for spell effects
-    auto find_aoe_targets(hb::entity::entity caster, const spell_template& spell, const cast_target& target) const
-        -> std::vector<hb::entity::entity>;
+    auto find_aoe_targets(hb::entity::entity caster,
+                          const spell_template& spell,
+                          const cast_target& target) const -> std::vector<hb::entity::entity>;
     auto element_to_damage_type(spell_element element) const -> combat::damage_type;
     void apply_buff(hb::entity::entity caster, hb::entity::entity target, const spell_template& spell);
     void apply_debuff(hb::entity::entity caster, hb::entity::entity target, const spell_template& spell);
@@ -128,4 +137,4 @@ private:
     std::vector<spell_callback> spell_callbacks_;
 };
 
-}  // namespace hb::magic
+} // namespace hb::magic

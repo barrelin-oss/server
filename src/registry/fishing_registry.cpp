@@ -8,7 +8,8 @@
 #include <yaml-cpp/yaml.h>
 #include <random>
 
-namespace hb {
+namespace hb
+{
 
 fishing_registry::fishing_registry() = default;
 fishing_registry::~fishing_registry() = default;
@@ -29,18 +30,18 @@ void fishing_registry::shutdown()
 }
 
 auto fishing_registry::load_from_file(const std::filesystem::path& path,
-                                       const item_registry& items)
-    -> result<size_t, std::string>
+                                      const item_registry& items) -> result<size_t, std::string>
 {
     LOG_INFO(general, "Loading fish types from: {}", path.string());
 
     YAML::Node root;
-    try {
+    try
+    {
         root = YAML::LoadFile(path.string());
-    } catch (const YAML::Exception& e) {
-        return result<size_t, std::string>::err(
-            "Failed to parse fishing YAML: " + std::string(e.what())
-        );
+    }
+    catch (const YAML::Exception& e)
+    {
+        return result<size_t, std::string>::err("Failed to parse fishing YAML: " + std::string(e.what()));
     }
 
     if (!root["fish_types"] || !root["fish_types"].IsSequence())
@@ -70,8 +71,7 @@ auto fishing_registry::load_from_file(const std::filesystem::path& path,
         }
         else
         {
-            LOG_WARN(general, "Fish type '{}': item '{}' not found in item registry",
-                config.name, config.item_name);
+            LOG_WARN(general, "Fish type '{}': item '{}' not found in item registry", config.name, config.item_name);
         }
 
         total_weight_ += config.weight;
@@ -113,4 +113,4 @@ auto fishing_registry::roll_fish_type() const -> const crafting::fish_type_confi
     return &types_.back();
 }
 
-}  // namespace hb
+} // namespace hb

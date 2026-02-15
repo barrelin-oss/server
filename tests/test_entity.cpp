@@ -15,7 +15,8 @@ using hb::map_id;
 
 // Entity ID tests
 
-TEST(entity_test, null_entity) {
+TEST(entity_test, null_entity)
+{
     entity e;
     EXPECT_FALSE(e.is_valid());
     EXPECT_EQ(e.id, 0);
@@ -24,13 +25,15 @@ TEST(entity_test, null_entity) {
     EXPECT_FALSE(null.is_valid());
 }
 
-TEST(entity_test, valid_entity) {
+TEST(entity_test, valid_entity)
+{
     entity e{42};
     EXPECT_TRUE(e.is_valid());
     EXPECT_EQ(e.index(), 42);
 }
 
-TEST(entity_test, index_and_generation) {
+TEST(entity_test, index_and_generation)
+{
     // Create entity with index 100 and generation 5
     entity e{100, 5};
 
@@ -38,10 +41,11 @@ TEST(entity_test, index_and_generation) {
     EXPECT_EQ(e.generation(), 5);
 }
 
-TEST(entity_test, equality) {
+TEST(entity_test, equality)
+{
     entity e1{42, 1};
     entity e2{42, 1};
-    entity e3{42, 2};  // Same index, different generation
+    entity e3{42, 2}; // Same index, different generation
 
     EXPECT_EQ(e1, e2);
     EXPECT_NE(e1, e3);
@@ -49,7 +53,8 @@ TEST(entity_test, equality) {
 
 // Component storage tests
 
-struct test_component {
+struct test_component
+{
     int value{0};
     std::string name;
 
@@ -57,7 +62,8 @@ struct test_component {
     test_component(int v, std::string n) : value(v), name(std::move(n)) {}
 };
 
-TEST(component_storage_test, emplace_and_get) {
+TEST(component_storage_test, emplace_and_get)
+{
     component_storage<test_component> storage;
 
     entity e{1};
@@ -71,7 +77,8 @@ TEST(component_storage_test, emplace_and_get) {
     EXPECT_EQ(ptr->value, 42);
 }
 
-TEST(component_storage_test, contains) {
+TEST(component_storage_test, contains)
+{
     component_storage<test_component> storage;
 
     entity e{1};
@@ -81,7 +88,8 @@ TEST(component_storage_test, contains) {
     EXPECT_TRUE(storage.contains(e));
 }
 
-TEST(component_storage_test, remove) {
+TEST(component_storage_test, remove)
+{
     component_storage<test_component> storage;
 
     entity e1{1};
@@ -104,7 +112,8 @@ TEST(component_storage_test, remove) {
     EXPECT_EQ(ptr->value, 2);
 }
 
-TEST(component_storage_test, iteration) {
+TEST(component_storage_test, iteration)
+{
     component_storage<test_component> storage;
 
     storage.emplace(entity{1}, 10, "a");
@@ -112,31 +121,32 @@ TEST(component_storage_test, iteration) {
     storage.emplace(entity{3}, 30, "c");
 
     int sum = 0;
-    for (const auto& comp : storage) {
+    for (const auto& comp : storage)
+    {
         sum += comp.value;
     }
     EXPECT_EQ(sum, 60);
 }
 
-TEST(component_storage_test, for_each) {
+TEST(component_storage_test, for_each)
+{
     component_storage<test_component> storage;
 
     storage.emplace(entity{1}, 10, "a");
     storage.emplace(entity{2}, 20, "b");
 
     int sum = 0;
-    storage.for_each([&sum](entity e, const test_component& comp) {
-        sum += comp.value;
-    });
+    storage.for_each([&sum](entity e, const test_component& comp) { sum += comp.value; });
     EXPECT_EQ(sum, 30);
 }
 
-TEST(component_storage_test, replace_existing) {
+TEST(component_storage_test, replace_existing)
+{
     component_storage<test_component> storage;
 
     entity e{1};
     storage.emplace(e, 10, "old");
-    storage.emplace(e, 20, "new");  // Should replace
+    storage.emplace(e, 20, "new"); // Should replace
 
     EXPECT_EQ(storage.size(), 1);
     auto* ptr = storage.get(e);
@@ -146,38 +156,39 @@ TEST(component_storage_test, replace_existing) {
 
 // Entity manager tests
 
-class entity_manager_test : public ::testing::Test {
+class entity_manager_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        manager_.initialize();
-    }
+    void SetUp() override { manager_.initialize(); }
 
-    void TearDown() override {
-        manager_.shutdown();
-    }
+    void TearDown() override { manager_.shutdown(); }
 
     entity_manager manager_;
 };
 
-TEST_F(entity_manager_test, lifecycle) {
+TEST_F(entity_manager_test, lifecycle)
+{
     EXPECT_TRUE(manager_.is_initialized());
     EXPECT_EQ(manager_.name(), "entity_manager");
 }
 
-TEST_F(entity_manager_test, create_entity) {
+TEST_F(entity_manager_test, create_entity)
+{
     auto e = manager_.create();
     EXPECT_TRUE(e.is_valid());
     EXPECT_TRUE(manager_.is_alive(e));
     EXPECT_EQ(manager_.entity_count(), 1);
 }
 
-TEST_F(entity_manager_test, create_with_type) {
+TEST_F(entity_manager_test, create_with_type)
+{
     auto e = manager_.create(entity_type::player);
     EXPECT_TRUE(e.is_valid());
     EXPECT_EQ(manager_.get_type(e), entity_type::player);
 }
 
-TEST_F(entity_manager_test, destroy_entity) {
+TEST_F(entity_manager_test, destroy_entity)
+{
     auto e = manager_.create();
     EXPECT_TRUE(manager_.is_alive(e));
 
@@ -186,7 +197,8 @@ TEST_F(entity_manager_test, destroy_entity) {
     EXPECT_EQ(manager_.entity_count(), 0);
 }
 
-TEST_F(entity_manager_test, generation_increment) {
+TEST_F(entity_manager_test, generation_increment)
+{
     auto e1 = manager_.create();
     uint32_t index = e1.index();
     uint8_t gen1 = e1.generation();
@@ -197,7 +209,8 @@ TEST_F(entity_manager_test, generation_increment) {
     auto e2 = manager_.create();
 
     // If index was recycled, generation should be incremented
-    if (e2.index() == index) {
+    if (e2.index() == index)
+    {
         EXPECT_EQ(e2.generation(), static_cast<uint8_t>((gen1 + 1) & 0xFF));
     }
 
@@ -206,7 +219,8 @@ TEST_F(entity_manager_test, generation_increment) {
     EXPECT_TRUE(manager_.is_alive(e2));
 }
 
-TEST_F(entity_manager_test, add_component) {
+TEST_F(entity_manager_test, add_component)
+{
     auto e = manager_.create();
 
     auto& health_comp = manager_.add_component<health>(e, 100);
@@ -216,7 +230,8 @@ TEST_F(entity_manager_test, add_component) {
     EXPECT_TRUE(manager_.has_component<health>(e));
 }
 
-TEST_F(entity_manager_test, get_component) {
+TEST_F(entity_manager_test, get_component)
+{
     auto e = manager_.create();
     manager_.add_component<health>(e, 50, 100);
 
@@ -226,7 +241,8 @@ TEST_F(entity_manager_test, get_component) {
     EXPECT_EQ(comp->maximum, 100);
 }
 
-TEST_F(entity_manager_test, remove_component) {
+TEST_F(entity_manager_test, remove_component)
+{
     auto e = manager_.create();
     manager_.add_component<health>(e, 100);
 
@@ -237,7 +253,8 @@ TEST_F(entity_manager_test, remove_component) {
     EXPECT_FALSE(manager_.has_component<health>(e));
 }
 
-TEST_F(entity_manager_test, destroy_removes_components) {
+TEST_F(entity_manager_test, destroy_removes_components)
+{
     auto e = manager_.create();
     manager_.add_component<health>(e, 100);
     manager_.add_component<name>(e, "Test");
@@ -248,7 +265,8 @@ TEST_F(entity_manager_test, destroy_removes_components) {
     EXPECT_FALSE(manager_.has_component<name>(e));
 }
 
-TEST_F(entity_manager_test, multiple_components) {
+TEST_F(entity_manager_test, multiple_components)
+{
     auto e = manager_.create();
 
     manager_.add_component<health>(e, 100);
@@ -267,7 +285,8 @@ TEST_F(entity_manager_test, multiple_components) {
     EXPECT_EQ(trans->pos.y, 20);
 }
 
-TEST_F(entity_manager_test, for_each_single_component) {
+TEST_F(entity_manager_test, for_each_single_component)
+{
     auto e1 = manager_.create();
     auto e2 = manager_.create();
 
@@ -275,14 +294,13 @@ TEST_F(entity_manager_test, for_each_single_component) {
     manager_.add_component<health>(e2, 200);
 
     int sum = 0;
-    manager_.for_each<health>([&sum](entity e, health& h) {
-        sum += h.current;
-    });
+    manager_.for_each<health>([&sum](entity e, health& h) { sum += h.current; });
 
     EXPECT_EQ(sum, 300);
 }
 
-TEST_F(entity_manager_test, for_each_two_components) {
+TEST_F(entity_manager_test, for_each_two_components)
+{
     auto e1 = manager_.create();
     auto e2 = manager_.create();
     auto e3 = manager_.create();
@@ -298,17 +316,20 @@ TEST_F(entity_manager_test, for_each_two_components) {
     manager_.add_component<name>(e3, "NameOnly");
 
     int count = 0;
-    manager_.for_each<health, name>([&count](entity e, health& h, name& n) {
-        ++count;
-        EXPECT_EQ(n.value, "Both");
-    });
+    manager_.for_each<health, name>(
+        [&count](entity e, health& h, name& n)
+        {
+            ++count;
+            EXPECT_EQ(n.value, "Both");
+        });
 
-    EXPECT_EQ(count, 1);  // Only e1 has both
+    EXPECT_EQ(count, 1); // Only e1 has both
 }
 
 // Component tests
 
-TEST(health_component_test, damage_and_heal) {
+TEST(health_component_test, damage_and_heal)
+{
     health h{100};
 
     h.damage(30);
@@ -316,7 +337,7 @@ TEST(health_component_test, damage_and_heal) {
     EXPECT_TRUE(h.is_alive());
 
     h.heal(50);
-    EXPECT_EQ(h.current, 100);  // Capped at max
+    EXPECT_EQ(h.current, 100); // Capped at max
     EXPECT_TRUE(h.is_full());
 
     h.damage(150);
@@ -324,7 +345,8 @@ TEST(health_component_test, damage_and_heal) {
     EXPECT_FALSE(h.is_alive());
 }
 
-TEST(mana_component_test, spend_and_restore) {
+TEST(mana_component_test, spend_and_restore)
+{
     mana m{50};
 
     EXPECT_TRUE(m.has_mana(30));
@@ -332,13 +354,14 @@ TEST(mana_component_test, spend_and_restore) {
     EXPECT_EQ(m.current, 20);
 
     EXPECT_FALSE(m.has_mana(30));
-    EXPECT_FALSE(m.spend(30));  // Not enough
+    EXPECT_FALSE(m.spend(30)); // Not enough
 
     m.restore(100);
-    EXPECT_EQ(m.current, 50);  // Capped at max
+    EXPECT_EQ(m.current, 50); // Capped at max
 }
 
-TEST(transform_component_test, construction) {
+TEST(transform_component_test, construction)
+{
     transform t{map_id{1}, position{100, 200}, direction::east};
 
     EXPECT_EQ(t.map.value, 1);
@@ -347,7 +370,8 @@ TEST(transform_component_test, construction) {
     EXPECT_EQ(t.facing, direction::east);
 }
 
-TEST(faction_component_test, hostile) {
+TEST(faction_component_test, hostile)
+{
     faction_component f1{faction::aresden};
     faction_component f2{faction::elvine};
     faction_component f3{faction::aresden};
@@ -359,7 +383,8 @@ TEST(faction_component_test, hostile) {
     EXPECT_FALSE(f4.is_hostile_to(faction::aresden));
 }
 
-TEST(level_component_test, exp_progress) {
+TEST(level_component_test, exp_progress)
+{
     level l;
     l.current = 10;
     l.experience = 500;

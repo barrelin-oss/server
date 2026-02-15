@@ -6,23 +6,32 @@
 
 #include <yaml-cpp/yaml.h>
 
-namespace hb {
+namespace hb
+{
 
-namespace {
+namespace
+{
 
 auto parse_dialog_action(const std::string& action_str) -> npc::dialog_action
 {
-    if (action_str == "close") return npc::dialog_action::close;
-    if (action_str == "open_shop") return npc::dialog_action::open_shop;
-    if (action_str == "open_bank") return npc::dialog_action::open_bank;
-    if (action_str == "open_quests") return npc::dialog_action::open_quests;
-    if (action_str == "offer_citizenship") return npc::dialog_action::offer_citizenship;
-    if (action_str == "select_crusade_job") return npc::dialog_action::select_crusade_job;
-    if (action_str == "claim_rewards") return npc::dialog_action::claim_rewards;
+    if (action_str == "close")
+        return npc::dialog_action::close;
+    if (action_str == "open_shop")
+        return npc::dialog_action::open_shop;
+    if (action_str == "open_bank")
+        return npc::dialog_action::open_bank;
+    if (action_str == "open_quests")
+        return npc::dialog_action::open_quests;
+    if (action_str == "offer_citizenship")
+        return npc::dialog_action::offer_citizenship;
+    if (action_str == "select_crusade_job")
+        return npc::dialog_action::select_crusade_job;
+    if (action_str == "claim_rewards")
+        return npc::dialog_action::claim_rewards;
     return npc::dialog_action::goto_node;
 }
 
-}  // namespace
+} // namespace
 
 dialog_registry::dialog_registry() = default;
 dialog_registry::~dialog_registry() = default;
@@ -40,18 +49,18 @@ void dialog_registry::shutdown()
     set_initialized(false);
 }
 
-auto dialog_registry::load_from_file(const std::filesystem::path& path)
-    -> result<size_t, std::string>
+auto dialog_registry::load_from_file(const std::filesystem::path& path) -> result<size_t, std::string>
 {
     LOG_INFO(general, "Loading dialogs from: {}", path.string());
 
     YAML::Node root;
-    try {
+    try
+    {
         root = YAML::LoadFile(path.string());
-    } catch (const YAML::Exception& e) {
-        return result<size_t, std::string>::err(
-            "Failed to parse dialogs YAML: " + std::string(e.what())
-        );
+    }
+    catch (const YAML::Exception& e)
+    {
+        return result<size_t, std::string>::err("Failed to parse dialogs YAML: " + std::string(e.what()));
     }
 
     if (!root["dialogs"] || !root["dialogs"].IsMap())
@@ -138,14 +147,14 @@ auto dialog_registry::get_dialog(std::string_view npc_name) const -> const npc::
     return it != dialogs_.end() ? &it->second : nullptr;
 }
 
-auto dialog_registry::get_node(std::string_view npc_name, std::string_view node_id) const
-    -> const npc::dialog_node*
+auto dialog_registry::get_node(std::string_view npc_name, std::string_view node_id) const -> const npc::dialog_node*
 {
     auto* tree = get_dialog(npc_name);
-    if (!tree) return nullptr;
+    if (!tree)
+        return nullptr;
 
     auto it = tree->nodes.find(std::string(node_id));
     return it != tree->nodes.end() ? &it->second : nullptr;
 }
 
-}  // namespace hb
+} // namespace hb

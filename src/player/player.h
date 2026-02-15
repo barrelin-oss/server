@@ -18,23 +18,27 @@
 #include <array>
 #include <chrono>
 
-namespace hb::player {
+namespace hb::player
+{
 
 // Player gender (matches original Helbreath: 1=male, 2=female)
-enum class gender : uint8_t {
+enum class gender : uint8_t
+{
     male = 1,
     female = 2
 };
 
 // Player class/profession
-enum class player_class : uint8_t {
+enum class player_class : uint8_t
+{
     warrior = 0,
     mage = 1,
-    archer = 2,  // Not in original but reserved
+    archer = 2, // Not in original but reserved
 };
 
 // Player status flags
-enum class player_status : uint32_t {
+enum class player_status : uint32_t
+{
     none = 0,
     poisoned = 1 << 0,
     paralyzed = 1 << 1,
@@ -54,20 +58,24 @@ enum class player_status : uint32_t {
     gm_invisible = 1 << 15,
 };
 
-inline constexpr auto operator|(player_status a, player_status b) -> player_status {
+inline constexpr auto operator|(player_status a, player_status b) -> player_status
+{
     return static_cast<player_status>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
-inline constexpr auto operator&(player_status a, player_status b) -> player_status {
+inline constexpr auto operator&(player_status a, player_status b) -> player_status
+{
     return static_cast<player_status>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
 
-inline constexpr auto operator~(player_status a) -> player_status {
+inline constexpr auto operator~(player_status a) -> player_status
+{
     return static_cast<player_status>(~static_cast<uint32_t>(a));
 }
 
 // Admin level
-enum class admin_level : uint8_t {
+enum class admin_level : uint8_t
+{
     player = 0,
     gamemaster = 1,
     admin = 2,
@@ -75,44 +83,43 @@ enum class admin_level : uint8_t {
 };
 
 // Hunger state
-struct hunger_state {
-    int8_t level{100};  // 0-100, 0 = starving
+struct hunger_state
+{
+    int8_t level{100}; // 0-100, 0 = starving
 
     [[nodiscard]] auto is_starving() const -> bool { return level <= 0; }
     [[nodiscard]] auto is_hungry() const -> bool { return level < 30; }
     [[nodiscard]] auto is_full() const -> bool { return level >= 100; }
 
-    void consume(int8_t amount) {
-        level = std::min<int8_t>(100, level + amount);
-    }
+    void consume(int8_t amount) { level = std::min<int8_t>(100, level + amount); }
 
-    void decay(int8_t amount) {
-        level = std::max<int8_t>(0, level - amount);
-    }
+    void decay(int8_t amount) { level = std::max<int8_t>(0, level - amount); }
 };
 
 // Potion speed anti-cheat tracker
 // Tracks average interval between potion uses over a 2-second window.
 // If average gap < 180ms + 10*count, flags as speed hack.
-struct potion_speed_tracker {
+struct potion_speed_tracker
+{
     std::chrono::steady_clock::time_point last_use_time{};
     int32_t use_count{0};
     int32_t total_interval_ms{0};
 
     void record_use(std::chrono::steady_clock::time_point now)
     {
-        if (use_count == 0) {
+        if (use_count == 0)
+        {
             last_use_time = now;
             use_count = 1;
             total_interval_ms = 0;
             return;
         }
 
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - last_use_time).count();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_use_time).count();
 
         // Reset window after 2s gap or 6+ accumulated uses
-        if (elapsed > 2000 || use_count >= 5) {
+        if (elapsed > 2000 || use_count >= 5)
+        {
             last_use_time = now;
             use_count = 1;
             total_interval_ms = 0;
@@ -126,45 +133,51 @@ struct potion_speed_tracker {
 
     [[nodiscard]] auto is_speed_hack() const -> bool
     {
-        if (use_count < 3) return false;
+        if (use_count < 3)
+            return false;
         int32_t avg = total_interval_ms / (use_count - 1);
         return avg < (180 + 10 * use_count);
     }
 };
 
 // PK (player kill) state
-struct pk_state {
-    int32_t count{0};      // Total PK count
-    int32_t points{0};     // Current PK points (decays)
+struct pk_state
+{
+    int32_t count{0};  // Total PK count
+    int32_t points{0}; // Current PK points (decays)
 
     [[nodiscard]] auto is_murderer() const -> bool { return points >= 100; }
     [[nodiscard]] auto is_criminal() const -> bool { return points >= 30 && points < 100; }
     [[nodiscard]] auto is_innocent() const -> bool { return points < 30; }
 
-    [[nodiscard]] auto status_string() const -> std::string_view {
-        if (is_murderer()) return "murderer";
-        if (is_criminal()) return "criminal";
+    [[nodiscard]] auto status_string() const -> std::string_view
+    {
+        if (is_murderer())
+            return "murderer";
+        if (is_criminal())
+            return "criminal";
         return "innocent";
     }
 
-    void add_kill() {
+    void add_kill()
+    {
         ++count;
         points += 50;
     }
 
-    void decay_points(int32_t amount) {
-        points = std::max(0, points - amount);
-    }
+    void decay_points(int32_t amount) { points = std::max(0, points - amount); }
 };
 
 // Pre-computed visual for a single equipment slot
-struct equipment_visual {
-    int8_t appr{0};   // Sprite variant (from item_template::appr_value)
-    int8_t color{0};  // Color tint (from item_template::item_color)
+struct equipment_visual
+{
+    int8_t appr{0};  // Sprite variant (from item_template::appr_value)
+    int8_t color{0}; // Color tint (from item_template::item_color)
 };
 
 // Cached equipment appearance (recalculated on equip/unequip)
-struct appearance_state {
+struct appearance_state
+{
     equipment_visual weapon;
     equipment_visual shield;
     equipment_visual body;
@@ -174,17 +187,18 @@ struct appearance_state {
     equipment_visual boots;
     equipment_visual cape;
 
-    int8_t weapon_glow{0};   // 0=none, 1=sparkle, 2=ice, 3=green
-    int8_t shield_glow{0};   // 0=none, 1=GM, 2=green, 3=ice
-    int8_t weapon_speed{0};  // Attack animation speed (0-15)
+    int8_t weapon_glow{0};  // 0=none, 1=sparkle, 2=ice, 3=green
+    int8_t shield_glow{0};  // 0=none, 1=GM, 2=green, 3=ice
+    int8_t weapon_speed{0}; // Attack animation speed (0-15)
 };
 
 // Player component - represents a player character
-struct player {
+struct player
+{
     // Identity
-    player_id id{};               // Runtime ID (monotonic, for in-memory lookups)
-    player_id character_id{};     // Database character ID (for persistence)
-    entity::entity ecs_entity{};  // Entity manager handle (for unified spatial queries)
+    player_id id{};              // Runtime ID (monotonic, for in-memory lookups)
+    player_id character_id{};    // Database character ID (for persistence)
+    entity::entity ecs_entity{}; // Entity manager handle (for unified spatial queries)
     std::string name;
     std::string account_name;
     account_id account{};
@@ -205,9 +219,9 @@ struct player {
 
     // Stats
     base_stats base;
-    stat_modifiers modifiers;            // Combined (equipment + effects) - computed field
-    stat_modifiers equipment_modifiers;  // From equipment only
-    stat_modifiers effect_modifiers;     // From active spell effects
+    stat_modifiers modifiers;           // Combined (equipment + effects) - computed field
+    stat_modifiers equipment_modifiers; // From equipment only
+    stat_modifiers effect_modifiers;    // From active spell effects
     computed_stats computed;
     stat_points stats_pts;
 
@@ -235,11 +249,11 @@ struct player {
     appearance_state appearance;
 
     // Combat state
-    bool combat_mode{false};  // true = attack stance, false = peace mode
+    bool combat_mode{false}; // true = attack stance, false = peace mode
     entity::entity target{};
     std::chrono::steady_clock::time_point last_attack_time{};
     std::chrono::steady_clock::time_point last_hit_time{};
-    int32_t super_attack_charges{0};  // From charge_critical enchantment
+    int32_t super_attack_charges{0}; // From charge_critical enchantment
 
     // Special ability (SPECABLTY items)
     item::special_ability_state special_ability{};
@@ -257,8 +271,8 @@ struct player {
     map_id current_map{};
     hb::world::position pos{};
     hb::world::direction facing{hb::world::direction::south};
-    int16_t visibility_radius_x{20};  // Tiles player can see horizontally (varies by resolution)
-    int16_t visibility_radius_y{15};  // Tiles player can see vertically
+    int16_t visibility_radius_x{20}; // Tiles player can see horizontally (varies by resolution)
+    int16_t visibility_radius_y{15}; // Tiles player can see vertically
     bool sees_all{false};            // Admin mode: receives all events on the map
     bool gm_view_override{false};    // When true, client set_view_range requests are ignored (GM-set radii)
     uint8_t view_mode{0};            // 0=scaled, 1=extended, 2=special (mirrors network::view_mode)
@@ -268,72 +282,64 @@ struct player {
     session_id session{};
 
     // Helper methods
-    [[nodiscard]] auto has_status(player_status s) const -> bool {
-        return (status & s) != player_status::none;
-    }
+    [[nodiscard]] auto has_status(player_status s) const -> bool { return (status & s) != player_status::none; }
 
-    void add_status(player_status s) {
-        status = status | s;
-    }
+    void add_status(player_status s) { status = status | s; }
 
-    void remove_status(player_status s) {
-        status = status & ~s;
-    }
+    void remove_status(player_status s) { status = status & ~s; }
 
     [[nodiscard]] auto is_alive() const -> bool { return hp > 0; }
     [[nodiscard]] auto is_dead() const -> bool { return hp <= 0; }
 
-    [[nodiscard]] auto is_gm() const -> bool {
-        return admin >= admin_level::gamemaster;
-    }
+    [[nodiscard]] auto is_gm() const -> bool { return admin >= admin_level::gamemaster; }
 
-    [[nodiscard]] auto hp_percent() const -> float {
+    [[nodiscard]] auto hp_percent() const -> float
+    {
         return computed.max_hp > 0 ? static_cast<float>(hp) / computed.max_hp : 0.0f;
     }
 
-    [[nodiscard]] auto mp_percent() const -> float {
+    [[nodiscard]] auto mp_percent() const -> float
+    {
         return computed.max_mp > 0 ? static_cast<float>(mp) / computed.max_mp : 0.0f;
     }
 
-    void recalculate_stats() {
+    void recalculate_stats()
+    {
         base.level_bonus = experience.level;
         modifiers = equipment_modifiers + effect_modifiers;
         computed.compute(base, modifiers);
     }
 
-    void heal_hp(int32_t amount) {
-        hp = std::min(hp + amount, computed.max_hp);
-    }
+    void heal_hp(int32_t amount) { hp = std::min(hp + amount, computed.max_hp); }
 
-    void heal_mp(int32_t amount) {
-        mp = std::min(mp + amount, computed.max_mp);
-    }
+    void heal_mp(int32_t amount) { mp = std::min(mp + amount, computed.max_mp); }
 
-    void heal_sp(int32_t amount) {
-        sp = std::min(sp + amount, computed.max_sp);
-    }
+    void heal_sp(int32_t amount) { sp = std::min(sp + amount, computed.max_sp); }
 
-    void damage_hp(int32_t amount) {
-        hp = std::max(0, hp - amount);
-    }
+    void damage_hp(int32_t amount) { hp = std::max(0, hp - amount); }
 
-    auto spend_mp(int32_t amount) -> bool {
-        if (mp < amount) return false;
+    auto spend_mp(int32_t amount) -> bool
+    {
+        if (mp < amount)
+            return false;
         mp -= amount;
         return true;
     }
 
-    auto spend_sp(int32_t amount) -> bool {
-        if (sp < amount) return false;
+    auto spend_sp(int32_t amount) -> bool
+    {
+        if (sp < amount)
+            return false;
         sp -= amount;
         return true;
     }
 
-    void restore_to_full() {
+    void restore_to_full()
+    {
         hp = computed.max_hp;
         mp = computed.max_mp;
         sp = computed.max_sp;
     }
 };
 
-}  // namespace hb::player
+} // namespace hb::player

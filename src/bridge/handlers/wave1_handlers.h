@@ -7,7 +7,8 @@
 #include "bridge/message_router.h"
 #include "protocol/protocol.h"
 
-namespace hb::bridge::wave1 {
+namespace hb::bridge::wave1
+{
 
 // ========== Wave 1: Read-Only Handlers ==========
 
@@ -50,4 +51,4 @@ void send_npc_info(const handler_context& ctx, uint16_t npc_id);
 // Build a notify message with magic info
 void send_magic_info(const handler_context& ctx, uint16_t spell_id);
 
-}  // namespace hb::bridge::wave1
+} // namespace hb::bridge::wave1

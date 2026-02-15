@@ -6,10 +6,12 @@
 #include <cstdint>
 #include <algorithm>
 
-namespace hb::player {
+namespace hb::player
+{
 
 // Base attribute stats (STR, DEX, VIT, INT, MAG, CHR)
-struct base_stats {
+struct base_stats
+{
     int16_t strength{10};
     int16_t dexterity{10};
     int16_t vitality{10};
@@ -18,39 +20,26 @@ struct base_stats {
     int16_t charisma{10};
 
     // Calculate derived values
-    [[nodiscard]] auto max_hp() const -> int32_t {
-        return 3 * vitality + strength + 2 * level_bonus;
-    }
+    [[nodiscard]] auto max_hp() const -> int32_t { return 3 * vitality + strength + 2 * level_bonus; }
 
-    [[nodiscard]] auto max_mp() const -> int32_t {
-        return 2 * magic + intelligence + level_bonus;
-    }
+    [[nodiscard]] auto max_mp() const -> int32_t { return 2 * magic + intelligence + level_bonus; }
 
-    [[nodiscard]] auto max_sp() const -> int32_t {
-        return strength + 2 * dexterity + level_bonus;
-    }
+    [[nodiscard]] auto max_sp() const -> int32_t { return strength + 2 * dexterity + level_bonus; }
 
-    [[nodiscard]] auto physical_attack() const -> int32_t {
-        return strength + dexterity / 2;
-    }
+    [[nodiscard]] auto physical_attack() const -> int32_t { return strength + dexterity / 2; }
 
-    [[nodiscard]] auto magic_attack() const -> int32_t {
-        return intelligence + magic / 2;
-    }
+    [[nodiscard]] auto magic_attack() const -> int32_t { return intelligence + magic / 2; }
 
-    [[nodiscard]] auto hit_rate() const -> int32_t {
-        return dexterity + level_bonus;
-    }
+    [[nodiscard]] auto hit_rate() const -> int32_t { return dexterity + level_bonus; }
 
-    [[nodiscard]] auto dodge_rate() const -> int32_t {
-        return dexterity / 2 + level_bonus / 2;
-    }
+    [[nodiscard]] auto dodge_rate() const -> int32_t { return dexterity / 2 + level_bonus / 2; }
 
-    int16_t level_bonus{0};  // Bonus from level for calculations
+    int16_t level_bonus{0}; // Bonus from level for calculations
 };
 
 // Stat modifiers from equipment, buffs, etc.
-struct stat_modifiers {
+struct stat_modifiers
+{
     // Flat bonuses
     int16_t strength{0};
     int16_t dexterity{0};
@@ -89,16 +78,17 @@ struct stat_modifiers {
     int16_t sp_regen{0};
 
     // Attribute-derived bonuses (from item enchantments)
-    int16_t physical_absorption{0};   // % physical damage absorbed (cap 80)
-    int16_t magic_absorption{0};      // % magic damage absorbed (cap 80)
-    int16_t exp_bonus_percent{0};     // % bonus experience
-    int16_t gold_bonus_percent{0};    // % bonus gold
-    int16_t weapon_dice_bonus{0};     // +N weapon dice range (sharp/ancient)
-    int16_t charge_critical{0};       // Charge critical % (cap 20)
-    int16_t mana_conversion{0};       // Damage-to-mana % (cap 20)
+    int16_t physical_absorption{0}; // % physical damage absorbed (cap 80)
+    int16_t magic_absorption{0};    // % magic damage absorbed (cap 80)
+    int16_t exp_bonus_percent{0};   // % bonus experience
+    int16_t gold_bonus_percent{0};  // % bonus gold
+    int16_t weapon_dice_bonus{0};   // +N weapon dice range (sharp/ancient)
+    int16_t charge_critical{0};     // Charge critical % (cap 20)
+    int16_t mana_conversion{0};     // Damage-to-mana % (cap 20)
 
     // Combine two modifier sets
-    auto operator+(const stat_modifiers& other) const -> stat_modifiers {
+    auto operator+(const stat_modifiers& other) const -> stat_modifiers
+    {
         stat_modifiers result;
         result.strength = strength + other.strength;
         result.dexterity = dexterity + other.dexterity;
@@ -137,18 +127,18 @@ struct stat_modifiers {
         return result;
     }
 
-    auto operator+=(const stat_modifiers& other) -> stat_modifiers& {
+    auto operator+=(const stat_modifiers& other) -> stat_modifiers&
+    {
         *this = *this + other;
         return *this;
     }
 
-    void clear() {
-        *this = stat_modifiers{};
-    }
+    void clear() { *this = stat_modifiers{}; }
 };
 
 // Final computed stats after all modifiers
-struct computed_stats {
+struct computed_stats
+{
     // Base + modifiers
     int16_t strength{0};
     int16_t dexterity{0};
@@ -187,16 +177,17 @@ struct computed_stats {
     int32_t sp_regen{0};
 
     // Attribute-derived stats
-    int32_t physical_absorption{0};   // % physical damage absorbed (cap 80)
-    int32_t magic_absorption{0};      // % magic damage absorbed (cap 80)
-    int32_t exp_bonus_percent{0};     // % bonus experience
-    int32_t gold_bonus_percent{0};    // % bonus gold
-    int32_t weapon_dice_bonus{0};     // +N weapon dice range
-    int32_t charge_critical{0};       // % chance (cap 20)
-    int32_t mana_conversion{0};       // % (cap 20)
+    int32_t physical_absorption{0}; // % physical damage absorbed (cap 80)
+    int32_t magic_absorption{0};    // % magic damage absorbed (cap 80)
+    int32_t exp_bonus_percent{0};   // % bonus experience
+    int32_t gold_bonus_percent{0};  // % bonus gold
+    int32_t weapon_dice_bonus{0};   // +N weapon dice range
+    int32_t charge_critical{0};     // % chance (cap 20)
+    int32_t mana_conversion{0};     // % (cap 20)
 
     // Compute from base + modifiers
-    void compute(const base_stats& base, const stat_modifiers& mods) {
+    void compute(const base_stats& base, const stat_modifiers& mods)
+    {
         strength = base.strength + mods.strength;
         dexterity = base.dexterity + mods.dexterity;
         vitality = base.vitality + mods.vitality;
@@ -222,8 +213,8 @@ struct computed_stats {
         magic_defense = mods.magic_defense;
         hit_rate = effective.hit_rate() + mods.hit_bonus;
         dodge_rate = effective.dodge_rate() + mods.dodge_bonus;
-        critical_rate = 10 + mods.critical_rate;  // Base 10% crit
-        critical_damage = 150 + mods.critical_damage;  // Base 150% crit damage
+        critical_rate = 10 + mods.critical_rate;      // Base 10% crit
+        critical_damage = 150 + mods.critical_damage; // Base 150% crit damage
 
         attack_speed = 100 + mods.attack_speed;
         move_speed = 100 + mods.move_speed;
@@ -248,4 +239,4 @@ struct computed_stats {
     }
 };
 
-}  // namespace hb::player
+} // namespace hb::player

@@ -8,9 +8,11 @@
 #include <fstream>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
-class build_recipe_registry_test : public ::testing::Test {
+class build_recipe_registry_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -70,10 +72,8 @@ build_recipes:
 
 TEST_F(build_recipe_registry_test, auto_assigns_sequential_ids)
 {
-    load_items(
-        "1\tSword\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n"
-        "2\tShield\t14\t7\t50\t300\t5\t0\t0\t0\t15\t8\t0\t0\t0\n"
-    );
+    load_items("1\tSword\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n"
+               "2\tShield\t14\t7\t50\t300\t5\t0\t0\t0\t15\t8\t0\t0\t0\n");
 
     auto path = write_file("recipes.yaml", R"(
 build_recipes:
@@ -160,7 +160,7 @@ build_recipes:
 )");
 
     auto result = registry_.load_from_file(path, items_);
-    ASSERT_TRUE(result.is_ok());  // Loading succeeds with warning
+    ASSERT_TRUE(result.is_ok()); // Loading succeeds with warning
     auto* recipe = registry_.get(0);
     ASSERT_NE(recipe, nullptr);
     EXPECT_EQ(recipe->result_template_id, 0);
@@ -168,10 +168,8 @@ build_recipes:
 
 TEST_F(build_recipe_registry_test, find_by_result_name)
 {
-    load_items(
-        "1\tSword\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n"
-        "2\tShield\t14\t7\t50\t300\t5\t0\t0\t0\t15\t8\t0\t0\t0\n"
-    );
+    load_items("1\tSword\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n"
+               "2\tShield\t14\t7\t50\t300\t5\t0\t0\t0\t15\t8\t0\t0\t0\n");
 
     auto path = write_file("recipes.yaml", R"(
 build_recipes:
@@ -251,7 +249,7 @@ build_recipes:
     auto* recipe = registry_.get(0);
     ASSERT_NE(recipe, nullptr);
     ASSERT_EQ(recipe->ingredients.size(), 1u);
-    EXPECT_EQ(recipe->ingredients[0].count, 1);  // default count
+    EXPECT_EQ(recipe->ingredients[0].count, 1); // default count
 }
 
-}  // namespace hb
+} // namespace hb

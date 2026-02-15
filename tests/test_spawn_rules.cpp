@@ -15,7 +15,8 @@ using namespace hb::world;
 
 // ========== Weighted NPC Entry Tests ==========
 
-TEST(weighted_npc_entry_test, creation) {
+TEST(weighted_npc_entry_test, creation)
+{
     weighted_npc_entry entry;
     entry.id = npc_id{100};
     entry.name = "Slime";
@@ -28,7 +29,8 @@ TEST(weighted_npc_entry_test, creation) {
 
 // ========== Rule Result Tests ==========
 
-TEST(rule_result_test, pass) {
+TEST(rule_result_test, pass)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Slime", 10});
     npcs.push_back({npc_id{2}, "Goblin", 20});
@@ -41,7 +43,8 @@ TEST(rule_result_test, pass) {
     EXPECT_EQ(result.npcs[1].name, "Goblin");
 }
 
-TEST(rule_result_test, fail) {
+TEST(rule_result_test, fail)
+{
     auto result = rule_result::fail();
 
     EXPECT_FALSE(result.matches);
@@ -50,7 +53,8 @@ TEST(rule_result_test, fail) {
 
 // ========== Spawn Context Tests ==========
 
-TEST(spawn_context_test, default_values) {
+TEST(spawn_context_test, default_values)
+{
     spawn_context ctx;
 
     EXPECT_TRUE(ctx.map_name.empty());
@@ -60,7 +64,8 @@ TEST(spawn_context_test, default_values) {
     EXPECT_EQ(ctx.weather, weather_type::clear);
 }
 
-TEST(spawn_context_test, terrain_queries_with_null_tile) {
+TEST(spawn_context_test, terrain_queries_with_null_tile)
+{
     spawn_context ctx;
     ctx.tile = nullptr;
 
@@ -70,7 +75,8 @@ TEST(spawn_context_test, terrain_queries_with_null_tile) {
     EXPECT_FALSE(ctx.is_safe_zone());
 }
 
-TEST(spawn_context_test, terrain_queries_with_water_tile) {
+TEST(spawn_context_test, terrain_queries_with_water_tile)
+{
     static_tile tile;
     tile.flags = tile_flags::is_water;
 
@@ -82,7 +88,8 @@ TEST(spawn_context_test, terrain_queries_with_water_tile) {
     EXPECT_FALSE(ctx.is_safe_zone());
 }
 
-TEST(spawn_context_test, terrain_queries_with_farm_tile) {
+TEST(spawn_context_test, terrain_queries_with_farm_tile)
+{
     static_tile tile;
     tile.flags = tile_flags::is_farm;
 
@@ -94,7 +101,8 @@ TEST(spawn_context_test, terrain_queries_with_farm_tile) {
     EXPECT_FALSE(ctx.is_safe_zone());
 }
 
-TEST(spawn_context_test, terrain_queries_with_safe_zone_tile) {
+TEST(spawn_context_test, terrain_queries_with_safe_zone_tile)
+{
     // Note: is_safe_zone() checks map_ptr->config().is_fight_zone, not tile flags
     // So this test only verifies tile-based queries (is_water, is_farm) are correct
     // when a tile with safe_zone flag is set
@@ -110,7 +118,8 @@ TEST(spawn_context_test, terrain_queries_with_safe_zone_tile) {
     EXPECT_FALSE(ctx.is_safe_zone());
 }
 
-TEST(spawn_context_test, terrain_queries_with_combined_flags) {
+TEST(spawn_context_test, terrain_queries_with_combined_flags)
+{
     static_tile tile;
     tile.flags = tile_flags::is_water | tile_flags::is_farm;
 
@@ -124,7 +133,8 @@ TEST(spawn_context_test, terrain_queries_with_combined_flags) {
 
 // ========== Level Rule Tests ==========
 
-TEST(level_rule_test, matches_exact_level) {
+TEST(level_rule_test, matches_exact_level)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Slime", 100});
 
@@ -138,7 +148,8 @@ TEST(level_rule_test, matches_exact_level) {
     EXPECT_EQ(rule.name(), "level_5");
 }
 
-TEST(level_rule_test, name_getter) {
+TEST(level_rule_test, name_getter)
+{
     std::vector<weighted_npc_entry> npcs;
     level_rule rule("test_rule", 10, std::move(npcs));
 
@@ -147,7 +158,8 @@ TEST(level_rule_test, name_getter) {
 
 // ========== Biome Rule Tests ==========
 
-TEST(biome_rule_test, water_biome_matches_water_tile) {
+TEST(biome_rule_test, water_biome_matches_water_tile)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Fish", 100});
 
@@ -165,7 +177,8 @@ TEST(biome_rule_test, water_biome_matches_water_tile) {
     EXPECT_EQ(result.npcs[0].name, "Fish");
 }
 
-TEST(biome_rule_test, water_biome_no_match_on_land) {
+TEST(biome_rule_test, water_biome_no_match_on_land)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Fish", 100});
 
@@ -181,7 +194,8 @@ TEST(biome_rule_test, water_biome_no_match_on_land) {
     EXPECT_FALSE(result.matches);
 }
 
-TEST(biome_rule_test, farm_biome_matches_farm_tile) {
+TEST(biome_rule_test, farm_biome_matches_farm_tile)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Scarecrow", 100});
 
@@ -197,7 +211,8 @@ TEST(biome_rule_test, farm_biome_matches_farm_tile) {
     EXPECT_TRUE(result.matches);
 }
 
-TEST(biome_rule_test, safe_zone_biome_matches) {
+TEST(biome_rule_test, safe_zone_biome_matches)
+{
     // Note: is_safe_zone() checks map_ptr->config().is_fight_zone, not tile flags
     // So without a map_ptr set, the rule won't match even with safe_zone tile flags
     std::vector<weighted_npc_entry> npcs;
@@ -218,14 +233,16 @@ TEST(biome_rule_test, safe_zone_biome_matches) {
 
 // ========== Time Rule Tests ==========
 
-TEST(time_rule_test, name_getter) {
+TEST(time_rule_test, name_getter)
+{
     std::vector<weighted_npc_entry> npcs;
     time_rule rule("night_spawns", time_period::night, std::move(npcs));
 
     EXPECT_EQ(rule.name(), "night_spawns");
 }
 
-TEST(time_rule_test, day_period) {
+TEST(time_rule_test, day_period)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Deer", 100});
 
@@ -240,7 +257,8 @@ TEST(time_rule_test, day_period) {
     // Result depends on default behavior when clock is null
 }
 
-TEST(time_rule_test, hour_range_period) {
+TEST(time_rule_test, hour_range_period)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Vampire", 100});
 
@@ -252,7 +270,8 @@ TEST(time_rule_test, hour_range_period) {
 
 // ========== Weather Rule Tests ==========
 
-TEST(weather_rule_test, clear_weather_matches) {
+TEST(weather_rule_test, clear_weather_matches)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Butterfly", 100});
 
@@ -265,7 +284,8 @@ TEST(weather_rule_test, clear_weather_matches) {
     EXPECT_TRUE(result.matches);
 }
 
-TEST(weather_rule_test, rain_weather_no_match_when_clear) {
+TEST(weather_rule_test, rain_weather_no_match_when_clear)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Frog", 100});
 
@@ -278,7 +298,8 @@ TEST(weather_rule_test, rain_weather_no_match_when_clear) {
     EXPECT_FALSE(result.matches);
 }
 
-TEST(weather_rule_test, rain_weather_matches) {
+TEST(weather_rule_test, rain_weather_matches)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "Frog", 100});
 
@@ -293,14 +314,16 @@ TEST(weather_rule_test, rain_weather_matches) {
 
 // ========== Proximity Rule Tests ==========
 
-TEST(proximity_rule_test, name_getter) {
+TEST(proximity_rule_test, name_getter)
+{
     std::vector<weighted_npc_entry> npcs;
     proximity_rule rule("lonely_spawns", proximity_condition::min_distance, 20, std::move(npcs));
 
     EXPECT_EQ(rule.name(), "lonely_spawns");
 }
 
-TEST(proximity_rule_test, min_distance_condition) {
+TEST(proximity_rule_test, min_distance_condition)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "RareMob", 100});
 
@@ -316,7 +339,8 @@ TEST(proximity_rule_test, min_distance_condition) {
     EXPECT_TRUE(result.matches);
 }
 
-TEST(proximity_rule_test, max_distance_condition) {
+TEST(proximity_rule_test, max_distance_condition)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "AmbushMob", 100});
 
@@ -331,7 +355,8 @@ TEST(proximity_rule_test, max_distance_condition) {
     EXPECT_FALSE(result.matches);
 }
 
-TEST(proximity_rule_test, player_count_condition) {
+TEST(proximity_rule_test, player_count_condition)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "WorldBoss", 100});
 
@@ -348,7 +373,8 @@ TEST(proximity_rule_test, player_count_condition) {
 
 // ========== Event Rule Tests ==========
 
-TEST(event_rule_test, matches_active_event) {
+TEST(event_rule_test, matches_active_event)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "HalloweenGhost", 100});
 
@@ -361,7 +387,8 @@ TEST(event_rule_test, matches_active_event) {
     EXPECT_TRUE(result.matches);
 }
 
-TEST(event_rule_test, no_match_when_different_event) {
+TEST(event_rule_test, no_match_when_different_event)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "HalloweenGhost", 100});
 
@@ -374,7 +401,8 @@ TEST(event_rule_test, no_match_when_different_event) {
     EXPECT_FALSE(result.matches);
 }
 
-TEST(event_rule_test, no_match_when_no_event) {
+TEST(event_rule_test, no_match_when_no_event)
+{
     std::vector<weighted_npc_entry> npcs;
     npcs.push_back({npc_id{1}, "EventMob", 100});
 
@@ -389,7 +417,8 @@ TEST(event_rule_test, no_match_when_no_event) {
 
 // ========== Composite Rule Tests ==========
 
-TEST(composite_rule_test, and_all_match) {
+TEST(composite_rule_test, and_all_match)
+{
     std::vector<std::unique_ptr<spawn_rule>> children;
 
     // Child 1: Weather rule (clear)
@@ -400,8 +429,7 @@ TEST(composite_rule_test, and_all_match) {
     std::vector<weighted_npc_entry> result_npcs;
     result_npcs.push_back({npc_id{1}, "SunnyMob", 100});
 
-    composite_rule rule("sunny_and_something", composite_operator::op_and,
-                        std::move(children), std::move(result_npcs));
+    composite_rule rule("sunny_and_something", composite_operator::op_and, std::move(children), std::move(result_npcs));
 
     spawn_context ctx;
     ctx.weather = weather_type::clear;
@@ -410,7 +438,8 @@ TEST(composite_rule_test, and_all_match) {
     EXPECT_TRUE(result.matches);
 }
 
-TEST(composite_rule_test, and_partial_match_fails) {
+TEST(composite_rule_test, and_partial_match_fails)
+{
     std::vector<std::unique_ptr<spawn_rule>> children;
 
     // Child 1: Weather rule (rain - will match)
@@ -424,18 +453,18 @@ TEST(composite_rule_test, and_partial_match_fails) {
     std::vector<weighted_npc_entry> result_npcs;
     result_npcs.push_back({npc_id{1}, "ComboMob", 100});
 
-    composite_rule rule("rain_and_halloween", composite_operator::op_and,
-                        std::move(children), std::move(result_npcs));
+    composite_rule rule("rain_and_halloween", composite_operator::op_and, std::move(children), std::move(result_npcs));
 
     spawn_context ctx;
     ctx.weather = weather_type::rain;
-    ctx.active_event = "christmas";  // Not halloween
+    ctx.active_event = "christmas"; // Not halloween
 
     auto result = rule.evaluate(ctx);
     EXPECT_FALSE(result.matches);
 }
 
-TEST(composite_rule_test, or_one_match_succeeds) {
+TEST(composite_rule_test, or_one_match_succeeds)
+{
     std::vector<std::unique_ptr<spawn_rule>> children;
 
     // Child 1: Weather rule (rain - won't match)
@@ -449,8 +478,7 @@ TEST(composite_rule_test, or_one_match_succeeds) {
     std::vector<weighted_npc_entry> result_npcs;
     result_npcs.push_back({npc_id{1}, "AnyWeatherMob", 100});
 
-    composite_rule rule("rain_or_clear", composite_operator::op_or,
-                        std::move(children), std::move(result_npcs));
+    composite_rule rule("rain_or_clear", composite_operator::op_or, std::move(children), std::move(result_npcs));
 
     spawn_context ctx;
     ctx.weather = weather_type::clear;
@@ -459,7 +487,8 @@ TEST(composite_rule_test, or_one_match_succeeds) {
     EXPECT_TRUE(result.matches);
 }
 
-TEST(composite_rule_test, or_none_match_fails) {
+TEST(composite_rule_test, or_none_match_fails)
+{
     std::vector<std::unique_ptr<spawn_rule>> children;
 
     // Child 1: Event rule (halloween)
@@ -473,17 +502,17 @@ TEST(composite_rule_test, or_none_match_fails) {
     std::vector<weighted_npc_entry> result_npcs;
     result_npcs.push_back({npc_id{1}, "HolidayMob", 100});
 
-    composite_rule rule("holiday_events", composite_operator::op_or,
-                        std::move(children), std::move(result_npcs));
+    composite_rule rule("holiday_events", composite_operator::op_or, std::move(children), std::move(result_npcs));
 
     spawn_context ctx;
-    ctx.active_event = "easter";  // Neither halloween nor christmas
+    ctx.active_event = "easter"; // Neither halloween nor christmas
 
     auto result = rule.evaluate(ctx);
     EXPECT_FALSE(result.matches);
 }
 
-TEST(composite_rule_test, not_inverts_match) {
+TEST(composite_rule_test, not_inverts_match)
+{
     std::vector<std::unique_ptr<spawn_rule>> children;
 
     // Child: Weather rule (rain)
@@ -493,17 +522,17 @@ TEST(composite_rule_test, not_inverts_match) {
     std::vector<weighted_npc_entry> result_npcs;
     result_npcs.push_back({npc_id{1}, "NoRainMob", 100});
 
-    composite_rule rule("not_raining", composite_operator::op_not,
-                        std::move(children), std::move(result_npcs));
+    composite_rule rule("not_raining", composite_operator::op_not, std::move(children), std::move(result_npcs));
 
     spawn_context ctx;
-    ctx.weather = weather_type::clear;  // Not raining
+    ctx.weather = weather_type::clear; // Not raining
 
     auto result = rule.evaluate(ctx);
-    EXPECT_TRUE(result.matches);  // NOT(rain) = true when clear
+    EXPECT_TRUE(result.matches); // NOT(rain) = true when clear
 }
 
-TEST(composite_rule_test, not_inverts_non_match) {
+TEST(composite_rule_test, not_inverts_non_match)
+{
     std::vector<std::unique_ptr<spawn_rule>> children;
 
     // Child: Weather rule (rain)
@@ -513,19 +542,19 @@ TEST(composite_rule_test, not_inverts_non_match) {
     std::vector<weighted_npc_entry> result_npcs;
     result_npcs.push_back({npc_id{1}, "NoRainMob", 100});
 
-    composite_rule rule("not_raining", composite_operator::op_not,
-                        std::move(children), std::move(result_npcs));
+    composite_rule rule("not_raining", composite_operator::op_not, std::move(children), std::move(result_npcs));
 
     spawn_context ctx;
-    ctx.weather = weather_type::rain;  // Is raining
+    ctx.weather = weather_type::rain; // Is raining
 
     auto result = rule.evaluate(ctx);
-    EXPECT_FALSE(result.matches);  // NOT(rain) = false when raining
+    EXPECT_FALSE(result.matches); // NOT(rain) = false when raining
 }
 
 // ========== Random Spawn Whitelist Tests ==========
 
-TEST(random_spawn_whitelist_test, empty_whitelist) {
+TEST(random_spawn_whitelist_test, empty_whitelist)
+{
     random_spawn_whitelist whitelist;
 
     EXPECT_FALSE(whitelist.is_allowed("Slime"));
@@ -533,7 +562,8 @@ TEST(random_spawn_whitelist_test, empty_whitelist) {
     EXPECT_EQ(whitelist.spawnable_count(), 0);
 }
 
-TEST(random_spawn_whitelist_test, clear) {
+TEST(random_spawn_whitelist_test, clear)
+{
     random_spawn_whitelist whitelist;
     // Would need to add entries first, then clear
     whitelist.clear();
@@ -541,7 +571,8 @@ TEST(random_spawn_whitelist_test, clear) {
     EXPECT_EQ(whitelist.all().size(), 0);
 }
 
-TEST(random_spawn_whitelist_test, special_attack_kind_enum) {
+TEST(random_spawn_whitelist_test, special_attack_kind_enum)
+{
     // Verify enum values match legacy constants
     EXPECT_EQ(static_cast<uint8_t>(special_attack_kind::none), 0);
     EXPECT_EQ(static_cast<uint8_t>(special_attack_kind::melee), 1);
@@ -554,7 +585,8 @@ TEST(random_spawn_whitelist_test, special_attack_kind_enum) {
     EXPECT_EQ(static_cast<uint8_t>(special_attack_kind::summon), 8);
 }
 
-TEST(random_spawn_entry_test, default_values) {
+TEST(random_spawn_entry_test, default_values)
+{
     random_spawn_entry entry;
 
     EXPECT_TRUE(entry.name.empty());
@@ -566,30 +598,30 @@ TEST(random_spawn_entry_test, default_values) {
 
 // ========== Spawn Rule Engine Tests ==========
 
-class spawn_rule_engine_test : public ::testing::Test {
+class spawn_rule_engine_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        engine_.initialize();
-    }
+    void SetUp() override { engine_.initialize(); }
 
-    void TearDown() override {
-        engine_.shutdown();
-    }
+    void TearDown() override { engine_.shutdown(); }
 
     spawn_rule_engine engine_;
 };
 
-TEST_F(spawn_rule_engine_test, lifecycle) {
+TEST_F(spawn_rule_engine_test, lifecycle)
+{
     // Note: is_initialized() is set by subsystem_manager, not by direct initialize() calls
     // So we only test the name() method which doesn't depend on that flag
     EXPECT_EQ(engine_.name(), "spawn_rule_engine");
 }
 
-TEST_F(spawn_rule_engine_test, initial_state) {
+TEST_F(spawn_rule_engine_test, initial_state)
+{
     EXPECT_EQ(engine_.get_rule_count(), 0);
 }
 
-TEST_F(spawn_rule_engine_test, select_npc_with_no_rules) {
+TEST_F(spawn_rule_engine_test, select_npc_with_no_rules)
+{
     spawn_context ctx;
     ctx.weather = weather_type::clear;
 
@@ -597,46 +629,54 @@ TEST_F(spawn_rule_engine_test, select_npc_with_no_rules) {
     EXPECT_FALSE(selected.has_value());
 }
 
-TEST_F(spawn_rule_engine_test, get_matching_npcs_with_no_rules) {
+TEST_F(spawn_rule_engine_test, get_matching_npcs_with_no_rules)
+{
     spawn_context ctx;
 
     auto matches = engine_.get_matching_npcs(ctx);
     EXPECT_TRUE(matches.empty());
 }
 
-TEST_F(spawn_rule_engine_test, whitelist_access) {
+TEST_F(spawn_rule_engine_test, whitelist_access)
+{
     const auto& whitelist = engine_.whitelist();
     EXPECT_EQ(whitelist.spawnable_count(), 0);
 }
 
-TEST_F(spawn_rule_engine_test, can_random_spawn_by_name) {
+TEST_F(spawn_rule_engine_test, can_random_spawn_by_name)
+{
     // Without loading any whitelist, nothing should be spawnable
     EXPECT_FALSE(engine_.can_random_spawn("Slime"));
     EXPECT_FALSE(engine_.can_random_spawn("Goblin"));
 }
 
-TEST_F(spawn_rule_engine_test, can_random_spawn_by_id) {
+TEST_F(spawn_rule_engine_test, can_random_spawn_by_id)
+{
     EXPECT_FALSE(engine_.can_random_spawn(npc_id{1}));
     EXPECT_FALSE(engine_.can_random_spawn(npc_id{100}));
 }
 
-TEST_F(spawn_rule_engine_test, get_spawn_entry_not_found) {
+TEST_F(spawn_rule_engine_test, get_spawn_entry_not_found)
+{
     auto entry = engine_.get_spawn_entry("NonexistentMob");
     EXPECT_FALSE(entry.has_value());
 }
 
-TEST_F(spawn_rule_engine_test, get_map_rule_count_unknown_map) {
+TEST_F(spawn_rule_engine_test, get_map_rule_count_unknown_map)
+{
     EXPECT_EQ(engine_.get_map_rule_count("unknown_map"), 0);
 }
 
-TEST_F(spawn_rule_engine_test, load_from_nonexistent_file) {
+TEST_F(spawn_rule_engine_test, load_from_nonexistent_file)
+{
     auto result = engine_.load_from_file("nonexistent_spawn_rules.yaml");
     EXPECT_TRUE(result.is_err());
 }
 
 // ========== Biome Type Enum Tests ==========
 
-TEST(biome_type_test, enum_values) {
+TEST(biome_type_test, enum_values)
+{
     // Verify all biome types are distinct
     EXPECT_NE(static_cast<int>(biome_type::water), static_cast<int>(biome_type::farm));
     EXPECT_NE(static_cast<int>(biome_type::forest), static_cast<int>(biome_type::mountain));
@@ -646,7 +686,8 @@ TEST(biome_type_test, enum_values) {
 
 // ========== Time Period Enum Tests ==========
 
-TEST(time_period_test, enum_values) {
+TEST(time_period_test, enum_values)
+{
     EXPECT_NE(static_cast<int>(time_period::day), static_cast<int>(time_period::night));
     EXPECT_NE(static_cast<int>(time_period::dawn), static_cast<int>(time_period::dusk));
     EXPECT_NE(static_cast<int>(time_period::hour_range), static_cast<int>(time_period::day));
@@ -654,18 +695,16 @@ TEST(time_period_test, enum_values) {
 
 // ========== Proximity Condition Enum Tests ==========
 
-TEST(proximity_condition_test, enum_values) {
-    EXPECT_NE(static_cast<int>(proximity_condition::min_distance),
-              static_cast<int>(proximity_condition::max_distance));
-    EXPECT_NE(static_cast<int>(proximity_condition::player_count),
-              static_cast<int>(proximity_condition::min_distance));
+TEST(proximity_condition_test, enum_values)
+{
+    EXPECT_NE(static_cast<int>(proximity_condition::min_distance), static_cast<int>(proximity_condition::max_distance));
+    EXPECT_NE(static_cast<int>(proximity_condition::player_count), static_cast<int>(proximity_condition::min_distance));
 }
 
 // ========== Composite Operator Enum Tests ==========
 
-TEST(composite_operator_test, enum_values) {
-    EXPECT_NE(static_cast<int>(composite_operator::op_and),
-              static_cast<int>(composite_operator::op_or));
-    EXPECT_NE(static_cast<int>(composite_operator::op_not),
-              static_cast<int>(composite_operator::op_and));
+TEST(composite_operator_test, enum_values)
+{
+    EXPECT_NE(static_cast<int>(composite_operator::op_and), static_cast<int>(composite_operator::op_or));
+    EXPECT_NE(static_cast<int>(composite_operator::op_not), static_cast<int>(composite_operator::op_and));
 }

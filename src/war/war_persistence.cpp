@@ -11,19 +11,19 @@
 #include <iomanip>
 #include <sstream>
 
-namespace hb::war {
-
-war_persistence::war_persistence(database::database_system* db)
-    : db_(db)
+namespace hb::war
 {
-}
+
+war_persistence::war_persistence(database::database_system* db) : db_(db) {}
 
 auto war_persistence::save_war_result(const war_result& result) -> hb::result<int32_t, std::string>
 {
-    if (!db_) return hb::result<int32_t, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<int32_t, std::string>::err("No database system");
 
     // Format timestamps as ISO 8601
-    auto format_time = [](std::chrono::system_clock::time_point tp) -> std::string {
+    auto format_time = [](std::chrono::system_clock::time_point tp) -> std::string
+    {
         auto time_t_val = std::chrono::system_clock::to_time_t(tp);
         std::tm tm_val{};
 #ifdef _WIN32
@@ -47,20 +47,19 @@ auto war_persistence::save_war_result(const war_result& result) -> hb::result<in
         metadata.merge_patch(result.metadata);
     }
 
-    auto query_result = db_->execute_params(
-        "INSERT INTO war_history (war_type, started_at, ended_at, duration_seconds, "
-        "winner_faction, aresden_score, elvine_score, metadata) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
-        "RETURNING id",
-        static_cast<int16_t>(result.type),
-        started_str,
-        ended_str,
-        result.duration_seconds,
-        static_cast<int16_t>(result.winner),
-        result.aresden_score.total_score,
-        result.elvine_score.total_score,
-        metadata.dump()
-    );
+    auto query_result =
+        db_->execute_params("INSERT INTO war_history (war_type, started_at, ended_at, duration_seconds, "
+                            "winner_faction, aresden_score, elvine_score, metadata) "
+                            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) "
+                            "RETURNING id",
+                            static_cast<int16_t>(result.type),
+                            started_str,
+                            ended_str,
+                            result.duration_seconds,
+                            static_cast<int16_t>(result.winner),
+                            result.aresden_score.total_score,
+                            result.elvine_score.total_score,
+                            metadata.dump());
 
     if (query_result.is_err())
     {
@@ -69,8 +68,11 @@ auto war_persistence::save_war_result(const war_result& result) -> hb::result<in
     }
 
     auto db_id = query_result.value().get<int32_t>(0, 0);
-    LOG_INFO(general, "Saved war result id={} type={} winner={}",
-        db_id, static_cast<int>(result.type), static_cast<int>(result.winner));
+    LOG_INFO(general,
+             "Saved war result id={} type={} winner={}",
+             db_id,
+             static_cast<int>(result.type),
+             static_cast<int>(result.winner));
 
     return hb::result<int32_t, std::string>::ok(db_id);
 }
@@ -79,32 +81,30 @@ auto war_persistence::save_participant(int32_t war_db_id,
                                        int32_t character_id,
                                        const war_participant& participant,
                                        uint8_t duty,
-                                       const war_rewards& rewards)
-    -> hb::result<void, std::string>
+                                       const war_rewards& rewards) -> hb::result<void, std::string>
 {
-    if (!db_) return hb::result<void, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<void, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "INSERT INTO war_participants (war_id, character_id, faction, duty, "
-        "kills, deaths, assists, damage_dealt, healing_done, contribution, "
-        "reward_exp, reward_gold, reward_contribution, reward_claimed) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) "
-        "ON CONFLICT (war_id, character_id) DO NOTHING",
-        war_db_id,
-        character_id,
-        static_cast<int16_t>(participant.faction),
-        static_cast<int16_t>(duty),
-        participant.kills,
-        participant.deaths,
-        participant.assists,
-        participant.damage_dealt,
-        participant.healing_done,
-        participant.contribution_score,
-        rewards.experience,
-        static_cast<int32_t>(rewards.gold),
-        rewards.contribution_points,
-        false
-    );
+    auto query_result = db_->execute_params("INSERT INTO war_participants (war_id, character_id, faction, duty, "
+                                            "kills, deaths, assists, damage_dealt, healing_done, contribution, "
+                                            "reward_exp, reward_gold, reward_contribution, reward_claimed) "
+                                            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) "
+                                            "ON CONFLICT (war_id, character_id) DO NOTHING",
+                                            war_db_id,
+                                            character_id,
+                                            static_cast<int16_t>(participant.faction),
+                                            static_cast<int16_t>(duty),
+                                            participant.kills,
+                                            participant.deaths,
+                                            participant.assists,
+                                            participant.damage_dealt,
+                                            participant.healing_done,
+                                            participant.contribution_score,
+                                            rewards.experience,
+                                            static_cast<int32_t>(rewards.gold),
+                                            rewards.contribution_points,
+                                            false);
 
     if (query_result.is_err())
     {
@@ -115,17 +115,17 @@ auto war_persistence::save_participant(int32_t war_db_id,
     return hb::result<void, std::string>::ok();
 }
 
-auto war_persistence::load_war_history(int32_t limit, int32_t offset)
-    -> hb::result<std::vector<war_history_row>, std::string>
+auto war_persistence::load_war_history(int32_t limit,
+                                       int32_t offset) -> hb::result<std::vector<war_history_row>, std::string>
 {
-    if (!db_) return hb::result<std::vector<war_history_row>, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<std::vector<war_history_row>, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "SELECT id, war_type, started_at, ended_at, duration_seconds, "
-        "winner_faction, aresden_score, elvine_score, metadata "
-        "FROM war_history ORDER BY started_at DESC LIMIT $1 OFFSET $2",
-        limit, offset
-    );
+    auto query_result = db_->execute_params("SELECT id, war_type, started_at, ended_at, duration_seconds, "
+                                            "winner_faction, aresden_score, elvine_score, metadata "
+                                            "FROM war_history ORDER BY started_at DESC LIMIT $1 OFFSET $2",
+                                            limit,
+                                            offset);
 
     if (query_result.is_err())
     {
@@ -152,17 +152,20 @@ auto war_persistence::load_war_history(int32_t limit, int32_t offset)
     return hb::result<std::vector<war_history_row>, std::string>::ok(std::move(rows));
 }
 
-auto war_persistence::load_war_history_by_type(war_type type, int32_t limit, int32_t offset)
-    -> hb::result<std::vector<war_history_row>, std::string>
+auto war_persistence::load_war_history_by_type(war_type type,
+                                               int32_t limit,
+                                               int32_t offset) -> hb::result<std::vector<war_history_row>, std::string>
 {
-    if (!db_) return hb::result<std::vector<war_history_row>, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<std::vector<war_history_row>, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "SELECT id, war_type, started_at, ended_at, duration_seconds, "
-        "winner_faction, aresden_score, elvine_score, metadata "
-        "FROM war_history WHERE war_type = $1 ORDER BY started_at DESC LIMIT $2 OFFSET $3",
-        static_cast<int16_t>(type), limit, offset
-    );
+    auto query_result =
+        db_->execute_params("SELECT id, war_type, started_at, ended_at, duration_seconds, "
+                            "winner_faction, aresden_score, elvine_score, metadata "
+                            "FROM war_history WHERE war_type = $1 ORDER BY started_at DESC LIMIT $2 OFFSET $3",
+                            static_cast<int16_t>(type),
+                            limit,
+                            offset);
 
     if (query_result.is_err())
     {
@@ -192,17 +195,16 @@ auto war_persistence::load_war_history_by_type(war_type type, int32_t limit, int
 auto war_persistence::load_war_participants(int32_t war_db_id)
     -> hb::result<std::vector<war_participant_row>, std::string>
 {
-    if (!db_) return hb::result<std::vector<war_participant_row>, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<std::vector<war_participant_row>, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "SELECT wp.id, wp.war_id, wp.character_id, wp.faction, wp.duty, "
-        "wp.kills, wp.deaths, wp.assists, wp.damage_dealt, wp.healing_done, "
-        "wp.contribution, wp.reward_exp, wp.reward_gold, wp.reward_contribution, "
-        "wp.reward_claimed "
-        "FROM war_participants wp "
-        "WHERE wp.war_id = $1 ORDER BY wp.contribution DESC",
-        war_db_id
-    );
+    auto query_result = db_->execute_params("SELECT wp.id, wp.war_id, wp.character_id, wp.faction, wp.duty, "
+                                            "wp.kills, wp.deaths, wp.assists, wp.damage_dealt, wp.healing_done, "
+                                            "wp.contribution, wp.reward_exp, wp.reward_gold, wp.reward_contribution, "
+                                            "wp.reward_claimed "
+                                            "FROM war_participants wp "
+                                            "WHERE wp.war_id = $1 ORDER BY wp.contribution DESC",
+                                            war_db_id);
 
     if (query_result.is_err())
     {
@@ -236,7 +238,8 @@ auto war_persistence::load_war_participants(int32_t war_db_id)
 
 auto war_persistence::count_wars() -> hb::result<int32_t, std::string>
 {
-    if (!db_) return hb::result<int32_t, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<int32_t, std::string>::err("No database system");
 
     auto query_result = db_->execute_params("SELECT COUNT(*) FROM war_history");
     if (query_result.is_err())
@@ -249,12 +252,11 @@ auto war_persistence::count_wars() -> hb::result<int32_t, std::string>
 
 auto war_persistence::count_wars_by_type(war_type type) -> hb::result<int32_t, std::string>
 {
-    if (!db_) return hb::result<int32_t, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<int32_t, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "SELECT COUNT(*) FROM war_history WHERE war_type = $1",
-        static_cast<int16_t>(type)
-    );
+    auto query_result =
+        db_->execute_params("SELECT COUNT(*) FROM war_history WHERE war_type = $1", static_cast<int16_t>(type));
 
     if (query_result.is_err())
     {
@@ -266,14 +268,13 @@ auto war_persistence::count_wars_by_type(war_type type) -> hb::result<int32_t, s
 
 auto war_persistence::load_last_winner(war_type type) -> hb::result<war_faction, std::string>
 {
-    if (!db_) return hb::result<war_faction, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<war_faction, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "SELECT winner_faction FROM war_history "
-        "WHERE war_type = $1 AND winner_faction != 0 "
-        "ORDER BY ended_at DESC LIMIT 1",
-        static_cast<int16_t>(type)
-    );
+    auto query_result = db_->execute_params("SELECT winner_faction FROM war_history "
+                                            "WHERE war_type = $1 AND winner_faction != 0 "
+                                            "ORDER BY ended_at DESC LIMIT 1",
+                                            static_cast<int16_t>(type));
 
     if (query_result.is_err())
     {
@@ -291,13 +292,12 @@ auto war_persistence::load_last_winner(war_type type) -> hb::result<war_faction,
 
 auto war_persistence::load_crusade_advantage() -> hb::result<int8_t, std::string>
 {
-    if (!db_) return hb::result<int8_t, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<int8_t, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "SELECT metadata FROM war_history "
-        "WHERE war_type = $1 ORDER BY ended_at DESC LIMIT 1",
-        static_cast<int16_t>(war_type::crusade)
-    );
+    auto query_result = db_->execute_params("SELECT metadata FROM war_history "
+                                            "WHERE war_type = $1 ORDER BY ended_at DESC LIMIT 1",
+                                            static_cast<int16_t>(war_type::crusade));
 
     if (query_result.is_err())
     {
@@ -316,25 +316,23 @@ auto war_persistence::load_crusade_advantage() -> hb::result<int8_t, std::string
         return hb::result<int8_t, std::string>::ok(0);
     }
 
-    return hb::result<int8_t, std::string>::ok(
-        static_cast<int8_t>(metadata["crusade_advantage"].get<int>()));
+    return hb::result<int8_t, std::string>::ok(static_cast<int8_t>(metadata["crusade_advantage"].get<int>()));
 }
 
 auto war_persistence::get_unclaimed_rewards(int32_t character_id)
     -> hb::result<std::vector<war_participant_row>, std::string>
 {
-    if (!db_) return hb::result<std::vector<war_participant_row>, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<std::vector<war_participant_row>, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "SELECT wp.id, wp.war_id, wp.character_id, wp.faction, wp.duty, "
-        "wp.kills, wp.deaths, wp.assists, wp.damage_dealt, wp.healing_done, "
-        "wp.contribution, wp.reward_exp, wp.reward_gold, wp.reward_contribution, "
-        "wp.reward_claimed "
-        "FROM war_participants wp "
-        "WHERE wp.character_id = $1 AND wp.reward_claimed = FALSE "
-        "ORDER BY wp.id ASC",
-        character_id
-    );
+    auto query_result = db_->execute_params("SELECT wp.id, wp.war_id, wp.character_id, wp.faction, wp.duty, "
+                                            "wp.kills, wp.deaths, wp.assists, wp.damage_dealt, wp.healing_done, "
+                                            "wp.contribution, wp.reward_exp, wp.reward_gold, wp.reward_contribution, "
+                                            "wp.reward_claimed "
+                                            "FROM war_participants wp "
+                                            "WHERE wp.character_id = $1 AND wp.reward_claimed = FALSE "
+                                            "ORDER BY wp.id ASC",
+                                            character_id);
 
     if (query_result.is_err())
     {
@@ -366,15 +364,13 @@ auto war_persistence::get_unclaimed_rewards(int32_t character_id)
     return hb::result<std::vector<war_participant_row>, std::string>::ok(std::move(rows));
 }
 
-auto war_persistence::mark_rewards_claimed(int32_t participant_id)
-    -> hb::result<void, std::string>
+auto war_persistence::mark_rewards_claimed(int32_t participant_id) -> hb::result<void, std::string>
 {
-    if (!db_) return hb::result<void, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<void, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "UPDATE war_participants SET reward_claimed = TRUE WHERE id = $1",
-        participant_id
-    );
+    auto query_result =
+        db_->execute_params("UPDATE war_participants SET reward_claimed = TRUE WHERE id = $1", participant_id);
 
     if (query_result.is_err())
     {
@@ -385,36 +381,34 @@ auto war_persistence::mark_rewards_claimed(int32_t participant_id)
 }
 
 auto war_persistence::save_participant_with_claimed(int32_t war_db_id,
-                                                     int32_t character_id,
-                                                     const war_participant& participant,
-                                                     uint8_t duty,
-                                                     const war_rewards& rewards,
-                                                     bool claimed)
-    -> hb::result<void, std::string>
+                                                    int32_t character_id,
+                                                    const war_participant& participant,
+                                                    uint8_t duty,
+                                                    const war_rewards& rewards,
+                                                    bool claimed) -> hb::result<void, std::string>
 {
-    if (!db_) return hb::result<void, std::string>::err("No database system");
+    if (!db_)
+        return hb::result<void, std::string>::err("No database system");
 
-    auto query_result = db_->execute_params(
-        "INSERT INTO war_participants (war_id, character_id, faction, duty, "
-        "kills, deaths, assists, damage_dealt, healing_done, contribution, "
-        "reward_exp, reward_gold, reward_contribution, reward_claimed) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) "
-        "ON CONFLICT (war_id, character_id) DO NOTHING",
-        war_db_id,
-        character_id,
-        static_cast<int16_t>(participant.faction),
-        static_cast<int16_t>(duty),
-        participant.kills,
-        participant.deaths,
-        participant.assists,
-        participant.damage_dealt,
-        participant.healing_done,
-        participant.contribution_score,
-        rewards.experience,
-        static_cast<int32_t>(rewards.gold),
-        rewards.contribution_points,
-        claimed
-    );
+    auto query_result = db_->execute_params("INSERT INTO war_participants (war_id, character_id, faction, duty, "
+                                            "kills, deaths, assists, damage_dealt, healing_done, contribution, "
+                                            "reward_exp, reward_gold, reward_contribution, reward_claimed) "
+                                            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) "
+                                            "ON CONFLICT (war_id, character_id) DO NOTHING",
+                                            war_db_id,
+                                            character_id,
+                                            static_cast<int16_t>(participant.faction),
+                                            static_cast<int16_t>(duty),
+                                            participant.kills,
+                                            participant.deaths,
+                                            participant.assists,
+                                            participant.damage_dealt,
+                                            participant.healing_done,
+                                            participant.contribution_score,
+                                            rewards.experience,
+                                            static_cast<int32_t>(rewards.gold),
+                                            rewards.contribution_points,
+                                            claimed);
 
     if (query_result.is_err())
     {
@@ -425,4 +419,4 @@ auto war_persistence::save_participant_with_claimed(int32_t war_db_id,
     return hb::result<void, std::string>::ok();
 }
 
-}  // namespace hb::war
+} // namespace hb::war

@@ -9,14 +9,15 @@
 
 #include <filesystem>
 
-using hb::player_id;
 using hb::guild_id;
 using hb::map_id;
+using hb::player_id;
 using namespace hb::persistence;
 
 // Serialization tests
 
-TEST(binary_writer_test, write_primitives) {
+TEST(binary_writer_test, write_primitives)
+{
     binary_writer writer;
 
     writer.write_uint8(42);
@@ -27,7 +28,8 @@ TEST(binary_writer_test, write_primitives) {
     EXPECT_EQ(writer.size(), 1 + 2 + 4 + 4);
 }
 
-TEST(binary_writer_test, write_string) {
+TEST(binary_writer_test, write_string)
+{
     binary_writer writer;
 
     writer.write_string("Hello");
@@ -36,7 +38,8 @@ TEST(binary_writer_test, write_string) {
     EXPECT_EQ(writer.size(), 4 + 5);
 }
 
-TEST(binary_writer_test, write_fixed_string) {
+TEST(binary_writer_test, write_fixed_string)
+{
     binary_writer writer;
 
     writer.write_fixed_string("Hi", 10);
@@ -44,7 +47,8 @@ TEST(binary_writer_test, write_fixed_string) {
     EXPECT_EQ(writer.size(), 10);
 }
 
-TEST(binary_reader_test, read_primitives) {
+TEST(binary_reader_test, read_primitives)
+{
     binary_writer writer;
     writer.write_uint8(42);
     writer.write_uint16(1234);
@@ -70,7 +74,8 @@ TEST(binary_reader_test, read_primitives) {
     EXPECT_EQ(i32.value(), -500);
 }
 
-TEST(binary_reader_test, read_string) {
+TEST(binary_reader_test, read_string)
+{
     binary_writer writer;
     writer.write_string("Hello World");
 
@@ -81,7 +86,8 @@ TEST(binary_reader_test, read_string) {
     EXPECT_EQ(str.value(), "Hello World");
 }
 
-TEST(binary_reader_test, read_float) {
+TEST(binary_reader_test, read_float)
+{
     binary_writer writer;
     writer.write_float(3.14159f);
 
@@ -92,7 +98,8 @@ TEST(binary_reader_test, read_float) {
     EXPECT_FLOAT_EQ(f.value(), 3.14159f);
 }
 
-TEST(binary_reader_test, read_double) {
+TEST(binary_reader_test, read_double)
+{
     binary_writer writer;
     writer.write_double(2.71828182845);
 
@@ -103,27 +110,30 @@ TEST(binary_reader_test, read_double) {
     EXPECT_DOUBLE_EQ(d.value(), 2.71828182845);
 }
 
-TEST(binary_reader_test, buffer_underflow) {
+TEST(binary_reader_test, buffer_underflow)
+{
     std::vector<uint8_t> small_buffer{1, 2};
     binary_reader reader(small_buffer);
 
     auto u8 = reader.read_uint8();
     EXPECT_TRUE(u8.is_ok());
 
-    auto u32 = reader.read_uint32();  // Not enough bytes
+    auto u32 = reader.read_uint32(); // Not enough bytes
     EXPECT_FALSE(u32.is_ok());
     EXPECT_EQ(u32.error(), serialize_error::buffer_underflow);
 }
 
 // Memory repository tests
 
-struct test_entity {
+struct test_entity
+{
     int id;
     std::string name;
     int value;
 };
 
-TEST(memory_repository_test, save_and_load) {
+TEST(memory_repository_test, save_and_load)
+{
     memory_repository<test_entity, int> repo([](const test_entity& e) { return e.id; });
 
     test_entity entity{1, "Test", 42};
@@ -136,7 +146,8 @@ TEST(memory_repository_test, save_and_load) {
     EXPECT_EQ(load_result.value().value, 42);
 }
 
-TEST(memory_repository_test, not_found) {
+TEST(memory_repository_test, not_found)
+{
     memory_repository<test_entity, int> repo([](const test_entity& e) { return e.id; });
 
     auto result = repo.load(999);
@@ -144,7 +155,8 @@ TEST(memory_repository_test, not_found) {
     EXPECT_EQ(result.error(), repository_error::not_found);
 }
 
-TEST(memory_repository_test, exists) {
+TEST(memory_repository_test, exists)
+{
     memory_repository<test_entity, int> repo([](const test_entity& e) { return e.id; });
 
     EXPECT_FALSE(repo.exists(1));
@@ -155,7 +167,8 @@ TEST(memory_repository_test, exists) {
     EXPECT_TRUE(repo.exists(1));
 }
 
-TEST(memory_repository_test, remove) {
+TEST(memory_repository_test, remove)
+{
     memory_repository<test_entity, int> repo([](const test_entity& e) { return e.id; });
 
     test_entity entity{1, "Test", 42};
@@ -169,7 +182,8 @@ TEST(memory_repository_test, remove) {
     EXPECT_FALSE(remove_again.is_ok());
 }
 
-TEST(memory_repository_test, count) {
+TEST(memory_repository_test, count)
+{
     memory_repository<test_entity, int> repo([](const test_entity& e) { return e.id; });
 
     EXPECT_EQ(repo.count(), 0);
@@ -181,7 +195,8 @@ TEST(memory_repository_test, count) {
     EXPECT_EQ(repo.count(), 3);
 }
 
-TEST(memory_repository_test, load_all) {
+TEST(memory_repository_test, load_all)
+{
     memory_repository<test_entity, int> repo([](const test_entity& e) { return e.id; });
 
     repo.save({1, "A", 1});
@@ -194,22 +209,25 @@ TEST(memory_repository_test, load_all) {
 
 // Persistence system tests
 
-class persistence_system_test : public ::testing::Test {
+class persistence_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         // Use a test directory
         test_dir_ = std::filesystem::temp_directory_path() / "hb_test_persistence";
         std::filesystem::create_directories(test_dir_);
 
         persistence_config config;
         config.save_directory = test_dir_;
-        config.auto_save_enabled = false;  // Disable for tests
+        config.auto_save_enabled = false; // Disable for tests
 
         system_.set_config(config);
         system_.initialize();
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         system_.shutdown();
 
         // Cleanup test directory
@@ -221,12 +239,14 @@ protected:
     persistence_system system_;
 };
 
-TEST_F(persistence_system_test, lifecycle) {
+TEST_F(persistence_system_test, lifecycle)
+{
     EXPECT_TRUE(system_.is_initialized());
     EXPECT_EQ(system_.name(), "persistence_system");
 }
 
-TEST_F(persistence_system_test, save_and_load_player) {
+TEST_F(persistence_system_test, save_and_load_player)
+{
     player_save_data data;
     data.id = player_id{1};
     data.name = "TestPlayer";
@@ -257,13 +277,15 @@ TEST_F(persistence_system_test, save_and_load_player) {
     EXPECT_EQ(loaded.y, 200);
 }
 
-TEST_F(persistence_system_test, player_not_found) {
+TEST_F(persistence_system_test, player_not_found)
+{
     auto result = system_.load_player(player_id{999});
     EXPECT_FALSE(result.is_ok());
     EXPECT_EQ(result.error(), persist_result::not_found);
 }
 
-TEST_F(persistence_system_test, player_exists) {
+TEST_F(persistence_system_test, player_exists)
+{
     EXPECT_FALSE(system_.player_exists(player_id{1}));
 
     player_save_data data;
@@ -274,7 +296,8 @@ TEST_F(persistence_system_test, player_exists) {
     EXPECT_TRUE(system_.player_exists(player_id{1}));
 }
 
-TEST_F(persistence_system_test, delete_player) {
+TEST_F(persistence_system_test, delete_player)
+{
     player_save_data data;
     data.id = player_id{1};
     data.name = "Test";
@@ -288,7 +311,8 @@ TEST_F(persistence_system_test, delete_player) {
     EXPECT_FALSE(system_.player_exists(player_id{1}));
 }
 
-TEST_F(persistence_system_test, save_and_load_guild) {
+TEST_F(persistence_system_test, save_and_load_guild)
+{
     guild_save_data data;
     data.id = guild_id{1};
     data.name = "TestGuild";
@@ -315,13 +339,15 @@ TEST_F(persistence_system_test, save_and_load_guild) {
     EXPECT_EQ(loaded.level, 5);
 }
 
-TEST_F(persistence_system_test, guild_not_found) {
+TEST_F(persistence_system_test, guild_not_found)
+{
     auto result = system_.load_guild(guild_id{999});
     EXPECT_FALSE(result.is_ok());
     EXPECT_EQ(result.error(), persist_result::not_found);
 }
 
-TEST_F(persistence_system_test, guild_exists) {
+TEST_F(persistence_system_test, guild_exists)
+{
     EXPECT_FALSE(system_.guild_exists(guild_id{1}));
 
     guild_save_data data;
@@ -332,7 +358,8 @@ TEST_F(persistence_system_test, guild_exists) {
     EXPECT_TRUE(system_.guild_exists(guild_id{1}));
 }
 
-TEST_F(persistence_system_test, delete_guild) {
+TEST_F(persistence_system_test, delete_guild)
+{
     guild_save_data data;
     data.id = guild_id{1};
     data.name = "Test";
@@ -346,13 +373,16 @@ TEST_F(persistence_system_test, delete_guild) {
     EXPECT_FALSE(system_.guild_exists(guild_id{1}));
 }
 
-TEST_F(persistence_system_test, save_callback) {
+TEST_F(persistence_system_test, save_callback)
+{
     bool callback_fired = false;
-    system_.on_save_completed([&](const save_completed_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.player, player_id{1});
-        EXPECT_TRUE(event.success);
-    });
+    system_.on_save_completed(
+        [&](const save_completed_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.player, player_id{1});
+            EXPECT_TRUE(event.success);
+        });
 
     player_save_data data;
     data.id = player_id{1};
@@ -362,7 +392,8 @@ TEST_F(persistence_system_test, save_callback) {
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(persistence_system_test, load_callback) {
+TEST_F(persistence_system_test, load_callback)
+{
     player_save_data data;
     data.id = player_id{1};
     data.name = "Test";
@@ -378,17 +409,20 @@ TEST_F(persistence_system_test, load_callback) {
     system_.initialize();
 
     bool callback_fired = false;
-    system_.on_load_completed([&](const load_completed_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.player, player_id{1});
-        EXPECT_TRUE(event.success);
-    });
+    system_.on_load_completed(
+        [&](const load_completed_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.player, player_id{1});
+            EXPECT_TRUE(event.success);
+        });
 
     system_.load_player(player_id{1});
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(persistence_system_test, player_with_blob_data) {
+TEST_F(persistence_system_test, player_with_blob_data)
+{
     player_save_data data;
     data.id = player_id{1};
     data.name = "BlobTest";
@@ -411,7 +445,8 @@ TEST_F(persistence_system_test, player_with_blob_data) {
     EXPECT_EQ(loaded.equipment_data, std::vector<uint8_t>({50, 60, 70, 80}));
 }
 
-TEST_F(persistence_system_test, statistics) {
+TEST_F(persistence_system_test, statistics)
+{
     player_save_data player;
     player.id = player_id{1};
     player.name = "P1";
@@ -433,7 +468,8 @@ TEST_F(persistence_system_test, statistics) {
 
 // Serialization round-trip tests
 
-TEST(player_serialization_test, round_trip) {
+TEST(player_serialization_test, round_trip)
+{
     player_save_data original;
     original.id = player_id{12345};
     original.name = "TestCharacter";
@@ -484,7 +520,8 @@ TEST(player_serialization_test, round_trip) {
     EXPECT_EQ(loaded.y, original.y);
 }
 
-TEST(guild_serialization_test, round_trip) {
+TEST(guild_serialization_test, round_trip)
+{
     guild_save_data original;
     original.id = guild_id{100};
     original.name = "Epic Guild";

@@ -13,15 +13,18 @@
 #include <string_view>
 #include <functional>
 
-namespace hb::skill {
+namespace hb::skill
+{
 
 // Skill system configuration
-struct skill_system_config {
+struct skill_system_config
+{
     int32_t training_cooldown_ms{1000};
 };
 
 // Skill level up event
-struct skill_level_event {
+struct skill_level_event
+{
     player_id player{};
     skill_type skill{};
     int16_t old_level{0};
@@ -29,7 +32,8 @@ struct skill_level_event {
 };
 
 // Skill system - manages player skills
-class skill_system : public subsystem {
+class skill_system : public subsystem
+{
 public:
     using level_up_callback = std::function<void(const skill_level_event&)>;
 
@@ -91,4 +95,4 @@ private:
     std::vector<level_up_callback> level_up_callbacks_;
 };
 
-}  // namespace hb::skill
+} // namespace hb::skill

@@ -15,7 +15,8 @@
 #include <chrono>
 #include <ctime>
 
-namespace hb::war {
+namespace hb::war
+{
 
 heldenian_system::heldenian_system() = default;
 
@@ -40,8 +41,7 @@ void heldenian_system::initialize()
             last_winner_ = result.value();
             if (last_winner_ != war_faction::neutral)
             {
-                LOG_INFO(general, "Loaded heldenian last winner: faction {}",
-                    static_cast<int>(last_winner_));
+                LOG_INFO(general, "Loaded heldenian last winner: faction {}", static_cast<int>(last_winner_));
             }
         }
     }
@@ -101,18 +101,18 @@ void heldenian_system::update(float delta_time)
                     else if (elvine_deaths_ < aresden_deaths_)
                         end_heldenian(war_faction::elvine);
                     else
-                        end_heldenian(last_winner_);  // Complete tie — previous winner stays
+                        end_heldenian(last_winner_); // Complete tie — previous winner stays
                 }
             }
             else
             {
                 // Door defense: if doors survive, defender wins
-                auto attacker = (defending_faction_ == war_faction::aresden) ?
-                    war_faction::elvine : war_faction::aresden;
+                auto attacker =
+                    (defending_faction_ == war_faction::aresden) ? war_faction::elvine : war_faction::aresden;
                 if (!all_objectives_destroyed(defending_faction_))
-                    end_heldenian(defending_faction_);  // Defender wins
+                    end_heldenian(defending_faction_); // Defender wins
                 else
-                    end_heldenian(attacker);            // Attacker wins
+                    end_heldenian(attacker); // Attacker wins
             }
         }
     }
@@ -130,8 +130,10 @@ void heldenian_system::update(float delta_time)
                     auto result = start_heldenian(*mode);
                     if (result.is_ok())
                     {
-                        LOG_INFO(general, "Scheduled heldenian started (war_id={}, mode={})",
-                            result.value().value, static_cast<int>(*mode));
+                        LOG_INFO(general,
+                                 "Scheduled heldenian started (war_id={}, mode={})",
+                                 result.value().value,
+                                 static_cast<int>(*mode));
                     }
                 }
             }
@@ -140,10 +142,10 @@ void heldenian_system::update(float delta_time)
 }
 
 void heldenian_system::set_dependencies(war_system* war,
-                                         player::player_system* players,
-                                         world::world_subsystem* world,
-                                         npc::npc_system* npcs,
-                                         scheduler* sched)
+                                        player::player_system* players,
+                                        world::world_subsystem* world,
+                                        npc::npc_system* npcs,
+                                        scheduler* sched)
 {
     war_ = war;
     players_ = players;
@@ -155,11 +157,12 @@ void heldenian_system::set_dependencies(war_system* war,
 void heldenian_system::set_config(const heldenian_config& config)
 {
     config_ = config;
-    LOG_INFO(general, "Heldenian config loaded: {} schedule entries, {} aresden towers, {} elvine towers, {} doors",
-        config_.schedule.size(),
-        config_.aresden_towers.size(),
-        config_.elvine_towers.size(),
-        config_.defender_doors.size());
+    LOG_INFO(general,
+             "Heldenian config loaded: {} schedule entries, {} aresden towers, {} elvine towers, {} doors",
+             config_.schedule.size(),
+             config_.aresden_towers.size(),
+             config_.elvine_towers.size(),
+             config_.defender_doors.size());
 }
 
 // ========== Lifecycle ==========
@@ -209,19 +212,20 @@ auto heldenian_system::start_heldenian(heldenian_mode mode, war_faction defender
         if (aresden_objectives_.empty() && elvine_objectives_.empty())
         {
             active_ = false;
-            if (war_ && wid.is_valid()) war_->cancel_war(wid);
+            if (war_ && wid.is_valid())
+                war_->cancel_war(wid);
             return result<war_id, heldenian_result>::err(heldenian_result::config_error);
         }
     }
     else
     {
         // Door defense: the defending faction must have doors
-        auto& defender_objs = (defending_faction_ == war_faction::aresden) ?
-            aresden_objectives_ : elvine_objectives_;
+        auto& defender_objs = (defending_faction_ == war_faction::aresden) ? aresden_objectives_ : elvine_objectives_;
         if (defender_objs.empty())
         {
             active_ = false;
-            if (war_ && wid.is_valid()) war_->cancel_war(wid);
+            if (war_ && wid.is_valid())
+                war_->cancel_war(wid);
             return result<war_id, heldenian_result>::err(heldenian_result::config_error);
         }
     }
@@ -234,8 +238,11 @@ auto heldenian_system::start_heldenian(heldenian_mode mode, war_faction defender
 
     spawn_objective_npcs();
 
-    LOG_INFO(general, "Heldenian started (war_id={}, mode={}, defender={})",
-        wid.value, static_cast<int>(mode), static_cast<int>(defending_faction_));
+    LOG_INFO(general,
+             "Heldenian started (war_id={}, mode={}, defender={})",
+             wid.value,
+             static_cast<int>(mode),
+             static_cast<int>(defending_faction_));
 
     broadcast_heldenian_started();
 
@@ -249,8 +256,11 @@ auto heldenian_system::end_heldenian(war_faction winner) -> heldenian_result
         return heldenian_result::not_active;
     }
 
-    LOG_INFO(general, "Heldenian ending. Winner: faction {} (elapsed: {}s, mode={})",
-        static_cast<int>(winner), elapsed_seconds_, static_cast<int>(current_mode_));
+    LOG_INFO(general,
+             "Heldenian ending. Winner: faction {} (elapsed: {}s, mode={})",
+             static_cast<int>(winner),
+             elapsed_seconds_,
+             static_cast<int>(current_mode_));
 
     // Track winner for tiebreaker in future wars
     if (winner != war_faction::neutral)
@@ -271,7 +281,8 @@ auto heldenian_system::end_heldenian(war_faction winner) -> heldenian_result
 
 void heldenian_system::cancel_heldenian()
 {
-    if (!active_) return;
+    if (!active_)
+        return;
 
     LOG_INFO(general, "Heldenian cancelled");
 
@@ -290,9 +301,12 @@ auto heldenian_system::get_objectives(war_faction faction) const -> const std::v
     static const std::vector<heldenian_objective> empty;
     switch (faction)
     {
-        case war_faction::aresden: return aresden_objectives_;
-        case war_faction::elvine: return elvine_objectives_;
-        default: return empty;
+    case war_faction::aresden:
+        return aresden_objectives_;
+    case war_faction::elvine:
+        return elvine_objectives_;
+    default:
+        return empty;
     }
 }
 
@@ -305,8 +319,13 @@ auto heldenian_system::damage_objective(war_faction faction, uint16_t obj_id, in
         if (obj.id == obj_id && !obj.is_destroyed())
         {
             obj.hp = std::max(0, obj.hp - damage);
-            LOG_DEBUG(general, "Heldenian objective {}/{} took {} damage, hp={}/{}",
-                static_cast<int>(faction), obj_id, damage, obj.hp, obj.max_hp);
+            LOG_DEBUG(general,
+                      "Heldenian objective {}/{} took {} damage, hp={}/{}",
+                      static_cast<int>(faction),
+                      obj_id,
+                      damage,
+                      obj.hp,
+                      obj.max_hp);
 
             broadcast_objective_update(faction);
             check_victory_condition();
@@ -319,20 +338,20 @@ auto heldenian_system::damage_objective(war_faction faction, uint16_t obj_id, in
 auto heldenian_system::all_objectives_destroyed(war_faction faction) const -> bool
 {
     const auto& objs = (faction == war_faction::aresden) ? aresden_objectives_ : elvine_objectives_;
-    return std::all_of(objs.begin(), objs.end(),
-        [](const heldenian_objective& obj) { return obj.is_destroyed(); });
+    return std::all_of(objs.begin(), objs.end(), [](const heldenian_objective& obj) { return obj.is_destroyed(); });
 }
 
 auto heldenian_system::count_surviving(war_faction faction) const -> int32_t
 {
     const auto& objs = (faction == war_faction::aresden) ? aresden_objectives_ : elvine_objectives_;
-    return static_cast<int32_t>(std::count_if(objs.begin(), objs.end(),
-        [](const heldenian_objective& obj) { return !obj.is_destroyed(); }));
+    return static_cast<int32_t>(
+        std::count_if(objs.begin(), objs.end(), [](const heldenian_objective& obj) { return !obj.is_destroyed(); }));
 }
 
 void heldenian_system::on_npc_killed(entity::entity eid)
 {
-    if (!active_ || !eid.is_valid()) return;
+    if (!active_ || !eid.is_valid())
+        return;
 
     auto check_objectives = [&](std::vector<heldenian_objective>& objs) -> bool
     {
@@ -341,8 +360,7 @@ void heldenian_system::on_npc_killed(entity::entity eid)
             if (obj.eid == eid && !obj.is_destroyed())
             {
                 obj.hp = 0;
-                LOG_INFO(general, "Heldenian objective {} destroyed via NPC death (eid={})",
-                    obj.id, eid.id);
+                LOG_INFO(general, "Heldenian objective {} destroyed via NPC death (eid={})", obj.id, eid.id);
                 broadcast_objective_update(obj.faction);
                 return true;
             }
@@ -386,25 +404,30 @@ auto heldenian_system::get_teleport_destination(war_faction player_faction) cons
 
 void heldenian_system::evacuate_map(const std::string& map_name)
 {
-    if (!players_ || !evacuate_fn_) return;
+    if (!players_ || !evacuate_fn_)
+        return;
 
     // Resolve map name to map_id via world subsystem
     map_id mid{};
     if (world_)
     {
         auto* m = world_->get_map_by_name(map_name);
-        if (m) mid = m->id();
+        if (m)
+            mid = m->id();
     }
 
-    if (!mid.is_valid()) return;
+    if (!mid.is_valid())
+        return;
 
     std::vector<player_id> to_evacuate;
-    players_->for_each_player([&](player_id pid, player::player& plr) {
-        if (plr.current_map == mid && plr.admin == player::admin_level::player)
+    players_->for_each_player(
+        [&](player_id pid, player::player& plr)
         {
-            to_evacuate.push_back(pid);
-        }
-    });
+            if (plr.current_map == mid && plr.admin == player::admin_level::player)
+            {
+                to_evacuate.push_back(pid);
+            }
+        });
 
     for (auto pid : to_evacuate)
     {
@@ -413,8 +436,7 @@ void heldenian_system::evacuate_map(const std::string& map_name)
 
     if (!to_evacuate.empty())
     {
-        LOG_INFO(general, "Evacuated {} players from {} for Heldenian",
-            to_evacuate.size(), map_name);
+        LOG_INFO(general, "Evacuated {} players from {} for Heldenian", to_evacuate.size(), map_name);
     }
 }
 
@@ -434,7 +456,7 @@ auto heldenian_system::join_heldenian(player_id pid, war_faction faction) -> hel
 
     if (player_data_.contains(pid))
     {
-        return heldenian_result::success;  // Already in
+        return heldenian_result::success; // Already in
     }
 
     heldenian_player_data data;
@@ -446,9 +468,8 @@ auto heldenian_system::join_heldenian(player_id pid, war_faction faction) -> hel
     {
         if (auto* plr = players_->get_player(pid))
         {
-            data.construction_points = std::min(
-                static_cast<int32_t>(plr->base.charisma) * config_.charisma_multiplier,
-                config_.max_construction_points);
+            data.construction_points = std::min(static_cast<int32_t>(plr->base.charisma) * config_.charisma_multiplier,
+                                                config_.max_construction_points);
         }
     }
 
@@ -518,7 +539,8 @@ void heldenian_system::record_kill(player_id killer, player_id victim, war_facti
 
 auto heldenian_system::check_schedule() const -> std::optional<heldenian_mode>
 {
-    if (config_.schedule.empty()) return std::nullopt;
+    if (config_.schedule.empty())
+        return std::nullopt;
 
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
@@ -531,9 +553,7 @@ auto heldenian_system::check_schedule() const -> std::optional<heldenian_mode>
 
     for (const auto& entry : config_.schedule)
     {
-        if (local_tm.tm_wday == entry.day_of_week &&
-            local_tm.tm_hour == entry.hour &&
-            local_tm.tm_min == entry.minute)
+        if (local_tm.tm_wday == entry.day_of_week && local_tm.tm_hour == entry.hour && local_tm.tm_min == entry.minute)
         {
             return entry.mode;
         }
@@ -643,11 +663,7 @@ void heldenian_system::broadcast_objective_update(war_faction faction)
     nlohmann::json obj_array = nlohmann::json::array();
     for (const auto& obj : objs)
     {
-        obj_array.push_back({
-            {"id", obj.id},
-            {"hp", obj.hp},
-            {"max_hp", obj.max_hp}
-        });
+        obj_array.push_back({{"id", obj.id}, {"hp", obj.hp}, {"max_hp", obj.max_hp}});
     }
     data["objectives"] = std::move(obj_array);
 
@@ -660,7 +676,8 @@ void heldenian_system::broadcast_objective_update(war_faction faction)
 
 void heldenian_system::check_victory_condition()
 {
-    if (!active_) return;
+    if (!active_)
+        return;
 
     if (current_mode_ == heldenian_mode::tower_defense)
     {
@@ -681,10 +698,9 @@ void heldenian_system::check_victory_condition()
         // Door defense: if all defender's doors destroyed, attacker wins
         if (all_objectives_destroyed(defending_faction_))
         {
-            auto attacker = (defending_faction_ == war_faction::aresden) ?
-                war_faction::elvine : war_faction::aresden;
-            LOG_INFO(general, "All doors destroyed - attacker (faction {}) wins Heldenian!",
-                static_cast<int>(attacker));
+            auto attacker = (defending_faction_ == war_faction::aresden) ? war_faction::elvine : war_faction::aresden;
+            LOG_INFO(
+                general, "All doors destroyed - attacker (faction {}) wins Heldenian!", static_cast<int>(attacker));
             end_heldenian(attacker);
         }
     }
@@ -692,7 +708,8 @@ void heldenian_system::check_victory_condition()
 
 void heldenian_system::spawn_objective_npcs()
 {
-    if (!npcs_) return;
+    if (!npcs_)
+        return;
 
     auto spawn_for_objectives = [&](std::vector<heldenian_objective>& objs, const std::string& map_name)
     {
@@ -700,20 +717,21 @@ void heldenian_system::spawn_objective_npcs()
         if (world_)
         {
             auto* m = world_->get_map_by_name(map_name);
-            if (m) mid = m->id();
+            if (m)
+                mid = m->id();
         }
 
         for (auto& obj : objs)
         {
-            if (obj.npc_type == 0) continue;
+            if (obj.npc_type == 0)
+                continue;
 
-            auto spawn_result = npcs_->spawn_npc(
-                npc_id(obj.npc_type), mid, {obj.x, obj.y});
+            auto spawn_result = npcs_->spawn_npc(npc_id(obj.npc_type), mid, {obj.x, obj.y});
             if (spawn_result.is_ok())
             {
                 obj.eid = spawn_result.value();
-                LOG_DEBUG(general, "Spawned heldenian NPC type={} at ({},{}) eid={}",
-                    obj.npc_type, obj.x, obj.y, obj.eid.id);
+                LOG_DEBUG(
+                    general, "Spawned heldenian NPC type={} at ({},{}) eid={}", obj.npc_type, obj.x, obj.y, obj.eid.id);
             }
         }
     };
@@ -725,15 +743,15 @@ void heldenian_system::spawn_objective_npcs()
     }
     else
     {
-        auto& objs = (defending_faction_ == war_faction::aresden) ?
-            aresden_objectives_ : elvine_objectives_;
+        auto& objs = (defending_faction_ == war_faction::aresden) ? aresden_objectives_ : elvine_objectives_;
         spawn_for_objectives(objs, config_.door_map);
     }
 }
 
 void heldenian_system::despawn_objective_npcs()
 {
-    if (!npcs_) return;
+    if (!npcs_)
+        return;
 
     auto despawn = [&](std::vector<heldenian_objective>& objs)
     {
@@ -787,12 +805,12 @@ void heldenian_system::send_to_war_map(const network::json_message& msg)
         return;
     }
 
-    std::string war_map = (current_mode_ == heldenian_mode::tower_defense)
-        ? config_.tower_map : config_.door_map;
+    std::string war_map = (current_mode_ == heldenian_mode::tower_defense) ? config_.tower_map : config_.door_map;
 
     map_id mid{};
     auto* m = world_->get_map_by_name(war_map);
-    if (m) mid = m->id();
+    if (m)
+        mid = m->id();
 
     if (!mid.is_valid())
     {
@@ -800,12 +818,14 @@ void heldenian_system::send_to_war_map(const network::json_message& msg)
         return;
     }
 
-    players_->for_each_player([&](player_id pid, player::player& plr) {
-        if (plr.current_map == mid)
+    players_->for_each_player(
+        [&](player_id pid, player::player& plr)
         {
-            send_to_player(pid, msg);
-        }
-    });
+            if (plr.current_map == mid)
+            {
+                send_to_player(pid, msg);
+            }
+        });
 }
 
-}  // namespace hb::war
+} // namespace hb::war

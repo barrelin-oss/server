@@ -51,7 +51,8 @@ TEST(item_audit, flush_with_no_database_does_not_crash)
     audit.initialize();
 
     // Add entries without setting database
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 10; ++i)
+    {
         audit.log_item(i, "Item" + std::to_string(i), i * 100, item_log_type::get, 1);
     }
 
@@ -66,7 +67,8 @@ TEST(item_audit, auto_flush_at_threshold)
     audit.initialize();
 
     // Buffer threshold is 50 — adding 50 entries should trigger auto-flush
-    for (int i = 0; i < 50; ++i) {
+    for (int i = 0; i < 50; ++i)
+    {
         audit.log_item(1, "Item", i, item_log_type::get, 1);
     }
 
@@ -80,7 +82,8 @@ TEST(item_audit, buffer_below_threshold_does_not_auto_flush)
     item_audit_system audit;
     audit.initialize();
 
-    for (int i = 0; i < 49; ++i) {
+    for (int i = 0; i < 49; ++i)
+    {
         audit.log_item(1, "Item", i, item_log_type::get, 1);
     }
 
@@ -108,8 +111,7 @@ TEST(item_audit, gold_entry_has_correct_fields)
     item_audit_system audit;
     audit.initialize();
 
-    audit.log_gold(42, item_log_type::gold_loot, 500, 0, "elvine", 100, 200,
-        {{"npc", "Slime"}});
+    audit.log_gold(42, item_log_type::gold_loot, 500, 0, "elvine", 100, 200, {{"npc", "Slime"}});
 
     EXPECT_EQ(audit.buffer_size(), 1u);
 }
@@ -147,8 +149,7 @@ TEST(item_audit, item_entry_propagates_position)
     item_audit_system audit;
     audit.initialize();
 
-    audit.log_item(1, "TestSword", 100, item_log_type::get, 1, 0,
-        "elvine", 150, 200);
+    audit.log_item(1, "TestSword", 100, item_log_type::get, 1, 0, "elvine", 150, 200);
 
     EXPECT_EQ(audit.buffer_size(), 1u);
 }
@@ -169,8 +170,7 @@ TEST(item_audit, item_entry_propagates_details_json)
     audit.initialize();
 
     nlohmann::json details = {{"source", "quest"}, {"quest_id", 5}};
-    audit.log_item(1, "QuestReward", 100, item_log_type::quest_reward, 1,
-        0, "", 0, 0, details);
+    audit.log_item(1, "QuestReward", 100, item_log_type::quest_reward, 1, 0, "", 0, 0, details);
 
     EXPECT_EQ(audit.buffer_size(), 1u);
 }
@@ -285,8 +285,7 @@ TEST(item_audit, action_types_are_distinct)
     };
 
     std::set<uint8_t> unique_values(values.begin(), values.end());
-    EXPECT_EQ(unique_values.size(), values.size())
-        << "Duplicate item_log_type values found!";
+    EXPECT_EQ(unique_values.size(), values.size()) << "Duplicate item_log_type values found!";
 }
 
 TEST(item_audit, gold_types_are_in_40_range)

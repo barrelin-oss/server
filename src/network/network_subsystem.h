@@ -17,41 +17,48 @@
 #include <atomic>
 #include <chrono>
 
-namespace hb::bridge {
-    class message_router;
+namespace hb::bridge
+{
+class message_router;
 }
 
-namespace hb::network {
+namespace hb::network
+{
 
 // Network events (published to event bus)
-struct client_connected_event {
+struct client_connected_event
+{
     connection_id id;
     socket_address address;
     std::chrono::system_clock::time_point timestamp;
 };
 
-struct client_disconnected_event {
+struct client_disconnected_event
+{
     connection_id id;
     std::string reason;
     std::chrono::system_clock::time_point timestamp;
 };
 
-struct data_received_event {
+struct data_received_event
+{
     connection_id id;
     std::vector<uint8_t> data;
 };
 
 // Network subsystem configuration
-struct network_config {
+struct network_config
+{
     uint16_t port{2848};
     size_t max_connections{2000};
     std::chrono::milliseconds idle_timeout{std::chrono::minutes{5}};
     std::chrono::milliseconds poll_interval{std::chrono::milliseconds{10}};
-    bool use_message_router{true};  // Use bridge::message_router for message dispatch
+    bool use_message_router{true}; // Use bridge::message_router for message dispatch
 };
 
 // Main network subsystem
-class network_subsystem : public subsystem {
+class network_subsystem : public subsystem
+{
 public:
     network_subsystem();
     ~network_subsystem() override;
@@ -117,4 +124,4 @@ private:
     std::atomic<uint64_t> total_bytes_received_{0};
 };
 
-}  // namespace hb::network
+} // namespace hb::network

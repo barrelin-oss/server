@@ -11,16 +11,19 @@
 #include <vector>
 #include <cstdint>
 
-namespace hb::war {
+namespace hb::war
+{
 
 // Heldenian battle mode
-enum class heldenian_mode : uint8_t {
-    tower_defense = 1,  // BtField: faction with more surviving towers wins
-    door_defense = 2,   // HRampart: attacker wins if all doors destroyed
+enum class heldenian_mode : uint8_t
+{
+    tower_defense = 1, // BtField: faction with more surviving towers wins
+    door_defense = 2,  // HRampart: attacker wins if all doors destroyed
 };
 
 // Schedule entry for heldenian wars
-struct heldenian_schedule_entry {
+struct heldenian_schedule_entry
+{
     uint8_t day_of_week{0};
     uint8_t hour{0};
     uint8_t minute{0};
@@ -28,7 +31,8 @@ struct heldenian_schedule_entry {
 };
 
 // A tower or door — destructible war objective
-struct heldenian_objective {
+struct heldenian_objective
+{
     uint16_t id{0};
     std::string map_name;
     int16_t x{0};
@@ -36,22 +40,24 @@ struct heldenian_objective {
     int32_t hp{0};
     int32_t max_hp{500};
     war_faction faction{war_faction::neutral};
-    uint16_t npc_type{0};       // NPC template ID (87/89 for towers, 91 for doors)
-    uint8_t direction{0};       // NPC facing direction (doors only)
-    entity::entity eid{};       // Runtime: link to spawned NPC entity
+    uint16_t npc_type{0}; // NPC template ID (87/89 for towers, 91 for doors)
+    uint8_t direction{0}; // NPC facing direction (doors only)
+    entity::entity eid{}; // Runtime: link to spawned NPC entity
 
     [[nodiscard]] auto is_destroyed() const -> bool { return hp <= 0; }
 };
 
 // Teleportation destination for entering the war zone
-struct heldenian_teleport_coords {
+struct heldenian_teleport_coords
+{
     std::string map_name;
     int16_t x{0};
     int16_t y{0};
 };
 
 // Per-player heldenian state
-struct heldenian_player_data {
+struct heldenian_player_data
+{
     player_id pid{};
     war_faction faction{war_faction::neutral};
     int32_t kills{0};
@@ -60,14 +66,16 @@ struct heldenian_player_data {
 };
 
 // Timing configuration
-struct heldenian_timing_config {
+struct heldenian_timing_config
+{
     int32_t preparation_seconds{120};     // 2 minutes prep
     int32_t duration_seconds{2700};       // 45 minutes max
     int32_t status_broadcast_seconds{15}; // Status update interval
 };
 
 // Heldenian configuration
-struct heldenian_config {
+struct heldenian_config
+{
     bool enabled{true};
     heldenian_timing_config timing;
     std::vector<heldenian_schedule_entry> schedule;
@@ -97,4 +105,4 @@ struct heldenian_config {
     int32_t max_construction_points{12000};
 };
 
-}  // namespace hb::war
+} // namespace hb::war

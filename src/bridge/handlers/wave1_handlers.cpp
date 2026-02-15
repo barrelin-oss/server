@@ -18,45 +18,52 @@
 #include <spdlog/fmt/fmt.h>
 #include <vector>
 
-namespace hb::bridge::wave1 {
+namespace hb::bridge::wave1
+{
 
-namespace {
-    // Track which handlers we've registered for cleanup
-    std::vector<protocol::message_id> registered_handlers;
+namespace
+{
+// Track which handlers we've registered for cleanup
+std::vector<protocol::message_id> registered_handlers;
 
-    // Message IDs for Wave 1 handlers
-    // Note: These handlers intercept command_common messages based on subtype
-    // For now we register against the main message_id and check subtype in handler
+// Message IDs for Wave 1 handlers
+// Note: These handlers intercept command_common messages based on subtype
+// For now we register against the main message_id and check subtype in handler
 
-    constexpr auto wave1_subsystem = "wave1_readonly";
-}
+constexpr auto wave1_subsystem = "wave1_readonly";
+} // namespace
 
 // ========== Handler Registration ==========
 
-auto register_wave1_handlers() -> size_t {
+auto register_wave1_handlers() -> size_t
+{
     LOG_INFO(proto_bridge, "Registering Wave 1 (read-only) handlers...");
 
     // Use the handler builder for clean registration
     handlers(wave1_subsystem)
         // Help request uses command_common with request_help subtype
         .on(protocol::message_id::command_common,
-            make_simple_handler([](const handler_context& ctx, protocol::message_reader& reader) {
-                // Read the subtype (2 bytes after message ID)
-                if (reader.remaining() < 2) {
+            make_simple_handler(
+                [](const handler_context& ctx, protocol::message_reader& reader)
+                {
+                    // Read the subtype (2 bytes after message ID)
+                    if (reader.remaining() < 2)
+                    {
+                        return handle_result::not_handled;
+                    }
+
+                    auto subtype = reader.read_u16();
+                    auto common_type = static_cast<protocol::common_type>(subtype);
+
+                    // Only handle request_help, let others fall through
+                    if (common_type == protocol::common_type::request_help)
+                    {
+                        return handle_help_request(ctx);
+                    }
+
+                    // Not a message we handle - let legacy code process it
                     return handle_result::not_handled;
-                }
-
-                auto subtype = reader.read_u16();
-                auto common_type = static_cast<protocol::common_type>(subtype);
-
-                // Only handle request_help, let others fall through
-                if (common_type == protocol::common_type::request_help) {
-                    return handle_help_request(ctx);
-                }
-
-                // Not a message we handle - let legacy code process it
-                return handle_result::not_handled;
-            }));
+                }));
 
     registered_handlers.push_back(protocol::message_id::command_common);
 
@@ -68,10 +75,12 @@ auto register_wave1_handlers() -> size_t {
     return registered_handlers.size();
 }
 
-void unregister_wave1_handlers() {
+void unregister_wave1_handlers()
+{
     LOG_INFO(proto_bridge, "Unregistering Wave 1 handlers...");
 
-    for (auto msg_id : registered_handlers) {
+    for (auto msg_id : registered_handlers)
+    {
         router().unregister_handler(msg_id);
     }
     registered_handlers.clear();
@@ -79,12 +88,14 @@ void unregister_wave1_handlers() {
 
 // ========== Help Request Handler ==========
 
-auto handle_help_request(const handler_context& ctx) -> handle_result {
+auto handle_help_request(const handler_context& ctx) -> handle_result
+{
     LOG_DEBUG(proto_bridge, "Handling help request (conn={})", ctx.connection.value);
 
     // Get admin system for help text generation
     auto* admin = subsystems().get<admin::admin_system>();
-    if (!admin) {
+    if (!admin)
+    {
         LOG_WARN(proto_bridge, "Admin system not available for help request");
         send_help_response(ctx, "Help system unavailable.");
         return handle_result::handled;
@@ -92,13 +103,15 @@ auto handle_help_request(const handler_context& ctx) -> handle_result {
 
     // Determine the player's admin level for appropriate help
     auto level = admin::admin_level::player;
-    if (ctx.player.is_valid()) {
+    if (ctx.player.is_valid())
+    {
         level = admin->get_admin_level(ctx.player);
     }
 
     // Generate help text
     std::string help_text = admin->get_help_all(level);
-    if (help_text.empty()) {
+    if (help_text.empty())
+    {
         help_text = "No commands available. Type /help <command> for specific help.";
     }
 
@@ -108,12 +121,14 @@ auto handle_help_request(const handler_context& ctx) -> handle_result {
 
 // ========== Item Lookup Handler ==========
 
-auto handle_item_lookup(const handler_context& ctx) -> handle_result {
+auto handle_item_lookup(const handler_context& ctx) -> handle_result
+{
     protocol::message_reader reader{ctx.raw_data};
-    reader.skip(4);  // Skip message ID
-    reader.skip(2);  // Skip subtype
+    reader.skip(4); // Skip message ID
+    reader.skip(2); // Skip subtype
 
-    if (reader.remaining() < 2) {
+    if (reader.remaining() < 2)
+    {
         LOG_WARN(proto_bridge, "Item lookup: insufficient data");
         return handle_result::error;
     }
@@ -127,12 +142,14 @@ auto handle_item_lookup(const handler_context& ctx) -> handle_result {
 
 // ========== NPC Lookup Handler ==========
 
-auto handle_npc_lookup(const handler_context& ctx) -> handle_result {
+auto handle_npc_lookup(const handler_context& ctx) -> handle_result
+{
     protocol::message_reader reader{ctx.raw_data};
-    reader.skip(4);  // Skip message ID
-    reader.skip(2);  // Skip subtype
+    reader.skip(4); // Skip message ID
+    reader.skip(2); // Skip subtype
 
-    if (reader.remaining() < 2) {
+    if (reader.remaining() < 2)
+    {
         LOG_WARN(proto_bridge, "NPC lookup: insufficient data");
         return handle_result::error;
     }
@@ -146,12 +163,14 @@ auto handle_npc_lookup(const handler_context& ctx) -> handle_result {
 
 // ========== Magic Lookup Handler ==========
 
-auto handle_magic_lookup(const handler_context& ctx) -> handle_result {
+auto handle_magic_lookup(const handler_context& ctx) -> handle_result
+{
     protocol::message_reader reader{ctx.raw_data};
-    reader.skip(4);  // Skip message ID
-    reader.skip(2);  // Skip subtype
+    reader.skip(4); // Skip message ID
+    reader.skip(2); // Skip subtype
 
-    if (reader.remaining() < 2) {
+    if (reader.remaining() < 2)
+    {
         LOG_WARN(proto_bridge, "Magic lookup: insufficient data");
         return handle_result::error;
     }
@@ -165,122 +184,171 @@ auto handle_magic_lookup(const handler_context& ctx) -> handle_result {
 
 // ========== Response Builders ==========
 
-void send_help_response(const handler_context& ctx, std::string_view help_text) {
+void send_help_response(const handler_context& ctx, std::string_view help_text)
+{
     // Build notify message with help type
-    send_response(ctx, protocol::message_id::notify, [help_text](protocol::message_writer& writer) {
-        writer.write_u16(static_cast<uint16_t>(protocol::notify_type::help));
-        // Write help text with length prefix
-        writer.write_string_u16(help_text);
-    });
+    send_response(ctx,
+                  protocol::message_id::notify,
+                  [help_text](protocol::message_writer& writer)
+                  {
+                      writer.write_u16(static_cast<uint16_t>(protocol::notify_type::help));
+                      // Write help text with length prefix
+                      writer.write_string_u16(help_text);
+                  });
 }
 
-void send_item_info(const handler_context& ctx, uint16_t item_id_val) {
+void send_item_info(const handler_context& ctx, uint16_t item_id_val)
+{
     auto* registry = subsystems().get<item_registry>();
-    if (!registry) {
+    if (!registry)
+    {
         LOG_WARN(proto_bridge, "Item registry not available for lookup");
         return;
     }
 
     auto* item = registry->get(item_id{item_id_val});
-    if (!item) {
+    if (!item)
+    {
         LOG_DEBUG(proto_bridge, "Item {} not found in registry", item_id_val);
         // Send empty/not found response
-        send_response(ctx, protocol::message_id::notify, [](protocol::message_writer& writer) {
-            writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
-            writer.write_string_u16("Item not found.");
-        });
+        send_response(ctx,
+                      protocol::message_id::notify,
+                      [](protocol::message_writer& writer)
+                      {
+                          writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
+                          writer.write_string_u16("Item not found.");
+                      });
         return;
     }
 
     // Build response with item info
-    send_response(ctx, protocol::message_id::notify, [item](protocol::message_writer& writer) {
-        writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
+    send_response(ctx,
+                  protocol::message_id::notify,
+                  [item](protocol::message_writer& writer)
+                  {
+                      writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
 
-        // Format item info string
-        std::string info = fmt::format(
-            "Item: {} (ID: {})\n"
-            "Type: {} | Weight: {} | Price: {}\n"
-            "Attack: {}d{}{:+d} | Defense: {}\n"
-            "Requirements: STR {} | DEX {} | INT {} | MAG {}",
-            item->name, item->id.value,
-            static_cast<int>(item->type), item->weight, item->price,
-            item->attack_dice, item->attack_sides, item->attack_bonus, item->defense,
-            item->str_req, item->dex_req, item->int_req, item->mag_req
-        );
-        writer.write_string_u16(info);
-    });
+                      // Format item info string
+                      std::string info = fmt::format("Item: {} (ID: {})\n"
+                                                     "Type: {} | Weight: {} | Price: {}\n"
+                                                     "Attack: {}d{}{:+d} | Defense: {}\n"
+                                                     "Requirements: STR {} | DEX {} | INT {} | MAG {}",
+                                                     item->name,
+                                                     item->id.value,
+                                                     static_cast<int>(item->type),
+                                                     item->weight,
+                                                     item->price,
+                                                     item->attack_dice,
+                                                     item->attack_sides,
+                                                     item->attack_bonus,
+                                                     item->defense,
+                                                     item->str_req,
+                                                     item->dex_req,
+                                                     item->int_req,
+                                                     item->mag_req);
+                      writer.write_string_u16(info);
+                  });
 }
 
-void send_npc_info(const handler_context& ctx, uint16_t npc_id_val) {
+void send_npc_info(const handler_context& ctx, uint16_t npc_id_val)
+{
     auto* registry = subsystems().get<npc_registry>();
-    if (!registry) {
+    if (!registry)
+    {
         LOG_WARN(proto_bridge, "NPC registry not available for lookup");
         return;
     }
 
     auto* npc = registry->get(npc_id{npc_id_val});
-    if (!npc) {
+    if (!npc)
+    {
         LOG_DEBUG(proto_bridge, "NPC {} not found in registry", npc_id_val);
-        send_response(ctx, protocol::message_id::notify, [](protocol::message_writer& writer) {
-            writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
-            writer.write_string_u16("NPC not found.");
-        });
+        send_response(ctx,
+                      protocol::message_id::notify,
+                      [](protocol::message_writer& writer)
+                      {
+                          writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
+                          writer.write_string_u16("NPC not found.");
+                      });
         return;
     }
 
     // Build response with NPC info
-    send_response(ctx, protocol::message_id::notify, [npc](protocol::message_writer& writer) {
-        writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
+    send_response(ctx,
+                  protocol::message_id::notify,
+                  [npc](protocol::message_writer& writer)
+                  {
+                      writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
 
-        std::string info = fmt::format(
-            "NPC: {} (ID: {})\n"
-            "Level: {} | HP: {} | MP: {}\n"
-            "Attack: {}d{}{:+d} | Defense: {}\n"
-            "EXP: {} | Gold: {}-{}",
-            npc->name, npc->id.value,
-            npc->level, npc->hp, npc->mp,
-            npc->attack_dice, npc->attack_sides, npc->attack_bonus, npc->defense,
-            npc->exp_reward, npc->gold_min, npc->gold_max
-        );
-        writer.write_string_u16(info);
-    });
+                      std::string info = fmt::format("NPC: {} (ID: {})\n"
+                                                     "Level: {} | HP: {} | MP: {}\n"
+                                                     "Attack: {}d{}{:+d} | Defense: {}\n"
+                                                     "EXP: {} | Gold: {}-{}",
+                                                     npc->name,
+                                                     npc->id.value,
+                                                     npc->level,
+                                                     npc->hp,
+                                                     npc->mp,
+                                                     npc->attack_dice,
+                                                     npc->attack_sides,
+                                                     npc->attack_bonus,
+                                                     npc->defense,
+                                                     npc->exp_reward,
+                                                     npc->gold_min,
+                                                     npc->gold_max);
+                      writer.write_string_u16(info);
+                  });
 }
 
-void send_magic_info(const handler_context& ctx, uint16_t spell_id_val) {
+void send_magic_info(const handler_context& ctx, uint16_t spell_id_val)
+{
     auto* registry = subsystems().get<magic_registry>();
-    if (!registry) {
+    if (!registry)
+    {
         LOG_WARN(proto_bridge, "Magic registry not available for lookup");
         return;
     }
 
     auto* spell = registry->get(spell_id{spell_id_val});
-    if (!spell) {
+    if (!spell)
+    {
         LOG_DEBUG(proto_bridge, "Spell {} not found in registry", spell_id_val);
-        send_response(ctx, protocol::message_id::notify, [](protocol::message_writer& writer) {
-            writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
-            writer.write_string_u16("Spell not found.");
-        });
+        send_response(ctx,
+                      protocol::message_id::notify,
+                      [](protocol::message_writer& writer)
+                      {
+                          writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
+                          writer.write_string_u16("Spell not found.");
+                      });
         return;
     }
 
     // Build response with spell info
-    send_response(ctx, protocol::message_id::notify, [spell](protocol::message_writer& writer) {
-        writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
+    send_response(ctx,
+                  protocol::message_id::notify,
+                  [spell](protocol::message_writer& writer)
+                  {
+                      writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
 
-        std::string info = fmt::format(
-            "Spell: {} (ID: {})\n"
-            "Type: {} | Target: {}\n"
-            "Mana: {} | Cast: {}ms | Cooldown: {}ms\n"
-            "Damage: {} + INT*{} + MAG*{}\n"
-            "Requirements: INT {} | MAG Level {}",
-            spell->name, spell->id.value,
-            static_cast<int>(spell->type), static_cast<int>(spell->target),
-            spell->mana_cost, spell->cast_time_ms, spell->cooldown_ms,
-            spell->base_damage, spell->int_scaling, spell->mag_scaling,
-            spell->int_req, spell->mag_level_req
-        );
-        writer.write_string_u16(info);
-    });
+                      std::string info = fmt::format("Spell: {} (ID: {})\n"
+                                                     "Type: {} | Target: {}\n"
+                                                     "Mana: {} | Cast: {}ms | Cooldown: {}ms\n"
+                                                     "Damage: {} + INT*{} + MAG*{}\n"
+                                                     "Requirements: INT {} | MAG Level {}",
+                                                     spell->name,
+                                                     spell->id.value,
+                                                     static_cast<int>(spell->type),
+                                                     static_cast<int>(spell->target),
+                                                     spell->mana_cost,
+                                                     spell->cast_time_ms,
+                                                     spell->cooldown_ms,
+                                                     spell->base_damage,
+                                                     spell->int_scaling,
+                                                     spell->mag_scaling,
+                                                     spell->int_req,
+                                                     spell->mag_level_req);
+                      writer.write_string_u16(info);
+                  });
 }
 
-}  // namespace hb::bridge::wave1
+} // namespace hb::bridge::wave1

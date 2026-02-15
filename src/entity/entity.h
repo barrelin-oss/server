@@ -6,18 +6,22 @@
 #include <cstdint>
 #include <functional>
 
-namespace hb::entity {
+namespace hb::entity
+{
 
 // Entity identifier with generation counter
 // Upper 8 bits: generation (for detecting stale references)
 // Lower 24 bits: index (supports ~16 million entities)
-struct entity {
+struct entity
+{
     uint32_t id{0};
 
     constexpr entity() = default;
     constexpr explicit entity(uint32_t value) : id(value) {}
     constexpr entity(uint32_t index, uint8_t generation)
-        : id((static_cast<uint32_t>(generation) << 24) | (index & 0x00FFFFFF)) {}
+        : id((static_cast<uint32_t>(generation) << 24) | (index & 0x00FFFFFF))
+    {
+    }
 
     [[nodiscard]] constexpr auto is_valid() const -> bool { return id != 0; }
     [[nodiscard]] constexpr auto index() const -> uint32_t { return id & 0x00FFFFFF; }
@@ -34,7 +38,8 @@ struct entity {
 };
 
 // Entity type tags for distinguishing entity categories
-enum class entity_type : uint8_t {
+enum class entity_type : uint8_t
+{
     none = 0,
     player = 1,
     npc = 2,
@@ -50,12 +55,10 @@ inline constexpr uint32_t max_items = 60000;
 inline constexpr uint32_t max_dynamic_objects = 5000;
 inline constexpr uint32_t max_entities = max_players + max_npcs + max_items + max_dynamic_objects;
 
-}  // namespace hb::entity
+} // namespace hb::entity
 
 // Hash specialization for entity
-template<>
-struct std::hash<hb::entity::entity> {
-    auto operator()(const hb::entity::entity& e) const noexcept -> size_t {
-        return std::hash<uint32_t>{}(e.id);
-    }
+template<> struct std::hash<hb::entity::entity>
+{
+    auto operator()(const hb::entity::entity& e) const noexcept -> size_t { return std::hash<uint32_t>{}(e.id); }
 };

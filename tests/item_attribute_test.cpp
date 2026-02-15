@@ -96,9 +96,9 @@ TEST(item_attribute_test, legacy_dword_max_values)
 {
     item_attribute attr;
     attr.upgrade_level = 15;
-    attr.main_type = enchantment_type::charge_critical;  // 12
+    attr.main_type = enchantment_type::charge_critical; // 12
     attr.main_value = 15;
-    attr.sub_type = sub_enchantment_type::gold_bonus;    // 12
+    attr.sub_type = sub_enchantment_type::gold_bonus; // 12
     attr.sub_value = 15;
     attr.custom_made = true;
 
@@ -115,7 +115,8 @@ TEST(item_attribute_test, legacy_dword_max_values)
 
 TEST(item_attribute_test, legacy_dword_all_enchantment_types)
 {
-    for (uint8_t i = 0; i <= 12; ++i) {
+    for (uint8_t i = 0; i <= 12; ++i)
+    {
         item_attribute attr;
         attr.main_type = static_cast<enchantment_type>(i);
         attr.main_value = i;
@@ -128,7 +129,8 @@ TEST(item_attribute_test, legacy_dword_all_enchantment_types)
 
 TEST(item_attribute_test, legacy_dword_all_sub_enchantment_types)
 {
-    for (uint8_t i = 0; i <= 12; ++i) {
+    for (uint8_t i = 0; i <= 12; ++i)
+    {
         item_attribute attr;
         attr.sub_type = static_cast<sub_enchantment_type>(i);
         attr.sub_value = i;
@@ -144,7 +146,7 @@ TEST(item_attribute_test, legacy_dword_all_sub_enchantment_types)
 TEST(item_attribute_test, legacy_dword_clamps_upgrade_level)
 {
     item_attribute attr;
-    attr.upgrade_level = 20;  // > 15
+    attr.upgrade_level = 20; // > 15
     uint32_t dw = attr.to_legacy_dword();
     auto parsed = item_attribute::from_legacy_dword(dw);
     EXPECT_EQ(parsed.upgrade_level, 15);
@@ -153,8 +155,8 @@ TEST(item_attribute_test, legacy_dword_clamps_upgrade_level)
 TEST(item_attribute_test, legacy_dword_clamps_values)
 {
     item_attribute attr;
-    attr.main_value = 20;  // > 15
-    attr.sub_value = 20;   // > 15
+    attr.main_value = 20; // > 15
+    attr.sub_value = 20;  // > 15
     uint32_t dw = attr.to_legacy_dword();
     auto parsed = item_attribute::from_legacy_dword(dw);
     EXPECT_EQ(parsed.main_value, 15);
@@ -167,7 +169,7 @@ TEST(item_attribute_test, json_empty_roundtrip)
 {
     item_attribute attr;
     auto j = attr.to_json();
-    EXPECT_TRUE(j.empty());  // Empty attributes produce empty object
+    EXPECT_TRUE(j.empty()); // Empty attributes produce empty object
     auto parsed = item_attribute::from_json(j);
     EXPECT_TRUE(parsed.is_empty());
 }
@@ -219,7 +221,7 @@ TEST(item_attribute_test, json_custom_made_without_quality)
     attr.custom_made = true;
     auto j = attr.to_json();
     EXPECT_TRUE(j["cm"].get<bool>());
-    EXPECT_FALSE(j.contains("cq"));  // quality 0 not serialized
+    EXPECT_FALSE(j.contains("cq")); // quality 0 not serialized
 }
 
 TEST(item_attribute_test, json_clamps_upgrade_level)

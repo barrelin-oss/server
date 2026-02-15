@@ -7,8 +7,8 @@
 #include "social/social_system.h"
 #include "network/json_protocol.h"
 
-using hb::player_id;
 using hb::guild_id;
+using hb::player_id;
 using namespace hb::social;
 namespace net = hb::network;
 
@@ -93,8 +93,7 @@ TEST(guild_protocol_test, set_motd_request_missing_field)
 
 TEST(guild_protocol_test, make_guild_response_success)
 {
-    auto msg = net::make_guild_response(42,
-        net::json_message_type::guild_create_response, true);
+    auto msg = net::make_guild_response(42, net::json_message_type::guild_create_response, true);
     EXPECT_EQ(msg.type, net::json_message_type::guild_create_response);
     EXPECT_EQ(msg.seq, 42u);
     EXPECT_TRUE(msg.data["success"].get<bool>());
@@ -103,8 +102,7 @@ TEST(guild_protocol_test, make_guild_response_success)
 
 TEST(guild_protocol_test, make_guild_response_failure)
 {
-    auto msg = net::make_guild_response(42,
-        net::json_message_type::guild_create_response, false, "name_taken");
+    auto msg = net::make_guild_response(42, net::json_message_type::guild_create_response, false, "name_taken");
     EXPECT_FALSE(msg.data["success"].get<bool>());
     EXPECT_EQ(msg.data["error"], "name_taken");
 }
@@ -112,8 +110,7 @@ TEST(guild_protocol_test, make_guild_response_failure)
 TEST(guild_protocol_test, make_guild_response_with_extra)
 {
     auto extra = nlohmann::json{{"guild_name", "TestGuild"}, {"tag", "TG"}};
-    auto msg = net::make_guild_response(1,
-        net::json_message_type::guild_create_response, true, {}, extra);
+    auto msg = net::make_guild_response(1, net::json_message_type::guild_create_response, true, {}, extra);
     EXPECT_TRUE(msg.data["success"].get<bool>());
     EXPECT_EQ(msg.data["guild_name"], "TestGuild");
     EXPECT_EQ(msg.data["tag"], "TG");
@@ -126,8 +123,7 @@ TEST(guild_protocol_test, make_guild_info_response_success)
         {.name = "Bob", .rank = 3, .rank_name = "Member", .is_online = false},
     };
 
-    auto msg = net::make_guild_info_response(5, true,
-        "TestGuild", "TG", "Hello!", 2, "Alice", members);
+    auto msg = net::make_guild_info_response(5, true, "TestGuild", "TG", "Hello!", 2, "Alice", members);
     EXPECT_EQ(msg.type, net::json_message_type::guild_info_response);
     EXPECT_EQ(msg.seq, 5u);
     EXPECT_TRUE(msg.data["success"].get<bool>());
@@ -145,8 +141,7 @@ TEST(guild_protocol_test, make_guild_info_response_success)
 
 TEST(guild_protocol_test, make_guild_info_response_failure)
 {
-    auto msg = net::make_guild_info_response(5, false,
-        {}, {}, {}, 0, {}, {}, "not_in_guild");
+    auto msg = net::make_guild_info_response(5, false, {}, {}, {}, 0, {}, {}, "not_in_guild");
     EXPECT_FALSE(msg.data["success"].get<bool>());
     EXPECT_EQ(msg.data["error"], "not_in_guild");
     EXPECT_FALSE(msg.data.contains("guild_name"));
@@ -171,16 +166,13 @@ TEST(guild_protocol_test, make_guild_update_no_player)
 
 TEST(guild_protocol_test, make_guild_update_with_extra)
 {
-    auto msg = net::make_guild_update("motd_changed", "TestGuild", {},
-        {{"motd", "New MOTD"}});
+    auto msg = net::make_guild_update("motd_changed", "TestGuild", {}, {{"motd", "New MOTD"}});
     EXPECT_EQ(msg.data["motd"], "New MOTD");
 }
 
 TEST(guild_protocol_test, guild_member_info_to_json)
 {
-    net::guild_member_info_msg info{
-        .name = "Alice", .rank = 0, .rank_name = "Guild Master", .is_online = true
-    };
+    net::guild_member_info_msg info{.name = "Alice", .rank = 0, .rank_name = "Guild Master", .is_online = true};
     auto j = info.to_json();
     EXPECT_EQ(j["name"], "Alice");
     EXPECT_EQ(j["rank"], 0);
@@ -193,34 +185,24 @@ TEST(guild_protocol_test, guild_member_info_to_json)
 TEST(guild_protocol_test, message_type_roundtrip)
 {
     auto types = {
-        net::json_message_type::guild_create_request,
-        net::json_message_type::guild_create_response,
-        net::json_message_type::guild_disband_request,
-        net::json_message_type::guild_disband_response,
-        net::json_message_type::guild_leave_request,
-        net::json_message_type::guild_leave_response,
-        net::json_message_type::guild_kick_request,
-        net::json_message_type::guild_kick_response,
-        net::json_message_type::guild_invite_request,
-        net::json_message_type::guild_invite_response,
-        net::json_message_type::guild_promote_request,
-        net::json_message_type::guild_promote_response,
-        net::json_message_type::guild_demote_request,
-        net::json_message_type::guild_demote_response,
-        net::json_message_type::guild_set_motd_request,
-        net::json_message_type::guild_set_motd_response,
-        net::json_message_type::guild_info_request,
-        net::json_message_type::guild_info_response,
+        net::json_message_type::guild_create_request,   net::json_message_type::guild_create_response,
+        net::json_message_type::guild_disband_request,  net::json_message_type::guild_disband_response,
+        net::json_message_type::guild_leave_request,    net::json_message_type::guild_leave_response,
+        net::json_message_type::guild_kick_request,     net::json_message_type::guild_kick_response,
+        net::json_message_type::guild_invite_request,   net::json_message_type::guild_invite_response,
+        net::json_message_type::guild_promote_request,  net::json_message_type::guild_promote_response,
+        net::json_message_type::guild_demote_request,   net::json_message_type::guild_demote_response,
+        net::json_message_type::guild_set_motd_request, net::json_message_type::guild_set_motd_response,
+        net::json_message_type::guild_info_request,     net::json_message_type::guild_info_response,
         net::json_message_type::guild_update,
     };
 
-    for (auto t : types) {
+    for (auto t : types)
+    {
         auto str = net::to_string(t);
-        EXPECT_NE(str, "unknown") << "to_string failed for enum value "
-            << static_cast<int>(t);
+        EXPECT_NE(str, "unknown") << "to_string failed for enum value " << static_cast<int>(t);
         auto parsed = net::parse_message_type(str);
-        EXPECT_EQ(parsed, t) << "parse_message_type roundtrip failed for '"
-            << str << "'";
+        EXPECT_EQ(parsed, t) << "parse_message_type roundtrip failed for '" << str << "'";
     }
 }
 
@@ -228,24 +210,22 @@ TEST(guild_protocol_test, message_type_roundtrip)
 
 TEST(guild_protocol_test, entity_spawn_includes_guild_data)
 {
-    net::visible_entity_msg entity{
-        .entity_id = 42,
-        .type = "player",
-        .name = "Alice",
-        .x = 100,
-        .y = 200,
-        .hp_percent = 80,
-        .direction = 2,
-        .faction = "aresden",
-        .hostility = "friendly",
-        .pk_status = "innocent",
-        .guild_name = "TestGuild",
-        .guild_tag = "TG",
-        .template_id = 0,
-        .sprite_id = 0,
-        .level = 0,
-        .category = {}
-    };
+    net::visible_entity_msg entity{.entity_id = 42,
+                                   .type = "player",
+                                   .name = "Alice",
+                                   .x = 100,
+                                   .y = 200,
+                                   .hp_percent = 80,
+                                   .direction = 2,
+                                   .faction = "aresden",
+                                   .hostility = "friendly",
+                                   .pk_status = "innocent",
+                                   .guild_name = "TestGuild",
+                                   .guild_tag = "TG",
+                                   .template_id = 0,
+                                   .sprite_id = 0,
+                                   .level = 0,
+                                   .category = {}};
 
     auto j = entity.to_json();
     EXPECT_EQ(j["guild_name"], "TestGuild");
@@ -254,24 +234,22 @@ TEST(guild_protocol_test, entity_spawn_includes_guild_data)
 
 TEST(guild_protocol_test, entity_spawn_no_guild_data_when_empty)
 {
-    net::visible_entity_msg entity{
-        .entity_id = 42,
-        .type = "player",
-        .name = "Alice",
-        .x = 100,
-        .y = 200,
-        .hp_percent = 80,
-        .direction = 2,
-        .faction = "aresden",
-        .hostility = "friendly",
-        .pk_status = "innocent",
-        .guild_name = {},
-        .guild_tag = {},
-        .template_id = 0,
-        .sprite_id = 0,
-        .level = 0,
-        .category = {}
-    };
+    net::visible_entity_msg entity{.entity_id = 42,
+                                   .type = "player",
+                                   .name = "Alice",
+                                   .x = 100,
+                                   .y = 200,
+                                   .hp_percent = 80,
+                                   .direction = 2,
+                                   .faction = "aresden",
+                                   .hostility = "friendly",
+                                   .pk_status = "innocent",
+                                   .guild_name = {},
+                                   .guild_tag = {},
+                                   .template_id = 0,
+                                   .sprite_id = 0,
+                                   .level = 0,
+                                   .category = {}};
 
     auto j = entity.to_json();
     EXPECT_FALSE(j.contains("guild_name"));
@@ -280,24 +258,22 @@ TEST(guild_protocol_test, entity_spawn_no_guild_data_when_empty)
 
 TEST(guild_protocol_test, npc_entity_spawn_no_guild_data)
 {
-    net::visible_entity_msg entity{
-        .entity_id = 99,
-        .type = "npc",
-        .name = "Slime",
-        .x = 50,
-        .y = 60,
-        .hp_percent = 100,
-        .direction = 0,
-        .faction = {},
-        .hostility = "hostile",
-        .pk_status = {},
-        .guild_name = {},
-        .guild_tag = {},
-        .template_id = 10,
-        .sprite_id = 10,
-        .level = 5,
-        .category = "monster"
-    };
+    net::visible_entity_msg entity{.entity_id = 99,
+                                   .type = "npc",
+                                   .name = "Slime",
+                                   .x = 50,
+                                   .y = 60,
+                                   .hp_percent = 100,
+                                   .direction = 0,
+                                   .faction = {},
+                                   .hostility = "hostile",
+                                   .pk_status = {},
+                                   .guild_name = {},
+                                   .guild_tag = {},
+                                   .template_id = 10,
+                                   .sprite_id = 10,
+                                   .level = 5,
+                                   .category = "monster"};
 
     auto j = entity.to_json();
     EXPECT_FALSE(j.contains("guild_name"));
@@ -317,12 +293,10 @@ protected:
         social.register_player(player_id{3}, "Charlie");
     }
 
-    void TearDown() override
-    {
-        social.shutdown();
-    }
+    void TearDown() override { social.shutdown(); }
 
-    auto create_test_guild(player_id founder, const std::string& name = "TestGuild",
+    auto create_test_guild(player_id founder,
+                           const std::string& name = "TestGuild",
                            const std::string& tag = "TG") -> guild_id
     {
         auto result = social.create_guild(founder, name, tag);
@@ -451,7 +425,7 @@ TEST_F(guild_handler_test, demote_member)
 {
     auto gid = create_test_guild(player_id{1});
     social.join_guild(player_id{2}, gid);
-    social.promote_member(player_id{1}, player_id{2});  // recruit → member
+    social.promote_member(player_id{1}, player_id{2}); // recruit → member
 
     auto result = social.demote_member(player_id{1}, player_id{2});
     EXPECT_EQ(result, guild_result::success);
@@ -519,8 +493,10 @@ TEST_F(guild_handler_test, guild_info_query)
 
     // Find master
     bool found_master = false;
-    for (const auto& member : g->members) {
-        if (member.rank == guild_rank::guild_master) {
+    for (const auto& member : g->members)
+    {
+        if (member.rank == guild_rank::guild_master)
+        {
             EXPECT_EQ(member.name, "Alice");
             found_master = true;
         }
@@ -693,13 +669,12 @@ TEST(guild_protocol_test, invite_message_types_roundtrip)
         net::json_message_type::guild_invite_respond_response,
     };
 
-    for (auto t : types) {
+    for (auto t : types)
+    {
         auto str = net::to_string(t);
-        EXPECT_NE(str, "unknown") << "to_string failed for enum value "
-            << static_cast<int>(t);
+        EXPECT_NE(str, "unknown") << "to_string failed for enum value " << static_cast<int>(t);
         auto parsed = net::parse_message_type(str);
-        EXPECT_EQ(parsed, t) << "parse_message_type roundtrip failed for '"
-            << str << "'";
+        EXPECT_EQ(parsed, t) << "parse_message_type roundtrip failed for '" << str << "'";
     }
 }
 
@@ -707,17 +682,37 @@ TEST(guild_protocol_test, invite_message_types_roundtrip)
 
 TEST(guild_protocol_test, character_data_includes_guild_fields)
 {
-    net::character_data_msg char_data{
-        .id = 1, .name = "Alice", .level = 50, .class_type = 1,
-        .nation = 1, .gender = 1, .map_name = "aresden",
-        .pos_x = 100, .pos_y = 200, .hp = 500, .hp_max = 500,
-        .mp = 100, .mp_max = 100, .sp = 50, .sp_max = 50,
-        .gold = 1000, .str = 30, .dex = 20, .vit = 25,
-        .int_ = 15, .mag = 10, .cha = 10,
-        .hair_style = 1, .hair_color = 0, .skin_color = 0,
-        .experience = 50000, .pk_count = 0, .hunger_level = 100,
-        .guild_name = "Knights", .guild_tag = "KNT", .guild_rank = 0
-    };
+    net::character_data_msg char_data{.id = 1,
+                                      .name = "Alice",
+                                      .level = 50,
+                                      .class_type = 1,
+                                      .nation = 1,
+                                      .gender = 1,
+                                      .map_name = "aresden",
+                                      .pos_x = 100,
+                                      .pos_y = 200,
+                                      .hp = 500,
+                                      .hp_max = 500,
+                                      .mp = 100,
+                                      .mp_max = 100,
+                                      .sp = 50,
+                                      .sp_max = 50,
+                                      .gold = 1000,
+                                      .str = 30,
+                                      .dex = 20,
+                                      .vit = 25,
+                                      .int_ = 15,
+                                      .mag = 10,
+                                      .cha = 10,
+                                      .hair_style = 1,
+                                      .hair_color = 0,
+                                      .skin_color = 0,
+                                      .experience = 50000,
+                                      .pk_count = 0,
+                                      .hunger_level = 100,
+                                      .guild_name = "Knights",
+                                      .guild_tag = "KNT",
+                                      .guild_rank = 0};
 
     auto j = char_data.to_json();
     EXPECT_EQ(j["guild_name"], "Knights");
@@ -727,17 +722,37 @@ TEST(guild_protocol_test, character_data_includes_guild_fields)
 
 TEST(guild_protocol_test, character_data_empty_guild)
 {
-    net::character_data_msg char_data{
-        .id = 1, .name = "Alice", .level = 1, .class_type = 0,
-        .nation = 0, .gender = 1, .map_name = "default",
-        .pos_x = 0, .pos_y = 0, .hp = 100, .hp_max = 100,
-        .mp = 50, .mp_max = 50, .sp = 50, .sp_max = 50,
-        .gold = 0, .str = 10, .dex = 10, .vit = 10,
-        .int_ = 10, .mag = 10, .cha = 10,
-        .hair_style = 0, .hair_color = 0, .skin_color = 0,
-        .experience = 0, .pk_count = 0, .hunger_level = 100,
-        .guild_name = {}, .guild_tag = {}, .guild_rank = 0
-    };
+    net::character_data_msg char_data{.id = 1,
+                                      .name = "Alice",
+                                      .level = 1,
+                                      .class_type = 0,
+                                      .nation = 0,
+                                      .gender = 1,
+                                      .map_name = "default",
+                                      .pos_x = 0,
+                                      .pos_y = 0,
+                                      .hp = 100,
+                                      .hp_max = 100,
+                                      .mp = 50,
+                                      .mp_max = 50,
+                                      .sp = 50,
+                                      .sp_max = 50,
+                                      .gold = 0,
+                                      .str = 10,
+                                      .dex = 10,
+                                      .vit = 10,
+                                      .int_ = 10,
+                                      .mag = 10,
+                                      .cha = 10,
+                                      .hair_style = 0,
+                                      .hair_color = 0,
+                                      .skin_color = 0,
+                                      .experience = 0,
+                                      .pk_count = 0,
+                                      .hunger_level = 100,
+                                      .guild_name = {},
+                                      .guild_tag = {},
+                                      .guild_rank = 0};
 
     auto j = char_data.to_json();
     // Fields are always present (empty strings for no guild)

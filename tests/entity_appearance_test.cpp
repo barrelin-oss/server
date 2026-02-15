@@ -160,10 +160,8 @@ TEST(entity_appearance_test, active_buffs_serialized)
     msg.faction = "elvine";
     msg.hostility = "friendly";
     msg.pk_status = "innocent";
-    msg.active_buffs = {
-        {.type = "buff_defense", .spell_id = 42, .magnitude = 20, .remaining_ms = 30000},
-        {.type = "poison", .spell_id = 15, .magnitude = 5, .remaining_ms = 8000}
-    };
+    msg.active_buffs = {{.type = "buff_defense", .spell_id = 42, .magnitude = 20, .remaining_ms = 30000},
+                        {.type = "poison", .spell_id = 15, .magnitude = 5, .remaining_ms = 8000}};
 
     auto j = msg.to_json();
     ASSERT_TRUE(j.contains("active_buffs"));
@@ -371,7 +369,7 @@ TEST(entity_appearance_test, build_npc_spawn_zero_max_hp)
     n.category = hb::npc::npc_category::merchant;
 
     auto msg = bridge::build_npc_spawn(n, "friendly");
-    EXPECT_EQ(msg.hp_percent, 100);  // Fallback when max_hp is 0
+    EXPECT_EQ(msg.hp_percent, 100); // Fallback when max_hp is 0
 }
 
 // ========== item_template appearance fields ==========
@@ -445,9 +443,7 @@ TEST(entity_appearance_test, full_player_spawn_json_round_trip)
     msg.weapon_glow = 1;
     msg.weapon_speed = 7;
     msg.status_effects = {"poisoned", "protection"};
-    msg.active_buffs = {
-        {.type = "buff_defense", .spell_id = 42, .magnitude = 20, .remaining_ms = 30000}
-    };
+    msg.active_buffs = {{.type = "buff_defense", .spell_id = 42, .magnitude = 20, .remaining_ms = 30000}};
 
     auto j = msg.to_json();
 

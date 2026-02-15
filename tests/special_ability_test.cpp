@@ -8,12 +8,12 @@
 #include "item/special_ability.h"
 #include "network/json_protocol.h"
 
-using hb::item::special_ability_type;
-using hb::item::special_ability_state;
-using hb::item::ability_status;
 using hb::item::ability_cooldown_seconds;
+using hb::item::ability_status;
 using hb::item::is_attack_ability;
 using hb::item::is_defense_ability;
+using hb::item::special_ability_state;
+using hb::item::special_ability_type;
 using hb::network::json_message;
 using hb::network::json_message_type;
 
@@ -21,12 +21,14 @@ using hb::network::json_message_type;
 // Ability type classification
 // ============================================================================
 
-TEST(special_ability_type_test, none_is_neither_attack_nor_defense) {
+TEST(special_ability_type_test, none_is_neither_attack_nor_defense)
+{
     EXPECT_FALSE(is_attack_ability(special_ability_type::none));
     EXPECT_FALSE(is_defense_ability(special_ability_type::none));
 }
 
-TEST(special_ability_type_test, attack_abilities_classified_correctly) {
+TEST(special_ability_type_test, attack_abilities_classified_correctly)
+{
     EXPECT_TRUE(is_attack_ability(special_ability_type::hp_halve));
     EXPECT_TRUE(is_attack_ability(special_ability_type::poison));
     EXPECT_TRUE(is_attack_ability(special_ability_type::paralyze));
@@ -36,7 +38,8 @@ TEST(special_ability_type_test, attack_abilities_classified_correctly) {
     EXPECT_FALSE(is_defense_ability(special_ability_type::hp_halve));
 }
 
-TEST(special_ability_type_test, defense_abilities_classified_correctly) {
+TEST(special_ability_type_test, defense_abilities_classified_correctly)
+{
     EXPECT_TRUE(is_defense_ability(special_ability_type::spell_immunity));
     EXPECT_TRUE(is_defense_ability(special_ability_type::attack_block));
     EXPECT_TRUE(is_defense_ability(special_ability_type::high_spell_immunity));
@@ -48,7 +51,8 @@ TEST(special_ability_type_test, defense_abilities_classified_correctly) {
 // Ability state machine
 // ============================================================================
 
-TEST(special_ability_state_test, default_state_is_disabled) {
+TEST(special_ability_state_test, default_state_is_disabled)
+{
     special_ability_state state;
     EXPECT_EQ(state.type, special_ability_type::none);
     EXPECT_EQ(state.status, ability_status::disabled);
@@ -56,7 +60,8 @@ TEST(special_ability_state_test, default_state_is_disabled) {
     EXPECT_FALSE(state.is_active());
 }
 
-TEST(special_ability_state_test, set_ability_transitions_to_ready) {
+TEST(special_ability_state_test, set_ability_transitions_to_ready)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::hp_halve);
 
@@ -65,7 +70,8 @@ TEST(special_ability_state_test, set_ability_transitions_to_ready) {
     EXPECT_TRUE(state.is_ready());
 }
 
-TEST(special_ability_state_test, set_ability_none_transitions_to_disabled) {
+TEST(special_ability_state_test, set_ability_none_transitions_to_disabled)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::hp_halve);
     state.set_ability(special_ability_type::none);
@@ -74,7 +80,8 @@ TEST(special_ability_state_test, set_ability_none_transitions_to_disabled) {
     EXPECT_FALSE(state.is_ready());
 }
 
-TEST(special_ability_state_test, activate_from_ready_succeeds) {
+TEST(special_ability_state_test, activate_from_ready_succeeds)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::poison);
 
@@ -86,7 +93,8 @@ TEST(special_ability_state_test, activate_from_ready_succeeds) {
     EXPECT_FALSE(state.is_ready());
 }
 
-TEST(special_ability_state_test, activate_from_disabled_fails) {
+TEST(special_ability_state_test, activate_from_disabled_fails)
+{
     special_ability_state state;
     auto now = std::chrono::steady_clock::now();
     bool result = state.activate(now);
@@ -95,7 +103,8 @@ TEST(special_ability_state_test, activate_from_disabled_fails) {
     EXPECT_EQ(state.status, ability_status::disabled);
 }
 
-TEST(special_ability_state_test, activate_from_active_fails) {
+TEST(special_ability_state_test, activate_from_active_fails)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::hp_halve);
 
@@ -107,7 +116,8 @@ TEST(special_ability_state_test, activate_from_active_fails) {
     EXPECT_TRUE(state.is_active());
 }
 
-TEST(special_ability_state_test, consume_starts_cooldown) {
+TEST(special_ability_state_test, consume_starts_cooldown)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::life_drain);
 
@@ -121,7 +131,8 @@ TEST(special_ability_state_test, consume_starts_cooldown) {
     EXPECT_FALSE(state.is_ready());
 }
 
-TEST(special_ability_state_test, cooldown_remaining_reports_correctly) {
+TEST(special_ability_state_test, cooldown_remaining_reports_correctly)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::hp_halve);
 
@@ -134,7 +145,8 @@ TEST(special_ability_state_test, cooldown_remaining_reports_correctly) {
     EXPECT_LE(remaining, ability_cooldown_seconds);
 }
 
-TEST(special_ability_state_test, cooldown_expires_and_becomes_ready) {
+TEST(special_ability_state_test, cooldown_expires_and_becomes_ready)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::paralyze);
 
@@ -152,7 +164,8 @@ TEST(special_ability_state_test, cooldown_expires_and_becomes_ready) {
     EXPECT_EQ(state.status, ability_status::ready);
 }
 
-TEST(special_ability_state_test, check_cooldown_during_cooldown_returns_false) {
+TEST(special_ability_state_test, check_cooldown_during_cooldown_returns_false)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::hp_halve);
 
@@ -166,7 +179,8 @@ TEST(special_ability_state_test, check_cooldown_during_cooldown_returns_false) {
     EXPECT_EQ(state.status, ability_status::cooldown);
 }
 
-TEST(special_ability_state_test, clear_resets_everything) {
+TEST(special_ability_state_test, clear_resets_everything)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::hp_halve);
 
@@ -180,7 +194,8 @@ TEST(special_ability_state_test, clear_resets_everything) {
     EXPECT_EQ(state.cooldown_remaining(now), 0);
 }
 
-TEST(special_ability_state_test, set_ability_same_type_preserves_cooldown) {
+TEST(special_ability_state_test, set_ability_same_type_preserves_cooldown)
+{
     // If you re-equip same ability type while on cooldown, preserve state
     special_ability_state state;
     state.set_ability(special_ability_type::hp_halve);
@@ -193,7 +208,8 @@ TEST(special_ability_state_test, set_ability_same_type_preserves_cooldown) {
     EXPECT_TRUE(state.is_ready());
 }
 
-TEST(special_ability_state_test, activate_after_cooldown_check) {
+TEST(special_ability_state_test, activate_after_cooldown_check)
+{
     special_ability_state state;
     state.set_ability(special_ability_type::poison);
 
@@ -211,7 +227,8 @@ TEST(special_ability_state_test, activate_after_cooldown_check) {
     EXPECT_TRUE(state.is_active());
 }
 
-TEST(special_ability_state_test, cooldown_constant_is_20_minutes) {
+TEST(special_ability_state_test, cooldown_constant_is_20_minutes)
+{
     EXPECT_EQ(ability_cooldown_seconds, 1200);
 }
 
@@ -219,7 +236,8 @@ TEST(special_ability_state_test, cooldown_constant_is_20_minutes) {
 // Protocol messages
 // ============================================================================
 
-TEST(special_ability_protocol_test, activate_ability_response_success) {
+TEST(special_ability_protocol_test, activate_ability_response_success)
+{
     auto msg = hb::network::make_activate_ability_response(42, true, 1, 1200);
     EXPECT_EQ(msg.type, json_message_type::activate_ability_response);
     EXPECT_EQ(msg.seq, 42u);
@@ -234,7 +252,8 @@ TEST(special_ability_protocol_test, activate_ability_response_success) {
     EXPECT_EQ(cooldown_sec, 1200);
 }
 
-TEST(special_ability_protocol_test, activate_ability_response_failure) {
+TEST(special_ability_protocol_test, activate_ability_response_failure)
+{
     auto msg = hb::network::make_activate_ability_response(43, false, 0, 0, "on_cooldown");
     EXPECT_EQ(msg.type, json_message_type::activate_ability_response);
 
@@ -245,7 +264,8 @@ TEST(special_ability_protocol_test, activate_ability_response_failure) {
     EXPECT_EQ(error, "on_cooldown");
 }
 
-TEST(special_ability_protocol_test, special_ability_status_message) {
+TEST(special_ability_protocol_test, special_ability_status_message)
+{
     auto msg = hb::network::make_special_ability_status("active", 2, 0);
     EXPECT_EQ(msg.type, json_message_type::special_ability_status);
 
@@ -259,7 +279,8 @@ TEST(special_ability_protocol_test, special_ability_status_message) {
     EXPECT_EQ(remaining, 0);
 }
 
-TEST(special_ability_protocol_test, special_ability_status_cooldown) {
+TEST(special_ability_protocol_test, special_ability_status_cooldown)
+{
     auto msg = hb::network::make_special_ability_status("cooldown", 50, 600);
 
     std::string status = msg.data["status"];
@@ -272,7 +293,8 @@ TEST(special_ability_protocol_test, special_ability_status_cooldown) {
     EXPECT_EQ(remaining, 600);
 }
 
-TEST(special_ability_protocol_test, special_ability_status_disabled) {
+TEST(special_ability_protocol_test, special_ability_status_disabled)
+{
     auto msg = hb::network::make_special_ability_status("disabled", 0, 0);
 
     std::string status = msg.data["status"];
@@ -283,7 +305,8 @@ TEST(special_ability_protocol_test, special_ability_status_disabled) {
 // Full lifecycle test
 // ============================================================================
 
-TEST(special_ability_lifecycle_test, full_equip_activate_consume_cooldown_cycle) {
+TEST(special_ability_lifecycle_test, full_equip_activate_consume_cooldown_cycle)
+{
     special_ability_state state;
 
     // 1. Equip a weapon with hp_halve ability
@@ -319,7 +342,8 @@ TEST(special_ability_lifecycle_test, full_equip_activate_consume_cooldown_cycle)
     EXPECT_EQ(state.status, ability_status::disabled);
 }
 
-TEST(special_ability_lifecycle_test, defense_ability_stays_active_until_unequip) {
+TEST(special_ability_lifecycle_test, defense_ability_stays_active_until_unequip)
+{
     // Defense abilities don't consume on hit — they stay active
     // until unequipped or manual deactivation (not implemented in this phase)
     special_ability_state state;

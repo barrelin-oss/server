@@ -10,7 +10,8 @@
 #include <vector>
 #include <unordered_map>
 
-namespace hb::npc {
+namespace hb::npc
+{
 
 using pack_id = uint32_t;
 
@@ -41,4 +42,4 @@ private:
     pack_id next_id_{1};
 };
 
-}  // namespace hb::npc
+} // namespace hb::npc

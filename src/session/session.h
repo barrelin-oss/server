@@ -9,33 +9,44 @@
 #include <chrono>
 #include <optional>
 
-namespace hb::session {
+namespace hb::session
+{
 
 // Session state machine
-enum class session_state : uint8_t {
-    connected = 0,      // Just connected, no auth yet
-    authenticating,     // Sent auth request, waiting for response
-    character_select,   // Authenticated, choosing character
-    entering_world,     // Character selected, loading into world
-    in_game,            // Playing in the world
-    disconnecting       // Graceful disconnect in progress
+enum class session_state : uint8_t
+{
+    connected = 0,    // Just connected, no auth yet
+    authenticating,   // Sent auth request, waiting for response
+    character_select, // Authenticated, choosing character
+    entering_world,   // Character selected, loading into world
+    in_game,          // Playing in the world
+    disconnecting     // Graceful disconnect in progress
 };
 
 // Convert session state to string
-[[nodiscard]] inline auto state_string(session_state state) -> std::string_view {
-    switch (state) {
-        case session_state::connected: return "connected";
-        case session_state::authenticating: return "authenticating";
-        case session_state::character_select: return "character_select";
-        case session_state::entering_world: return "entering_world";
-        case session_state::in_game: return "in_game";
-        case session_state::disconnecting: return "disconnecting";
+[[nodiscard]] inline auto state_string(session_state state) -> std::string_view
+{
+    switch (state)
+    {
+    case session_state::connected:
+        return "connected";
+    case session_state::authenticating:
+        return "authenticating";
+    case session_state::character_select:
+        return "character_select";
+    case session_state::entering_world:
+        return "entering_world";
+    case session_state::in_game:
+        return "in_game";
+    case session_state::disconnecting:
+        return "disconnecting";
     }
     return "unknown";
 }
 
 // Account information (from auth server)
-struct account_info {
+struct account_info
+{
     uint32_t account_id{0};
     std::string account_name;
     uint8_t admin_level{0};
@@ -43,7 +54,8 @@ struct account_info {
 };
 
 // Character info for selection screen
-struct character_info {
+struct character_info
+{
     uint32_t character_id{0};
     std::string name;
     uint8_t level{0};
@@ -52,7 +64,8 @@ struct character_info {
 };
 
 // Client session - represents a connected client
-class session {
+class session
+{
 public:
     session(session_id id, connection_id connection);
     ~session() = default;
@@ -106,4 +119,4 @@ private:
     std::chrono::steady_clock::time_point last_activity_;
 };
 
-}  // namespace hb::session
+} // namespace hb::session

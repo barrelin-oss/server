@@ -14,15 +14,16 @@
 #include "world/tile.h"
 
 using hb::item_id;
-using hb::npc_id;
 using hb::map_id;
+using hb::npc_id;
 using namespace hb::entity;
 using namespace hb::npc;
 using namespace hb::world;
 
 // AI behavior tests
 
-TEST(ai_config_test, flags) {
+TEST(ai_config_test, flags)
+{
     ai_config config;
     config.flags = ai_flags::aggressive | ai_flags::pursues_far;
 
@@ -31,7 +32,8 @@ TEST(ai_config_test, flags) {
     EXPECT_FALSE(config.has_flag(ai_flags::cowardly));
 }
 
-TEST(ai_runtime_state_test, state_transitions) {
+TEST(ai_runtime_state_test, state_transitions)
+{
     ai_runtime_state state;
     state.set_state(ai_state::idle);
 
@@ -42,7 +44,8 @@ TEST(ai_runtime_state_test, state_transitions) {
     EXPECT_EQ(state.state, ai_state::chase);
 }
 
-TEST(ai_runtime_state_test, target_management) {
+TEST(ai_runtime_state_test, target_management)
+{
     ai_runtime_state state;
     state.target = entity{42};
     state.aggro_level = 100;
@@ -57,7 +60,8 @@ TEST(ai_runtime_state_test, target_management) {
 
 // Spawn point tests
 
-TEST(spawn_point_test, can_spawn) {
+TEST(spawn_point_test, can_spawn)
+{
     spawn_point spawn;
     spawn.npc_type = npc_id{1};
     spawn.max_count = 3;
@@ -74,7 +78,8 @@ TEST(spawn_point_test, can_spawn) {
     EXPECT_FALSE(spawn.can_spawn());
 }
 
-TEST(spawn_point_test, on_death) {
+TEST(spawn_point_test, on_death)
+{
     spawn_point spawn;
     spawn.max_count = 2;
     spawn.current_count = 2;
@@ -86,7 +91,8 @@ TEST(spawn_point_test, on_death) {
 
 // Loot config tests
 
-TEST(loot_config_test, weighted_item) {
+TEST(loot_config_test, weighted_item)
+{
     weighted_item wi;
     wi.item = item_id{100};
     wi.weight = 50;
@@ -95,7 +101,8 @@ TEST(loot_config_test, weighted_item) {
     EXPECT_EQ(wi.weight, 50);
 }
 
-TEST(loot_config_test, item_pool) {
+TEST(loot_config_test, item_pool)
+{
     item_pool pool;
     pool.name = "test_pool";
     pool.items.push_back({item_id{1}, 10});
@@ -106,7 +113,8 @@ TEST(loot_config_test, item_pool) {
     EXPECT_EQ(pool.total_weight, 30);
 }
 
-TEST(loot_config_test, pick_from_pool) {
+TEST(loot_config_test, pick_from_pool)
+{
     item_pool pool;
     pool.name = "single";
     pool.items.push_back({item_id{42}, 1});
@@ -117,7 +125,8 @@ TEST(loot_config_test, pick_from_pool) {
     EXPECT_EQ(picked.value, 42);
 }
 
-TEST(loot_config_test, loot_phase_config) {
+TEST(loot_config_test, loot_phase_config)
+{
     loot_phase_config phase;
     phase.gold_chance = 2100;
     phase.drops.push_back({"potions", 1260});
@@ -128,7 +137,8 @@ TEST(loot_config_test, loot_phase_config) {
     EXPECT_EQ(phase.drops[0].pool_name, "potions");
 }
 
-TEST(loot_config_test, multi_drop_config) {
+TEST(loot_config_test, multi_drop_config)
+{
     loot_phase_config phase;
     phase.multi_drop = multi_drop_config{5, 15};
 
@@ -139,7 +149,8 @@ TEST(loot_config_test, multi_drop_config) {
 
 // NPC component tests
 
-TEST(npc_test, damage_and_death) {
+TEST(npc_test, damage_and_death)
+{
     npc n;
     n.max_hp = 100;
     n.hp = 100;
@@ -156,7 +167,8 @@ TEST(npc_test, damage_and_death) {
     EXPECT_EQ(n.ai_state.state, ai_state::dead);
 }
 
-TEST(npc_test, healing) {
+TEST(npc_test, healing)
+{
     npc n;
     n.max_hp = 100;
     n.hp = 50;
@@ -165,10 +177,11 @@ TEST(npc_test, healing) {
     EXPECT_EQ(n.hp, 80);
 
     n.heal(100);
-    EXPECT_EQ(n.hp, 100);  // Capped at max
+    EXPECT_EQ(n.hp, 100); // Capped at max
 }
 
-TEST(npc_test, hp_percent) {
+TEST(npc_test, hp_percent)
+{
     npc n;
     n.max_hp = 100;
     n.hp = 25;
@@ -176,7 +189,8 @@ TEST(npc_test, hp_percent) {
     EXPECT_FLOAT_EQ(n.hp_percent(), 25.0f);
 }
 
-TEST(npc_test, categories) {
+TEST(npc_test, categories)
+{
     npc n;
     n.category = npc_category::monster;
     EXPECT_TRUE(n.is_monster());
@@ -190,7 +204,8 @@ TEST(npc_test, categories) {
     EXPECT_TRUE(n.is_pet());
 }
 
-TEST(npc_test, ownership) {
+TEST(npc_test, ownership)
+{
     npc n;
     EXPECT_FALSE(n.has_owner());
 
@@ -200,25 +215,24 @@ TEST(npc_test, ownership) {
 
 // NPC system tests
 
-class npc_system_test : public ::testing::Test {
+class npc_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        system_.initialize();
-    }
+    void SetUp() override { system_.initialize(); }
 
-    void TearDown() override {
-        system_.shutdown();
-    }
+    void TearDown() override { system_.shutdown(); }
 
     npc_system system_;
 };
 
-TEST_F(npc_system_test, lifecycle) {
+TEST_F(npc_system_test, lifecycle)
+{
     EXPECT_TRUE(system_.is_initialized());
     EXPECT_EQ(system_.name(), "npc_system");
 }
 
-TEST_F(npc_system_test, spawn_npc) {
+TEST_F(npc_system_test, spawn_npc)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     ASSERT_TRUE(result.is_ok());
 
@@ -232,7 +246,8 @@ TEST_F(npc_system_test, spawn_npc) {
     EXPECT_EQ(n->pos.y, 10);
 }
 
-TEST_F(npc_system_test, despawn_npc) {
+TEST_F(npc_system_test, despawn_npc)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
     auto entity_id = result.value();
 
@@ -241,7 +256,8 @@ TEST_F(npc_system_test, despawn_npc) {
     EXPECT_EQ(system_.npc_count(), 0);
 }
 
-TEST_F(npc_system_test, apply_damage) {
+TEST_F(npc_system_test, apply_damage)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
     auto entity_id = result.value();
 
@@ -253,7 +269,8 @@ TEST_F(npc_system_test, apply_damage) {
     EXPECT_EQ(n->ai_state.target.id, 100);
 }
 
-TEST_F(npc_system_test, kill_npc) {
+TEST_F(npc_system_test, kill_npc)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
     auto entity_id = result.value();
 
@@ -264,7 +281,8 @@ TEST_F(npc_system_test, kill_npc) {
     EXPECT_EQ(n->ai_state.state, ai_state::dead);
 }
 
-TEST_F(npc_system_test, get_npcs_in_range) {
+TEST_F(npc_system_test, get_npcs_in_range)
+{
     system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     system_.spawn_npc(npc_id{2}, map_id{1}, position{15, 15});
     system_.spawn_npc(npc_id{3}, map_id{1}, position{50, 50});
@@ -276,7 +294,8 @@ TEST_F(npc_system_test, get_npcs_in_range) {
     EXPECT_EQ(far.size(), 1);
 }
 
-TEST_F(npc_system_test, spawn_point_integration) {
+TEST_F(npc_system_test, spawn_point_integration)
+{
     spawn_point spawn;
     spawn.npc_type = npc_id{1};
     spawn.map = map_id{1};
@@ -292,7 +311,8 @@ TEST_F(npc_system_test, spawn_point_integration) {
 
 // NPC max limit test
 
-TEST_F(npc_system_test, max_npc_limit) {
+TEST_F(npc_system_test, max_npc_limit)
+{
     npc_system_config config;
     config.max_npcs = 2;
     system_.set_config(config);
@@ -310,27 +330,33 @@ TEST_F(npc_system_test, max_npc_limit) {
 
 // Callback tests
 
-TEST_F(npc_system_test, spawn_callback) {
+TEST_F(npc_system_test, spawn_callback)
+{
     bool callback_fired = false;
     std::string spawned_name;
 
-    system_.set_on_spawn_callback([&](const npc& n) {
-        callback_fired = true;
-        spawned_name = n.name;
-    });
+    system_.set_on_spawn_callback(
+        [&](const npc& n)
+        {
+            callback_fired = true;
+            spawned_name = n.name;
+        });
 
     system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(npc_system_test, death_callback) {
+TEST_F(npc_system_test, death_callback)
+{
     bool callback_fired = false;
     uint32_t killer_id = 0;
 
-    system_.set_on_death_callback([&](const npc&, hb::entity::entity killer, int32_t /*damage*/) {
-        callback_fired = true;
-        killer_id = killer.id;
-    });
+    system_.set_on_death_callback(
+        [&](const npc&, hb::entity::entity killer, int32_t /*damage*/)
+        {
+            callback_fired = true;
+            killer_id = killer.id;
+        });
 
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{5, 5});
     auto eid = result.value();
@@ -341,7 +367,8 @@ TEST_F(npc_system_test, death_callback) {
     EXPECT_EQ(killer_id, 999);
 }
 
-TEST_F(npc_system_test, kill_already_dead_npc) {
+TEST_F(npc_system_test, kill_already_dead_npc)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{5, 5});
     auto eid = result.value();
 
@@ -351,18 +378,17 @@ TEST_F(npc_system_test, kill_already_dead_npc) {
 
     // Killing again should be a no-op
     int death_count = 0;
-    system_.set_on_death_callback([&](const npc&, hb::entity::entity, int32_t) {
-        ++death_count;
-    });
+    system_.set_on_death_callback([&](const npc&, hb::entity::entity, int32_t) { ++death_count; });
 
     system_.kill_npc(eid, entity{2});
     system_.flush_pending_deaths();
-    EXPECT_EQ(death_count, 0);  // Already dead, callback not fired
+    EXPECT_EQ(death_count, 0); // Already dead, callback not fired
 }
 
 // Damage leading to death
 
-TEST_F(npc_system_test, damage_kills_npc) {
+TEST_F(npc_system_test, damage_kills_npc)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     auto eid = result.value();
 
@@ -377,21 +403,21 @@ TEST_F(npc_system_test, damage_kills_npc) {
 // BUG: apply_damage calls npc::damage() which sets hp=0 (is_dead()=true),
 // then calls kill_npc() which early-returns because is_dead() is already true.
 // Death callback only fires via kill_npc() on a living NPC.
-TEST_F(npc_system_test, kill_npc_fires_death_callback) {
+TEST_F(npc_system_test, kill_npc_fires_death_callback)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     auto eid = result.value();
 
     bool death_fired = false;
-    system_.set_on_death_callback([&](const npc&, hb::entity::entity, int32_t) {
-        death_fired = true;
-    });
+    system_.set_on_death_callback([&](const npc&, hb::entity::entity, int32_t) { death_fired = true; });
 
     system_.kill_npc(eid, entity{50});
     system_.flush_pending_deaths();
     EXPECT_TRUE(death_fired);
 }
 
-TEST_F(npc_system_test, damage_sets_target) {
+TEST_F(npc_system_test, damage_sets_target)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     auto eid = result.value();
 
@@ -403,7 +429,8 @@ TEST_F(npc_system_test, damage_sets_target) {
     EXPECT_EQ(n->ai_state.state, ai_state::chase);
 }
 
-TEST_F(npc_system_test, damage_increases_aggro) {
+TEST_F(npc_system_test, damage_increases_aggro)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     auto eid = result.value();
 
@@ -419,7 +446,8 @@ TEST_F(npc_system_test, damage_increases_aggro) {
 
 // Set/clear target
 
-TEST_F(npc_system_test, set_target) {
+TEST_F(npc_system_test, set_target)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     auto eid = result.value();
 
@@ -430,7 +458,8 @@ TEST_F(npc_system_test, set_target) {
     EXPECT_EQ(n->ai_state.state, ai_state::chase);
 }
 
-TEST_F(npc_system_test, clear_target) {
+TEST_F(npc_system_test, clear_target)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     auto eid = result.value();
 
@@ -444,7 +473,8 @@ TEST_F(npc_system_test, clear_target) {
 
 // Update AI directly
 
-TEST_F(npc_system_test, update_ai_dead_npc_noop) {
+TEST_F(npc_system_test, update_ai_dead_npc_noop)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     auto eid = result.value();
 
@@ -454,14 +484,16 @@ TEST_F(npc_system_test, update_ai_dead_npc_noop) {
     system_.update_ai(eid);
 }
 
-TEST_F(npc_system_test, update_ai_nonexistent_npc_noop) {
+TEST_F(npc_system_test, update_ai_nonexistent_npc_noop)
+{
     // Should not crash for non-existent entity
     system_.update_ai(entity{99999});
 }
 
 // NPC exists and access tests
 
-TEST_F(npc_system_test, npc_exists) {
+TEST_F(npc_system_test, npc_exists)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
     auto eid = result.value();
 
@@ -469,13 +501,15 @@ TEST_F(npc_system_test, npc_exists) {
     EXPECT_FALSE(system_.npc_exists(entity{99999}));
 }
 
-TEST_F(npc_system_test, get_npc_nonexistent) {
+TEST_F(npc_system_test, get_npc_nonexistent)
+{
     EXPECT_EQ(system_.get_npc(entity{99999}), nullptr);
 }
 
 // Remove spawn points by map
 
-TEST_F(npc_system_test, remove_spawn_points) {
+TEST_F(npc_system_test, remove_spawn_points)
+{
     spawn_point sp1;
     sp1.npc_type = npc_id{1};
     sp1.map = map_id{1};
@@ -499,27 +533,25 @@ TEST_F(npc_system_test, remove_spawn_points) {
 
 // For each NPC
 
-TEST_F(npc_system_test, for_each_npc) {
+TEST_F(npc_system_test, for_each_npc)
+{
     system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
     system_.spawn_npc(npc_id{2}, map_id{1}, position{5, 5});
     system_.spawn_npc(npc_id{3}, map_id{2}, position{10, 10});
 
     int total = 0;
-    system_.for_each_npc([&](hb::entity::entity, npc&) {
-        ++total;
-    });
+    system_.for_each_npc([&](hb::entity::entity, npc&) { ++total; });
     EXPECT_EQ(total, 3);
 
     int map1_count = 0;
-    system_.for_each_npc_on_map(map_id{1}, [&](hb::entity::entity, npc&) {
-        ++map1_count;
-    });
+    system_.for_each_npc_on_map(map_id{1}, [&](hb::entity::entity, npc&) { ++map1_count; });
     EXPECT_EQ(map1_count, 2);
 }
 
 // Enable/disable AI
 
-TEST_F(npc_system_test, enable_disable_ai) {
+TEST_F(npc_system_test, enable_disable_ai)
+{
     system_.enable_ai(false);
 
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
@@ -538,7 +570,8 @@ TEST_F(npc_system_test, enable_disable_ai) {
 
 // Deactivate spawns removes NPCs
 
-TEST_F(npc_system_test, deactivate_spawns_removes_npcs) {
+TEST_F(npc_system_test, deactivate_spawns_removes_npcs)
+{
     system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
     system_.spawn_npc(npc_id{2}, map_id{1}, position{5, 5});
     system_.spawn_npc(npc_id{3}, map_id{2}, position{10, 10});
@@ -546,12 +579,13 @@ TEST_F(npc_system_test, deactivate_spawns_removes_npcs) {
     EXPECT_EQ(system_.npc_count(), 3);
 
     system_.deactivate_spawns(map_id{1});
-    EXPECT_EQ(system_.npc_count(), 1);  // Only map 2 NPC remains
+    EXPECT_EQ(system_.npc_count(), 1); // Only map 2 NPC remains
 }
 
 // Apply damage to dead NPC is no-op
 
-TEST_F(npc_system_test, apply_damage_dead_npc_noop) {
+TEST_F(npc_system_test, apply_damage_dead_npc_noop)
+{
     auto result = system_.spawn_npc(npc_id{1}, map_id{1}, position{10, 10});
     auto eid = result.value();
 
@@ -564,14 +598,16 @@ TEST_F(npc_system_test, apply_damage_dead_npc_noop) {
 
 // Damage to non-existent NPC
 
-TEST_F(npc_system_test, apply_damage_nonexistent_npc) {
+TEST_F(npc_system_test, apply_damage_nonexistent_npc)
+{
     // Should not crash
     system_.apply_damage(entity{99999}, 50, entity{1});
 }
 
 // NPC fallback defaults (no registry)
 
-TEST_F(npc_system_test, spawn_applies_defaults_without_registry) {
+TEST_F(npc_system_test, spawn_applies_defaults_without_registry)
+{
     auto result = system_.spawn_npc(npc_id{999}, map_id{1}, position{10, 10});
     ASSERT_TRUE(result.is_ok());
 
@@ -582,7 +618,8 @@ TEST_F(npc_system_test, spawn_applies_defaults_without_registry) {
     EXPECT_EQ(n->level, 1);
 }
 
-TEST_F(npc_system_test, disengage_all_from) {
+TEST_F(npc_system_test, disengage_all_from)
+{
     // Spawn 3 NPCs targeting the same entity
     auto r1 = system_.spawn_npc(npc_id{1}, map_id{1}, position{0, 0});
     auto r2 = system_.spawn_npc(npc_id{2}, map_id{1}, position{5, 5});
@@ -616,7 +653,8 @@ TEST_F(npc_system_test, disengage_all_from) {
 
 // ========== Tile Dead Occupant Tests ==========
 
-TEST(tile_dead_occupant_test, set_and_clear_dead_entity) {
+TEST(tile_dead_occupant_test, set_and_clear_dead_entity)
+{
     hb::world::dynamic_tile tile;
 
     EXPECT_FALSE(tile.has_dead_entity());
@@ -636,7 +674,8 @@ TEST(tile_dead_occupant_test, set_and_clear_dead_entity) {
     EXPECT_EQ(tile.dead_type, hb::world::owner_type::npc);
 }
 
-TEST(tile_dead_occupant_test, dead_slot_is_last_write_wins) {
+TEST(tile_dead_occupant_test, dead_slot_is_last_write_wins)
+{
     hb::world::dynamic_tile tile;
 
     tile.set_dead_entity(hb::entity_id{1}, hb::world::owner_type::npc);
@@ -647,7 +686,8 @@ TEST(tile_dead_occupant_test, dead_slot_is_last_write_wins) {
     EXPECT_EQ(tile.dead_entity.value, 2u);
 }
 
-TEST(tile_dead_occupant_test, dead_entity_does_not_block_movement) {
+TEST(tile_dead_occupant_test, dead_entity_does_not_block_movement)
+{
     hb::world::dynamic_tile tile;
     tile.set_dead_entity(hb::entity_id{42}, hb::world::owner_type::npc);
 
@@ -656,7 +696,8 @@ TEST(tile_dead_occupant_test, dead_entity_does_not_block_movement) {
     EXPECT_FALSE(tile.is_temp_blocked());
 }
 
-TEST(tile_dead_occupant_test, clear_dead_entity_removes_corpse_flag) {
+TEST(tile_dead_occupant_test, clear_dead_entity_removes_corpse_flag)
+{
     hb::world::dynamic_tile tile;
     tile.set_dead_entity(hb::entity_id{42}, hb::world::owner_type::npc);
     EXPECT_TRUE(hb::world::has_flag(tile.flags, hb::world::dynamic_tile_flags::has_corpse));
@@ -668,7 +709,8 @@ TEST(tile_dead_occupant_test, clear_dead_entity_removes_corpse_flag) {
 
 // ========== Visible Entity Msg is_dead Tests ==========
 
-TEST(visible_entity_msg_test, is_dead_serialized_when_true) {
+TEST(visible_entity_msg_test, is_dead_serialized_when_true)
+{
     hb::network::visible_entity_msg msg;
     msg.entity_id = 42;
     msg.type = "npc";
@@ -693,7 +735,8 @@ TEST(visible_entity_msg_test, is_dead_serialized_when_true) {
     EXPECT_TRUE(j["is_dead"].get<bool>());
 }
 
-TEST(visible_entity_msg_test, is_dead_omitted_when_false) {
+TEST(visible_entity_msg_test, is_dead_omitted_when_false)
+{
     hb::network::visible_entity_msg msg;
     msg.entity_id = 42;
     msg.type = "npc";

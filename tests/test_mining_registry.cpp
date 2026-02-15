@@ -8,9 +8,11 @@
 #include <fstream>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
-class mining_registry_test : public ::testing::Test {
+class mining_registry_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -214,4 +216,4 @@ mineral_types:
     EXPECT_EQ(config->drops[0].weight, 100);
 }
 
-}  // namespace hb
+} // namespace hb

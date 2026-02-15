@@ -23,7 +23,8 @@ using namespace hb::war;
 
 // ========== Crusade Types Tests ==========
 
-TEST(crusade_types_test, strike_point_default) {
+TEST(crusade_types_test, strike_point_default)
+{
     strike_point sp;
     EXPECT_EQ(sp.id, 0);
     EXPECT_EQ(sp.hp, 0);
@@ -31,20 +32,23 @@ TEST(crusade_types_test, strike_point_default) {
     EXPECT_TRUE(sp.is_destroyed());
 }
 
-TEST(crusade_types_test, strike_point_alive) {
+TEST(crusade_types_test, strike_point_alive)
+{
     strike_point sp;
     sp.hp = 50;
     sp.max_hp = 100;
     EXPECT_FALSE(sp.is_destroyed());
 }
 
-TEST(crusade_types_test, strike_point_destroyed_at_zero) {
+TEST(crusade_types_test, strike_point_destroyed_at_zero)
+{
     strike_point sp;
     sp.hp = 0;
     EXPECT_TRUE(sp.is_destroyed());
 }
 
-TEST(crusade_types_test, player_data_default) {
+TEST(crusade_types_test, player_data_default)
+{
     crusade_player_data data;
     EXPECT_EQ(data.duty, crusade_duty::none);
     EXPECT_EQ(data.construction_points, 0);
@@ -54,9 +58,11 @@ TEST(crusade_types_test, player_data_default) {
 
 // ========== Crusade System Lifecycle Tests ==========
 
-class crusade_system_test : public ::testing::Test {
+class crusade_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         war_sys_.initialize();
         crusade_.initialize();
         crusade_.set_dependencies(&war_sys_, nullptr, nullptr, nullptr, nullptr);
@@ -90,7 +96,8 @@ protected:
         crusade_.set_config(cfg);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         crusade_.shutdown();
         war_sys_.shutdown();
     }
@@ -99,12 +106,14 @@ protected:
     crusade_system crusade_;
 };
 
-TEST_F(crusade_system_test, starts_inactive) {
+TEST_F(crusade_system_test, starts_inactive)
+{
     EXPECT_FALSE(crusade_.is_active());
     EXPECT_EQ(crusade_.participant_count(), 0);
 }
 
-TEST_F(crusade_system_test, start_crusade_succeeds) {
+TEST_F(crusade_system_test, start_crusade_succeeds)
+{
     auto result = crusade_.start_crusade();
     EXPECT_TRUE(result.is_ok());
     EXPECT_TRUE(crusade_.is_active());
@@ -112,7 +121,8 @@ TEST_F(crusade_system_test, start_crusade_succeeds) {
     EXPECT_NE(crusade_.crusade_guid(), 0u);
 }
 
-TEST_F(crusade_system_test, start_twice_fails) {
+TEST_F(crusade_system_test, start_twice_fails)
+{
     auto r1 = crusade_.start_crusade();
     EXPECT_TRUE(r1.is_ok());
 
@@ -121,32 +131,37 @@ TEST_F(crusade_system_test, start_twice_fails) {
     EXPECT_EQ(r2.error(), crusade_result::already_active);
 }
 
-TEST_F(crusade_system_test, end_crusade_succeeds) {
+TEST_F(crusade_system_test, end_crusade_succeeds)
+{
     crusade_.start_crusade();
     auto result = crusade_.end_crusade(war_faction::aresden);
     EXPECT_EQ(result, crusade_result::success);
     EXPECT_FALSE(crusade_.is_active());
 }
 
-TEST_F(crusade_system_test, end_when_not_active_fails) {
+TEST_F(crusade_system_test, end_when_not_active_fails)
+{
     auto result = crusade_.end_crusade(war_faction::aresden);
     EXPECT_EQ(result, crusade_result::not_active);
 }
 
-TEST_F(crusade_system_test, cancel_cleans_up) {
+TEST_F(crusade_system_test, cancel_cleans_up)
+{
     crusade_.start_crusade();
     crusade_.cancel_crusade();
     EXPECT_FALSE(crusade_.is_active());
 }
 
-TEST_F(crusade_system_test, cancel_when_not_active_is_noop) {
-    crusade_.cancel_crusade();  // Should not crash
+TEST_F(crusade_system_test, cancel_when_not_active_is_noop)
+{
+    crusade_.cancel_crusade(); // Should not crash
     EXPECT_FALSE(crusade_.is_active());
 }
 
 // ========== Strike Point Tests ==========
 
-TEST_F(crusade_system_test, strike_points_restored_on_start) {
+TEST_F(crusade_system_test, strike_points_restored_on_start)
+{
     crusade_.start_crusade();
 
     const auto& aresden = crusade_.get_strike_points(war_faction::aresden);
@@ -161,7 +176,8 @@ TEST_F(crusade_system_test, strike_points_restored_on_start) {
     EXPECT_EQ(elvine[0].faction, war_faction::elvine);
 }
 
-TEST_F(crusade_system_test, damage_strike_point) {
+TEST_F(crusade_system_test, damage_strike_point)
+{
     crusade_.start_crusade();
 
     bool hit = crusade_.damage_strike_point(war_faction::aresden, 1, 30);
@@ -171,7 +187,8 @@ TEST_F(crusade_system_test, damage_strike_point) {
     EXPECT_EQ(aresden[0].hp, 70);
 }
 
-TEST_F(crusade_system_test, damage_strike_point_clamps_to_zero) {
+TEST_F(crusade_system_test, damage_strike_point_clamps_to_zero)
+{
     crusade_.start_crusade();
 
     crusade_.damage_strike_point(war_faction::aresden, 1, 999);
@@ -181,14 +198,16 @@ TEST_F(crusade_system_test, damage_strike_point_clamps_to_zero) {
     EXPECT_TRUE(aresden[0].is_destroyed());
 }
 
-TEST_F(crusade_system_test, damage_invalid_point_returns_false) {
+TEST_F(crusade_system_test, damage_invalid_point_returns_false)
+{
     crusade_.start_crusade();
 
     bool hit = crusade_.damage_strike_point(war_faction::aresden, 99, 10);
     EXPECT_FALSE(hit);
 }
 
-TEST_F(crusade_system_test, damage_already_destroyed_returns_false) {
+TEST_F(crusade_system_test, damage_already_destroyed_returns_false)
+{
     crusade_.start_crusade();
 
     crusade_.damage_strike_point(war_faction::aresden, 1, 999);
@@ -196,7 +215,8 @@ TEST_F(crusade_system_test, damage_already_destroyed_returns_false) {
     EXPECT_FALSE(hit);
 }
 
-TEST_F(crusade_system_test, all_strike_points_destroyed) {
+TEST_F(crusade_system_test, all_strike_points_destroyed)
+{
     crusade_.start_crusade();
 
     EXPECT_FALSE(crusade_.all_strike_points_destroyed(war_faction::aresden));
@@ -207,7 +227,8 @@ TEST_F(crusade_system_test, all_strike_points_destroyed) {
     EXPECT_TRUE(crusade_.is_active());
 }
 
-TEST_F(crusade_system_test, destroying_all_strike_points_does_not_end_immediately) {
+TEST_F(crusade_system_test, destroying_all_strike_points_does_not_end_immediately)
+{
     // Victory is deferred to meteor result phase (legacy: CalcMeteorStrikeEffectHandler)
     crusade_.start_crusade();
 
@@ -220,7 +241,8 @@ TEST_F(crusade_system_test, destroying_all_strike_points_does_not_end_immediatel
     EXPECT_TRUE(crusade_.all_strike_points_destroyed(war_faction::aresden));
 }
 
-TEST_F(crusade_system_test, neutral_faction_returns_empty_points) {
+TEST_F(crusade_system_test, neutral_faction_returns_empty_points)
+{
     crusade_.start_crusade();
     const auto& points = crusade_.get_strike_points(war_faction::neutral);
     EXPECT_TRUE(points.empty());
@@ -228,7 +250,8 @@ TEST_F(crusade_system_test, neutral_faction_returns_empty_points) {
 
 // ========== Player War State Tests ==========
 
-TEST_F(crusade_system_test, join_crusade) {
+TEST_F(crusade_system_test, join_crusade)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -238,13 +261,15 @@ TEST_F(crusade_system_test, join_crusade) {
     EXPECT_EQ(crusade_.participant_count(), 1);
 }
 
-TEST_F(crusade_system_test, join_requires_active) {
+TEST_F(crusade_system_test, join_requires_active)
+{
     player_id pid(1);
     auto result = crusade_.join_crusade(pid, war_faction::aresden);
     EXPECT_EQ(result, crusade_result::not_active);
 }
 
-TEST_F(crusade_system_test, join_requires_faction) {
+TEST_F(crusade_system_test, join_requires_faction)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -252,17 +277,19 @@ TEST_F(crusade_system_test, join_requires_faction) {
     EXPECT_EQ(result, crusade_result::not_in_faction);
 }
 
-TEST_F(crusade_system_test, join_twice_is_noop) {
+TEST_F(crusade_system_test, join_twice_is_noop)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
     crusade_.join_crusade(pid, war_faction::aresden);
     auto result = crusade_.join_crusade(pid, war_faction::aresden);
     EXPECT_EQ(result, crusade_result::success);
-    EXPECT_EQ(crusade_.participant_count(), 1);  // Still just 1
+    EXPECT_EQ(crusade_.participant_count(), 1); // Still just 1
 }
 
-TEST_F(crusade_system_test, leave_crusade) {
+TEST_F(crusade_system_test, leave_crusade)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -273,14 +300,16 @@ TEST_F(crusade_system_test, leave_crusade) {
     EXPECT_EQ(crusade_.participant_count(), 0);
 }
 
-TEST_F(crusade_system_test, leave_nonexistent_is_noop) {
+TEST_F(crusade_system_test, leave_nonexistent_is_noop)
+{
     crusade_.start_crusade();
-    crusade_.leave_crusade(player_id(99));  // Should not crash
+    crusade_.leave_crusade(player_id(99)); // Should not crash
 }
 
 // ========== Duty Selection Tests ==========
 
-TEST_F(crusade_system_test, select_duty_fighter) {
+TEST_F(crusade_system_test, select_duty_fighter)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -294,7 +323,8 @@ TEST_F(crusade_system_test, select_duty_fighter) {
     EXPECT_EQ(data->duty, crusade_duty::fighter);
 }
 
-TEST_F(crusade_system_test, select_duty_constructor) {
+TEST_F(crusade_system_test, select_duty_constructor)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -304,7 +334,8 @@ TEST_F(crusade_system_test, select_duty_constructor) {
     EXPECT_EQ(result, crusade_result::success);
 }
 
-TEST_F(crusade_system_test, select_duty_commander) {
+TEST_F(crusade_system_test, select_duty_commander)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -314,7 +345,8 @@ TEST_F(crusade_system_test, select_duty_commander) {
     EXPECT_EQ(result, crusade_result::success);
 }
 
-TEST_F(crusade_system_test, select_duty_twice_fails) {
+TEST_F(crusade_system_test, select_duty_twice_fails)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -325,7 +357,8 @@ TEST_F(crusade_system_test, select_duty_twice_fails) {
     EXPECT_EQ(result, crusade_result::already_has_duty);
 }
 
-TEST_F(crusade_system_test, select_duty_none_fails) {
+TEST_F(crusade_system_test, select_duty_none_fails)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -335,12 +368,14 @@ TEST_F(crusade_system_test, select_duty_none_fails) {
     EXPECT_EQ(result, crusade_result::invalid_duty);
 }
 
-TEST_F(crusade_system_test, select_duty_requires_active) {
+TEST_F(crusade_system_test, select_duty_requires_active)
+{
     auto result = crusade_.select_duty(player_id(1), crusade_duty::fighter);
     EXPECT_EQ(result, crusade_result::not_active);
 }
 
-TEST_F(crusade_system_test, select_duty_requires_participation) {
+TEST_F(crusade_system_test, select_duty_requires_participation)
+{
     crusade_.start_crusade();
 
     auto result = crusade_.select_duty(player_id(99), crusade_duty::fighter);
@@ -349,7 +384,8 @@ TEST_F(crusade_system_test, select_duty_requires_participation) {
 
 // ========== Construction Points Tests ==========
 
-TEST_F(crusade_system_test, award_construction_points) {
+TEST_F(crusade_system_test, award_construction_points)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -363,7 +399,8 @@ TEST_F(crusade_system_test, award_construction_points) {
     EXPECT_EQ(data->construction_points, 100);
 }
 
-TEST_F(crusade_system_test, award_construction_points_accumulates) {
+TEST_F(crusade_system_test, award_construction_points_accumulates)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -376,7 +413,8 @@ TEST_F(crusade_system_test, award_construction_points_accumulates) {
     EXPECT_EQ(data->construction_points, 125);
 }
 
-TEST_F(crusade_system_test, award_contribution) {
+TEST_F(crusade_system_test, award_contribution)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -388,7 +426,8 @@ TEST_F(crusade_system_test, award_contribution) {
     EXPECT_EQ(data->war_contribution, 42);
 }
 
-TEST_F(crusade_system_test, award_to_nonparticipant_is_noop) {
+TEST_F(crusade_system_test, award_to_nonparticipant_is_noop)
+{
     crusade_.start_crusade();
     crusade_.award_construction_points(player_id(99), 100);
     crusade_.award_contribution(player_id(99), 100);
@@ -397,18 +436,21 @@ TEST_F(crusade_system_test, award_to_nonparticipant_is_noop) {
 
 // ========== Player Data Access Tests ==========
 
-TEST_F(crusade_system_test, get_player_data_returns_null_for_nonparticipant) {
+TEST_F(crusade_system_test, get_player_data_returns_null_for_nonparticipant)
+{
     crusade_.start_crusade();
     EXPECT_EQ(crusade_.get_player_data(player_id(99)), nullptr);
 }
 
-TEST_F(crusade_system_test, get_player_data_const_returns_null_for_nonparticipant) {
+TEST_F(crusade_system_test, get_player_data_const_returns_null_for_nonparticipant)
+{
     crusade_.start_crusade();
     const auto& csys = crusade_;
     EXPECT_EQ(csys.get_player_data(player_id(99)), nullptr);
 }
 
-TEST_F(crusade_system_test, player_data_has_correct_faction) {
+TEST_F(crusade_system_test, player_data_has_correct_faction)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -419,7 +461,8 @@ TEST_F(crusade_system_test, player_data_has_correct_faction) {
     EXPECT_EQ(data->faction, war_faction::elvine);
 }
 
-TEST_F(crusade_system_test, player_data_has_crusade_guid) {
+TEST_F(crusade_system_test, player_data_has_crusade_guid)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -431,12 +474,14 @@ TEST_F(crusade_system_test, player_data_has_crusade_guid) {
 
 // ========== Update / Time Limit Tests ==========
 
-TEST_F(crusade_system_test, update_when_inactive_does_nothing) {
-    crusade_.update(10.0f);  // Should not crash
+TEST_F(crusade_system_test, update_when_inactive_does_nothing)
+{
+    crusade_.update(10.0f); // Should not crash
     EXPECT_FALSE(crusade_.is_active());
 }
 
-TEST_F(crusade_system_test, elapsed_seconds_increments) {
+TEST_F(crusade_system_test, elapsed_seconds_increments)
+{
     crusade_.start_crusade();
 
     crusade_.update(5.0f);
@@ -446,7 +491,8 @@ TEST_F(crusade_system_test, elapsed_seconds_increments) {
     EXPECT_EQ(crusade_.elapsed_seconds(), 8);
 }
 
-TEST_F(crusade_system_test, crusade_ends_on_time_limit) {
+TEST_F(crusade_system_test, crusade_ends_on_time_limit)
+{
     // Config has 3600s limit
     crusade_.start_crusade();
 
@@ -458,9 +504,11 @@ TEST_F(crusade_system_test, crusade_ends_on_time_limit) {
 
 // ========== Multiple Strike Points Tests ==========
 
-class crusade_multi_sp_test : public ::testing::Test {
+class crusade_multi_sp_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         war_sys_.initialize();
         crusade_.initialize();
         crusade_.set_dependencies(&war_sys_, nullptr, nullptr, nullptr, nullptr);
@@ -480,7 +528,8 @@ protected:
         crusade_.set_config(cfg);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         crusade_.shutdown();
         war_sys_.shutdown();
     }
@@ -489,7 +538,8 @@ protected:
     crusade_system crusade_;
 };
 
-TEST_F(crusade_multi_sp_test, multiple_strike_points_loaded) {
+TEST_F(crusade_multi_sp_test, multiple_strike_points_loaded)
+{
     crusade_.start_crusade();
 
     const auto& ares = crusade_.get_strike_points(war_faction::aresden);
@@ -499,17 +549,19 @@ TEST_F(crusade_multi_sp_test, multiple_strike_points_loaded) {
     EXPECT_EQ(ares[2].max_hp, 120);
 }
 
-TEST_F(crusade_multi_sp_test, partial_destruction_not_victory) {
+TEST_F(crusade_multi_sp_test, partial_destruction_not_victory)
+{
     crusade_.start_crusade();
 
     crusade_.damage_strike_point(war_faction::aresden, 1, 999);
-    EXPECT_TRUE(crusade_.is_active());  // Still 2 more points
+    EXPECT_TRUE(crusade_.is_active()); // Still 2 more points
 
     crusade_.damage_strike_point(war_faction::aresden, 2, 999);
-    EXPECT_TRUE(crusade_.is_active());  // Still 1 more
+    EXPECT_TRUE(crusade_.is_active()); // Still 1 more
 }
 
-TEST_F(crusade_multi_sp_test, all_destroyed_does_not_trigger_immediate_victory) {
+TEST_F(crusade_multi_sp_test, all_destroyed_does_not_trigger_immediate_victory)
+{
     // Victory deferred to meteor result phase
     crusade_.start_crusade();
 
@@ -524,7 +576,8 @@ TEST_F(crusade_multi_sp_test, all_destroyed_does_not_trigger_immediate_victory) 
 
 // ========== Protocol Message Tests ==========
 
-TEST(crusade_protocol_test, select_duty_response_success) {
+TEST(crusade_protocol_test, select_duty_response_success)
+{
     auto msg = hb::network::make_select_duty_response(42, true, 1, 500);
     EXPECT_EQ(msg.type, hb::network::json_message_type::select_duty_response);
     EXPECT_EQ(msg.seq, 42u);
@@ -533,23 +586,27 @@ TEST(crusade_protocol_test, select_duty_response_success) {
     EXPECT_EQ(msg.data["construction_points"].get<int>(), 500);
 }
 
-TEST(crusade_protocol_test, select_duty_response_failure) {
+TEST(crusade_protocol_test, select_duty_response_failure)
+{
     auto msg = hb::network::make_select_duty_response(10, false, 0, 0, "already_has_duty");
     EXPECT_EQ(msg.type, hb::network::json_message_type::select_duty_response);
     EXPECT_FALSE(msg.data["success"].get<bool>());
     EXPECT_EQ(msg.data["error"].get<std::string>(), "already_has_duty");
 }
 
-TEST(crusade_protocol_test, message_type_to_string) {
+TEST(crusade_protocol_test, message_type_to_string)
+{
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_started), "crusade_started");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_ended), "crusade_ended");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_status_update), "crusade_status_update");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::select_duty_request), "select_duty_request");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::select_duty_response), "select_duty_response");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_strike_point_update), "crusade_strike_point_update");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_strike_point_update),
+              "crusade_strike_point_update");
 }
 
-TEST(crusade_protocol_test, message_type_roundtrip) {
+TEST(crusade_protocol_test, message_type_roundtrip)
+{
     auto parsed = hb::network::parse_message_type("select_duty_request");
     EXPECT_EQ(parsed, hb::network::json_message_type::select_duty_request);
 
@@ -562,7 +619,8 @@ TEST(crusade_protocol_test, message_type_roundtrip) {
 
 // ========== Guid Uniqueness Tests ==========
 
-TEST_F(crusade_system_test, each_crusade_gets_unique_guid) {
+TEST_F(crusade_system_test, each_crusade_gets_unique_guid)
+{
     crusade_.start_crusade();
     auto guid1 = crusade_.crusade_guid();
     crusade_.end_crusade(war_faction::neutral);
@@ -576,7 +634,8 @@ TEST_F(crusade_system_test, each_crusade_gets_unique_guid) {
 
 // ========== Cleanup Tests ==========
 
-TEST_F(crusade_system_test, end_crusade_clears_players) {
+TEST_F(crusade_system_test, end_crusade_clears_players)
+{
     crusade_.start_crusade();
     crusade_.join_crusade(player_id(1), war_faction::aresden);
     crusade_.join_crusade(player_id(2), war_faction::elvine);
@@ -586,7 +645,8 @@ TEST_F(crusade_system_test, end_crusade_clears_players) {
     EXPECT_EQ(crusade_.participant_count(), 0);
 }
 
-TEST_F(crusade_system_test, end_crusade_clears_state) {
+TEST_F(crusade_system_test, end_crusade_clears_state)
+{
     crusade_.start_crusade();
     EXPECT_FALSE(crusade_.get_strike_points(war_faction::aresden).empty());
 
@@ -597,9 +657,11 @@ TEST_F(crusade_system_test, end_crusade_clears_state) {
 
 // ========== Mana System Tests ==========
 
-class mana_system_test : public ::testing::Test {
+class mana_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         mana_config cfg;
         cfg.collector_scan_radius = 5;
         cfg.collector_harvest_rate = 3;
@@ -613,7 +675,8 @@ protected:
     mana_system mana_;
 };
 
-TEST_F(mana_system_test, initial_state_is_zero) {
+TEST_F(mana_system_test, initial_state_is_zero)
+{
     EXPECT_EQ(mana_.aresden_mana(), 0);
     EXPECT_EQ(mana_.elvine_mana(), 0);
     EXPECT_EQ(mana_.get_state(war_faction::aresden).total_mana_collected, 0);
@@ -621,68 +684,78 @@ TEST_F(mana_system_test, initial_state_is_zero) {
     EXPECT_EQ(mana_.get_state(war_faction::aresden).meteors_fired, 0);
 }
 
-TEST_F(mana_system_test, tick_with_zero_collectors_does_nothing) {
+TEST_F(mana_system_test, tick_with_zero_collectors_does_nothing)
+{
     mana_.tick_faction_mana(war_faction::aresden, 0, 5);
     EXPECT_EQ(mana_.aresden_mana(), 0);
 }
 
-TEST_F(mana_system_test, tick_collects_mana_from_stones) {
+TEST_F(mana_system_test, tick_collects_mana_from_stones)
+{
     // 1 collector, 3 stones in range → 3 * harvest_rate(3) = 9 mana
     mana_.tick_faction_mana(war_faction::aresden, 1, 3);
     EXPECT_EQ(mana_.aresden_mana(), 9);
     EXPECT_EQ(mana_.get_state(war_faction::aresden).total_mana_collected, 9);
 }
 
-TEST_F(mana_system_test, tick_accumulates_mana) {
-    mana_.tick_faction_mana(war_faction::elvine, 1, 2);  // 2 * 3 = 6
-    mana_.tick_faction_mana(war_faction::elvine, 1, 2);  // 2 * 3 = 6
+TEST_F(mana_system_test, tick_accumulates_mana)
+{
+    mana_.tick_faction_mana(war_faction::elvine, 1, 2); // 2 * 3 = 6
+    mana_.tick_faction_mana(war_faction::elvine, 1, 2); // 2 * 3 = 6
     EXPECT_EQ(mana_.elvine_mana(), 12);
     EXPECT_EQ(mana_.get_state(war_faction::elvine).total_mana_collected, 12);
 }
 
-TEST_F(mana_system_test, gmg_charges_at_threshold) {
+TEST_F(mana_system_test, gmg_charges_at_threshold)
+{
     // Threshold is 15. Collect 15 mana → 1 charge, pool becomes 0
-    mana_.tick_faction_mana(war_faction::aresden, 1, 5);  // 5 * 3 = 15
-    EXPECT_EQ(mana_.aresden_mana(), 0);  // Consumed by GMG
+    mana_.tick_faction_mana(war_faction::aresden, 1, 5); // 5 * 3 = 15
+    EXPECT_EQ(mana_.aresden_mana(), 0);                  // Consumed by GMG
     // charge was consumed to fire meteor (charges_for_meteor=1)
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 0);
 }
 
-TEST_F(mana_system_test, meteor_fires_when_charges_accumulated) {
+TEST_F(mana_system_test, meteor_fires_when_charges_accumulated)
+{
     int meteor_count = 0;
     war_faction meteor_faction = war_faction::neutral;
-    mana_.set_meteor_trigger([&](war_faction f) {
-        meteor_count++;
-        meteor_faction = f;
-    });
+    mana_.set_meteor_trigger(
+        [&](war_faction f)
+        {
+            meteor_count++;
+            meteor_faction = f;
+        });
 
     // Collect enough for 1 meteor (15 mana = 1 charge = 1 meteor)
-    mana_.tick_faction_mana(war_faction::aresden, 1, 5);  // 15 mana
+    mana_.tick_faction_mana(war_faction::aresden, 1, 5); // 15 mana
     EXPECT_EQ(meteor_count, 1);
     EXPECT_EQ(meteor_faction, war_faction::aresden);
     EXPECT_EQ(mana_.get_state(war_faction::aresden).meteors_fired, 1);
 }
 
-TEST_F(mana_system_test, single_charge_per_threshold_crossing) {
+TEST_F(mana_system_test, single_charge_per_threshold_crossing)
+{
     int meteor_count = 0;
     mana_.set_meteor_trigger([&](war_faction) { meteor_count++; });
 
     // Collect 45 mana in one tick → only 1 charge (pool resets to 0)
-    mana_.tick_faction_mana(war_faction::elvine, 1, 15);  // 15 * 3 = 45
-    EXPECT_EQ(meteor_count, 1);  // charges_for_meteor=1, so 1 meteor
+    mana_.tick_faction_mana(war_faction::elvine, 1, 15); // 15 * 3 = 45
+    EXPECT_EQ(meteor_count, 1);                          // charges_for_meteor=1, so 1 meteor
     EXPECT_EQ(mana_.get_state(war_faction::elvine).meteors_fired, 1);
     EXPECT_EQ(mana_.elvine_mana(), 0);
 }
 
-TEST_F(mana_system_test, leftover_mana_after_gmg) {
+TEST_F(mana_system_test, leftover_mana_after_gmg)
+{
     mana_.set_meteor_trigger([](war_faction) {});
 
     // Collect 21 mana → 1 charge used, pool resets to 0 (remainder discarded)
-    mana_.tick_faction_mana(war_faction::aresden, 1, 7);  // 7 * 3 = 21
-    EXPECT_EQ(mana_.aresden_mana(), 0);  // Legacy: remainder discarded
+    mana_.tick_faction_mana(war_faction::aresden, 1, 7); // 7 * 3 = 21
+    EXPECT_EQ(mana_.aresden_mana(), 0);                  // Legacy: remainder discarded
 }
 
-TEST_F(mana_system_test, add_mana_directly) {
+TEST_F(mana_system_test, add_mana_directly)
+{
     mana_.set_meteor_trigger([](war_faction) {});
 
     mana_.add_mana(war_faction::elvine, 10);
@@ -690,13 +763,15 @@ TEST_F(mana_system_test, add_mana_directly) {
     EXPECT_EQ(mana_.get_state(war_faction::elvine).total_mana_collected, 10);
 }
 
-TEST_F(mana_system_test, add_mana_zero_or_negative_ignored) {
+TEST_F(mana_system_test, add_mana_zero_or_negative_ignored)
+{
     mana_.add_mana(war_faction::aresden, 0);
     mana_.add_mana(war_faction::aresden, -5);
     EXPECT_EQ(mana_.aresden_mana(), 0);
 }
 
-TEST_F(mana_system_test, add_mana_triggers_gmg) {
+TEST_F(mana_system_test, add_mana_triggers_gmg)
+{
     int meteor_count = 0;
     mana_.set_meteor_trigger([&](war_faction) { meteor_count++; });
 
@@ -704,7 +779,8 @@ TEST_F(mana_system_test, add_mana_triggers_gmg) {
     EXPECT_EQ(meteor_count, 1);
 }
 
-TEST_F(mana_system_test, reset_clears_all) {
+TEST_F(mana_system_test, reset_clears_all)
+{
     mana_.set_meteor_trigger([](war_faction) {});
 
     mana_.add_mana(war_faction::aresden, 10);
@@ -718,7 +794,8 @@ TEST_F(mana_system_test, reset_clears_all) {
     EXPECT_EQ(mana_.get_state(war_faction::elvine).total_mana_collected, 0);
 }
 
-TEST_F(mana_system_test, factions_are_independent) {
+TEST_F(mana_system_test, factions_are_independent)
+{
     mana_.set_meteor_trigger([](war_faction) {});
 
     mana_.add_mana(war_faction::aresden, 10);
@@ -728,13 +805,15 @@ TEST_F(mana_system_test, factions_are_independent) {
     EXPECT_EQ(mana_.elvine_mana(), 5);
 }
 
-TEST_F(mana_system_test, no_trigger_callback_is_safe) {
+TEST_F(mana_system_test, no_trigger_callback_is_safe)
+{
     // No trigger set — collecting 15 mana should not crash
-    mana_.tick_faction_mana(war_faction::aresden, 1, 5);  // 15 mana
+    mana_.tick_faction_mana(war_faction::aresden, 1, 5); // 15 mana
     EXPECT_EQ(mana_.get_state(war_faction::aresden).meteors_fired, 1);
 }
 
-TEST_F(mana_system_test, multi_charge_threshold) {
+TEST_F(mana_system_test, multi_charge_threshold)
+{
     // Reconfigure: need 3 charges for 1 meteor
     mana_config cfg = mana_.get_config();
     cfg.gmg_charges_for_meteor = 3;
@@ -745,14 +824,14 @@ TEST_F(mana_system_test, multi_charge_threshold) {
 
     // Collect 15 mana = 1 charge
     mana_.add_mana(war_faction::aresden, 15);
-    EXPECT_EQ(meteor_count, 0);  // Need 3 charges
+    EXPECT_EQ(meteor_count, 0); // Need 3 charges
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
 
     // Collect 30 mana → pool goes to 30, check_gmg: 30>=15 → pool=0, charge=2
     // Only 1 charge per check_gmg call now (not 2)
     mana_.add_mana(war_faction::aresden, 30);
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 2);
-    EXPECT_EQ(meteor_count, 0);  // Still need 3 charges
+    EXPECT_EQ(meteor_count, 0); // Still need 3 charges
 
     // One more charge
     mana_.add_mana(war_faction::aresden, 15);
@@ -760,7 +839,8 @@ TEST_F(mana_system_test, multi_charge_threshold) {
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 0);
 }
 
-TEST_F(mana_system_test, mana_pool_reset_discards_remainder) {
+TEST_F(mana_system_test, mana_pool_reset_discards_remainder)
+{
     // Override to 1 charge for simplicity
     mana_config cfg = mana_.get_config();
     cfg.gmg_charges_for_meteor = 1;
@@ -769,12 +849,13 @@ TEST_F(mana_system_test, mana_pool_reset_discards_remainder) {
 
     // Collect 21 mana (threshold=15). Legacy discards remainder.
     mana_.add_mana(war_faction::aresden, 21);
-    EXPECT_EQ(mana_.aresden_mana(), 0);  // NOT 6 — remainder discarded
+    EXPECT_EQ(mana_.aresden_mana(), 0); // NOT 6 — remainder discarded
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 0);
     EXPECT_EQ(mana_.get_state(war_faction::aresden).meteors_fired, 1);
 }
 
-TEST_F(mana_system_test, gmg_requires_multiple_charges_default) {
+TEST_F(mana_system_test, gmg_requires_multiple_charges_default)
+{
     // Use default config (charges_for_meteor=10)
     mana_system fresh;
     int meteor_count = 0;
@@ -801,7 +882,8 @@ TEST_F(mana_system_test, gmg_requires_multiple_charges_default) {
 
 // ========== GMG Damage Tests ==========
 
-TEST_F(mana_system_test, gmg_damage_reduces_charges) {
+TEST_F(mana_system_test, gmg_damage_reduces_charges)
+{
     mana_.set_meteor_trigger([](war_faction) {});
 
     // Increase charges_for_meteor so charges accumulate without firing
@@ -819,7 +901,8 @@ TEST_F(mana_system_test, gmg_damage_reduces_charges) {
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
 }
 
-TEST_F(mana_system_test, gmg_damage_below_threshold_no_effect) {
+TEST_F(mana_system_test, gmg_damage_below_threshold_no_effect)
+{
     mana_.set_meteor_trigger([](war_faction) {});
 
     mana_config cfg = mana_.get_config();
@@ -834,7 +917,8 @@ TEST_F(mana_system_test, gmg_damage_below_threshold_no_effect) {
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 1);
 }
 
-TEST_F(mana_system_test, gmg_damage_resets_accumulator) {
+TEST_F(mana_system_test, gmg_damage_resets_accumulator)
+{
     mana_.set_meteor_trigger([](war_faction) {});
 
     mana_config cfg = mana_.get_config();
@@ -861,7 +945,8 @@ TEST_F(mana_system_test, gmg_damage_resets_accumulator) {
     EXPECT_EQ(mana_.get_state(war_faction::aresden).gmg_charge, 0);
 }
 
-TEST_F(mana_system_test, gmg_damage_at_zero_charges_no_underflow) {
+TEST_F(mana_system_test, gmg_damage_at_zero_charges_no_underflow)
+{
     mana_.set_meteor_trigger([](war_faction) {});
 
     // No charges, take 500 damage -- should not underflow
@@ -871,7 +956,8 @@ TEST_F(mana_system_test, gmg_damage_at_zero_charges_no_underflow) {
 
 // ========== Mana Stone Depletion Tests ==========
 
-TEST_F(mana_system_test, stone_depletion_limits_harvest) {
+TEST_F(mana_system_test, stone_depletion_limits_harvest)
+{
     // 1 stone, 2 collectors. Stone has max 5 mana.
     // First collector drains 3, second drains 2 (remaining). Total = 5, not 6.
     mana_.initialize_stones(1);
@@ -881,7 +967,8 @@ TEST_F(mana_system_test, stone_depletion_limits_harvest) {
     EXPECT_EQ(mana_.aresden_mana(), 5);
 }
 
-TEST_F(mana_system_test, stones_regenerate_each_tick) {
+TEST_F(mana_system_test, stones_regenerate_each_tick)
+{
     mana_.initialize_stones(1);
     mana_.set_meteor_trigger([](war_faction) {});
 
@@ -894,7 +981,8 @@ TEST_F(mana_system_test, stones_regenerate_each_tick) {
     EXPECT_EQ(mana_.aresden_mana(), 6);
 }
 
-TEST_F(mana_system_test, both_factions_compete_for_stones) {
+TEST_F(mana_system_test, both_factions_compete_for_stones)
+{
     mana_.initialize_stones(1);
     mana_.set_meteor_trigger([](war_faction) {});
 
@@ -906,7 +994,8 @@ TEST_F(mana_system_test, both_factions_compete_for_stones) {
     EXPECT_EQ(mana_.elvine_mana(), 2);
 }
 
-TEST_F(mana_system_test, multiple_stones_provide_more_mana) {
+TEST_F(mana_system_test, multiple_stones_provide_more_mana)
+{
     mana_.initialize_stones(5);
     mana_.set_meteor_trigger([](war_faction) {});
 
@@ -916,7 +1005,8 @@ TEST_F(mana_system_test, multiple_stones_provide_more_mana) {
     EXPECT_EQ(mana_.get_state(war_faction::aresden).total_mana_collected, 15);
 }
 
-TEST_F(mana_system_test, zero_collectors_yields_zero_with_stones) {
+TEST_F(mana_system_test, zero_collectors_yields_zero_with_stones)
+{
     mana_.initialize_stones(5);
     mana_.set_meteor_trigger([](war_faction) {});
 
@@ -927,9 +1017,11 @@ TEST_F(mana_system_test, zero_collectors_yields_zero_with_stones) {
 
 // ========== Meteor Handler Tests ==========
 
-class meteor_handler_test : public ::testing::Test {
+class meteor_handler_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         meteor_config cfg;
         cfg.warning_time_ms = 5000;
         cfg.player_wave1_delay_ms = 6000;
@@ -954,17 +1046,22 @@ protected:
         wire_callbacks();
     }
 
-    void wire_callbacks() {
+    void wire_callbacks()
+    {
         meteor_callbacks cbs;
 
-        cbs.get_esg_count = [this](war_faction, uint16_t) -> int32_t {
+        cbs.get_esg_count = [this](war_faction, uint16_t) -> int32_t
+        {
             return esg_count_;
         };
 
-        cbs.damage_strike_point = [this](war_faction faction, uint16_t point_id, int32_t damage) -> bool {
+        cbs.damage_strike_point = [this](war_faction faction, uint16_t point_id, int32_t damage) -> bool
+        {
             auto& pts = (faction == war_faction::elvine) ? elvine_points_ : aresden_points_;
-            for (auto& sp : pts) {
-                if (sp.id == point_id && !sp.is_destroyed()) {
+            for (auto& sp : pts)
+            {
+                if (sp.id == point_id && !sp.is_destroyed())
+                {
                     sp.hp = std::max(0, sp.hp - damage);
                     damages_applied_.push_back({faction, point_id, damage});
                     return true;
@@ -973,19 +1070,23 @@ protected:
             return false;
         };
 
-        cbs.get_strike_points = [this](war_faction faction) -> std::vector<strike_point> {
+        cbs.get_strike_points = [this](war_faction faction) -> std::vector<strike_point>
+        {
             return (faction == war_faction::elvine) ? elvine_points_ : aresden_points_;
         };
 
-        cbs.broadcast_warning = [this](war_faction target, int32_t time_ms) {
+        cbs.broadcast_warning = [this](war_faction target, int32_t time_ms)
+        {
             warnings_.push_back({target, time_ms});
         };
 
-        cbs.broadcast_result = [this](const meteor_event_result& result) {
+        cbs.broadcast_result = [this](const meteor_event_result& result)
+        {
             results_.push_back(result);
         };
 
-        cbs.damage_players = [this](war_faction, int32_t) -> int32_t {
+        cbs.damage_players = [this](war_faction, int32_t) -> int32_t
+        {
             return player_casualties_;
         };
 
@@ -1000,14 +1101,16 @@ protected:
     std::vector<strike_point> elvine_points_;
     std::vector<strike_point> aresden_points_;
 
-    struct damage_record {
+    struct damage_record
+    {
         war_faction faction;
         uint16_t point_id;
         int32_t damage;
     };
     std::vector<damage_record> damages_applied_;
 
-    struct warning_record {
+    struct warning_record
+    {
         war_faction target;
         int32_t time_ms;
     };
@@ -1016,7 +1119,8 @@ protected:
     std::vector<meteor_event_result> results_;
 };
 
-TEST_F(meteor_handler_test, fire_meteor_broadcasts_warning) {
+TEST_F(meteor_handler_test, fire_meteor_broadcasts_warning)
+{
     handler_.fire_meteor(war_faction::aresden);
 
     ASSERT_EQ(warnings_.size(), 1);
@@ -1024,18 +1128,20 @@ TEST_F(meteor_handler_test, fire_meteor_broadcasts_warning) {
     EXPECT_EQ(warnings_[0].time_ms, 5000);
 }
 
-TEST_F(meteor_handler_test, fire_meteor_damages_strike_points) {
+TEST_F(meteor_handler_test, fire_meteor_damages_strike_points)
+{
     handler_.fire_meteor(war_faction::aresden);
 
     // Should damage each active elvine strike point
     ASSERT_EQ(damages_applied_.size(), 2);
     EXPECT_EQ(damages_applied_[0].faction, war_faction::elvine);
-    EXPECT_EQ(damages_applied_[0].damage, 2);  // base_strike_damage
+    EXPECT_EQ(damages_applied_[0].damage, 2); // base_strike_damage
     EXPECT_EQ(damages_applied_[1].faction, war_faction::elvine);
     EXPECT_EQ(damages_applied_[1].damage, 2);
 }
 
-TEST_F(meteor_handler_test, esg_reduces_damage) {
+TEST_F(meteor_handler_test, esg_reduces_damage)
+{
     esg_count_ = 1;
     handler_.fire_meteor(war_faction::aresden);
 
@@ -1044,7 +1150,8 @@ TEST_F(meteor_handler_test, esg_reduces_damage) {
     EXPECT_EQ(damages_applied_[0].damage, 1);
 }
 
-TEST_F(meteor_handler_test, esg_can_fully_block) {
+TEST_F(meteor_handler_test, esg_can_fully_block)
+{
     esg_count_ = 2;
     handler_.fire_meteor(war_faction::aresden);
 
@@ -1052,7 +1159,8 @@ TEST_F(meteor_handler_test, esg_can_fully_block) {
     EXPECT_EQ(damages_applied_.size(), 0);
 }
 
-TEST_F(meteor_handler_test, esg_more_than_damage_still_zero) {
+TEST_F(meteor_handler_test, esg_more_than_damage_still_zero)
+{
     esg_count_ = 5;
     handler_.fire_meteor(war_faction::aresden);
 
@@ -1060,7 +1168,8 @@ TEST_F(meteor_handler_test, esg_more_than_damage_still_zero) {
     EXPECT_EQ(damages_applied_.size(), 0);
 }
 
-TEST_F(meteor_handler_test, broadcast_result_sent) {
+TEST_F(meteor_handler_test, broadcast_result_sent)
+{
     handler_.fire_meteor(war_faction::aresden);
 
     ASSERT_EQ(results_.size(), 1);
@@ -1069,7 +1178,8 @@ TEST_F(meteor_handler_test, broadcast_result_sent) {
     EXPECT_EQ(results_[0].strike_results.size(), 2);
 }
 
-TEST_F(meteor_handler_test, result_contains_strike_details) {
+TEST_F(meteor_handler_test, result_contains_strike_details)
+{
     handler_.fire_meteor(war_faction::aresden);
 
     ASSERT_EQ(results_.size(), 1);
@@ -1081,7 +1191,8 @@ TEST_F(meteor_handler_test, result_contains_strike_details) {
     EXPECT_EQ(sr[1].strike_point_id, 2);
 }
 
-TEST_F(meteor_handler_test, destroyed_points_not_targeted) {
+TEST_F(meteor_handler_test, destroyed_points_not_targeted)
+{
     // Destroy point 1
     elvine_points_[0].hp = 0;
 
@@ -1092,7 +1203,8 @@ TEST_F(meteor_handler_test, destroyed_points_not_targeted) {
     EXPECT_EQ(damages_applied_[0].point_id, 2);
 }
 
-TEST_F(meteor_handler_test, elvine_attacks_aresden_points) {
+TEST_F(meteor_handler_test, elvine_attacks_aresden_points)
+{
     handler_.fire_meteor(war_faction::elvine);
 
     ASSERT_EQ(warnings_.size(), 1);
@@ -1102,7 +1214,8 @@ TEST_F(meteor_handler_test, elvine_attacks_aresden_points) {
     EXPECT_EQ(damages_applied_[0].faction, war_faction::aresden);
 }
 
-TEST_F(meteor_handler_test, neutral_faction_does_nothing) {
+TEST_F(meteor_handler_test, neutral_faction_does_nothing)
+{
     handler_.fire_meteor(war_faction::neutral);
 
     EXPECT_EQ(warnings_.size(), 0);
@@ -1110,7 +1223,8 @@ TEST_F(meteor_handler_test, neutral_faction_does_nothing) {
     EXPECT_EQ(results_.size(), 0);
 }
 
-TEST_F(meteor_handler_test, pending_count_tracks_active) {
+TEST_F(meteor_handler_test, pending_count_tracks_active)
+{
     EXPECT_EQ(handler_.pending_count(), 0);
 
     handler_.fire_meteor(war_faction::aresden);
@@ -1118,12 +1232,14 @@ TEST_F(meteor_handler_test, pending_count_tracks_active) {
     EXPECT_EQ(handler_.pending_count(), 0);
 }
 
-TEST_F(meteor_handler_test, cancel_resets_pending) {
+TEST_F(meteor_handler_test, cancel_resets_pending)
+{
     handler_.cancel_all();
     EXPECT_EQ(handler_.pending_count(), 0);
 }
 
-TEST_F(meteor_handler_test, multiple_meteors_accumulate_damage) {
+TEST_F(meteor_handler_test, multiple_meteors_accumulate_damage)
+{
     handler_.fire_meteor(war_faction::aresden);
     handler_.fire_meteor(war_faction::aresden);
 
@@ -1134,9 +1250,11 @@ TEST_F(meteor_handler_test, multiple_meteors_accumulate_damage) {
 
 // ========== Mana → Meteor Integration Tests ==========
 
-class mana_meteor_integration_test : public ::testing::Test {
+class mana_meteor_integration_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         war_sys_.initialize();
         crusade_.initialize();
         crusade_.set_dependencies(&war_sys_, nullptr, nullptr, nullptr, nullptr);
@@ -1158,15 +1276,13 @@ protected:
         crusade_.mana().set_config(mcfg);
 
         // Track broadcasts
-        crusade_.set_broadcast_all_fn([this](const hb::network::json_message& msg) {
-            all_broadcasts_.push_back(msg);
-        });
-        crusade_.set_broadcast_fn([this](hb::player_id pid, const hb::network::json_message& msg) {
-            player_broadcasts_.push_back({pid, msg});
-        });
+        crusade_.set_broadcast_all_fn([this](const hb::network::json_message& msg) { all_broadcasts_.push_back(msg); });
+        crusade_.set_broadcast_fn([this](hb::player_id pid, const hb::network::json_message& msg)
+                                  { player_broadcasts_.push_back({pid, msg}); });
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         crusade_.shutdown();
         war_sys_.shutdown();
     }
@@ -1175,14 +1291,16 @@ protected:
     crusade_system crusade_;
 
     std::vector<hb::network::json_message> all_broadcasts_;
-    struct player_msg {
+    struct player_msg
+    {
         hb::player_id pid;
         hb::network::json_message msg;
     };
     std::vector<player_msg> player_broadcasts_;
 };
 
-TEST_F(mana_meteor_integration_test, mana_system_available_after_start) {
+TEST_F(mana_meteor_integration_test, mana_system_available_after_start)
+{
     crusade_.start_crusade();
 
     auto& mana = crusade_.mana();
@@ -1190,7 +1308,8 @@ TEST_F(mana_meteor_integration_test, mana_system_available_after_start) {
     EXPECT_EQ(mana.elvine_mana(), 0);
 }
 
-TEST_F(mana_meteor_integration_test, mana_reset_on_crusade_start) {
+TEST_F(mana_meteor_integration_test, mana_reset_on_crusade_start)
+{
     crusade_.start_crusade();
     crusade_.mana().add_mana(war_faction::aresden, 10);
     EXPECT_EQ(crusade_.mana().aresden_mana(), 10);
@@ -1203,7 +1322,8 @@ TEST_F(mana_meteor_integration_test, mana_reset_on_crusade_start) {
     EXPECT_EQ(crusade_.mana().aresden_mana(), 0);
 }
 
-TEST_F(mana_meteor_integration_test, direct_mana_injection_triggers_meteor) {
+TEST_F(mana_meteor_integration_test, direct_mana_injection_triggers_meteor)
+{
     crusade_.start_crusade();
 
     // Mana config overridden in SetUp: threshold=15, charges_for_meteor=1
@@ -1213,7 +1333,8 @@ TEST_F(mana_meteor_integration_test, direct_mana_injection_triggers_meteor) {
     EXPECT_EQ(crusade_.mana().get_state(war_faction::aresden).meteors_fired, 1);
 }
 
-TEST_F(mana_meteor_integration_test, meteor_damages_strike_points_through_crusade) {
+TEST_F(mana_meteor_integration_test, meteor_damages_strike_points_through_crusade)
+{
     crusade_.start_crusade();
 
     // Clear existing broadcasts from start
@@ -1225,11 +1346,12 @@ TEST_F(mana_meteor_integration_test, meteor_damages_strike_points_through_crusad
     // Check that elvine strike points took damage (base_damage=2)
     const auto& elvine = crusade_.get_strike_points(war_faction::elvine);
     ASSERT_EQ(elvine.size(), 2);
-    EXPECT_EQ(elvine[0].hp, 98);  // 100 - 2
-    EXPECT_EQ(elvine[1].hp, 98);  // 100 - 2
+    EXPECT_EQ(elvine[0].hp, 98); // 100 - 2
+    EXPECT_EQ(elvine[1].hp, 98); // 100 - 2
 }
 
-TEST_F(mana_meteor_integration_test, meteor_warning_broadcast) {
+TEST_F(mana_meteor_integration_test, meteor_warning_broadcast)
+{
     crusade_.start_crusade();
     all_broadcasts_.clear();
 
@@ -1238,12 +1360,15 @@ TEST_F(mana_meteor_integration_test, meteor_warning_broadcast) {
     // Should have: meteor_warning, strike_point_update(s), meteor_result
     bool has_warning = false;
     bool has_result = false;
-    for (const auto& msg : all_broadcasts_) {
-        if (msg.type == hb::network::json_message_type::crusade_meteor_warning) {
+    for (const auto& msg : all_broadcasts_)
+    {
+        if (msg.type == hb::network::json_message_type::crusade_meteor_warning)
+        {
             has_warning = true;
             EXPECT_EQ(msg.data["target_faction"].get<int>(), static_cast<int>(war_faction::elvine));
         }
-        if (msg.type == hb::network::json_message_type::crusade_meteor_result) {
+        if (msg.type == hb::network::json_message_type::crusade_meteor_result)
+        {
             has_result = true;
             EXPECT_EQ(msg.data["attacking_faction"].get<int>(), static_cast<int>(war_faction::aresden));
         }
@@ -1252,7 +1377,8 @@ TEST_F(mana_meteor_integration_test, meteor_warning_broadcast) {
     EXPECT_TRUE(has_result);
 }
 
-TEST_F(mana_meteor_integration_test, cancel_clears_meteor_state) {
+TEST_F(mana_meteor_integration_test, cancel_clears_meteor_state)
+{
     crusade_.start_crusade();
     EXPECT_EQ(crusade_.meteor().pending_count(), 0);
 
@@ -1260,7 +1386,8 @@ TEST_F(mana_meteor_integration_test, cancel_clears_meteor_state) {
     EXPECT_EQ(crusade_.meteor().pending_count(), 0);
 }
 
-TEST_F(mana_meteor_integration_test, mana_update_sent_to_commanders) {
+TEST_F(mana_meteor_integration_test, mana_update_sent_to_commanders)
+{
     crusade_.start_crusade();
 
     hb::player_id commander_pid(1);
@@ -1279,22 +1406,27 @@ TEST_F(mana_meteor_integration_test, mana_update_sent_to_commanders) {
     // We need mana_broadcast_accumulator_ >= 10.0f
     // Each tick adds tick_interval(5.0f) to broadcast accumulator
     // So we need 2+ ticks → accumulate 10+ seconds of real time past mana tick
-    crusade_.update(5.1f);  // triggers 1 tick, broadcast accum = 5.0
-    crusade_.update(5.1f);  // triggers 2nd tick, broadcast accum = 10.0 → broadcasts
+    crusade_.update(5.1f); // triggers 1 tick, broadcast accum = 5.0
+    crusade_.update(5.1f); // triggers 2nd tick, broadcast accum = 10.0 → broadcasts
 
     bool commander_got_mana = false;
     bool fighter_got_mana = false;
-    for (const auto& pm : player_broadcasts_) {
-        if (pm.msg.type == hb::network::json_message_type::crusade_mana_update) {
-            if (pm.pid == commander_pid) commander_got_mana = true;
-            if (pm.pid == fighter_pid) fighter_got_mana = true;
+    for (const auto& pm : player_broadcasts_)
+    {
+        if (pm.msg.type == hb::network::json_message_type::crusade_mana_update)
+        {
+            if (pm.pid == commander_pid)
+                commander_got_mana = true;
+            if (pm.pid == fighter_pid)
+                fighter_got_mana = true;
         }
     }
     EXPECT_TRUE(commander_got_mana);
-    EXPECT_FALSE(fighter_got_mana);  // Only commanders get mana updates
+    EXPECT_FALSE(fighter_got_mana); // Only commanders get mana updates
 }
 
-TEST_F(mana_meteor_integration_test, mp_restoration_no_crash_without_players) {
+TEST_F(mana_meteor_integration_test, mp_restoration_no_crash_without_players)
+{
     crusade_.start_crusade();
 
     // Place a mana collector for aresden
@@ -1308,11 +1440,12 @@ TEST_F(mana_meteor_integration_test, mp_restoration_no_crash_without_players) {
 
     // Without player_system wired (nullptr in fixture), MP restoration
     // should not crash — the null guard skips the loop
-    crusade_.update(5.1f);  // Trigger mana tick
-    EXPECT_TRUE(true);  // No crash = success
+    crusade_.update(5.1f); // Trigger mana tick
+    EXPECT_TRUE(true);     // No crash = success
 }
 
-TEST_F(mana_meteor_integration_test, gmg_damage_wiring_through_crusade) {
+TEST_F(mana_meteor_integration_test, gmg_damage_wiring_through_crusade)
+{
     // Use high charges_for_meteor so charges accumulate without firing
     mana_config mcfg;
     mcfg.gmg_charges_for_meteor = 10;
@@ -1323,7 +1456,7 @@ TEST_F(mana_meteor_integration_test, gmg_damage_wiring_through_crusade) {
     // Place a GMG structure for aresden
     war_structure_instance gmg;
     gmg.eid = hb::entity::entity{999};
-    gmg.type = war_unit_type::esg;  // Placeholder type (GMG has no dedicated war_unit_type)
+    gmg.type = war_unit_type::esg; // Placeholder type (GMG has no dedicated war_unit_type)
     gmg.faction = war_faction::aresden;
     gmg.map_name = "middleland";
     gmg.x = 100;
@@ -1339,7 +1472,8 @@ TEST_F(mana_meteor_integration_test, gmg_damage_wiring_through_crusade) {
     EXPECT_EQ(state.gmg_charge, 0);
 }
 
-TEST_F(mana_meteor_integration_test, gmg_damage_unknown_entity_ignored) {
+TEST_F(mana_meteor_integration_test, gmg_damage_unknown_entity_ignored)
+{
     mana_config mcfg;
     mcfg.gmg_charges_for_meteor = 10;
     crusade_.set_mana_config(mcfg);
@@ -1352,23 +1486,21 @@ TEST_F(mana_meteor_integration_test, gmg_damage_unknown_entity_ignored) {
 
     // Damage unknown entity -- should be ignored
     crusade_.on_gmg_damage(hb::entity::entity{12345}, 500);
-    EXPECT_EQ(state.gmg_charge, 1);  // Unchanged
+    EXPECT_EQ(state.gmg_charge, 1); // Unchanged
 }
 
 // ========== Phase 2 Protocol Message Tests ==========
 
-TEST(crusade_phase2_protocol_test, meteor_message_types) {
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_meteor_warning),
-              "crusade_meteor_warning");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_meteor_hit),
-              "crusade_meteor_hit");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_meteor_result),
-              "crusade_meteor_result");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_mana_update),
-              "crusade_mana_update");
+TEST(crusade_phase2_protocol_test, meteor_message_types)
+{
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_meteor_warning), "crusade_meteor_warning");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_meteor_hit), "crusade_meteor_hit");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_meteor_result), "crusade_meteor_result");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_mana_update), "crusade_mana_update");
 }
 
-TEST(crusade_phase2_protocol_test, meteor_message_type_roundtrip) {
+TEST(crusade_phase2_protocol_test, meteor_message_type_roundtrip)
+{
     auto parsed = hb::network::parse_message_type("crusade_meteor_warning");
     EXPECT_EQ(parsed, hb::network::json_message_type::crusade_meteor_warning);
 
@@ -1379,9 +1511,9 @@ TEST(crusade_phase2_protocol_test, meteor_message_type_roundtrip) {
     EXPECT_EQ(parsed, hb::network::json_message_type::crusade_mana_update);
 }
 
-TEST(crusade_phase2_protocol_test, crusade_mp_restore_protocol_message) {
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_mp_restore),
-              "crusade_mp_restore");
+TEST(crusade_phase2_protocol_test, crusade_mp_restore_protocol_message)
+{
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_mp_restore), "crusade_mp_restore");
 
     auto parsed = hb::network::parse_message_type("crusade_mp_restore");
     EXPECT_EQ(parsed, hb::network::json_message_type::crusade_mp_restore);
@@ -1396,7 +1528,8 @@ TEST(crusade_phase2_protocol_test, crusade_mp_restore_protocol_message) {
 
 // ========== Phase 3: Construction & Duty Tests ==========
 
-TEST(construction_cost_test, costs_are_correct) {
+TEST(construction_cost_test, costs_are_correct)
+{
     // Structures: zero cost (location-restricted)
     EXPECT_EQ(get_construction_cost(war_unit_type::agt), 0);
     EXPECT_EQ(get_construction_cost(war_unit_type::cgt), 0);
@@ -1417,7 +1550,8 @@ TEST(construction_cost_test, costs_are_correct) {
 
 // ========== Kill-Based Construction Points ==========
 
-TEST_F(crusade_system_test, on_kill_awards_construction_points) {
+TEST_F(crusade_system_test, on_kill_awards_construction_points)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
@@ -1430,10 +1564,11 @@ TEST_F(crusade_system_test, on_kill_awards_construction_points) {
 
     auto* data = crusade_.get_player_data(killer);
     ASSERT_NE(data, nullptr);
-    EXPECT_EQ(data->construction_points, 50);  // 100 / 2
+    EXPECT_EQ(data->construction_points, 50); // 100 / 2
 }
 
-TEST_F(crusade_system_test, on_kill_all_duties_earn) {
+TEST_F(crusade_system_test, on_kill_all_duties_earn)
+{
     crusade_.start_crusade();
 
     player_id fighter(1);
@@ -1456,16 +1591,19 @@ TEST_F(crusade_system_test, on_kill_all_duties_earn) {
     EXPECT_EQ(crusade_.get_player_data(commander)->construction_points, 30);
 }
 
-TEST_F(crusade_system_test, on_kill_ignores_non_participant) {
+TEST_F(crusade_system_test, on_kill_ignores_non_participant)
+{
     crusade_.start_crusade();
-    crusade_.on_player_kill(player_id(99), player_id(100), 50, 100);  // Should not crash
+    crusade_.on_player_kill(player_id(99), player_id(100), 50, 100); // Should not crash
 }
 
-TEST_F(crusade_system_test, on_kill_ignores_when_inactive) {
-    crusade_.on_player_kill(player_id(1), player_id(2), 50, 100);  // Should not crash
+TEST_F(crusade_system_test, on_kill_ignores_when_inactive)
+{
+    crusade_.on_player_kill(player_id(1), player_id(2), 50, 100); // Should not crash
 }
 
-TEST_F(crusade_system_test, on_kill_scales_by_level) {
+TEST_F(crusade_system_test, on_kill_scales_by_level)
+{
     crusade_.start_crusade();
 
     player_id killer1(1);
@@ -1475,30 +1613,32 @@ TEST_F(crusade_system_test, on_kill_scales_by_level) {
     crusade_.select_duty(killer1, crusade_duty::fighter);
     crusade_.select_duty(killer2, crusade_duty::fighter);
 
-    crusade_.on_player_kill(killer1, player_id(10), 100, 500);  // High level victim
-    crusade_.on_player_kill(killer2, player_id(11), 20, 100);   // Low level victim
+    crusade_.on_player_kill(killer1, player_id(10), 100, 500); // High level victim
+    crusade_.on_player_kill(killer2, player_id(11), 20, 100);  // Low level victim
 
     auto* data1 = crusade_.get_player_data(killer1);
     auto* data2 = crusade_.get_player_data(killer2);
-    EXPECT_EQ(data1->construction_points, 50);  // 100 / 2
-    EXPECT_EQ(data2->construction_points, 10);  // 20 / 2
+    EXPECT_EQ(data1->construction_points, 50); // 100 / 2
+    EXPECT_EQ(data2->construction_points, 10); // 20 / 2
     EXPECT_GT(data1->construction_points, data2->construction_points);
 }
 
-TEST_F(crusade_system_test, on_kill_minimum_points) {
+TEST_F(crusade_system_test, on_kill_minimum_points)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
     crusade_.join_crusade(killer, war_faction::aresden);
     crusade_.select_duty(killer, crusade_duty::fighter);
 
-    crusade_.on_player_kill(killer, player_id(2), 1, 10);  // Very low level
+    crusade_.on_player_kill(killer, player_id(2), 1, 10); // Very low level
 
     auto* data = crusade_.get_player_data(killer);
-    EXPECT_GE(data->construction_points, 1);  // Minimum 1 per kill (level 1 / 2 = 0, clamped to 1)
+    EXPECT_GE(data->construction_points, 1); // Minimum 1 per kill (level 1 / 2 = 0, clamped to 1)
 }
 
-TEST_F(crusade_system_test, on_kill_awards_contribution) {
+TEST_F(crusade_system_test, on_kill_awards_contribution)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
@@ -1515,93 +1655,102 @@ TEST_F(crusade_system_test, on_kill_awards_contribution) {
 
 // ========== NPC Kill Rewards ==========
 
-TEST_F(crusade_system_test, npc_kill_agt_rewards) {
+TEST_F(crusade_system_test, npc_kill_agt_rewards)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
     crusade_.join_crusade(killer, war_faction::aresden);
     crusade_.select_duty(killer, crusade_duty::fighter);
 
-    crusade_.on_npc_kill(killer, 36);  // AGT
+    crusade_.on_npc_kill(killer, 36); // AGT
 
     auto* data = crusade_.get_player_data(killer);
     EXPECT_EQ(data->construction_points, 700);
     EXPECT_EQ(data->war_contribution, 4000);
 }
 
-TEST_F(crusade_system_test, npc_kill_gmg_rewards) {
+TEST_F(crusade_system_test, npc_kill_gmg_rewards)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
     crusade_.join_crusade(killer, war_faction::aresden);
 
-    crusade_.on_npc_kill(killer, 41);  // GMG
+    crusade_.on_npc_kill(killer, 41); // GMG
 
     auto* data = crusade_.get_player_data(killer);
     EXPECT_EQ(data->construction_points, 5000);
     EXPECT_EQ(data->war_contribution, 10000);
 }
 
-TEST_F(crusade_system_test, npc_kill_basic_mob_rewards) {
+TEST_F(crusade_system_test, npc_kill_basic_mob_rewards)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
     crusade_.join_crusade(killer, war_faction::aresden);
 
-    crusade_.on_npc_kill(killer, 3);  // Basic mob (types 1-6)
+    crusade_.on_npc_kill(killer, 3); // Basic mob (types 1-6)
 
     auto* data = crusade_.get_player_data(killer);
     EXPECT_EQ(data->construction_points, 50);
     EXPECT_EQ(data->war_contribution, 100);
 }
 
-TEST_F(crusade_system_test, npc_kill_unknown_type_no_reward) {
+TEST_F(crusade_system_test, npc_kill_unknown_type_no_reward)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
     crusade_.join_crusade(killer, war_faction::aresden);
 
-    crusade_.on_npc_kill(killer, 99);  // Unknown type
+    crusade_.on_npc_kill(killer, 99); // Unknown type
 
     auto* data = crusade_.get_player_data(killer);
     EXPECT_EQ(data->construction_points, 0);
     EXPECT_EQ(data->war_contribution, 0);
 }
 
-TEST_F(crusade_system_test, npc_kill_rewards_all_war_types) {
+TEST_F(crusade_system_test, npc_kill_rewards_all_war_types)
+{
     // Verify all legacy war NPC reward values
-    auto check = [](int16_t sprite, int32_t exp_construction, int32_t exp_contribution) {
+    auto check = [](int16_t sprite, int32_t exp_construction, int32_t exp_contribution)
+    {
         auto [c, w] = crusade_system::get_npc_kill_rewards(sprite);
         EXPECT_EQ(c, exp_construction) << "sprite " << sprite << " construction";
         EXPECT_EQ(w, exp_contribution) << "sprite " << sprite << " contribution";
     };
 
-    check(36, 700, 4000);    // AGT
-    check(37, 700, 4000);    // CGT
-    check(38, 500, 2000);    // Mana Collector
-    check(39, 500, 2000);    // Detector
-    check(40, 1500, 5000);   // ESG
-    check(41, 5000, 10000);  // GMG
-    check(43, 500, 1000);    // LWB
-    check(44, 1000, 2000);   // GHK
-    check(45, 1500, 3000);   // GHKABS
-    check(46, 1000, 2000);   // TK
-    check(47, 1500, 3000);   // BG
-    check(51, 500, 1500);    // Catapult
+    check(36, 700, 4000);   // AGT
+    check(37, 700, 4000);   // CGT
+    check(38, 500, 2000);   // Mana Collector
+    check(39, 500, 2000);   // Detector
+    check(40, 1500, 5000);  // ESG
+    check(41, 5000, 10000); // GMG
+    check(43, 500, 1000);   // LWB
+    check(44, 1000, 2000);  // GHK
+    check(45, 1500, 3000);  // GHKABS
+    check(46, 1000, 2000);  // TK
+    check(47, 1500, 3000);  // BG
+    check(51, 500, 1500);   // Catapult
 }
 
-TEST_F(crusade_system_test, npc_kill_ignores_non_participant) {
+TEST_F(crusade_system_test, npc_kill_ignores_non_participant)
+{
     crusade_.start_crusade();
-    crusade_.on_npc_kill(player_id(99), 36);  // Should not crash
+    crusade_.on_npc_kill(player_id(99), 36); // Should not crash
 }
 
-TEST_F(crusade_system_test, npc_kill_ignores_when_inactive) {
-    crusade_.on_npc_kill(player_id(1), 36);  // Should not crash
+TEST_F(crusade_system_test, npc_kill_ignores_when_inactive)
+{
+    crusade_.on_npc_kill(player_id(1), 36); // Should not crash
 }
 
 // ========== Friendly NPC Kill Penalty ==========
 
-TEST_F(crusade_system_test, friendly_npc_kill_resets_contribution) {
+TEST_F(crusade_system_test, friendly_npc_kill_resets_contribution)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
@@ -1611,32 +1760,37 @@ TEST_F(crusade_system_test, friendly_npc_kill_resets_contribution) {
     crusade_.on_friendly_npc_kill(killer);
 
     auto* data = crusade_.get_player_data(killer);
-    EXPECT_EQ(data->war_contribution, 0);  // Reset to 0
+    EXPECT_EQ(data->war_contribution, 0); // Reset to 0
 }
 
-TEST_F(crusade_system_test, friendly_npc_kill_ignores_non_participant) {
+TEST_F(crusade_system_test, friendly_npc_kill_ignores_non_participant)
+{
     crusade_.start_crusade();
-    crusade_.on_friendly_npc_kill(player_id(99));  // Should not crash
+    crusade_.on_friendly_npc_kill(player_id(99)); // Should not crash
 }
 
-TEST_F(crusade_system_test, friendly_npc_kill_ignores_when_inactive) {
-    crusade_.on_friendly_npc_kill(player_id(1));  // Should not crash
+TEST_F(crusade_system_test, friendly_npc_kill_ignores_when_inactive)
+{
+    crusade_.on_friendly_npc_kill(player_id(1)); // Should not crash
 }
 
 // ========== War Unit Summoning ==========
 
-TEST_F(crusade_system_test, summon_requires_active) {
+TEST_F(crusade_system_test, summon_requires_active)
+{
     auto result = crusade_.summon_war_unit(player_id(1), war_unit_type::agt);
     EXPECT_EQ(result, crusade_result::not_active);
 }
 
-TEST_F(crusade_system_test, summon_requires_participant) {
+TEST_F(crusade_system_test, summon_requires_participant)
+{
     crusade_.start_crusade();
     auto result = crusade_.summon_war_unit(player_id(99), war_unit_type::agt);
     EXPECT_EQ(result, crusade_result::not_in_crusade);
 }
 
-TEST_F(crusade_system_test, summon_requires_constructor_duty) {
+TEST_F(crusade_system_test, summon_requires_constructor_duty)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1648,19 +1802,21 @@ TEST_F(crusade_system_test, summon_requires_constructor_duty) {
     EXPECT_EQ(result, crusade_result::not_constructor);
 }
 
-TEST_F(crusade_system_test, summon_requires_enough_points) {
+TEST_F(crusade_system_test, summon_requires_enough_points)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
     crusade_.join_crusade(pid, war_faction::aresden);
     crusade_.select_duty(pid, crusade_duty::constructor);
-    crusade_.award_construction_points(pid, 500);  // Not enough for LWB (1000)
+    crusade_.award_construction_points(pid, 500); // Not enough for LWB (1000)
 
     auto result = crusade_.summon_war_unit(pid, war_unit_type::lwb);
     EXPECT_EQ(result, crusade_result::insufficient_points);
 }
 
-TEST_F(crusade_system_test, summon_deducts_cost) {
+TEST_F(crusade_system_test, summon_deducts_cost)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1668,14 +1824,15 @@ TEST_F(crusade_system_test, summon_deducts_cost) {
     crusade_.select_duty(pid, crusade_duty::constructor);
     crusade_.award_construction_points(pid, 5000);
 
-    auto result = crusade_.summon_war_unit(pid, war_unit_type::ghk);  // Cost 2000
+    auto result = crusade_.summon_war_unit(pid, war_unit_type::ghk); // Cost 2000
     EXPECT_EQ(result, crusade_result::success);
 
     auto* data = crusade_.get_player_data(pid);
-    EXPECT_EQ(data->construction_points, 3000);  // 5000 - 2000
+    EXPECT_EQ(data->construction_points, 3000); // 5000 - 2000
 }
 
-TEST_F(crusade_system_test, summon_creates_structure_record) {
+TEST_F(crusade_system_test, summon_creates_structure_record)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1692,7 +1849,8 @@ TEST_F(crusade_system_test, summon_creates_structure_record) {
     EXPECT_EQ(structures[0].summoner, pid);
 }
 
-TEST_F(crusade_system_test, summon_multiple_units) {
+TEST_F(crusade_system_test, summon_multiple_units)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1700,8 +1858,8 @@ TEST_F(crusade_system_test, summon_multiple_units) {
     crusade_.select_duty(pid, crusade_duty::constructor);
     crusade_.award_construction_points(pid, 10000);
 
-    crusade_.summon_war_unit(pid, war_unit_type::lwb);    // 1000
-    crusade_.summon_war_unit(pid, war_unit_type::ghk);    // 2000
+    crusade_.summon_war_unit(pid, war_unit_type::lwb);      // 1000
+    crusade_.summon_war_unit(pid, war_unit_type::ghk);      // 2000
     crusade_.summon_war_unit(pid, war_unit_type::catapult); // 1500
 
     EXPECT_EQ(crusade_.count_structures_by_type(war_faction::elvine, war_unit_type::lwb), 1);
@@ -1710,7 +1868,8 @@ TEST_F(crusade_system_test, summon_multiple_units) {
     EXPECT_EQ(crusade_.count_structures_by_type(war_faction::aresden, war_unit_type::lwb), 0);
 }
 
-TEST_F(crusade_system_test, structures_per_faction) {
+TEST_F(crusade_system_test, structures_per_faction)
+{
     crusade_.start_crusade();
 
     player_id pid1(1);
@@ -1733,7 +1892,8 @@ TEST_F(crusade_system_test, structures_per_faction) {
     EXPECT_EQ(elvine[0].type, war_unit_type::ghk);
 }
 
-TEST_F(crusade_system_test, structures_cleared_on_end) {
+TEST_F(crusade_system_test, structures_cleared_on_end)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1749,7 +1909,8 @@ TEST_F(crusade_system_test, structures_cleared_on_end) {
 
 // ========== Construction Point Transfer ==========
 
-TEST_F(crusade_system_test, transfer_no_social_is_noop) {
+TEST_F(crusade_system_test, transfer_no_social_is_noop)
+{
     crusade_.start_crusade();
 
     player_id fighter(1);
@@ -1761,10 +1922,11 @@ TEST_F(crusade_system_test, transfer_no_social_is_noop) {
     crusade_.transfer_construction_points();
 
     auto* data = crusade_.get_player_data(fighter);
-    EXPECT_EQ(data->construction_points, 500);  // Unchanged
+    EXPECT_EQ(data->construction_points, 500); // Unchanged
 }
 
-TEST_F(crusade_system_test, commander_keeps_own_points) {
+TEST_F(crusade_system_test, commander_keeps_own_points)
+{
     crusade_.start_crusade();
 
     player_id commander(1);
@@ -1779,7 +1941,8 @@ TEST_F(crusade_system_test, commander_keeps_own_points) {
     EXPECT_EQ(data->construction_points, 500);
 }
 
-TEST_F(crusade_system_test, transfer_awards_contribution_to_commander) {
+TEST_F(crusade_system_test, transfer_awards_contribution_to_commander)
+{
     // Set up social system with a guild
     hb::social::social_system social;
     social.initialize();
@@ -1807,8 +1970,8 @@ TEST_F(crusade_system_test, transfer_awards_contribution_to_commander) {
 
     // Commander should receive construction points AND contribution
     auto* cmd_data = crusade_.get_player_data(commander_pid);
-    EXPECT_EQ(cmd_data->construction_points, 1000);  // Received from fighter
-    EXPECT_EQ(cmd_data->war_contribution, 100);       // 1000 * 0.1
+    EXPECT_EQ(cmd_data->construction_points, 1000); // Received from fighter
+    EXPECT_EQ(cmd_data->war_contribution, 100);     // 1000 * 0.1
 
     // Fighter should have 0 points and 0 contribution (contribution goes to commander)
     auto* ftr_data = crusade_.get_player_data(fighter_pid);
@@ -1821,18 +1984,19 @@ TEST_F(crusade_system_test, transfer_awards_contribution_to_commander) {
 
 // ========== Phase 3 Protocol Message Tests ==========
 
-TEST(crusade_phase3_protocol_test, construction_message_types) {
+TEST(crusade_phase3_protocol_test, construction_message_types)
+{
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_construction_point_update),
               "crusade_construction_point_update");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::summon_war_unit_request),
               "summon_war_unit_request");
     EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::summon_war_unit_response),
               "summon_war_unit_response");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_map_status),
-              "crusade_map_status");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::crusade_map_status), "crusade_map_status");
 }
 
-TEST(crusade_phase3_protocol_test, construction_message_roundtrip) {
+TEST(crusade_phase3_protocol_test, construction_message_roundtrip)
+{
     auto parsed = hb::network::parse_message_type("summon_war_unit_request");
     EXPECT_EQ(parsed, hb::network::json_message_type::summon_war_unit_request);
 
@@ -1843,7 +2007,8 @@ TEST(crusade_phase3_protocol_test, construction_message_roundtrip) {
     EXPECT_EQ(parsed, hb::network::json_message_type::crusade_map_status);
 }
 
-TEST(crusade_phase3_protocol_test, summon_response_success) {
+TEST(crusade_phase3_protocol_test, summon_response_success)
+{
     auto msg = hb::network::make_summon_war_unit_response(42, true, 1, 3000);
     EXPECT_EQ(msg.type, hb::network::json_message_type::summon_war_unit_response);
     EXPECT_EQ(msg.seq, 42u);
@@ -1852,7 +2017,8 @@ TEST(crusade_phase3_protocol_test, summon_response_success) {
     EXPECT_EQ(msg.data["remaining_points"].get<int>(), 3000);
 }
 
-TEST(crusade_phase3_protocol_test, summon_response_failure) {
+TEST(crusade_phase3_protocol_test, summon_response_failure)
+{
     auto msg = hb::network::make_summon_war_unit_response(10, false, 0, 0, "insufficient_points");
     EXPECT_FALSE(msg.data["success"].get<bool>());
     EXPECT_EQ(msg.data["error"].get<std::string>(), "insufficient_points");
@@ -1860,7 +2026,8 @@ TEST(crusade_phase3_protocol_test, summon_response_failure) {
 
 // ========== A1: Construction & Contribution Caps ==========
 
-TEST_F(crusade_system_test, construction_points_capped) {
+TEST_F(crusade_system_test, construction_points_capped)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1869,10 +2036,11 @@ TEST_F(crusade_system_test, construction_points_capped) {
 
     crusade_.award_construction_points(pid, 35000);
     auto* data = crusade_.get_player_data(pid);
-    EXPECT_EQ(data->construction_points, max_construction_points);  // 30000
+    EXPECT_EQ(data->construction_points, max_construction_points); // 30000
 }
 
-TEST_F(crusade_system_test, contribution_capped) {
+TEST_F(crusade_system_test, contribution_capped)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1880,10 +2048,11 @@ TEST_F(crusade_system_test, contribution_capped) {
 
     crusade_.award_contribution(pid, 250000);
     auto* data = crusade_.get_player_data(pid);
-    EXPECT_EQ(data->war_contribution, max_war_contribution);  // 200000
+    EXPECT_EQ(data->war_contribution, max_war_contribution); // 200000
 }
 
-TEST_F(crusade_system_test, on_kill_caps_construction_points) {
+TEST_F(crusade_system_test, on_kill_caps_construction_points)
+{
     crusade_.start_crusade();
 
     player_id killer(1);
@@ -1901,7 +2070,8 @@ TEST_F(crusade_system_test, on_kill_caps_construction_points) {
 
 // ========== A6: Guild Master Restriction ==========
 
-TEST_F(crusade_system_test, commander_requires_guild_master_with_social) {
+TEST_F(crusade_system_test, commander_requires_guild_master_with_social)
+{
     // Set up a social system with a guild
     hb::social::social_system social;
     social.initialize();
@@ -1920,7 +2090,8 @@ TEST_F(crusade_system_test, commander_requires_guild_master_with_social) {
     crusade_.set_social(nullptr);
 }
 
-TEST_F(crusade_system_test, commander_allowed_without_social) {
+TEST_F(crusade_system_test, commander_allowed_without_social)
+{
     // social_ is null — should allow (backward compat / testing)
     crusade_.start_crusade();
 
@@ -1931,7 +2102,8 @@ TEST_F(crusade_system_test, commander_allowed_without_social) {
     EXPECT_EQ(result, crusade_result::success);
 }
 
-TEST_F(crusade_system_test, fighter_allowed_even_without_guild) {
+TEST_F(crusade_system_test, fighter_allowed_even_without_guild)
+{
     // Fighter duty should not require guild master
     hb::social::social_system social;
     social.initialize();
@@ -1951,14 +2123,15 @@ TEST_F(crusade_system_test, fighter_allowed_even_without_guild) {
 
 // ========== A7: Winner Bonus ==========
 
-TEST_F(crusade_system_test, winner_bonus_awarded_to_commander) {
+TEST_F(crusade_system_test, winner_bonus_awarded_to_commander)
+{
     // First crusade: aresden wins
     crusade_.start_crusade();
     crusade_.end_crusade(war_faction::aresden);
     EXPECT_EQ(crusade_.last_winner(), war_faction::aresden);
 
     // Second crusade: aresden commander should get bonus
-    crusade_.set_last_crusade_day(-1);  // Allow same-day restart for testing
+    crusade_.set_last_crusade_day(-1); // Allow same-day restart for testing
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -1971,7 +2144,8 @@ TEST_F(crusade_system_test, winner_bonus_awarded_to_commander) {
     EXPECT_EQ(data->construction_points, crusade_.config().construction.commander_bonus_points);
 }
 
-TEST_F(crusade_system_test, winner_bonus_not_awarded_different_faction) {
+TEST_F(crusade_system_test, winner_bonus_not_awarded_different_faction)
+{
     crusade_.start_crusade();
     crusade_.end_crusade(war_faction::aresden);
 
@@ -1983,12 +2157,13 @@ TEST_F(crusade_system_test, winner_bonus_not_awarded_different_faction) {
     crusade_.select_duty(pid, crusade_duty::commander);
 
     auto* data = crusade_.get_player_data(pid);
-    EXPECT_EQ(data->construction_points, 0);  // No bonus for elvine
+    EXPECT_EQ(data->construction_points, 0); // No bonus for elvine
 }
 
-TEST_F(crusade_system_test, winner_bonus_not_awarded_neutral_winner) {
+TEST_F(crusade_system_test, winner_bonus_not_awarded_neutral_winner)
+{
     crusade_.start_crusade();
-    crusade_.end_crusade(war_faction::neutral);  // Draw
+    crusade_.end_crusade(war_faction::neutral); // Draw
     EXPECT_EQ(crusade_.last_winner(), war_faction::neutral);
 
     crusade_.set_last_crusade_day(-1);
@@ -2004,7 +2179,8 @@ TEST_F(crusade_system_test, winner_bonus_not_awarded_neutral_winner) {
 
 // ========== A8: Mana Collection Wiring ==========
 
-TEST_F(crusade_system_test, mana_tick_with_zero_collectors_yields_zero) {
+TEST_F(crusade_system_test, mana_tick_with_zero_collectors_yields_zero)
+{
     crusade_.start_crusade();
 
     // No mana collectors spawned
@@ -2016,7 +2192,8 @@ TEST_F(crusade_system_test, mana_tick_with_zero_collectors_yields_zero) {
     EXPECT_EQ(crusade_.mana().aresden_mana(), 0);
 }
 
-TEST_F(crusade_system_test, mana_tick_with_collector_yields_mana) {
+TEST_F(crusade_system_test, mana_tick_with_collector_yields_mana)
+{
     crusade_.start_crusade();
 
     // Place a mana collector directly (pre-placed structure)
@@ -2039,7 +2216,8 @@ TEST_F(crusade_system_test, mana_tick_with_collector_yields_mana) {
 
 // ========== A9: ESG Count ==========
 
-TEST_F(crusade_system_test, esg_count_zero_without_structures) {
+TEST_F(crusade_system_test, esg_count_zero_without_structures)
+{
     // Set gmg_charges_for_meteor=1 so 15 mana → 1 charge → instant meteor
     mana_config mc;
     mc.gmg_charges_for_meteor = 1;
@@ -2052,12 +2230,14 @@ TEST_F(crusade_system_test, esg_count_zero_without_structures) {
 
     // Check that strike points took full damage (no ESG protection)
     const auto& elvine = crusade_.get_strike_points(war_faction::elvine);
-    for (const auto& sp : elvine) {
-        EXPECT_EQ(sp.hp, 98);  // 100 - 2 (base damage)
+    for (const auto& sp : elvine)
+    {
+        EXPECT_EQ(sp.hp, 98); // 100 - 2 (base damage)
     }
 }
 
-TEST_F(crusade_system_test, esg_within_radius_reduces_damage) {
+TEST_F(crusade_system_test, esg_within_radius_reduces_damage)
+{
     // Set config with strike points that have map_name
     crusade_config cfg = crusade_.config();
     cfg.aresden_strike_points[0].map_name = "war_map";
@@ -2091,11 +2271,12 @@ TEST_F(crusade_system_test, esg_within_radius_reduces_damage) {
     // Strike point 1 (at 50,50) should be protected by ESG at (52,52) — damage = max(0, 2-1) = 1
     // Strike point 2 (at 100,100) should NOT be protected — distance too far — damage = 2
     const auto& elvine = crusade_.get_strike_points(war_faction::elvine);
-    EXPECT_EQ(elvine[0].hp, 99);   // 100 - 1 (ESG blocked 1)
-    EXPECT_EQ(elvine[1].hp, 98);   // 100 - 2 (no ESG)
+    EXPECT_EQ(elvine[0].hp, 99); // 100 - 1 (ESG blocked 1)
+    EXPECT_EQ(elvine[1].hp, 98); // 100 - 2 (no ESG)
 }
 
-TEST_F(crusade_system_test, esg_outside_radius_not_counted) {
+TEST_F(crusade_system_test, esg_outside_radius_not_counted)
+{
     crusade_config cfg = crusade_.config();
     cfg.elvine_strike_points[0].map_name = "war_map";
     cfg.elvine_strike_points[0].x = 50;
@@ -2128,7 +2309,8 @@ TEST_F(crusade_system_test, esg_outside_radius_not_counted) {
     EXPECT_EQ(elvine[1].hp, 98);
 }
 
-TEST_F(crusade_system_test, two_esgs_fully_protect) {
+TEST_F(crusade_system_test, two_esgs_fully_protect)
+{
     crusade_config cfg = crusade_.config();
     cfg.elvine_strike_points[0].map_name = "war_map";
     cfg.elvine_strike_points[0].x = 50;
@@ -2166,13 +2348,14 @@ TEST_F(crusade_system_test, two_esgs_fully_protect) {
     // Strike point 1 fully protected (2 ESG >= base damage 2)
     // Strike point 2 unprotected
     const auto& elvine = crusade_.get_strike_points(war_faction::elvine);
-    EXPECT_EQ(elvine[0].hp, 100);  // No damage
-    EXPECT_EQ(elvine[1].hp, 98);   // Full damage
+    EXPECT_EQ(elvine[0].hp, 100); // No damage
+    EXPECT_EQ(elvine[1].hp, 98);  // Full damage
 }
 
 // ========== A10: Player Meteor Damage ==========
 
-TEST(meteor_damage_test, formula_matches_legacy) {
+TEST(meteor_damage_test, formula_matches_legacy)
+{
     meteor_handler handler;
 
     // Legacy formula: iDice(1, level) + level → range [level+1, level*2]
@@ -2191,7 +2374,8 @@ TEST(meteor_damage_test, formula_matches_legacy) {
     }
 }
 
-TEST(meteor_damage_test, capped_at_255) {
+TEST(meteor_damage_test, capped_at_255)
+{
     meteor_handler handler;
 
     // Level 200: range would be [201, 400] but capped at 255
@@ -2203,7 +2387,8 @@ TEST(meteor_damage_test, capped_at_255) {
     }
 }
 
-TEST(meteor_damage_test, zero_level_returns_zero) {
+TEST(meteor_damage_test, zero_level_returns_zero)
+{
     meteor_handler handler;
     EXPECT_EQ(handler.calculate_player_damage(0), 0);
     EXPECT_EQ(handler.calculate_player_damage(-5), 0);
@@ -2211,7 +2396,8 @@ TEST(meteor_damage_test, zero_level_returns_zero) {
 
 // ========== B1: Summon with Position ==========
 
-TEST_F(crusade_system_test, summon_stores_position) {
+TEST_F(crusade_system_test, summon_stores_position)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -2228,7 +2414,8 @@ TEST_F(crusade_system_test, summon_stores_position) {
     EXPECT_EQ(structures[0].y, 20);
 }
 
-TEST_F(crusade_system_test, summon_without_npc_system_still_records) {
+TEST_F(crusade_system_test, summon_without_npc_system_still_records)
+{
     // npcs_ is null (from test setup)
     crusade_.start_crusade();
 
@@ -2242,12 +2429,13 @@ TEST_F(crusade_system_test, summon_without_npc_system_still_records) {
 
     const auto& structures = crusade_.get_war_structures();
     ASSERT_EQ(structures.size(), 1);
-    EXPECT_FALSE(structures[0].eid.is_valid());  // No NPC spawned
+    EXPECT_FALSE(structures[0].eid.is_valid()); // No NPC spawned
 }
 
 // ========== B2: Structure Cleanup ==========
 
-TEST_F(crusade_system_test, cleanup_clears_structures) {
+TEST_F(crusade_system_test, cleanup_clears_structures)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -2263,7 +2451,8 @@ TEST_F(crusade_system_test, cleanup_clears_structures) {
 
 // ========== NPC Type Mapping ==========
 
-TEST(crusade_npc_type_test, unit_types_map_correctly_aresden) {
+TEST(crusade_npc_type_test, unit_types_map_correctly_aresden)
+{
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::agt, war_faction::aresden), 64);
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::cgt, war_faction::aresden), 66);
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::mana_collector, war_faction::aresden), 68);
@@ -2273,7 +2462,8 @@ TEST(crusade_npc_type_test, unit_types_map_correctly_aresden) {
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::esg, war_faction::aresden), 72);
 }
 
-TEST(crusade_npc_type_test, unit_types_map_correctly_elvine) {
+TEST(crusade_npc_type_test, unit_types_map_correctly_elvine)
+{
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::agt, war_faction::elvine), 65);
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::cgt, war_faction::elvine), 67);
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::mana_collector, war_faction::elvine), 69);
@@ -2285,9 +2475,11 @@ TEST(crusade_npc_type_test, unit_types_map_correctly_elvine) {
 
 // ========== Magic Protection vs Meteor Damage ==========
 
-class meteor_protection_test : public ::testing::Test {
+class meteor_protection_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         war_sys_.initialize();
         player_sys_.initialize();
         effect_sys_.initialize();
@@ -2314,15 +2506,15 @@ protected:
         crusade_.set_config(cfg);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         crusade_.shutdown();
         effect_sys_.shutdown();
         player_sys_.shutdown();
         war_sys_.shutdown();
     }
 
-    auto create_test_player(const std::string& name, int32_t level, int32_t hp_val)
-        -> hb::player_id
+    auto create_test_player(const std::string& name, int32_t level, int32_t hp_val) -> hb::player_id
     {
         hb::player::player_create_info info;
         info.name = name;
@@ -2344,7 +2536,8 @@ protected:
     crusade_system crusade_;
 };
 
-TEST_F(meteor_protection_test, no_protection_takes_full_damage) {
+TEST_F(meteor_protection_test, no_protection_takes_full_damage)
+{
     auto pid = create_test_player("warrior", 50, 500);
 
     crusade_.start_crusade();
@@ -2353,7 +2546,7 @@ TEST_F(meteor_protection_test, no_protection_takes_full_damage) {
     // The damage_players callback iterates all players
     // Without world system, all players take damage
     auto& meteor = crusade_.meteor();
-    meteor.fire_meteor(war_faction::elvine);  // Attacks aresden
+    meteor.fire_meteor(war_faction::elvine); // Attacks aresden
 
     auto* plr = player_sys_.get_player(pid);
     // Level 50: damage = iDice(1,50) + 50 = 51-100 per wave, 2 waves = 102-200 total
@@ -2362,7 +2555,8 @@ TEST_F(meteor_protection_test, no_protection_takes_full_damage) {
     EXPECT_LE(plr->hp, 398);
 }
 
-TEST_F(meteor_protection_test, protection_from_magic_reduces_damage) {
+TEST_F(meteor_protection_test, protection_from_magic_reduces_damage)
+{
     auto pid = create_test_player("mage", 50, 500);
     auto* plr = player_sys_.get_player(pid);
 
@@ -2371,7 +2565,7 @@ TEST_F(meteor_protection_test, protection_from_magic_reduces_damage) {
     params.source = plr->ecs_entity;
     params.target = plr->ecs_entity;
     params.group = hb::magic_type::protection;
-    params.magnitude = 2;  // PFM level
+    params.magnitude = 2; // PFM level
     params.duration_ms = 60000;
     effect_sys_.apply_effect(params);
 
@@ -2386,7 +2580,8 @@ TEST_F(meteor_protection_test, protection_from_magic_reduces_damage) {
     EXPECT_LE(plr->hp, 454);
 }
 
-TEST_F(meteor_protection_test, absolute_magic_protection_negates_damage) {
+TEST_F(meteor_protection_test, absolute_magic_protection_negates_damage)
+{
     auto pid = create_test_player("archmage", 100, 500);
     auto* plr = player_sys_.get_player(pid);
 
@@ -2395,7 +2590,7 @@ TEST_F(meteor_protection_test, absolute_magic_protection_negates_damage) {
     params.source = plr->ecs_entity;
     params.target = plr->ecs_entity;
     params.group = hb::magic_type::protection;
-    params.magnitude = 5;  // AMP level
+    params.magnitude = 5; // AMP level
     params.duration_ms = 60000;
     effect_sys_.apply_effect(params);
 
@@ -2406,7 +2601,8 @@ TEST_F(meteor_protection_test, absolute_magic_protection_negates_damage) {
     EXPECT_EQ(plr->hp, 500);
 }
 
-TEST_F(meteor_protection_test, protection_without_effect_system_takes_full_damage) {
+TEST_F(meteor_protection_test, protection_without_effect_system_takes_full_damage)
+{
     // Wire crusade without effect system
     crusade_.set_effects(nullptr);
 
@@ -2420,8 +2616,9 @@ TEST_F(meteor_protection_test, protection_without_effect_system_takes_full_damag
     EXPECT_LT(plr->hp, 500);
 }
 
-TEST_F(meteor_protection_test, meteor_damage_breaks_hold_effects) {
-    auto pid = create_test_player("warrior", 50, 5000);  // High HP to survive
+TEST_F(meteor_protection_test, meteor_damage_breaks_hold_effects)
+{
+    auto pid = create_test_player("warrior", 50, 5000); // High HP to survive
     auto* plr = player_sys_.get_player(pid);
 
     // Apply hold/paralyze effect
@@ -2448,7 +2645,8 @@ TEST_F(meteor_protection_test, meteor_damage_breaks_hold_effects) {
 
 // ========== End Crusade Reward Integration Tests ==========
 
-TEST_F(crusade_system_test, end_crusade_sends_legacy_reward) {
+TEST_F(crusade_system_test, end_crusade_sends_legacy_reward)
+{
     hb::player::player_system player_sys;
     player_sys.initialize();
     crusade_.set_dependencies(&war_sys_, &player_sys, nullptr, nullptr, nullptr);
@@ -2469,12 +2667,15 @@ TEST_F(crusade_system_test, end_crusade_sends_legacy_reward) {
 
     hb::network::json_message captured_msg{};
     bool got_reward = false;
-    crusade_.set_broadcast_fn([&](player_id, const hb::network::json_message& msg) {
-        if (msg.type == hb::network::json_message_type::crusade_reward_summary) {
-            captured_msg = msg;
-            got_reward = true;
-        }
-    });
+    crusade_.set_broadcast_fn(
+        [&](player_id, const hb::network::json_message& msg)
+        {
+            if (msg.type == hb::network::json_message_type::crusade_reward_summary)
+            {
+                captured_msg = msg;
+                got_reward = true;
+            }
+        });
 
     crusade_.end_crusade(war_faction::aresden);
 
@@ -2486,7 +2687,8 @@ TEST_F(crusade_system_test, end_crusade_sends_legacy_reward) {
     player_sys.shutdown();
 }
 
-TEST_F(crusade_system_test, end_crusade_applies_exp_to_online_player) {
+TEST_F(crusade_system_test, end_crusade_applies_exp_to_online_player)
+{
     hb::player::player_system player_sys;
     player_sys.initialize();
     crusade_.set_dependencies(&war_sys_, &player_sys, nullptr, nullptr, nullptr);
@@ -2519,7 +2721,8 @@ TEST_F(crusade_system_test, end_crusade_applies_exp_to_online_player) {
 
 // ========== Crusade Reward Formula Tests ==========
 
-TEST(crusade_reward_test, winner_level_50_full_contribution) {
+TEST(crusade_reward_test, winner_level_50_full_contribution)
+{
     auto reward = calculate_crusade_reward(1000, 50, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 6000);
     EXPECT_TRUE(reward.is_winner);
@@ -2527,72 +2730,85 @@ TEST(crusade_reward_test, winner_level_50_full_contribution) {
     EXPECT_EQ(reward.war_contribution_used, 1000);
 }
 
-TEST(crusade_reward_test, loser_level_50_tenth_contribution) {
+TEST(crusade_reward_test, loser_level_50_tenth_contribution)
+{
     auto reward = calculate_crusade_reward(1000, 50, war_faction::elvine, war_faction::aresden);
     EXPECT_EQ(reward.experience, 600);
     EXPECT_FALSE(reward.is_winner);
     EXPECT_FALSE(reward.is_draw);
 }
 
-TEST(crusade_reward_test, draw_level_50_sixth_contribution) {
+TEST(crusade_reward_test, draw_level_50_sixth_contribution)
+{
     auto reward = calculate_crusade_reward(1000, 50, war_faction::aresden, war_faction::neutral);
     EXPECT_EQ(reward.experience, 1000);
     EXPECT_FALSE(reward.is_winner);
     EXPECT_TRUE(reward.is_draw);
 }
 
-TEST(crusade_reward_test, level_90_mid_bracket) {
+TEST(crusade_reward_test, level_90_mid_bracket)
+{
     auto reward = calculate_crusade_reward(1000, 90, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 4600);
     EXPECT_TRUE(reward.is_winner);
 }
 
-TEST(crusade_reward_test, level_120_high_bracket) {
+TEST(crusade_reward_test, level_120_high_bracket)
+{
     auto reward = calculate_crusade_reward(1000, 120, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 1120);
     EXPECT_TRUE(reward.is_winner);
 }
 
-TEST(crusade_reward_test, level_80_boundary) {
+TEST(crusade_reward_test, level_80_boundary)
+{
     auto reward = calculate_crusade_reward(500, 80, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 8500);
 }
 
-TEST(crusade_reward_test, level_81_boundary) {
+TEST(crusade_reward_test, level_81_boundary)
+{
     auto reward = calculate_crusade_reward(500, 81, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 3740);
 }
 
-TEST(crusade_reward_test, level_100_boundary) {
+TEST(crusade_reward_test, level_100_boundary)
+{
     auto reward = calculate_crusade_reward(500, 100, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 4500);
 }
 
-TEST(crusade_reward_test, level_101_boundary) {
+TEST(crusade_reward_test, level_101_boundary)
+{
     auto reward = calculate_crusade_reward(500, 101, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 601);
 }
 
-TEST(crusade_reward_test, zero_contribution) {
+TEST(crusade_reward_test, zero_contribution)
+{
     auto reward = calculate_crusade_reward(0, 50, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 5000);
 }
 
-TEST(crusade_reward_test, zero_level) {
+TEST(crusade_reward_test, zero_level)
+{
     auto reward = calculate_crusade_reward(1000, 0, war_faction::aresden, war_faction::aresden);
     EXPECT_EQ(reward.experience, 1000);
 }
 
-TEST(crusade_reward_test, no_gold_field) {
+TEST(crusade_reward_test, no_gold_field)
+{
     auto reward = calculate_crusade_reward(10000, 80, war_faction::aresden, war_faction::aresden);
     EXPECT_GT(reward.experience, 0);
 }
 
 // ========== Build System Tests ==========
 
-class crusade_build_test : public ::testing::Test {
+class crusade_build_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         war_sys_.initialize();
         social_.initialize();
         crusade_.initialize();
@@ -2621,13 +2837,15 @@ protected:
         social_.join_guild(constructor_, gid_);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         crusade_.shutdown();
         social_.shutdown();
         war_sys_.shutdown();
     }
 
-    void start_and_join() {
+    void start_and_join()
+    {
         crusade_.start_crusade();
         crusade_.join_crusade(commander_, war_faction::aresden);
         crusade_.join_crusade(constructor_, war_faction::aresden);
@@ -2646,7 +2864,8 @@ protected:
 
 // -- Initial structure spawning --
 
-TEST(crusade_build_types_test, initial_structure_defaults) {
+TEST(crusade_build_types_test, initial_structure_defaults)
+{
     initial_structure is;
     EXPECT_EQ(is.npc_type, 0);
     EXPECT_EQ(is.x, 0);
@@ -2654,12 +2873,13 @@ TEST(crusade_build_types_test, initial_structure_defaults) {
     EXPECT_EQ(is.faction, war_faction::neutral);
 }
 
-TEST_F(crusade_system_test, initial_structures_in_config) {
+TEST_F(crusade_system_test, initial_structures_in_config)
+{
     crusade_config cfg = crusade_.config();
 
     initial_structure is;
     is.map_name = "middleland";
-    is.npc_type = 36;  // AGT
+    is.npc_type = 36; // AGT
     is.x = 100;
     is.y = 200;
     is.faction = war_faction::aresden;
@@ -2676,12 +2896,14 @@ TEST_F(crusade_system_test, initial_structures_in_config) {
 
 // -- Guild construct location --
 
-TEST_F(crusade_build_test, set_construct_location_requires_active) {
+TEST_F(crusade_build_test, set_construct_location_requires_active)
+{
     auto result = crusade_.set_guild_construct_location(commander_, "map1", 50, 50);
     EXPECT_EQ(result, crusade_result::not_active);
 }
 
-TEST_F(crusade_build_test, set_construct_location_requires_commander) {
+TEST_F(crusade_build_test, set_construct_location_requires_commander)
+{
     start_and_join();
 
     // Constructor can't set location
@@ -2689,7 +2911,8 @@ TEST_F(crusade_build_test, set_construct_location_requires_commander) {
     EXPECT_EQ(result, crusade_result::not_guild_master);
 }
 
-TEST_F(crusade_build_test, set_construct_location_success) {
+TEST_F(crusade_build_test, set_construct_location_success)
+{
     start_and_join();
 
     auto result = crusade_.set_guild_construct_location(commander_, "war_map", 100, 200);
@@ -2703,7 +2926,8 @@ TEST_F(crusade_build_test, set_construct_location_success) {
     EXPECT_EQ(loc->structure_count, 0);
 }
 
-TEST_F(crusade_build_test, construct_location_can_be_updated) {
+TEST_F(crusade_build_test, construct_location_can_be_updated)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 10, 20);
@@ -2714,12 +2938,13 @@ TEST_F(crusade_build_test, construct_location_can_be_updated) {
     EXPECT_EQ(loc->map_name, "map2");
     EXPECT_EQ(loc->x, 30);
     EXPECT_EQ(loc->y, 40);
-    EXPECT_EQ(loc->structure_count, 0);  // Reset on update
+    EXPECT_EQ(loc->structure_count, 0); // Reset on update
 }
 
 // -- Structure placement: construct location required --
 
-TEST_F(crusade_build_test, structure_requires_construct_location) {
+TEST_F(crusade_build_test, structure_requires_construct_location)
+{
     start_and_join();
     crusade_.award_construction_points(constructor_, 5000);
 
@@ -2727,7 +2952,8 @@ TEST_F(crusade_build_test, structure_requires_construct_location) {
     EXPECT_EQ(result, crusade_result::no_construct_location);
 }
 
-TEST_F(crusade_build_test, mobile_unit_does_not_require_construct_location) {
+TEST_F(crusade_build_test, mobile_unit_does_not_require_construct_location)
+{
     start_and_join();
     crusade_.award_construction_points(constructor_, 5000);
 
@@ -2737,7 +2963,8 @@ TEST_F(crusade_build_test, mobile_unit_does_not_require_construct_location) {
 
 // -- Structure placement: within 10 tiles --
 
-TEST_F(crusade_build_test, structure_within_10_tiles_succeeds) {
+TEST_F(crusade_build_test, structure_within_10_tiles_succeeds)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 100);
@@ -2746,7 +2973,8 @@ TEST_F(crusade_build_test, structure_within_10_tiles_succeeds) {
     EXPECT_EQ(result, crusade_result::success);
 }
 
-TEST_F(crusade_build_test, structure_beyond_10_tiles_rejected) {
+TEST_F(crusade_build_test, structure_beyond_10_tiles_rejected)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 100);
@@ -2755,7 +2983,8 @@ TEST_F(crusade_build_test, structure_beyond_10_tiles_rejected) {
     EXPECT_EQ(result, crusade_result::too_far_from_construct_location);
 }
 
-TEST_F(crusade_build_test, structure_at_exactly_10_tiles_succeeds) {
+TEST_F(crusade_build_test, structure_at_exactly_10_tiles_succeeds)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 100);
@@ -2766,7 +2995,8 @@ TEST_F(crusade_build_test, structure_at_exactly_10_tiles_succeeds) {
 
 // -- Per-guild build limit --
 
-TEST_F(crusade_build_test, guild_build_limit_10) {
+TEST_F(crusade_build_test, guild_build_limit_10)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
@@ -2774,8 +3004,8 @@ TEST_F(crusade_build_test, guild_build_limit_10) {
     // Build 10 structures (all allowed)
     for (int i = 0; i < 10; ++i)
     {
-        auto result = crusade_.summon_war_unit(constructor_, war_unit_type::detector,
-            "map1", static_cast<int16_t>(100 + i), 400);
+        auto result =
+            crusade_.summon_war_unit(constructor_, war_unit_type::detector, "map1", static_cast<int16_t>(100 + i), 400);
         EXPECT_EQ(result, crusade_result::success) << "Build " << i << " should succeed";
     }
 
@@ -2786,7 +3016,8 @@ TEST_F(crusade_build_test, guild_build_limit_10) {
 
 // -- Guard tower proximity --
 
-TEST_F(crusade_build_test, guard_tower_proximity_2_tiles) {
+TEST_F(crusade_build_test, guard_tower_proximity_2_tiles)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
@@ -2800,7 +3031,8 @@ TEST_F(crusade_build_test, guard_tower_proximity_2_tiles) {
     EXPECT_EQ(r2, crusade_result::too_close_to_tower);
 }
 
-TEST_F(crusade_build_test, guard_tower_at_3_tiles_succeeds) {
+TEST_F(crusade_build_test, guard_tower_at_3_tiles_succeeds)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
@@ -2813,7 +3045,8 @@ TEST_F(crusade_build_test, guard_tower_at_3_tiles_succeeds) {
     EXPECT_EQ(r2, crusade_result::success);
 }
 
-TEST_F(crusade_build_test, non_tower_structure_ignores_proximity) {
+TEST_F(crusade_build_test, non_tower_structure_ignores_proximity)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 400);
@@ -2828,7 +3061,8 @@ TEST_F(crusade_build_test, non_tower_structure_ignores_proximity) {
 
 // -- Guard tower Y-bounds --
 
-TEST_F(crusade_build_test, guard_tower_y_too_low) {
+TEST_F(crusade_build_test, guard_tower_y_too_low)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 30);
@@ -2837,7 +3071,8 @@ TEST_F(crusade_build_test, guard_tower_y_too_low) {
     EXPECT_EQ(result, crusade_result::invalid_position);
 }
 
-TEST_F(crusade_build_test, guard_tower_y_too_high) {
+TEST_F(crusade_build_test, guard_tower_y_too_high)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 785);
@@ -2846,7 +3081,8 @@ TEST_F(crusade_build_test, guard_tower_y_too_high) {
     EXPECT_EQ(result, crusade_result::invalid_position);
 }
 
-TEST_F(crusade_build_test, guard_tower_y_at_boundary_ok) {
+TEST_F(crusade_build_test, guard_tower_y_at_boundary_ok)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 40);
@@ -2857,14 +3093,16 @@ TEST_F(crusade_build_test, guard_tower_y_at_boundary_ok) {
 
 // -- Construction costs --
 
-TEST(crusade_cost_test, structures_zero_cost) {
+TEST(crusade_cost_test, structures_zero_cost)
+{
     EXPECT_EQ(get_construction_cost(war_unit_type::agt), 0);
     EXPECT_EQ(get_construction_cost(war_unit_type::cgt), 0);
     EXPECT_EQ(get_construction_cost(war_unit_type::mana_collector), 0);
     EXPECT_EQ(get_construction_cost(war_unit_type::detector), 0);
 }
 
-TEST(crusade_cost_test, mobile_units_legacy_costs) {
+TEST(crusade_cost_test, mobile_units_legacy_costs)
+{
     EXPECT_EQ(get_construction_cost(war_unit_type::lwb), 1000);
     EXPECT_EQ(get_construction_cost(war_unit_type::ghk), 2000);
     EXPECT_EQ(get_construction_cost(war_unit_type::ghkabs), 3000);
@@ -2873,11 +3111,13 @@ TEST(crusade_cost_test, mobile_units_legacy_costs) {
     EXPECT_EQ(get_construction_cost(war_unit_type::catapult), 1500);
 }
 
-TEST(crusade_cost_test, esg_not_summonable) {
+TEST(crusade_cost_test, esg_not_summonable)
+{
     EXPECT_LT(get_construction_cost(war_unit_type::esg), 0);
 }
 
-TEST_F(crusade_build_test, structure_zero_cost_no_deduction) {
+TEST_F(crusade_build_test, structure_zero_cost_no_deduction)
+{
     start_and_join();
     crusade_.award_construction_points(constructor_, 5000);
 
@@ -2886,12 +3126,13 @@ TEST_F(crusade_build_test, structure_zero_cost_no_deduction) {
     crusade_.summon_war_unit(constructor_, war_unit_type::detector, "map1", 100, 400);
 
     auto* data = crusade_.get_player_data(constructor_);
-    EXPECT_EQ(data->construction_points, 5000);  // No deduction for structures
+    EXPECT_EQ(data->construction_points, 5000); // No deduction for structures
 }
 
 // -- Map restrictions --
 
-TEST_F(crusade_build_test, toh3_restricted) {
+TEST_F(crusade_build_test, toh3_restricted)
+{
     start_and_join();
     crusade_.award_construction_points(constructor_, 5000);
 
@@ -2899,7 +3140,8 @@ TEST_F(crusade_build_test, toh3_restricted) {
     EXPECT_EQ(result, crusade_result::restricted_map);
 }
 
-TEST_F(crusade_build_test, icebound_restricted) {
+TEST_F(crusade_build_test, icebound_restricted)
+{
     start_and_join();
     crusade_.award_construction_points(constructor_, 5000);
 
@@ -2909,7 +3151,8 @@ TEST_F(crusade_build_test, icebound_restricted) {
 
 // -- ESG rectangular query --
 
-TEST(crusade_esg_query_test, rectangular_includes_corners) {
+TEST(crusade_esg_query_test, rectangular_includes_corners)
+{
     // Verify the is_structure_type / is_mobile_unit_type / is_guard_tower_type helpers
     EXPECT_TRUE(is_structure_type(war_unit_type::agt));
     EXPECT_TRUE(is_structure_type(war_unit_type::cgt));
@@ -2931,7 +3174,8 @@ TEST(crusade_esg_query_test, rectangular_includes_corners) {
     EXPECT_FALSE(is_guard_tower_type(war_unit_type::detector));
 }
 
-TEST_F(crusade_system_test, esg_at_corner_counts_with_rectangular) {
+TEST_F(crusade_system_test, esg_at_corner_counts_with_rectangular)
+{
     crusade_config cfg = crusade_.config();
     cfg.elvine_strike_points[0].map_name = "war_map";
     cfg.elvine_strike_points[0].x = 50;
@@ -2960,12 +3204,13 @@ TEST_F(crusade_system_test, esg_at_corner_counts_with_rectangular) {
 
     const auto& elvine = crusade_.get_strike_points(war_faction::elvine);
     // ESG at corner should be counted (rectangular), reducing damage by 1
-    EXPECT_EQ(elvine[0].hp, 99);  // 100 - max(0, 2-1) = 99
+    EXPECT_EQ(elvine[0].hp, 99); // 100 - max(0, 2-1) = 99
 }
 
 // -- NPC type mapping for new types --
 
-TEST(crusade_npc_type_test, shared_unit_types_same_for_both_factions) {
+TEST(crusade_npc_type_test, shared_unit_types_same_for_both_factions)
+{
     // GHK, GHKABS, TK, BG are shared — same NPC ID regardless of faction
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::ghk, war_faction::aresden), 79);
     EXPECT_EQ(get_npc_id_for_unit(war_unit_type::ghk, war_faction::elvine), 79);
@@ -2979,7 +3224,8 @@ TEST(crusade_npc_type_test, shared_unit_types_same_for_both_factions) {
 
 // -- Construct location cleared on crusade end --
 
-TEST_F(crusade_build_test, construct_locations_cleared_on_end) {
+TEST_F(crusade_build_test, construct_locations_cleared_on_end)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "map1", 100, 100);
@@ -2992,7 +3238,8 @@ TEST_F(crusade_build_test, construct_locations_cleared_on_end) {
 
 // -- ESG not summonable --
 
-TEST_F(crusade_build_test, esg_summon_rejected) {
+TEST_F(crusade_build_test, esg_summon_rejected)
+{
     start_and_join();
     crusade_.award_construction_points(constructor_, 5000);
 
@@ -3004,7 +3251,8 @@ TEST_F(crusade_build_test, esg_summon_rejected) {
 
 // -- Duplicate-in-day prevention --
 
-TEST_F(crusade_system_test, duplicate_in_day_prevented) {
+TEST_F(crusade_system_test, duplicate_in_day_prevented)
+{
     // First crusade starts successfully
     auto r1 = crusade_.start_crusade();
     ASSERT_TRUE(r1.is_ok());
@@ -3022,9 +3270,10 @@ TEST_F(crusade_system_test, duplicate_in_day_prevented) {
     EXPECT_FALSE(crusade_.is_active());
 }
 
-TEST_F(crusade_system_test, different_day_allows_start) {
+TEST_F(crusade_system_test, different_day_allows_start)
+{
     // Simulate previous crusade was on a different day
-    crusade_.set_last_crusade_day(6);  // Saturday
+    crusade_.set_last_crusade_day(6); // Saturday
 
     // As long as today isn't Saturday, start should succeed
     // We verify by starting — if today IS Saturday, the test is still valid
@@ -3035,15 +3284,19 @@ TEST_F(crusade_system_test, different_day_allows_start) {
     std::tm local_tm{};
     localtime_r(&time_t_now, &local_tm);
 
-    if (local_tm.tm_wday == 6) {
+    if (local_tm.tm_wday == 6)
+    {
         // Today IS Saturday, so duplicate prevention kicks in
         EXPECT_TRUE(r.is_err());
-    } else {
+    }
+    else
+    {
         EXPECT_TRUE(r.is_ok());
     }
 }
 
-TEST_F(crusade_system_test, first_start_always_succeeds) {
+TEST_F(crusade_system_test, first_start_always_succeeds)
+{
     // With last_crusade_day_ == -1 (default), any day should work
     EXPECT_EQ(crusade_.last_crusade_day(), -1);
     auto r = crusade_.start_crusade();
@@ -3052,7 +3305,8 @@ TEST_F(crusade_system_test, first_start_always_succeeds) {
 
 // -- Victory deferred to meteor result phase --
 
-TEST_F(crusade_system_test, victory_deferred_to_meteor_result) {
+TEST_F(crusade_system_test, victory_deferred_to_meteor_result)
+{
     // Set up crusade with meteor handler (no scheduler = synchronous execution)
     crusade_.start_crusade();
 
@@ -3064,14 +3318,15 @@ TEST_F(crusade_system_test, victory_deferred_to_meteor_result) {
 
     // Now fire meteor — the result callback should trigger victory check
     // Without scheduler, meteor executes synchronously (impact → waves → result)
-    crusade_.meteor().fire_meteor(war_faction::elvine);  // Elvine attacks aresden
+    crusade_.meteor().fire_meteor(war_faction::elvine); // Elvine attacks aresden
 
     // Meteor result callback runs check_victory_condition → ends crusade
     EXPECT_FALSE(crusade_.is_active());
     EXPECT_EQ(crusade_.last_winner(), war_faction::elvine);
 }
 
-TEST_F(crusade_system_test, partial_destruction_no_victory_even_after_meteor) {
+TEST_F(crusade_system_test, partial_destruction_no_victory_even_after_meteor)
+{
     crusade_.start_crusade();
 
     // Only destroy ONE of two aresden strike points
@@ -3085,7 +3340,8 @@ TEST_F(crusade_system_test, partial_destruction_no_victory_even_after_meteor) {
 
 // -- Last winner persistence --
 
-TEST_F(crusade_system_test, last_winner_set_on_end) {
+TEST_F(crusade_system_test, last_winner_set_on_end)
+{
     crusade_.start_crusade();
     EXPECT_EQ(crusade_.last_winner(), war_faction::neutral);
 
@@ -3095,9 +3351,11 @@ TEST_F(crusade_system_test, last_winner_set_on_end) {
 
 // -- Map disabling on strike point destruction --
 
-class crusade_map_disable_test : public ::testing::Test {
+class crusade_map_disable_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         war_sys_.initialize();
         world_.initialize();
 
@@ -3134,7 +3392,8 @@ protected:
         crusade_.set_config(cfg);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         crusade_.shutdown();
         world_.shutdown();
         war_sys_.shutdown();
@@ -3145,7 +3404,8 @@ protected:
     crusade_system crusade_;
 };
 
-TEST_F(crusade_map_disable_test, map_disabled_on_strike_point_destruction) {
+TEST_F(crusade_map_disable_test, map_disabled_on_strike_point_destruction)
+{
     crusade_.start_crusade();
 
     EXPECT_FALSE(world_.is_map_disabled("aresden_city"));
@@ -3156,7 +3416,8 @@ TEST_F(crusade_map_disable_test, map_disabled_on_strike_point_destruction) {
     EXPECT_FALSE(world_.is_map_disabled("elvine_city"));
 }
 
-TEST_F(crusade_map_disable_test, map_not_disabled_on_partial_damage) {
+TEST_F(crusade_map_disable_test, map_not_disabled_on_partial_damage)
+{
     crusade_.start_crusade();
 
     crusade_.damage_strike_point(war_faction::aresden, 1, 10);
@@ -3164,7 +3425,8 @@ TEST_F(crusade_map_disable_test, map_not_disabled_on_partial_damage) {
     EXPECT_FALSE(world_.is_map_disabled("aresden_city"));
 }
 
-TEST_F(crusade_map_disable_test, maps_reenabled_on_crusade_end) {
+TEST_F(crusade_map_disable_test, maps_reenabled_on_crusade_end)
+{
     crusade_.start_crusade();
 
     crusade_.damage_strike_point(war_faction::aresden, 1, 999);
@@ -3176,7 +3438,8 @@ TEST_F(crusade_map_disable_test, maps_reenabled_on_crusade_end) {
     EXPECT_FALSE(world_.is_map_disabled("elvine_city"));
 }
 
-TEST_F(crusade_map_disable_test, maps_reenabled_on_cancel) {
+TEST_F(crusade_map_disable_test, maps_reenabled_on_cancel)
+{
     crusade_.start_crusade();
 
     crusade_.damage_strike_point(war_faction::aresden, 1, 999);
@@ -3187,7 +3450,8 @@ TEST_F(crusade_map_disable_test, maps_reenabled_on_cancel) {
     EXPECT_FALSE(world_.is_map_disabled("aresden_city"));
 }
 
-TEST_F(crusade_map_disable_test, strike_point_without_linked_map_does_not_crash) {
+TEST_F(crusade_map_disable_test, strike_point_without_linked_map_does_not_crash)
+{
     // Create config with no linked_map
     crusade_config cfg;
     cfg.enabled = true;
@@ -3213,7 +3477,8 @@ TEST_F(crusade_map_disable_test, strike_point_without_linked_map_does_not_crash)
 
 // -- Offline player reward persistence (character_id stored at join) --
 
-TEST_F(crusade_system_test, character_id_stored_at_join) {
+TEST_F(crusade_system_test, character_id_stored_at_join)
+{
     hb::player::player_system player_sys;
     player_sys.initialize();
     crusade_.set_dependencies(&war_sys_, &player_sys, nullptr, nullptr, nullptr);
@@ -3239,7 +3504,8 @@ TEST_F(crusade_system_test, character_id_stored_at_join) {
     player_sys.shutdown();
 }
 
-TEST_F(crusade_system_test, character_id_zero_without_player_system) {
+TEST_F(crusade_system_test, character_id_zero_without_player_system)
+{
     // No player system wired
     crusade_.set_dependencies(&war_sys_, nullptr, nullptr, nullptr, nullptr);
     crusade_.start_crusade();
@@ -3256,7 +3522,8 @@ TEST_F(crusade_system_test, character_id_zero_without_player_system) {
 // ========== Bug Fix Tests ==========
 
 // Fix 1: Summon types 8-11 should succeed (GHK=8, GHKABS=9, TK=10, BG=11)
-TEST_F(crusade_system_test, summon_mobile_units_types_8_to_11) {
+TEST_F(crusade_system_test, summon_mobile_units_types_8_to_11)
+{
     crusade_.start_crusade();
 
     player_id pid(1);
@@ -3277,7 +3544,8 @@ TEST_F(crusade_system_test, summon_mobile_units_types_8_to_11) {
 }
 
 // Fix 2: Cross-map structure build rejected
-TEST_F(crusade_build_test, cross_map_structure_rejected) {
+TEST_F(crusade_build_test, cross_map_structure_rejected)
+{
     start_and_join();
 
     // Commander sets construct location on "middleland"
@@ -3285,24 +3553,24 @@ TEST_F(crusade_build_test, cross_map_structure_rejected) {
 
     // Constructor tries to build on a different map
     crusade_.award_construction_points(constructor_, 5000);
-    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt,
-        "aresden", 100, 100);
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "aresden", 100, 100);
     EXPECT_EQ(result, crusade_result::wrong_map);
 }
 
-TEST_F(crusade_build_test, same_map_structure_accepted) {
+TEST_F(crusade_build_test, same_map_structure_accepted)
+{
     start_and_join();
 
     crusade_.set_guild_construct_location(commander_, "middleland", 100, 100);
     crusade_.award_construction_points(constructor_, 5000);
 
-    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt,
-        "middleland", 100, 100);
+    auto result = crusade_.summon_war_unit(constructor_, war_unit_type::agt, "middleland", 100, 100);
     EXPECT_EQ(result, crusade_result::success);
 }
 
 // Fix 3: MP restore deducts mana from pool; no restore when pool empty
-TEST_F(crusade_system_test, mp_restore_requires_mana_pool) {
+TEST_F(crusade_system_test, mp_restore_requires_mana_pool)
+{
     // The mana system's try_consume should work correctly
     mana_system mana;
     mana_config cfg;
@@ -3327,7 +3595,8 @@ TEST_F(crusade_system_test, mp_restore_requires_mana_pool) {
 }
 
 // Fix 5: NPC ID mapping returns correct sequential IDs (not sprite IDs)
-TEST(crusade_npc_id_test, faction_specific_ids_differ) {
+TEST(crusade_npc_id_test, faction_specific_ids_differ)
+{
     // AGT: Aresden=64, Elvine=65
     EXPECT_NE(get_npc_id_for_unit(war_unit_type::agt, war_faction::aresden),
               get_npc_id_for_unit(war_unit_type::agt, war_faction::elvine));
@@ -3337,7 +3606,8 @@ TEST(crusade_npc_id_test, faction_specific_ids_differ) {
               get_npc_id_for_unit(war_unit_type::catapult, war_faction::elvine));
 }
 
-TEST(crusade_npc_id_test, ids_are_not_sprite_ids) {
+TEST(crusade_npc_id_test, ids_are_not_sprite_ids)
+{
     // The old buggy function returned sprite IDs like 36, 37, etc.
     // New function returns sequential npc_ids ≥ 64
     EXPECT_GE(get_npc_id_for_unit(war_unit_type::agt, war_faction::aresden), 64);
@@ -3347,20 +3617,22 @@ TEST(crusade_npc_id_test, ids_are_not_sprite_ids) {
 
 // ========== Crusade Advantage Tests ==========
 
-TEST_F(crusade_system_test, advantage_increments_toward_aresden_winner) {
+TEST_F(crusade_system_test, advantage_increments_toward_aresden_winner)
+{
     EXPECT_EQ(crusade_.crusade_advantage(), 0);
 
     crusade_.start_crusade();
     crusade_.end_crusade(war_faction::aresden);
     EXPECT_EQ(crusade_.crusade_advantage(), 1);
 
-    crusade_.set_last_crusade_day(-1);  // Bypass duplicate-day check
+    crusade_.set_last_crusade_day(-1); // Bypass duplicate-day check
     crusade_.start_crusade();
     crusade_.end_crusade(war_faction::aresden);
     EXPECT_EQ(crusade_.crusade_advantage(), 2);
 }
 
-TEST_F(crusade_system_test, advantage_increments_toward_elvine_winner) {
+TEST_F(crusade_system_test, advantage_increments_toward_elvine_winner)
+{
     EXPECT_EQ(crusade_.crusade_advantage(), 0);
 
     crusade_.start_crusade();
@@ -3373,7 +3645,8 @@ TEST_F(crusade_system_test, advantage_increments_toward_elvine_winner) {
     EXPECT_EQ(crusade_.crusade_advantage(), -2);
 }
 
-TEST_F(crusade_system_test, advantage_caps_at_plus_minus_5) {
+TEST_F(crusade_system_test, advantage_caps_at_plus_minus_5)
+{
     crusade_.set_crusade_advantage(4);
 
     crusade_.start_crusade();
@@ -3387,7 +3660,8 @@ TEST_F(crusade_system_test, advantage_caps_at_plus_minus_5) {
     EXPECT_EQ(crusade_.crusade_advantage(), 5);
 }
 
-TEST_F(crusade_system_test, advantage_caps_at_minus_5) {
+TEST_F(crusade_system_test, advantage_caps_at_minus_5)
+{
     crusade_.set_crusade_advantage(-4);
 
     crusade_.start_crusade();
@@ -3400,19 +3674,21 @@ TEST_F(crusade_system_test, advantage_caps_at_minus_5) {
     EXPECT_EQ(crusade_.crusade_advantage(), -5);
 }
 
-TEST_F(crusade_system_test, advantage_no_change_on_draw) {
+TEST_F(crusade_system_test, advantage_no_change_on_draw)
+{
     crusade_.set_crusade_advantage(3);
 
     crusade_.start_crusade();
-    crusade_.end_crusade(war_faction::neutral);  // Draw
-    EXPECT_EQ(crusade_.crusade_advantage(), 3);  // Unchanged
+    crusade_.end_crusade(war_faction::neutral); // Draw
+    EXPECT_EQ(crusade_.crusade_advantage(), 3); // Unchanged
 }
 
-TEST(mana_advantage_test, advantage_adjusts_gmg_threshold) {
+TEST(mana_advantage_test, advantage_adjusts_gmg_threshold)
+{
     mana_system mana;
     mana_config cfg;
     cfg.gmg_mana_threshold = 15;
-    cfg.gmg_charges_for_meteor = 100;  // High so we don't trigger meteor
+    cfg.gmg_charges_for_meteor = 100; // High so we don't trigger meteor
     mana.set_config(cfg);
     mana.initialize_stones(0);
 
@@ -3434,7 +3710,8 @@ TEST(mana_advantage_test, advantage_adjusts_gmg_threshold) {
     EXPECT_EQ(mana.get_state(war_faction::elvine).gmg_charge, 1);
 }
 
-TEST(mana_advantage_test, threshold_adjustments_reset_on_reset) {
+TEST(mana_advantage_test, threshold_adjustments_reset_on_reset)
+{
     mana_system mana;
     mana_config cfg;
     cfg.gmg_mana_threshold = 15;
@@ -3453,7 +3730,8 @@ TEST(mana_advantage_test, threshold_adjustments_reset_on_reset) {
 
 // ========== Guild Teleport Tests ==========
 
-TEST_F(crusade_build_test, commander_can_set_teleport_location) {
+TEST_F(crusade_build_test, commander_can_set_teleport_location)
+{
     start_and_join();
 
     auto result = crusade_.set_guild_teleport_location(commander_, "middleland", 50, 60);
@@ -3466,7 +3744,8 @@ TEST_F(crusade_build_test, commander_can_set_teleport_location) {
     EXPECT_EQ(loc->y, 60);
 }
 
-TEST_F(crusade_build_test, non_commander_cannot_set_teleport) {
+TEST_F(crusade_build_test, non_commander_cannot_set_teleport)
+{
     start_and_join();
 
     // constructor_ has constructor duty, not commander
@@ -3474,7 +3753,8 @@ TEST_F(crusade_build_test, non_commander_cannot_set_teleport) {
     EXPECT_EQ(result, crusade_result::not_guild_master);
 }
 
-TEST_F(crusade_build_test, guild_member_can_use_teleport) {
+TEST_F(crusade_build_test, guild_member_can_use_teleport)
+{
     start_and_join();
 
     crusade_.set_guild_teleport_location(commander_, "middleland", 50, 60);
@@ -3489,14 +3769,16 @@ TEST_F(crusade_build_test, guild_member_can_use_teleport) {
     EXPECT_EQ(dest->y, 60);
 }
 
-TEST_F(crusade_build_test, use_teleport_fails_without_set) {
+TEST_F(crusade_build_test, use_teleport_fails_without_set)
+{
     start_and_join();
 
     auto result = crusade_.use_guild_teleport(constructor_);
     EXPECT_EQ(result, crusade_result::no_construct_location);
 }
 
-TEST_F(crusade_build_test, teleport_locations_cleared_at_crusade_end) {
+TEST_F(crusade_build_test, teleport_locations_cleared_at_crusade_end)
+{
     start_and_join();
 
     crusade_.set_guild_teleport_location(commander_, "middleland", 50, 60);
@@ -3513,7 +3795,8 @@ TEST_F(crusade_build_test, teleport_locations_cleared_at_crusade_end) {
     EXPECT_EQ(crusade_.get_guild_teleport_location(gid_.value), nullptr);
 }
 
-TEST_F(crusade_build_test, teleport_requires_active_crusade) {
+TEST_F(crusade_build_test, teleport_requires_active_crusade)
+{
     // Don't start crusade
     auto result = crusade_.set_guild_teleport_location(commander_, "middleland", 50, 60);
     EXPECT_EQ(result, crusade_result::not_active);

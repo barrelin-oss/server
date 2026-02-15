@@ -18,21 +18,24 @@
 #include <set>
 #include <chrono>
 
-namespace hb::admin {
+namespace hb::admin
+{
 
 // Admin system configuration
-struct admin_config {
+struct admin_config
+{
     char command_prefix{'/'};
     size_t max_log_entries{1000};
     bool log_to_file{true};
     std::string log_file{"admin_commands.log"};
-    bool broadcast_major_actions{true};  // Broadcast bans, kicks, etc. to other GMs
-    int32_t command_cooldown_ms{0};      // Minimum time between commands (0=disabled)
-    bool dev_all_admin{false};           // Grant all players owner-level admin (for testing)
+    bool broadcast_major_actions{true}; // Broadcast bans, kicks, etc. to other GMs
+    int32_t command_cooldown_ms{0};     // Minimum time between commands (0=disabled)
+    bool dev_all_admin{false};          // Grant all players owner-level admin (for testing)
 };
 
 // Player admin info
-struct admin_info {
+struct admin_info
+{
     player_id player{};
     std::string name;
     admin_level level{admin_level::player};
@@ -40,42 +43,48 @@ struct admin_info {
     bool is_invisible{false};
     bool is_invincible{false};
 
-    [[nodiscard]] auto can_execute(admin_level required) const -> bool {
+    [[nodiscard]] auto can_execute(admin_level required) const -> bool
+    {
         return static_cast<uint8_t>(level) >= static_cast<uint8_t>(required);
     }
 };
 
 // Events published by admin system
-struct admin_command_executed_event {
+struct admin_command_executed_event
+{
     player_id executor{};
     std::string command_name;
     bool success{false};
     std::string result_message;
 };
 
-struct admin_level_changed_event {
+struct admin_level_changed_event
+{
     player_id player{};
     admin_level old_level{};
     admin_level new_level{};
     player_id changed_by{};
 };
 
-struct player_banned_event {
+struct player_banned_event
+{
     player_id player{};
     std::string player_name;
     player_id banned_by{};
     std::string reason;
-    int64_t duration_seconds{0};  // 0 = permanent
+    int64_t duration_seconds{0}; // 0 = permanent
 };
 
-struct player_kicked_event {
+struct player_kicked_event
+{
     player_id player{};
     std::string player_name;
     player_id kicked_by{};
     std::string reason;
 };
 
-struct player_muted_event {
+struct player_muted_event
+{
     player_id player{};
     std::string player_name;
     player_id muted_by{};
@@ -84,7 +93,8 @@ struct player_muted_event {
 };
 
 // Admin system - manages GM commands and moderation
-class admin_system : public subsystem {
+class admin_system : public subsystem
+{
 public:
     using command_callback = std::function<void(const admin_command_executed_event&)>;
     using ban_callback = std::function<void(const player_banned_event&)>;
@@ -158,14 +168,18 @@ public:
     // ========== Moderation Actions ==========
 
     // Ban a player
-    auto ban_player(player_id target, player_id banned_by, std::string_view reason,
+    auto ban_player(player_id target,
+                    player_id banned_by,
+                    std::string_view reason,
                     int64_t duration_seconds = 0) -> command_result;
 
     // Kick a player
     auto kick_player(player_id target, player_id kicked_by, std::string_view reason) -> command_result;
 
     // Mute a player
-    auto mute_player(player_id target, player_id muted_by, std::string_view reason,
+    auto mute_player(player_id target,
+                     player_id muted_by,
+                     std::string_view reason,
                      int64_t duration_seconds = 0) -> command_result;
 
     // Unmute a player
@@ -193,8 +207,8 @@ public:
     [[nodiscard]] auto get_log_entries(size_t count = 100) const -> std::vector<command_log_entry>;
 
     // Get log entries for a specific executor
-    [[nodiscard]] auto get_log_for_player(player_id executor, size_t count = 50) const
-        -> std::vector<command_log_entry>;
+    [[nodiscard]] auto get_log_for_player(player_id executor,
+                                          size_t count = 50) const -> std::vector<command_log_entry>;
 
     // Clear command log
     void clear_log();
@@ -228,7 +242,9 @@ public:
     [[nodiscard]] auto active_admin_count() const -> size_t;
 
     // Log an admin action to the audit log (used by admin web handlers)
-    void log_action(std::string_view executor_name, std::string_view action, bool success = true,
+    void log_action(std::string_view executor_name,
+                    std::string_view action,
+                    bool success = true,
                     std::string_view result_message = "");
 
 private:
@@ -267,4 +283,4 @@ private:
     std::vector<level_change_callback> level_change_callbacks_;
 };
 
-}  // namespace hb::admin
+} // namespace hb::admin

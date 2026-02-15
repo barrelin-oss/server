@@ -12,16 +12,15 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace hb::npc::bt {
+namespace hb::npc::bt
+{
 
 class bt_loader
 {
 public:
-    auto load_from_file(const std::filesystem::path& path)
-        -> result<std::string, std::string>;
+    auto load_from_file(const std::filesystem::path& path) -> result<std::string, std::string>;
 
-    auto load_directory(const std::filesystem::path& dir)
-        -> result<size_t, std::string>;
+    auto load_directory(const std::filesystem::path& dir) -> result<size_t, std::string>;
 
     [[nodiscard]] auto get_tree(std::string_view name) const -> const bt_node*;
 
@@ -34,4 +33,4 @@ private:
     std::filesystem::path trees_dir_;
 };
 
-}  // namespace hb::npc::bt
+} // namespace hb::npc::bt

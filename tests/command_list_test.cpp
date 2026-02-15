@@ -16,13 +16,11 @@ namespace net = hb::network;
 
 TEST(command_list_test, command_entry_to_json)
 {
-    net::command_entry_msg entry{
-        .name = "online",
-        .description = "Show online player count",
-        .usage = "/online",
-        .category = "general",
-        .enabled = true
-    };
+    net::command_entry_msg entry{.name = "online",
+                                 .description = "Show online player count",
+                                 .usage = "/online",
+                                 .category = "general",
+                                 .enabled = true};
     auto j = entry.to_json();
     EXPECT_EQ(j["name"], "online");
     EXPECT_EQ(j["description"], "Show online player count");
@@ -33,13 +31,11 @@ TEST(command_list_test, command_entry_to_json)
 
 TEST(command_list_test, command_entry_disabled)
 {
-    net::command_entry_msg entry{
-        .name = "gcreate",
-        .description = "Create a new guild",
-        .usage = "/gcreate <name> [tag]",
-        .category = "guild",
-        .enabled = false
-    };
+    net::command_entry_msg entry{.name = "gcreate",
+                                 .description = "Create a new guild",
+                                 .usage = "/gcreate <name> [tag]",
+                                 .category = "guild",
+                                 .enabled = false};
     auto j = entry.to_json();
     EXPECT_EQ(j["name"], "gcreate");
     EXPECT_FALSE(j["enabled"].get<bool>());
@@ -60,8 +56,7 @@ TEST(command_list_test, make_available_commands_with_entries)
     std::vector<net::command_entry_msg> entries = {
         {"online", "Show online player count", "/online", "general", true},
         {"gcreate", "Create a new guild", "/gcreate <name> [tag]", "guild", true},
-        {"gdisband", "Disband your guild", "/gdisband", "guild", false}
-    };
+        {"gdisband", "Disband your guild", "/gdisband", "guild", false}};
 
     auto msg = net::make_available_commands(entries);
     EXPECT_EQ(msg.type, net::json_message_type::available_commands);
@@ -88,11 +83,7 @@ TEST(command_list_test, make_command_availability_update_empty)
 
 TEST(command_list_test, make_command_availability_update_with_changes)
 {
-    std::vector<std::pair<std::string, bool>> changes = {
-        {"gcreate", false},
-        {"gquit", true},
-        {"ginvite", true}
-    };
+    std::vector<std::pair<std::string, bool>> changes = {{"gcreate", false}, {"gquit", true}, {"ginvite", true}};
 
     auto msg = net::make_command_availability_update(changes);
     EXPECT_EQ(msg.type, net::json_message_type::command_availability_update);
@@ -112,26 +103,23 @@ TEST(command_list_test, make_command_availability_update_with_changes)
 
 TEST(command_list_test, to_string_available_commands)
 {
-    EXPECT_EQ(net::to_string(net::json_message_type::available_commands),
-        "available_commands");
+    EXPECT_EQ(net::to_string(net::json_message_type::available_commands), "available_commands");
 }
 
 TEST(command_list_test, to_string_command_availability_update)
 {
-    EXPECT_EQ(net::to_string(net::json_message_type::command_availability_update),
-        "command_availability_update");
+    EXPECT_EQ(net::to_string(net::json_message_type::command_availability_update), "command_availability_update");
 }
 
 TEST(command_list_test, parse_message_type_available_commands)
 {
-    EXPECT_EQ(net::parse_message_type("available_commands"),
-        net::json_message_type::available_commands);
+    EXPECT_EQ(net::parse_message_type("available_commands"), net::json_message_type::available_commands);
 }
 
 TEST(command_list_test, parse_message_type_command_availability_update)
 {
     EXPECT_EQ(net::parse_message_type("command_availability_update"),
-        net::json_message_type::command_availability_update);
+              net::json_message_type::command_availability_update);
 }
 
 // ========== Command Registry Tests ==========
@@ -149,8 +137,10 @@ TEST(command_list_test, player_commands_has_general)
     const auto& commands = gh::get_player_commands();
 
     int general_count = 0;
-    for (const auto& cmd : commands) {
-        if (cmd.category == gh::command_category::general) {
+    for (const auto& cmd : commands)
+    {
+        if (cmd.category == gh::command_category::general)
+        {
             general_count++;
         }
     }
@@ -163,8 +153,10 @@ TEST(command_list_test, player_commands_has_guild)
     const auto& commands = gh::get_player_commands();
 
     int guild_count = 0;
-    for (const auto& cmd : commands) {
-        if (cmd.category == gh::command_category::guild) {
+    for (const auto& cmd : commands)
+    {
+        if (cmd.category == gh::command_category::guild)
+        {
             guild_count++;
         }
     }
@@ -176,8 +168,10 @@ TEST(command_list_test, general_commands_always_enabled)
     using gh = hb::bridge::game_handlers;
     const auto& commands = gh::get_player_commands();
 
-    for (const auto& cmd : commands) {
-        if (cmd.category == gh::command_category::general) {
+    for (const auto& cmd : commands)
+    {
+        if (cmd.category == gh::command_category::general)
+        {
             EXPECT_EQ(cmd.enabled_check, nullptr)
                 << "General command '" << cmd.name << "' should have no visibility check";
         }
@@ -190,9 +184,10 @@ TEST(command_list_test, guild_management_commands_have_visibility_check)
     const auto& commands = gh::get_player_commands();
 
     // Guild management commands (not gaccept/gdecline) should have visibility checks
-    for (const auto& cmd : commands) {
-        if (cmd.category == gh::command_category::guild &&
-            cmd.name != "gaccept" && cmd.name != "gdecline") {
+    for (const auto& cmd : commands)
+    {
+        if (cmd.category == gh::command_category::guild && cmd.name != "gaccept" && cmd.name != "gdecline")
+        {
             EXPECT_NE(cmd.enabled_check, nullptr)
                 << "Guild command '" << cmd.name << "' should have a visibility check";
         }
@@ -212,12 +207,13 @@ protected:
         plr_.name = "TestPlayer";
     }
 
-    auto find_command(const std::string& name)
-        -> const hb::bridge::game_handlers::command_descriptor*
+    auto find_command(const std::string& name) -> const hb::bridge::game_handlers::command_descriptor*
     {
         using gh = hb::bridge::game_handlers;
-        for (const auto& cmd : gh::get_player_commands()) {
-            if (cmd.name == name) return &cmd;
+        for (const auto& cmd : gh::get_player_commands())
+        {
+            if (cmd.name == name)
+                return &cmd;
         }
         return nullptr;
     }
@@ -225,7 +221,8 @@ protected:
     auto check_enabled(const std::string& name) -> bool
     {
         auto* cmd = find_command(name);
-        if (!cmd || !cmd->enabled_check) return true;
+        if (!cmd || !cmd->enabled_check)
+            return true;
         return cmd->enabled_check(plr_, &social_);
     }
 
@@ -417,8 +414,10 @@ protected:
     auto find_change(const std::vector<std::pair<std::string, bool>>& changes,
                      const std::string& name) -> std::optional<bool>
     {
-        for (const auto& [n, e] : changes) {
-            if (n == name) return e;
+        for (const auto& [n, e] : changes)
+        {
+            if (n == name)
+                return e;
         }
         return std::nullopt;
     }

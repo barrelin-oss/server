@@ -8,32 +8,39 @@
 
 #include <functional>
 
-namespace hb::player {
-    class player_system;
+namespace hb::player
+{
+class player_system;
 }
 
-namespace hb::world {
-    class world_subsystem;
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::inventory {
-    class inventory_system;
+namespace hb::inventory
+{
+class inventory_system;
 }
 
-namespace hb::magic {
-    class magic_system;
+namespace hb::magic
+{
+class magic_system;
 }
 
-namespace hb::skill {
-    class skill_system;
+namespace hb::skill
+{
+class skill_system;
 }
 
-namespace hb {
-    class magic_registry;
-    class scheduler;
-}
+namespace hb
+{
+class magic_registry;
+class scheduler;
+} // namespace hb
 
-namespace hb::admin {
+namespace hb::admin
+{
 
 class admin_system;
 
@@ -41,7 +48,8 @@ class admin_system;
 using send_to_player_fn = std::function<void(player_id, const network::json_message&)>;
 
 // Context for GM commands - provides access to game subsystems
-struct gm_command_context {
+struct gm_command_context
+{
     player::player_system* players{nullptr};
     world::world_subsystem* world{nullptr};
     inventory::inventory_system* inventory{nullptr};
@@ -56,4 +64,4 @@ struct gm_command_context {
 // Call this after admin_system is initialized and subsystems are available
 void register_gm_commands(admin_system& admin, const gm_command_context& ctx);
 
-}  // namespace hb::admin
+} // namespace hb::admin

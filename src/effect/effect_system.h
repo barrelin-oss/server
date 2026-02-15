@@ -14,7 +14,8 @@
 #include <functional>
 #include <string_view>
 
-namespace hb::effect {
+namespace hb::effect
+{
 
 // Per-entity effect storage
 struct entity_effects
@@ -78,4 +79,4 @@ private:
     std::vector<effect_tick_callback> tick_callbacks_;
 };
 
-}  // namespace hb::effect
+} // namespace hb::effect

@@ -15,14 +15,17 @@
 #include <functional>
 #include <chrono>
 
-namespace hb::perf {
+namespace hb::perf
+{
 class perf_stats_system;
 }
 
-namespace hb::database {
+namespace hb::database
+{
 
 // Database system configuration
-struct database_config {
+struct database_config
+{
     std::string host = "localhost";
     uint16_t port = 5432;
     std::string database = "helbreath";
@@ -34,7 +37,8 @@ struct database_config {
 };
 
 // Query result wrapper for convenient access
-class query_result {
+class query_result
+{
 public:
     query_result() = default;
     explicit query_result(pqxx::result result);
@@ -49,29 +53,29 @@ public:
     [[nodiscard]] auto end() const -> pqxx::result::const_iterator;
 
     // Get single value
-    template<typename T>
-    [[nodiscard]] auto get(size_t row, size_t col) const -> T {
-        return result_[row][col].as<T>();
-    }
+    template<typename T> [[nodiscard]] auto get(size_t row, size_t col) const -> T { return result_[row][col].as<T>(); }
 
-    template<typename T>
-    [[nodiscard]] auto get(size_t row, std::string_view col_name) const -> T {
+    template<typename T> [[nodiscard]] auto get(size_t row, std::string_view col_name) const -> T
+    {
         return result_[row][std::string(col_name)].as<T>();
     }
 
     // Get optional value (handles NULL)
-    template<typename T>
-    [[nodiscard]] auto get_optional(size_t row, size_t col) const -> std::optional<T> {
-        if (result_[row][col].is_null()) {
+    template<typename T> [[nodiscard]] auto get_optional(size_t row, size_t col) const -> std::optional<T>
+    {
+        if (result_[row][col].is_null())
+        {
             return std::nullopt;
         }
         return result_[row][col].as<T>();
     }
 
     template<typename T>
-    [[nodiscard]] auto get_optional(size_t row, std::string_view col_name) const -> std::optional<T> {
+    [[nodiscard]] auto get_optional(size_t row, std::string_view col_name) const -> std::optional<T>
+    {
         auto field = result_[row][std::string(col_name)];
-        if (field.is_null()) {
+        if (field.is_null())
+        {
             return std::nullopt;
         }
         return field.as<T>();
@@ -82,7 +86,8 @@ private:
 };
 
 // Database system - manages PostgreSQL connections and queries
-class database_system : public subsystem {
+class database_system : public subsystem
+{
 public:
     database_system();
     ~database_system() override;
@@ -104,28 +109,31 @@ public:
     // WARNING: This method is vulnerable to SQL injection if user input is concatenated.
     // Only use for static queries or internal operations. Use execute_params() for all
     // queries involving external data.
-    [[deprecated("Use execute_params() instead to prevent SQL injection")]]
-    [[nodiscard]] auto execute(std::string_view query) -> hb::result<query_result, std::string>;
+    [[deprecated("Use execute_params() instead to prevent SQL injection")]] [[nodiscard]] auto
+    execute(std::string_view query) -> hb::result<query_result, std::string>;
 
     // Execute raw query - unsafe version for internal migrations/setup only
     [[nodiscard]] auto execute_unsafe(std::string_view query) -> hb::result<query_result, std::string>;
 
     // Execute query with parameters (prevents SQL injection)
     template<typename... Args>
-    [[nodiscard]] auto execute_params(std::string_view query, Args&&... args)
-        -> hb::result<query_result, std::string>
+    [[nodiscard]] auto execute_params(std::string_view query, Args&&... args) -> hb::result<query_result, std::string>
     {
         auto conn = pool_.acquire();
-        if (conn.is_err()) {
+        if (conn.is_err())
+        {
             return hb::result<query_result, std::string>::err(conn.error());
         }
 
-        try {
+        try
+        {
             pqxx::work txn{*conn.value()};
             auto query_res = txn.exec_params(std::string(query), std::forward<Args>(args)...);
             txn.commit();
             return hb::result<query_result, std::string>::ok(query_result{std::move(query_res)});
-        } catch (const std::exception& ex) {
+        }
+        catch (const std::exception& ex)
+        {
             return hb::result<query_result, std::string>::err(std::string("Query failed: ") + ex.what());
         }
     }
@@ -138,20 +146,23 @@ public:
     [[nodiscard]] auto prepare(std::string_view name, std::string_view query) -> hb::result<void, std::string>;
 
     template<typename... Args>
-    [[nodiscard]] auto execute_prepared(std::string_view name, Args&&... args)
-        -> hb::result<query_result, std::string>
+    [[nodiscard]] auto execute_prepared(std::string_view name, Args&&... args) -> hb::result<query_result, std::string>
     {
         auto conn = pool_.acquire();
-        if (conn.is_err()) {
+        if (conn.is_err())
+        {
             return hb::result<query_result, std::string>::err(conn.error());
         }
 
-        try {
+        try
+        {
             pqxx::work txn{*conn.value()};
             auto query_res = txn.exec_prepared(std::string(name), std::forward<Args>(args)...);
             txn.commit();
             return hb::result<query_result, std::string>::ok(query_result{std::move(query_res)});
-        } catch (const std::exception& ex) {
+        }
+        catch (const std::exception& ex)
+        {
             return hb::result<query_result, std::string>::err(std::string("Prepared query failed: ") + ex.what());
         }
     }
@@ -176,4 +187,4 @@ private:
     hb::perf::perf_stats_system* perf_stats_{nullptr};
 };
 
-}  // namespace hb::database
+} // namespace hb::database

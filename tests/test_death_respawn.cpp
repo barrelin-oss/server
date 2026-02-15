@@ -9,7 +9,8 @@ using namespace hb::player;
 
 // ========== remove_experience tests ==========
 
-TEST(death_xp_penalty, level_1_immune) {
+TEST(death_xp_penalty, level_1_immune)
+{
     experience_state exp;
     exp.level = 1;
     exp.experience = 500;
@@ -20,7 +21,8 @@ TEST(death_xp_penalty, level_1_immune) {
     EXPECT_EQ(exp.experience, 500);
 }
 
-TEST(death_xp_penalty, zero_amount_removes_nothing) {
+TEST(death_xp_penalty, zero_amount_removes_nothing)
+{
     experience_state exp;
     exp.level = 10;
     exp.experience = exp_table.exp_for_level(10) + 5000;
@@ -30,7 +32,8 @@ TEST(death_xp_penalty, zero_amount_removes_nothing) {
     EXPECT_EQ(removed, 0);
 }
 
-TEST(death_xp_penalty, negative_amount_removes_nothing) {
+TEST(death_xp_penalty, negative_amount_removes_nothing)
+{
     experience_state exp;
     exp.level = 10;
     exp.experience = exp_table.exp_for_level(10) + 5000;
@@ -40,11 +43,12 @@ TEST(death_xp_penalty, negative_amount_removes_nothing) {
     EXPECT_EQ(removed, 0);
 }
 
-TEST(death_xp_penalty, clamps_to_level_floor) {
+TEST(death_xp_penalty, clamps_to_level_floor)
+{
     experience_state exp;
     exp.level = 10;
     int64_t floor = exp_table.exp_for_level(10);
-    exp.experience = floor + 100;  // 100 above floor
+    exp.experience = floor + 100; // 100 above floor
 
     // Try to remove 500 - should only remove 100
     auto removed = exp.remove_experience(500);
@@ -53,10 +57,11 @@ TEST(death_xp_penalty, clamps_to_level_floor) {
     EXPECT_EQ(exp.experience, floor);
 }
 
-TEST(death_xp_penalty, at_floor_removes_nothing) {
+TEST(death_xp_penalty, at_floor_removes_nothing)
+{
     experience_state exp;
     exp.level = 10;
-    exp.experience = exp_table.exp_for_level(10);  // Exactly at floor
+    exp.experience = exp_table.exp_for_level(10); // Exactly at floor
 
     auto removed = exp.remove_experience(100);
 
@@ -64,7 +69,8 @@ TEST(death_xp_penalty, at_floor_removes_nothing) {
     EXPECT_EQ(exp.experience, exp_table.exp_for_level(10));
 }
 
-TEST(death_xp_penalty, partial_removal) {
+TEST(death_xp_penalty, partial_removal)
+{
     experience_state exp;
     exp.level = 10;
     int64_t floor = exp_table.exp_for_level(10);
@@ -76,7 +82,8 @@ TEST(death_xp_penalty, partial_removal) {
     EXPECT_EQ(exp.experience, floor + 2000);
 }
 
-TEST(death_xp_penalty, exact_removal) {
+TEST(death_xp_penalty, exact_removal)
+{
     experience_state exp;
     exp.level = 5;
     int64_t floor = exp_table.exp_for_level(5);
@@ -88,7 +95,8 @@ TEST(death_xp_penalty, exact_removal) {
     EXPECT_EQ(exp.experience, floor);
 }
 
-TEST(death_xp_penalty, level_not_reduced) {
+TEST(death_xp_penalty, level_not_reduced)
+{
     experience_state exp;
     exp.level = 10;
     int64_t floor = exp_table.exp_for_level(10);
@@ -103,7 +111,8 @@ TEST(death_xp_penalty, level_not_reduced) {
 
 // ========== pk_state tests ==========
 
-TEST(pk_state_test, starts_innocent) {
+TEST(pk_state_test, starts_innocent)
+{
     pk_state pk;
 
     EXPECT_TRUE(pk.is_innocent());
@@ -113,7 +122,8 @@ TEST(pk_state_test, starts_innocent) {
     EXPECT_EQ(pk.points, 0);
 }
 
-TEST(pk_state_test, add_kill_gains_points) {
+TEST(pk_state_test, add_kill_gains_points)
+{
     pk_state pk;
 
     pk.add_kill();
@@ -124,7 +134,8 @@ TEST(pk_state_test, add_kill_gains_points) {
     EXPECT_FALSE(pk.is_murderer()); // 50 < 100
 }
 
-TEST(pk_state_test, two_kills_becomes_murderer) {
+TEST(pk_state_test, two_kills_becomes_murderer)
+{
     pk_state pk;
 
     pk.add_kill();
@@ -135,19 +146,21 @@ TEST(pk_state_test, two_kills_becomes_murderer) {
     EXPECT_TRUE(pk.is_murderer());
 }
 
-TEST(pk_state_test, decay_reduces_points) {
+TEST(pk_state_test, decay_reduces_points)
+{
     pk_state pk;
-    pk.add_kill();  // 50 points
-    pk.add_kill();  // 100 points
+    pk.add_kill(); // 50 points
+    pk.add_kill(); // 100 points
 
     pk.decay_points(80);
 
     EXPECT_EQ(pk.points, 20);
-    EXPECT_TRUE(pk.is_innocent());  // Back to innocent
-    EXPECT_EQ(pk.count, 2);         // Kill count stays
+    EXPECT_TRUE(pk.is_innocent()); // Back to innocent
+    EXPECT_EQ(pk.count, 2);        // Kill count stays
 }
 
-TEST(pk_state_test, decay_clamps_to_zero) {
+TEST(pk_state_test, decay_clamps_to_zero)
+{
     pk_state pk;
     pk.add_kill();
 
@@ -157,7 +170,8 @@ TEST(pk_state_test, decay_clamps_to_zero) {
     EXPECT_TRUE(pk.is_innocent());
 }
 
-TEST(pk_state_test, criminal_threshold) {
+TEST(pk_state_test, criminal_threshold)
+{
     pk_state pk;
     pk.points = 29;
     EXPECT_TRUE(pk.is_innocent());
@@ -167,7 +181,8 @@ TEST(pk_state_test, criminal_threshold) {
     EXPECT_FALSE(pk.is_murderer());
 }
 
-TEST(pk_state_test, murderer_threshold) {
+TEST(pk_state_test, murderer_threshold)
+{
     pk_state pk;
     pk.points = 99;
     EXPECT_TRUE(pk.is_criminal());
@@ -175,17 +190,20 @@ TEST(pk_state_test, murderer_threshold) {
 
     pk.points = 100;
     EXPECT_TRUE(pk.is_murderer());
-    EXPECT_FALSE(pk.is_criminal());  // is_criminal checks < 100
+    EXPECT_FALSE(pk.is_criminal()); // is_criminal checks < 100
 }
 
 // ========== experience_table tests ==========
 
-TEST(experience_table_test, level_1_requires_no_exp) {
+TEST(experience_table_test, level_1_requires_no_exp)
+{
     EXPECT_EQ(exp_table.exp_for_level(1), 0);
 }
 
-TEST(experience_table_test, levels_are_monotonically_increasing) {
-    for (int i = 2; i <= max_level; ++i) {
+TEST(experience_table_test, levels_are_monotonically_increasing)
+{
+    for (int i = 2; i <= max_level; ++i)
+    {
         EXPECT_GT(exp_table.exp_for_level(static_cast<uint8_t>(i)),
                   exp_table.exp_for_level(static_cast<uint8_t>(i - 1)))
             << "Level " << i << " should require more exp than level " << (i - 1);

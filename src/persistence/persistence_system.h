@@ -16,33 +16,38 @@
 #include <fstream>
 #include <memory>
 
-namespace hb::persistence {
+namespace hb::persistence
+{
 
 // Save/Load events
-struct save_started_event {
+struct save_started_event
+{
     player_id player{};
 };
 
-struct save_completed_event {
+struct save_completed_event
+{
     player_id player{};
     bool success{false};
     std::string error_message;
 };
 
-struct load_completed_event {
+struct load_completed_event
+{
     player_id player{};
     bool success{false};
     std::string error_message;
 };
 
 // Player save data structure
-struct player_save_data {
+struct player_save_data
+{
     player_id id{};
     std::string name;
     std::string account_name;
 
     // Character info
-    uint8_t nation{0};          // 0 = none, 1 = Aresden, 2 = Elvine
+    uint8_t nation{0}; // 0 = none, 1 = Aresden, 2 = Elvine
     uint8_t gender{0};
     uint8_t skin_color{0};
     uint8_t hair_style{0};
@@ -74,8 +79,8 @@ struct player_save_data {
     int16_t luck{10};
 
     // Combat
-    int32_t ek_count{0};        // Enemy kill count
-    int32_t pk_count{0};        // Player kill count
+    int32_t ek_count{0}; // Enemy kill count
+    int32_t pk_count{0}; // Player kill count
     int32_t contribution{0};
 
     // Currency
@@ -99,7 +104,8 @@ struct player_save_data {
 };
 
 // Guild save data structure
-struct guild_save_data {
+struct guild_save_data
+{
     guild_id id{};
     std::string name;
     std::string tag;
@@ -121,21 +127,23 @@ struct guild_save_data {
 };
 
 // Persistence system configuration
-struct persistence_config {
+struct persistence_config
+{
     std::filesystem::path save_directory{"saves"};
     std::filesystem::path player_directory{"players"};
     std::filesystem::path guild_directory{"guilds"};
     std::filesystem::path world_directory{"world"};
 
     bool auto_save_enabled{true};
-    int32_t auto_save_interval_seconds{300};  // 5 minutes
+    int32_t auto_save_interval_seconds{300}; // 5 minutes
     bool compress_saves{false};
     bool backup_on_save{true};
     int32_t max_backups{5};
 };
 
 // Persistence operation result
-enum class persist_result : uint8_t {
+enum class persist_result : uint8_t
+{
     success = 0,
     not_found = 1,
     io_error = 2,
@@ -145,7 +153,8 @@ enum class persist_result : uint8_t {
 };
 
 // Persistence system - manages save/load operations
-class persistence_system : public subsystem {
+class persistence_system : public subsystem
+{
 public:
     using save_callback = std::function<void(const save_completed_event&)>;
     using load_callback = std::function<void(const load_completed_event&)>;
@@ -242,4 +251,4 @@ private:
     std::vector<load_callback> load_callbacks_;
 };
 
-}  // namespace hb::persistence
+} // namespace hb::persistence

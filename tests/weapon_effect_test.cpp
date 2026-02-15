@@ -160,9 +160,11 @@ TEST(weapon_effect_test, charge_critical_probabilistic)
     // Run many trials with 20% chance
     int charges = 0;
     const int trials = 10000;
-    for (int i = 0; i < trials; ++i) {
+    for (int i = 0; i < trials; ++i)
+    {
         auto result = process_weapon_effect(enchantment_type::charge_critical, 20, 100, 50, 200);
-        if (result.gained_super_charge) ++charges;
+        if (result.gained_super_charge)
+            ++charges;
     }
     // Should be roughly 20% ± tolerance
     double rate = static_cast<double>(charges) / trials;
@@ -172,7 +174,8 @@ TEST(weapon_effect_test, charge_critical_probabilistic)
 
 TEST(weapon_effect_test, charge_critical_zero_chance_never_triggers)
 {
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 1000; ++i)
+    {
         auto result = process_weapon_effect(enchantment_type::charge_critical, 0, 100, 50, 200);
         EXPECT_FALSE(result.gained_super_charge);
     }
@@ -183,12 +186,14 @@ TEST(weapon_effect_test, charge_critical_capped_at_20)
     // value=30 → capped to 20%, test distribution is sane
     int charges = 0;
     const int trials = 10000;
-    for (int i = 0; i < trials; ++i) {
+    for (int i = 0; i < trials; ++i)
+    {
         auto result = process_weapon_effect(enchantment_type::charge_critical, 30, 100, 50, 200);
-        if (result.gained_super_charge) ++charges;
+        if (result.gained_super_charge)
+            ++charges;
     }
     double rate = static_cast<double>(charges) / trials;
-    EXPECT_GT(rate, 0.12);  // Should match 20% cap, not 30%
+    EXPECT_GT(rate, 0.12); // Should match 20% cap, not 30%
     EXPECT_LT(rate, 0.28);
 }
 

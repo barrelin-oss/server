@@ -12,14 +12,17 @@
 #include <vector>
 #include <optional>
 
-namespace hb::database {
-    class database_system;
+namespace hb::database
+{
+class database_system;
 }
 
-namespace hb::war {
+namespace hb::war
+{
 
 // Stored war history row
-struct war_history_row {
+struct war_history_row
+{
     int32_t id{0};
     war_type type{war_type::crusade};
     std::string started_at;
@@ -32,7 +35,8 @@ struct war_history_row {
 };
 
 // Stored participant row
-struct war_participant_row {
+struct war_participant_row
+{
     int32_t id{0};
     int32_t war_id{0};
     int32_t character_id{0};
@@ -51,7 +55,8 @@ struct war_participant_row {
 };
 
 // War persistence operations
-class war_persistence {
+class war_persistence
+{
 public:
     explicit war_persistence(database::database_system* db);
 
@@ -66,16 +71,16 @@ public:
                           const war_rewards& rewards) -> hb::result<void, std::string>;
 
     // Load war history (most recent first)
-    auto load_war_history(int32_t limit = 20, int32_t offset = 0)
-        -> hb::result<std::vector<war_history_row>, std::string>;
+    auto load_war_history(int32_t limit = 20,
+                          int32_t offset = 0) -> hb::result<std::vector<war_history_row>, std::string>;
 
     // Load war history filtered by type
-    auto load_war_history_by_type(war_type type, int32_t limit = 20, int32_t offset = 0)
-        -> hb::result<std::vector<war_history_row>, std::string>;
+    auto load_war_history_by_type(war_type type,
+                                  int32_t limit = 20,
+                                  int32_t offset = 0) -> hb::result<std::vector<war_history_row>, std::string>;
 
     // Load participants for a specific war
-    auto load_war_participants(int32_t war_db_id)
-        -> hb::result<std::vector<war_participant_row>, std::string>;
+    auto load_war_participants(int32_t war_db_id) -> hb::result<std::vector<war_participant_row>, std::string>;
 
     // Count total wars
     auto count_wars() -> hb::result<int32_t, std::string>;
@@ -90,12 +95,10 @@ public:
     auto load_crusade_advantage() -> hb::result<int8_t, std::string>;
 
     // Get unclaimed rewards for a character (for deferred reward delivery at login)
-    auto get_unclaimed_rewards(int32_t character_id)
-        -> hb::result<std::vector<war_participant_row>, std::string>;
+    auto get_unclaimed_rewards(int32_t character_id) -> hb::result<std::vector<war_participant_row>, std::string>;
 
     // Mark specific participant rewards as claimed
-    auto mark_rewards_claimed(int32_t participant_id)
-        -> hb::result<void, std::string>;
+    auto mark_rewards_claimed(int32_t participant_id) -> hb::result<void, std::string>;
 
     // Save participant with explicit reward_claimed flag
     auto save_participant_with_claimed(int32_t war_db_id,
@@ -109,4 +112,4 @@ private:
     database::database_system* db_{nullptr};
 };
 
-}  // namespace hb::war
+} // namespace hb::war

@@ -10,10 +10,12 @@
 #include <array>
 #include <cstdint>
 
-namespace hb::item {
+namespace hb::item
+{
 
 // Item type categories
-enum class item_type : uint8_t {
+enum class item_type : uint8_t
+{
     none = 0,
     weapon = 1,
     armor = 2,
@@ -25,7 +27,8 @@ enum class item_type : uint8_t {
 };
 
 // Equipment position
-enum class equip_pos : uint8_t {
+enum class equip_pos : uint8_t
+{
     none = 0,
     head = 1,
     body = 2,
@@ -41,7 +44,8 @@ enum class equip_pos : uint8_t {
 };
 
 // Weapon type
-enum class weapon_type : uint8_t {
+enum class weapon_type : uint8_t
+{
     none = 0,
     sword = 1,
     axe = 2,
@@ -54,7 +58,8 @@ enum class weapon_type : uint8_t {
 };
 
 // Item rarity
-enum class item_rarity : uint8_t {
+enum class item_rarity : uint8_t
+{
     common = 0,
     uncommon = 1,
     rare = 2,
@@ -64,7 +69,8 @@ enum class item_rarity : uint8_t {
 };
 
 // Item effect types
-enum class item_effect_type : uint8_t {
+enum class item_effect_type : uint8_t
+{
     none = 0,
     hp_bonus = 1,
     mp_bonus = 2,
@@ -94,22 +100,22 @@ enum class item_effect_type : uint8_t {
 };
 
 // Single item effect
-struct item_effect {
+struct item_effect
+{
     item_effect_type type{item_effect_type::none};
     int16_t value{0};
 
-    [[nodiscard]] auto is_empty() const -> bool {
-        return type == item_effect_type::none;
-    }
+    [[nodiscard]] auto is_empty() const -> bool { return type == item_effect_type::none; }
 };
 
 inline constexpr size_t max_item_effects = 6;
 
 // Item instance - a specific item in the world
-struct item {
+struct item
+{
     // Identity
-    item_id id{};            // Unique instance ID
-    item_id template_id{};   // Template this is based on
+    item_id id{};          // Unique instance ID
+    item_id template_id{}; // Template this is based on
     std::string name;
 
     // Type
@@ -152,35 +158,42 @@ struct item {
     item_attribute attribute{};
 
     // Flags
-    bool bound{false};           // Soulbound
-    bool tradeable{true};        // Can be traded
-    bool droppable{true};        // Can be dropped
-    bool two_handed{false};      // Two-handed weapon
-    bool audited{false};         // Transaction logging enabled for this instance
+    bool bound{false};      // Soulbound
+    bool tradeable{true};   // Can be traded
+    bool droppable{true};   // Can be dropped
+    bool two_handed{false}; // Two-handed weapon
+    bool audited{false};    // Transaction logging enabled for this instance
 
     // Owner
-    entity_id owner{};           // Current owner entity
+    entity_id owner{}; // Current owner entity
 
     // Helper methods
     [[nodiscard]] auto is_valid() const -> bool { return id.is_valid(); }
-    [[nodiscard]] auto is_equipment() const -> bool {
+    [[nodiscard]] auto is_equipment() const -> bool
+    {
         return type == item_type::weapon || type == item_type::armor || type == item_type::accessory;
     }
     [[nodiscard]] auto is_consumable() const -> bool { return type == item_type::consumable; }
     [[nodiscard]] auto is_broken() const -> bool { return !indestructible && durability <= 0; }
 
-    [[nodiscard]] auto durability_percent() const -> float {
+    [[nodiscard]] auto durability_percent() const -> float
+    {
         return max_durability > 0 ? static_cast<float>(durability) / max_durability : 1.0f;
     }
 
-    [[nodiscard]] auto can_stack_with(const item& other) const -> bool {
-        if (!stackable) return false;
-        if (template_id != other.template_id) return false;
-        return count < max_stack;  // Has room for at least 1 item
+    [[nodiscard]] auto can_stack_with(const item& other) const -> bool
+    {
+        if (!stackable)
+            return false;
+        if (template_id != other.template_id)
+            return false;
+        return count < max_stack; // Has room for at least 1 item
     }
 
-    auto stack(item& other) -> int16_t {
-        if (!can_stack_with(other)) return 0;
+    auto stack(item& other) -> int16_t
+    {
+        if (!can_stack_with(other))
+            return 0;
         int16_t space = max_stack - count;
         int16_t to_add = std::min(space, other.count);
         count += to_add;
@@ -188,27 +201,26 @@ struct item {
         return to_add;
     }
 
-    auto split(int16_t amount) -> item {
+    auto split(int16_t amount) -> item
+    {
         item split_item = *this;
-        split_item.id = item_id{};  // New instance
+        split_item.id = item_id{}; // New instance
         amount = std::min(amount, static_cast<int16_t>(count - 1));
         split_item.count = amount;
         count -= amount;
         return split_item;
     }
 
-    void damage_durability(int16_t amount) {
-        if (indestructible) return;
+    void damage_durability(int16_t amount)
+    {
+        if (indestructible)
+            return;
         durability = std::max<int16_t>(0, durability - amount);
     }
 
-    void repair(int16_t amount) {
-        durability = std::min(max_durability, static_cast<int16_t>(durability + amount));
-    }
+    void repair(int16_t amount) { durability = std::min(max_durability, static_cast<int16_t>(durability + amount)); }
 
-    void repair_full() {
-        durability = max_durability;
-    }
+    void repair_full() { durability = max_durability; }
 };
 
-}  // namespace hb::item
+} // namespace hb::item

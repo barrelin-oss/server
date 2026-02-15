@@ -13,7 +13,8 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 class item_registry;
 
@@ -29,8 +30,7 @@ public:
     void shutdown() override;
 
     // Load fish types from YAML file, resolving item names via item_registry
-    auto load_from_file(const std::filesystem::path& path, const item_registry& items)
-        -> result<size_t, std::string>;
+    auto load_from_file(const std::filesystem::path& path, const item_registry& items) -> result<size_t, std::string>;
 
     // Lookup
     [[nodiscard]] auto get_type(int32_t type_id) const -> const crafting::fish_type_config*;
@@ -46,4 +46,4 @@ private:
     int32_t total_weight_{};
 };
 
-}  // namespace hb
+} // namespace hb

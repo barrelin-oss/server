@@ -8,7 +8,8 @@
 
 #include <string>
 
-namespace hb::npc::bt {
+namespace hb::npc::bt
+{
 
 // --- Condition leaves ---
 
@@ -20,7 +21,7 @@ struct has_target : bt_node
 
 struct hp_below : bt_node
 {
-    float threshold{0.3f};  // 0.0 - 1.0
+    float threshold{0.3f}; // 0.0 - 1.0
 
     auto tick(npc& npc_ref, bt_context& ctx) -> node_status override;
     auto type_name() const -> std::string_view override { return "hp_below"; }
@@ -44,7 +45,7 @@ struct is_near_spawn : bt_node
 
 struct random_chance : bt_node
 {
-    int percent{50};  // 0-100
+    int percent{50}; // 0-100
 
     auto tick(npc& npc_ref, bt_context& ctx) -> node_status override;
     auto type_name() const -> std::string_view override { return "random_chance"; }
@@ -117,4 +118,4 @@ struct heal_self : bt_node
     auto type_name() const -> std::string_view override { return "heal_self"; }
 };
 
-}  // namespace hb::npc::bt
+} // namespace hb::npc::bt

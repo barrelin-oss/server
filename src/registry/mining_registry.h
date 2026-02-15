@@ -13,7 +13,8 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 class item_registry;
 
@@ -29,8 +30,7 @@ public:
     void shutdown() override;
 
     // Load mineral types from YAML file, resolving item names via item_registry
-    auto load_from_file(const std::filesystem::path& path, const item_registry& items)
-        -> result<size_t, std::string>;
+    auto load_from_file(const std::filesystem::path& path, const item_registry& items) -> result<size_t, std::string>;
 
     // Lookup
     [[nodiscard]] auto get_type(int32_t type_id) const -> const crafting::mineral_type_config*;
@@ -42,4 +42,4 @@ private:
     std::unordered_map<int32_t, size_t> id_index_;
 };
 
-}  // namespace hb
+} // namespace hb

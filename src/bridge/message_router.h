@@ -20,33 +20,34 @@
 #include <optional>
 #include <chrono>
 
-namespace hb::bridge {
+namespace hb::bridge
+{
 
 // Forward declarations
 class message_router;
 
 // Handler context passed to message handlers
-struct handler_context {
+struct handler_context
+{
     connection_id connection;
-    session_id session;           // May be invalid if not authenticated
-    player_id player;             // May be invalid if not in game
+    session_id session; // May be invalid if not authenticated
+    player_id player;   // May be invalid if not in game
     protocol::message_id msg_id;
     std::span<const uint8_t> raw_data;
     std::chrono::steady_clock::time_point received_at;
 
     // Convenience: create a reader positioned after the message ID
-    [[nodiscard]] auto make_reader() const -> protocol::message_reader {
-        return protocol::message_reader{raw_data};
-    }
+    [[nodiscard]] auto make_reader() const -> protocol::message_reader { return protocol::message_reader{raw_data}; }
 };
 
 // Result of handling a message
-enum class handle_result : uint8_t {
-    handled,           // Message was handled successfully
-    handled_async,     // Handler started async operation, will complete later
-    not_handled,       // Handler chose not to handle (fallback to legacy)
-    error,             // Handler encountered an error
-    disconnect,        // Client should be disconnected
+enum class handle_result : uint8_t
+{
+    handled,       // Message was handled successfully
+    handled_async, // Handler started async operation, will complete later
+    not_handled,   // Handler chose not to handle (fallback to legacy)
+    error,         // Handler encountered an error
+    disconnect,    // Client should be disconnected
 };
 
 // Message handler function signature
@@ -54,12 +55,13 @@ enum class handle_result : uint8_t {
 using message_handler = std::function<handle_result(const handler_context&)>;
 
 // Handler metadata for registration
-struct handler_info {
-    std::string name;                    // Handler name for logging
-    std::string subsystem;               // Which modern subsystem owns this
-    protocol::message_id msg_id;         // Message ID this handler processes
-    message_handler handler;             // The actual handler function
-    bool enabled{true};                  // Can be disabled for testing
+struct handler_info
+{
+    std::string name;            // Handler name for logging
+    std::string subsystem;       // Which modern subsystem owns this
+    protocol::message_id msg_id; // Message ID this handler processes
+    message_handler handler;     // The actual handler function
+    bool enabled{true};          // Can be disabled for testing
 };
 
 // Legacy fallback handler signature
@@ -67,7 +69,8 @@ struct handler_info {
 using legacy_fallback = std::function<void(connection_id, std::span<const uint8_t>)>;
 
 // Statistics for a single message type
-struct message_stats {
+struct message_stats
+{
     protocol::message_id msg_id{};
     uint64_t total_count{0};
     uint64_t success_count{0};
@@ -78,7 +81,8 @@ struct message_stats {
 };
 
 // Router statistics
-struct router_stats {
+struct router_stats
+{
     uint64_t total_messages{0};
     uint64_t modern_handled{0};
     uint64_t legacy_fallback{0};
@@ -88,7 +92,8 @@ struct router_stats {
 };
 
 // Message router - central dispatcher for all incoming messages
-class message_router {
+class message_router
+{
 public:
     message_router();
     ~message_router();
@@ -105,9 +110,7 @@ public:
     void register_handler(handler_info info);
 
     // Register a simple handler (name auto-generated)
-    void register_handler(protocol::message_id msg_id,
-                         std::string_view subsystem,
-                         message_handler handler);
+    void register_handler(protocol::message_id msg_id, std::string_view subsystem, message_handler handler);
 
     // Unregister a handler
     void unregister_handler(protocol::message_id msg_id);
@@ -122,8 +125,7 @@ public:
     [[nodiscard]] auto is_handler_enabled(protocol::message_id msg_id) const -> bool;
 
     // Get handler info
-    [[nodiscard]] auto get_handler_info(protocol::message_id msg_id) const
-        -> const handler_info*;
+    [[nodiscard]] auto get_handler_info(protocol::message_id msg_id) const -> const handler_info*;
 
     // Get all registered handlers
     [[nodiscard]] auto get_all_handlers() const -> std::vector<const handler_info*>;
@@ -186,4 +188,4 @@ private:
 // Global message router singleton
 [[nodiscard]] auto router() -> message_router&;
 
-}  // namespace hb::bridge
+} // namespace hb::bridge

@@ -7,7 +7,8 @@
 
 #include <yaml-cpp/yaml.h>
 
-namespace hb {
+namespace hb
+{
 
 mining_registry::mining_registry() = default;
 mining_registry::~mining_registry() = default;
@@ -27,18 +28,18 @@ void mining_registry::shutdown()
 }
 
 auto mining_registry::load_from_file(const std::filesystem::path& path,
-                                      const item_registry& items)
-    -> result<size_t, std::string>
+                                     const item_registry& items) -> result<size_t, std::string>
 {
     LOG_INFO(general, "Loading mineral types from: {}", path.string());
 
     YAML::Node root;
-    try {
+    try
+    {
         root = YAML::LoadFile(path.string());
-    } catch (const YAML::Exception& e) {
-        return result<size_t, std::string>::err(
-            "Failed to parse mining YAML: " + std::string(e.what())
-        );
+    }
+    catch (const YAML::Exception& e)
+    {
+        return result<size_t, std::string>::err("Failed to parse mining YAML: " + std::string(e.what()));
     }
 
     if (!root["mineral_types"] || !root["mineral_types"].IsSequence())
@@ -74,8 +75,10 @@ auto mining_registry::load_from_file(const std::filesystem::path& path,
                 }
                 else
                 {
-                    LOG_WARN(general, "Mineral type '{}': drop item '{}' not found in item registry",
-                        config.name, drop.item_name);
+                    LOG_WARN(general,
+                             "Mineral type '{}': drop item '{}' not found in item registry",
+                             config.name,
+                             drop.item_name);
                 }
 
                 config.drops.push_back(std::move(drop));
@@ -96,4 +99,4 @@ auto mining_registry::get_type(int32_t type_id) const -> const crafting::mineral
     return it != id_index_.end() ? &types_[it->second] : nullptr;
 }
 
-}  // namespace hb
+} // namespace hb

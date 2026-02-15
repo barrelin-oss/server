@@ -16,14 +16,17 @@
 #include <functional>
 #include <optional>
 
-namespace hb::perf {
+namespace hb::perf
+{
 class perf_stats_system;
 }
 
-namespace hb::database {
+namespace hb::database
+{
 
 // Connection pool configuration
-struct pool_config {
+struct pool_config
+{
     std::string host = "localhost";
     uint16_t port = 5432;
     std::string database = "helbreath";
@@ -35,7 +38,8 @@ struct pool_config {
 };
 
 // RAII wrapper for a pooled connection
-class pooled_connection {
+class pooled_connection
+{
 public:
     pooled_connection() = default;
     pooled_connection(std::shared_ptr<pqxx::connection> conn,
@@ -69,7 +73,8 @@ private:
 };
 
 // Database connection pool
-class connection_pool {
+class connection_pool
+{
 public:
     connection_pool();
     explicit connection_pool(const pool_config& config);
@@ -92,8 +97,7 @@ public:
     [[nodiscard]] auto acquire() -> result<pooled_connection, std::string>;
 
     // Acquire with custom timeout
-    [[nodiscard]] auto acquire(std::chrono::milliseconds timeout)
-        -> result<pooled_connection, std::string>;
+    [[nodiscard]] auto acquire(std::chrono::milliseconds timeout) -> result<pooled_connection, std::string>;
 
     // Try to acquire without blocking
     [[nodiscard]] auto try_acquire() -> std::optional<pooled_connection>;
@@ -124,4 +128,4 @@ private:
     hb::perf::perf_stats_system* perf_stats_{nullptr};
 };
 
-}  // namespace hb::database
+} // namespace hb::database

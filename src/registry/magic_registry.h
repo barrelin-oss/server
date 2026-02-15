@@ -13,10 +13,12 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 // Magic registry subsystem
-class magic_registry : public subsystem {
+class magic_registry : public subsystem
+{
 public:
     magic_registry();
     ~magic_registry() override;
@@ -65,4 +67,4 @@ private:
     std::unordered_map<std::string, size_t> name_index_;
 };
 
-}  // namespace hb
+} // namespace hb

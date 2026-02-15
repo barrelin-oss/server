@@ -7,11 +7,13 @@
 #include <string_view>
 #include <vector>
 
-namespace hb::npc {
+namespace hb::npc
+{
 struct npc;
 }
 
-namespace hb::npc::bt {
+namespace hb::npc::bt
+{
 
 // Forward declaration
 struct bt_context;
@@ -119,10 +121,13 @@ struct inverter_node : bt_node
 
     auto tick(npc& npc_ref, bt_context& ctx) -> node_status override
     {
-        if (!child) return node_status::failure;
+        if (!child)
+            return node_status::failure;
         auto status = child->tick(npc_ref, ctx);
-        if (status == node_status::success) return node_status::failure;
-        if (status == node_status::failure) return node_status::success;
+        if (status == node_status::success)
+            return node_status::failure;
+        if (status == node_status::failure)
+            return node_status::success;
         return node_status::running;
     }
 
@@ -156,11 +161,12 @@ struct always_succeed_node : bt_node
 
     auto tick(npc& npc_ref, bt_context& ctx) -> node_status override
     {
-        if (child) child->tick(npc_ref, ctx);
+        if (child)
+            child->tick(npc_ref, ctx);
         return node_status::success;
     }
 
     auto type_name() const -> std::string_view override { return "always_succeed"; }
 };
 
-}  // namespace hb::npc::bt
+} // namespace hb::npc::bt

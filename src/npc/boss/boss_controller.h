@@ -9,12 +9,14 @@
 
 #include <unordered_map>
 
-namespace hb::npc {
+namespace hb::npc
+{
 struct npc;
 class npc_system;
-}
+} // namespace hb::npc
 
-namespace hb::npc::boss {
+namespace hb::npc::boss
+{
 
 class boss_controller
 {
@@ -37,4 +39,4 @@ private:
     npc_system* npc_sys_{nullptr};
 };
 
-}  // namespace hb::npc::boss
+} // namespace hb::npc::boss

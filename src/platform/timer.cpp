@@ -3,15 +3,13 @@
 
 #include "platform/timer.h"
 
-namespace hb::platform {
-
-timer::timer(duration interval, callback_fn callback)
-    : interval_(interval)
-    , callback_(std::move(callback))
+namespace hb::platform
 {
-}
 
-timer::~timer() {
+timer::timer(duration interval, callback_fn callback) : interval_(interval), callback_(std::move(callback)) {}
+
+timer::~timer()
+{
     stop();
 }
 
@@ -23,8 +21,10 @@ timer::timer(timer&& other) noexcept
     other.stop();
 }
 
-auto timer::operator=(timer&& other) noexcept -> timer& {
-    if (this != &other) {
+auto timer::operator=(timer&& other) noexcept -> timer&
+{
+    if (this != &other)
+    {
         stop();
         interval_ = other.interval_;
         callback_ = std::move(other.callback_);
@@ -34,67 +34,80 @@ auto timer::operator=(timer&& other) noexcept -> timer& {
     return *this;
 }
 
-void timer::start() {
-    if (running_.exchange(true)) {
-        return;  // Already running
+void timer::start()
+{
+    if (running_.exchange(true))
+    {
+        return; // Already running
     }
 
-    thread_ = std::jthread([this](std::stop_token stop_token) {
-        thread_loop(stop_token);
-    });
+    thread_ = std::jthread([this](std::stop_token stop_token) { thread_loop(stop_token); });
 }
 
-void timer::stop() {
-    if (!running_.exchange(false)) {
-        return;  // Not running
+void timer::stop()
+{
+    if (!running_.exchange(false))
+    {
+        return; // Not running
     }
 
     // Signal the condition variable to wake up the thread
     cv_.notify_all();
 
     // Request stop and wait for thread to finish
-    if (thread_.joinable()) {
+    if (thread_.joinable())
+    {
         thread_.request_stop();
         thread_.join();
     }
 }
 
-auto timer::is_running() const -> bool {
+auto timer::is_running() const -> bool
+{
     return running_.load();
 }
 
-auto timer::interval() const -> duration {
+auto timer::interval() const -> duration
+{
     std::lock_guard lock(mutex_);
     return interval_;
 }
 
-void timer::set_interval(duration new_interval) {
+void timer::set_interval(duration new_interval)
+{
     std::lock_guard lock(mutex_);
     interval_ = new_interval;
 }
 
-void timer::set_callback(callback_fn new_callback) {
+void timer::set_callback(callback_fn new_callback)
+{
     std::lock_guard lock(mutex_);
     callback_ = std::move(new_callback);
 }
 
-void timer::trigger() {
+void timer::trigger()
+{
     triggered_.store(true);
     cv_.notify_all();
 }
 
-void timer::thread_loop(std::stop_token stop_token) {
-    while (!stop_token.stop_requested() && running_.load()) {
+void timer::thread_loop(std::stop_token stop_token)
+{
+    while (!stop_token.stop_requested() && running_.load())
+    {
         // Wait for interval or trigger
         {
             std::unique_lock lock(mutex_);
-            cv_.wait_for(lock, stop_token, interval_, [this, &stop_token]() {
-                return stop_token.stop_requested() || !running_.load() || triggered_.load();
-            });
+            cv_.wait_for(lock,
+                         stop_token,
+                         interval_,
+                         [this, &stop_token]()
+                         { return stop_token.stop_requested() || !running_.load() || triggered_.load(); });
         }
 
         // Check if we should exit
-        if (stop_token.stop_requested() || !running_.load()) {
+        if (stop_token.stop_requested() || !running_.load())
+        {
             break;
         }
 
@@ -108,7 +121,8 @@ void timer::thread_loop(std::stop_token stop_token) {
             callback_copy = callback_;
         }
 
-        if (callback_copy) {
+        if (callback_copy)
+        {
             callback_copy();
         }
     }
@@ -117,33 +131,41 @@ void timer::thread_loop(std::stop_token stop_token) {
 // one_shot_timer implementation
 
 one_shot_timer::one_shot_timer(duration delay, callback_fn callback)
-    : thread_([this, delay, cb = std::move(callback)](std::stop_token stop_token) {
-        std::this_thread::sleep_for(delay);
+    : thread_(
+          [this, delay, cb = std::move(callback)](std::stop_token stop_token)
+          {
+              std::this_thread::sleep_for(delay);
 
-        if (!stop_token.stop_requested() && !cancelled_.load()) {
-            fired_.store(true);
-            if (cb) {
-                cb();
-            }
-        }
-    })
+              if (!stop_token.stop_requested() && !cancelled_.load())
+              {
+                  fired_.store(true);
+                  if (cb)
+                  {
+                      cb();
+                  }
+              }
+          })
 {
 }
 
-one_shot_timer::~one_shot_timer() {
+one_shot_timer::~one_shot_timer()
+{
     cancel();
 }
 
-auto one_shot_timer::has_fired() const -> bool {
+auto one_shot_timer::has_fired() const -> bool
+{
     return fired_.load();
 }
 
-void one_shot_timer::cancel() {
+void one_shot_timer::cancel()
+{
     cancelled_.store(true);
-    if (thread_.joinable()) {
+    if (thread_.joinable())
+    {
         thread_.request_stop();
         thread_.join();
     }
 }
 
-}  // namespace hb::platform
+} // namespace hb::platform

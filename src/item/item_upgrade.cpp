@@ -5,7 +5,8 @@
 
 #include <random>
 
-namespace hb::item {
+namespace hb::item
+{
 
 auto is_valid_upgrade_stone(const item& target_item, uint32_t stone_template_id) -> bool
 {
@@ -17,8 +18,7 @@ auto is_valid_upgrade_stone(const item& target_item, uint32_t stone_template_id)
     if (stone_template_id == merien_stone_id)
     {
         // Merien stones upgrade armor, shields, and accessories
-        return target_item.type == item_type::armor
-            || target_item.type == item_type::accessory;
+        return target_item.type == item_type::armor || target_item.type == item_type::accessory;
     }
     return false;
 }
@@ -43,11 +43,11 @@ auto attempt_upgrade(item& target_item) -> upgrade_result
         int quality = target_item.attribute.custom_quality;
         // Legacy tiered bonus based on current probability
         if (prob > 2000)
-            prob += quality * 10;  // quality/10 * 100 (already scaled to 10000)
+            prob += quality * 10; // quality/10 * 100 (already scaled to 10000)
         else if (prob > 700)
-            prob += quality * 5;   // quality/20 * 100
+            prob += quality * 5; // quality/20 * 100
         else
-            prob += quality * 2;   // quality/40 * 100 (approx)
+            prob += quality * 2; // quality/40 * 100 (approx)
     }
 
     // Roll
@@ -57,8 +57,7 @@ auto attempt_upgrade(item& target_item) -> upgrade_result
 
     if (prob >= roll)
     {
-        uint8_t new_level = static_cast<uint8_t>(
-            std::min<int>(current_level + 1, max_upgrade_level));
+        uint8_t new_level = static_cast<uint8_t>(std::min<int>(current_level + 1, max_upgrade_level));
         target_item.attribute.upgrade_level = new_level;
         return {.success = true, .new_level = new_level, .stone_consumed = true};
     }
@@ -66,4 +65,4 @@ auto attempt_upgrade(item& target_item) -> upgrade_result
     return {.success = false, .new_level = current_level, .stone_consumed = true};
 }
 
-}  // namespace hb::item
+} // namespace hb::item

@@ -11,9 +11,11 @@
 #include <mutex>
 #include <condition_variable>
 
-namespace hb::platform {
+namespace hb::platform
+{
 
-class timer {
+class timer
+{
 public:
     using callback_fn = std::function<void()>;
     using duration = std::chrono::milliseconds;
@@ -67,7 +69,8 @@ private:
 };
 
 // One-shot timer that fires once after a delay
-class one_shot_timer {
+class one_shot_timer
+{
 public:
     using callback_fn = std::function<void()>;
     using duration = std::chrono::milliseconds;
@@ -94,4 +97,4 @@ private:
     std::atomic<bool> cancelled_{false};
 };
 
-}  // namespace hb::platform
+} // namespace hb::platform

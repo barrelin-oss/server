@@ -6,10 +6,12 @@
 #include <cstdint>
 #include <string_view>
 
-namespace hb::protocol {
+namespace hb::protocol
+{
 
 // Main message IDs (4 bytes at packet start)
-enum class message_id : uint32_t {
+enum class message_id : uint32_t
+{
     // Connection/Init messages
     request_init_player = 0x05040205,
     response_init_player = 0x05040206,
@@ -221,13 +223,15 @@ enum class message_id : uint32_t {
 };
 
 // Message subtypes (2 bytes after message ID)
-enum class msg_type : uint16_t {
+enum class msg_type : uint16_t
+{
     confirm = 0x0F14,
     reject = 0x0F15,
 };
 
 // Common action types (used with event_common/command_common)
-enum class common_type : uint16_t {
+enum class common_type : uint16_t
+{
     item_drop = 0x0A01,
     equip_item = 0x0A02,
     req_list_contents = 0x0A03,
@@ -285,7 +289,8 @@ enum class common_type : uint16_t {
 };
 
 // Notify types (used with notify message)
-enum class notify_type : uint16_t {
+enum class notify_type : uint16_t
+{
     item_obtained = 0x0B01,
     query_join_guild_req_permission = 0x0B02,
     query_dismiss_guild_req_permission = 0x0B03,
@@ -453,7 +458,8 @@ enum class notify_type : uint16_t {
 };
 
 // Login response types
-enum class log_response_type : uint16_t {
+enum class log_response_type : uint16_t
+{
     confirm = 0x0F14,
     reject = 0x0F15,
     password_mismatch = 0x0F16,
@@ -472,14 +478,16 @@ enum class log_response_type : uint16_t {
 };
 
 // Enter game message types
-enum class enter_game_type : uint16_t {
+enum class enter_game_type : uint16_t
+{
     new_entry = 0x0F1C,
     no_enter_force_disconn = 0x0F1D,
     changing_server = 0x0F1E,
 };
 
 // Enter game response types
-enum class enter_game_response : uint16_t {
+enum class enter_game_response : uint16_t
+{
     playing = 0x0F20,
     reject = 0x0F21,
     confirm = 0x0F22,
@@ -487,7 +495,8 @@ enum class enter_game_response : uint16_t {
 };
 
 // Gate server message types
-enum class gate_server_msg : uint8_t {
+enum class gate_server_msg : uint8_t
+{
     request_find_character = 0x01,
     response_find_character = 0x02,
     grand_magic_result = 0x03,
@@ -516,19 +525,22 @@ enum class gate_server_msg : uint8_t {
 };
 
 // Guild notify subtypes
-enum class guild_notify_type : uint16_t {
+enum class guild_notify_type : uint16_t
+{
     new_guildsman = 0x1F00,
 };
 
 // Party status
-enum class party_status : uint8_t {
+enum class party_status : uint8_t
+{
     null = 0,
     processing = 1,
     confirm = 2,
 };
 
 // Packet header structure
-struct packet_header {
+struct packet_header
+{
     uint32_t message_id;
     uint16_t message_type;
 };
@@ -542,4 +554,4 @@ struct packet_header {
 // Convert common_type to string for logging
 [[nodiscard]] auto common_type_string(common_type type) -> std::string_view;
 
-}  // namespace hb::protocol
+} // namespace hb::protocol

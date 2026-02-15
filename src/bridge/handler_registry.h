@@ -14,18 +14,17 @@
 #include <string_view>
 #include <type_traits>
 
-namespace hb::bridge {
+namespace hb::bridge
+{
 
 // ========== Handler Registration Helpers ==========
 
 // Register multiple handlers at once from a subsystem
-template<typename... Handlers>
-void register_handlers(std::string_view subsystem, Handlers&&... handlers) {
+template<typename... Handlers> void register_handlers(std::string_view subsystem, Handlers&&... handlers)
+{
     (router().register_handler(
-        std::forward<Handlers>(handlers).msg_id,
-        subsystem,
-        std::forward<Handlers>(handlers).handler
-    ), ...);
+         std::forward<Handlers>(handlers).msg_id, subsystem, std::forward<Handlers>(handlers).handler),
+     ...);
 }
 
 // ========== Typed Handler Wrappers ==========
@@ -33,38 +32,46 @@ void register_handlers(std::string_view subsystem, Handlers&&... handlers) {
 // Handler that expects specific message data after the message ID
 // Automatically parses and validates the header
 template<typename ParseFunc, typename HandleFunc>
-auto make_typed_handler(ParseFunc parse, HandleFunc handle) -> message_handler {
-    return [parse, handle](const handler_context& ctx) -> handle_result {
-        try {
+auto make_typed_handler(ParseFunc parse, HandleFunc handle) -> message_handler
+{
+    return [parse, handle](const handler_context& ctx) -> handle_result
+    {
+        try
+        {
             protocol::message_reader reader{ctx.raw_data};
-            reader.skip(4);  // Skip message ID (already parsed)
+            reader.skip(4); // Skip message ID (already parsed)
 
             auto parsed_data = parse(reader);
             return handle(ctx, parsed_data);
-        } catch (const protocol::read_error& e) {
-            LOG_WARN(proto_bridge, "Parse error for {}: {}",
-                     protocol::message_id_string(ctx.msg_id), e.what());
+        }
+        catch (const protocol::read_error& e)
+        {
+            LOG_WARN(proto_bridge, "Parse error for {}: {}", protocol::message_id_string(ctx.msg_id), e.what());
             return handle_result::error;
         }
     };
 }
 
 // Simple handler that just processes raw remaining data
-template<typename HandleFunc>
-auto make_simple_handler(HandleFunc handle) -> message_handler {
-    return [handle](const handler_context& ctx) -> handle_result {
+template<typename HandleFunc> auto make_simple_handler(HandleFunc handle) -> message_handler
+{
+    return [handle](const handler_context& ctx) -> handle_result
+    {
         protocol::message_reader reader{ctx.raw_data};
-        reader.skip(4);  // Skip message ID
+        reader.skip(4); // Skip message ID
         return handle(ctx, reader);
     };
 }
 
 // Handler that validates session exists
-template<typename HandleFunc>
-auto require_session(HandleFunc handle) -> message_handler {
-    return [handle](const handler_context& ctx) -> handle_result {
-        if (!ctx.session.is_valid()) {
-            LOG_WARN(proto_bridge, "Message {} requires session (conn={})",
+template<typename HandleFunc> auto require_session(HandleFunc handle) -> message_handler
+{
+    return [handle](const handler_context& ctx) -> handle_result
+    {
+        if (!ctx.session.is_valid())
+        {
+            LOG_WARN(proto_bridge,
+                     "Message {} requires session (conn={})",
                      protocol::message_id_string(ctx.msg_id),
                      ctx.connection.value);
             return handle_result::disconnect;
@@ -74,11 +81,14 @@ auto require_session(HandleFunc handle) -> message_handler {
 }
 
 // Handler that validates player exists (in-game)
-template<typename HandleFunc>
-auto require_player(HandleFunc handle) -> message_handler {
-    return [handle](const handler_context& ctx) -> handle_result {
-        if (!ctx.player.is_valid()) {
-            LOG_WARN(proto_bridge, "Message {} requires player (conn={})",
+template<typename HandleFunc> auto require_player(HandleFunc handle) -> message_handler
+{
+    return [handle](const handler_context& ctx) -> handle_result
+    {
+        if (!ctx.player.is_valid())
+        {
+            LOG_WARN(proto_bridge,
+                     "Message {} requires player (conn={})",
                      protocol::message_id_string(ctx.msg_id),
                      ctx.connection.value);
             return handle_result::error;
@@ -90,7 +100,8 @@ auto require_player(HandleFunc handle) -> message_handler {
 // ========== Common Message Patterns ==========
 
 // Handler binding with automatic logging
-struct handler_binding {
+struct handler_binding
+{
     protocol::message_id msg_id;
     message_handler handler;
     std::string description;
@@ -99,31 +110,34 @@ struct handler_binding {
         : msg_id(id)
         , handler(std::move(h))
         , description(desc)
-    {}
+    {
+    }
 };
 
 // ========== Handler Registration Builder ==========
 
 // Fluent interface for registering handlers
-class handler_builder {
+class handler_builder
+{
 public:
-    explicit handler_builder(std::string_view subsystem)
-        : subsystem_(subsystem)
-    {}
+    explicit handler_builder(std::string_view subsystem) : subsystem_(subsystem) {}
 
     // Register a handler
-    auto on(protocol::message_id msg_id, message_handler handler) -> handler_builder& {
+    auto on(protocol::message_id msg_id, message_handler handler) -> handler_builder&
+    {
         router().register_handler(msg_id, subsystem_, std::move(handler));
         return *this;
     }
 
     // Register with session requirement
-    auto on_session(protocol::message_id msg_id, message_handler handler) -> handler_builder& {
+    auto on_session(protocol::message_id msg_id, message_handler handler) -> handler_builder&
+    {
         return on(msg_id, require_session(std::move(handler)));
     }
 
     // Register with player requirement
-    auto on_player(protocol::message_id msg_id, message_handler handler) -> handler_builder& {
+    auto on_player(protocol::message_id msg_id, message_handler handler) -> handler_builder&
+    {
         return on(msg_id, require_player(std::move(handler)));
     }
 
@@ -132,7 +146,8 @@ private:
 };
 
 // Create a handler builder for a subsystem
-[[nodiscard]] inline auto handlers(std::string_view subsystem) -> handler_builder {
+[[nodiscard]] inline auto handlers(std::string_view subsystem) -> handler_builder
+{
     return handler_builder{subsystem};
 }
 
@@ -147,9 +162,9 @@ void send_response(const handler_context& ctx,
                    std::function<void(protocol::message_writer&)> write_data);
 
 // Build a standard response message
-[[nodiscard]] auto build_response(protocol::message_id msg_id,
-                                   std::function<void(protocol::message_writer&)> write_data)
-    -> protocol::message_writer;
+[[nodiscard]] auto
+build_response(protocol::message_id msg_id,
+               std::function<void(protocol::message_writer&)> write_data) -> protocol::message_writer;
 
 // ========== Migration Helpers ==========
 
@@ -177,4 +192,4 @@ void log_registered_handlers();
 // Dump handler statistics to log
 void log_handler_stats();
 
-}  // namespace hb::bridge
+} // namespace hb::bridge

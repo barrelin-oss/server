@@ -24,8 +24,7 @@ TEST(crafting_attribute_test, recipe_attribute_decodes_main_enchantment)
     // sharp = 7, value = 1 → 0x0071
     uint16_t attr = 0x0071;
 
-    auto decoded = item_attribute::from_legacy_dword(
-        static_cast<uint32_t>(attr) << 16);
+    auto decoded = item_attribute::from_legacy_dword(static_cast<uint32_t>(attr) << 16);
 
     EXPECT_EQ(decoded.main_type, enchantment_type::sharp);
     EXPECT_EQ(decoded.main_value, 1);
@@ -46,8 +45,7 @@ TEST(crafting_attribute_test, recipe_attribute_decodes_sub_enchantment)
     // Sub enchantments are in bits 15-8 of the dword (NOT from recipe shift)
     // So recipe attribute only sets main enchantment, not sub
     uint16_t attr = 0x0071;
-    auto decoded = item_attribute::from_legacy_dword(
-        static_cast<uint32_t>(attr) << 16);
+    auto decoded = item_attribute::from_legacy_dword(static_cast<uint32_t>(attr) << 16);
 
     // Main should be set
     EXPECT_EQ(decoded.main_type, enchantment_type::sharp);

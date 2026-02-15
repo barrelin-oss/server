@@ -6,45 +6,55 @@
 
 #include <unordered_map>
 
-namespace hb::network {
+namespace hb::network
+{
 
-namespace {
+namespace
+{
 
 // Safe conversion from JSON integer to int16_t with range validation
-inline auto safe_int16(const nlohmann::json& j, std::string_view field, int16_t default_val = 0) -> int16_t {
-    if (!j.contains(field) || !j[std::string(field)].is_number()) {
+inline auto safe_int16(const nlohmann::json& j, std::string_view field, int16_t default_val = 0) -> int16_t
+{
+    if (!j.contains(field) || !j[std::string(field)].is_number())
+    {
         return default_val;
     }
     auto val = j[std::string(field)].get<int>();
-    if (val < (std::numeric_limits<int16_t>::min)() || val > (std::numeric_limits<int16_t>::max)()) {
-        return default_val;  // Out of range, return default
+    if (val < (std::numeric_limits<int16_t>::min)() || val > (std::numeric_limits<int16_t>::max)())
+    {
+        return default_val; // Out of range, return default
     }
     return static_cast<int16_t>(val);
 }
 
 // Safe conversion with required validation (returns nullopt if out of range)
-inline auto safe_int16_required(const nlohmann::json& j, std::string_view field)
-    -> std::optional<int16_t>
+inline auto safe_int16_required(const nlohmann::json& j, std::string_view field) -> std::optional<int16_t>
 {
-    if (!j.contains(field) || !j[std::string(field)].is_number()) {
+    if (!j.contains(field) || !j[std::string(field)].is_number())
+    {
         return std::nullopt;
     }
     auto val = j[std::string(field)].get<int>();
-    if (val < (std::numeric_limits<int16_t>::min)() || val > (std::numeric_limits<int16_t>::max)()) {
+    if (val < (std::numeric_limits<int16_t>::min)() || val > (std::numeric_limits<int16_t>::max)())
+    {
         return std::nullopt;
     }
     return static_cast<int16_t>(val);
 }
 
 // Safe direction parsing (clamps to 0-7)
-inline auto safe_direction(const nlohmann::json& j, std::string_view field, int16_t default_val = 0) -> int16_t {
-    if (!j.contains(field) || !j[std::string(field)].is_number()) {
+inline auto safe_direction(const nlohmann::json& j, std::string_view field, int16_t default_val = 0) -> int16_t
+{
+    if (!j.contains(field) || !j[std::string(field)].is_number())
+    {
         return default_val;
     }
     auto val = j[std::string(field)].get<int>();
     // Clamp to valid direction range 0-7
-    if (val < 0) val = 0;
-    if (val > 7) val = 7;
+    if (val < 0)
+        val = 0;
+    if (val > 7)
+        val = 7;
     return static_cast<int16_t>(val);
 }
 
@@ -382,116 +392,136 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"item_upgrade_response", json_message_type::item_upgrade_response},
     {"activate_ability_request", json_message_type::activate_ability_request},
     {"activate_ability_response", json_message_type::activate_ability_response},
-    {"special_ability_status", json_message_type::special_ability_status}
-};
+    {"special_ability_status", json_message_type::special_ability_status}};
 
-}  // namespace
+} // namespace
 
-auto parse_message_type(std::string_view type_str) -> json_message_type {
+auto parse_message_type(std::string_view type_str) -> json_message_type
+{
     auto it = type_map.find(std::string(type_str));
-    if (it != type_map.end()) {
+    if (it != type_map.end())
+    {
         return it->second;
     }
     return json_message_type::unknown;
 }
 
-auto json_message::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"type", std::string(to_string(type))},
-        {"seq", seq},
-        {"data", data}
-    };
+auto json_message::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"type", std::string(to_string(type))}, {"seq", seq}, {"data", data}};
 }
 
-auto json_message::from_json(const nlohmann::json& j) -> result<json_message, std::string> {
-    try {
+auto json_message::from_json(const nlohmann::json& j) -> result<json_message, std::string>
+{
+    try
+    {
         json_message msg;
 
-        if (!j.contains("type") || !j["type"].is_string()) {
+        if (!j.contains("type") || !j["type"].is_string())
+        {
             return result<json_message, std::string>::err("Missing or invalid 'type' field");
         }
 
         msg.raw_type = j["type"].get<std::string>();
         msg.type = parse_message_type(msg.raw_type);
 
-        if (j.contains("seq")) {
-            if (j["seq"].is_number_unsigned()) {
+        if (j.contains("seq"))
+        {
+            if (j["seq"].is_number_unsigned())
+            {
                 msg.seq = j["seq"].get<uint32_t>();
-            } else if (j["seq"].is_number_integer()) {
+            }
+            else if (j["seq"].is_number_integer())
+            {
                 msg.seq = static_cast<uint32_t>(j["seq"].get<int>());
             }
         }
 
-        if (j.contains("data")) {
+        if (j.contains("data"))
+        {
             msg.data = j["data"];
         }
 
         return result<json_message, std::string>::ok(std::move(msg));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<json_message, std::string>::err(std::string("JSON parse error: ") + e.what());
     }
 }
 
-auto json_message::parse(std::string_view json_str) -> result<json_message, std::string> {
-    try {
+auto json_message::parse(std::string_view json_str) -> result<json_message, std::string>
+{
+    try
+    {
         auto j = nlohmann::json::parse(json_str);
         return from_json(j);
-    } catch (const nlohmann::json::parse_error& e) {
+    }
+    catch (const nlohmann::json::parse_error& e)
+    {
         return result<json_message, std::string>::err(std::string("JSON parse error: ") + e.what());
     }
 }
 
 // Request data parsers
 
-auto login_request_data::from_json(const nlohmann::json& j) -> result<login_request_data, std::string> {
-    try {
+auto login_request_data::from_json(const nlohmann::json& j) -> result<login_request_data, std::string>
+{
+    try
+    {
         login_request_data data;
 
-        if (!j.contains("username") || !j["username"].is_string()) {
+        if (!j.contains("username") || !j["username"].is_string())
+        {
             return result<login_request_data, std::string>::err("Missing or invalid 'username' field");
         }
         data.username = j["username"].get<std::string>();
 
         // Accept either password or forum_token (at least one required)
-        if (j.contains("password") && j["password"].is_string()) {
+        if (j.contains("password") && j["password"].is_string())
+        {
             data.password = j["password"].get<std::string>();
         }
-        if (j.contains("forum_token") && j["forum_token"].is_string()) {
+        if (j.contains("forum_token") && j["forum_token"].is_string())
+        {
             data.forum_token = j["forum_token"].get<std::string>();
         }
 
-        if (data.password.empty() && data.forum_token.empty()) {
-            return result<login_request_data, std::string>::err(
-                "Must provide either 'password' or 'forum_token'");
+        if (data.password.empty() && data.forum_token.empty())
+        {
+            return result<login_request_data, std::string>::err("Must provide either 'password' or 'forum_token'");
         }
 
         return result<login_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<login_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto create_account_request_data::from_json(const nlohmann::json& j)
-    -> result<create_account_request_data, std::string>
+auto create_account_request_data::from_json(const nlohmann::json& j) -> result<create_account_request_data, std::string>
 {
-    try {
+    try
+    {
         create_account_request_data data;
 
-        if (!j.contains("username") || !j["username"].is_string()) {
+        if (!j.contains("username") || !j["username"].is_string())
+        {
             return result<create_account_request_data, std::string>::err("Missing or invalid 'username' field");
         }
         data.username = j["username"].get<std::string>();
 
-        if (!j.contains("password") || !j["password"].is_string()) {
+        if (!j.contains("password") || !j["password"].is_string())
+        {
             return result<create_account_request_data, std::string>::err("Missing or invalid 'password' field");
         }
         data.password = j["password"].get<std::string>();
 
         return result<create_account_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<create_account_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
@@ -499,10 +529,12 @@ auto create_account_request_data::from_json(const nlohmann::json& j)
 auto create_character_request_data::from_json(const nlohmann::json& j)
     -> result<create_character_request_data, std::string>
 {
-    try {
+    try
+    {
         create_character_request_data data;
 
-        if (!j.contains("name") || !j["name"].is_string()) {
+        if (!j.contains("name") || !j["name"].is_string())
+        {
             return result<create_character_request_data, std::string>::err("Missing or invalid 'name' field");
         }
         data.name = j["name"].get<std::string>();
@@ -525,62 +557,67 @@ auto create_character_request_data::from_json(const nlohmann::json& j)
         data.charisma = safe_int16(j, "charisma", 10);
 
         return result<create_character_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<create_character_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto create_character_request_data::to_create_info() const -> auth::character_create_info {
-    return auth::character_create_info{
-        .name = name,
-        .class_type = class_type,
-        .nation = nation,
-        .gender = gender,
-        .hair_style = hair_style,
-        .hair_color = hair_color,
-        .skin_color = skin_color,
-        .underwear_color = underwear_color,
-        .strength = strength,
-        .dexterity = dexterity,
-        .vitality = vitality,
-        .intelligence = intelligence,
-        .magic = magic,
-        .charisma = charisma
-    };
+auto create_character_request_data::to_create_info() const -> auth::character_create_info
+{
+    return auth::character_create_info{.name = name,
+                                       .class_type = class_type,
+                                       .nation = nation,
+                                       .gender = gender,
+                                       .hair_style = hair_style,
+                                       .hair_color = hair_color,
+                                       .skin_color = skin_color,
+                                       .underwear_color = underwear_color,
+                                       .strength = strength,
+                                       .dexterity = dexterity,
+                                       .vitality = vitality,
+                                       .intelligence = intelligence,
+                                       .magic = magic,
+                                       .charisma = charisma};
 }
 
 auto delete_character_request_data::from_json(const nlohmann::json& j)
     -> result<delete_character_request_data, std::string>
 {
-    try {
+    try
+    {
         delete_character_request_data data;
 
-        if (!j.contains("character_id") || !j["character_id"].is_number()) {
+        if (!j.contains("character_id") || !j["character_id"].is_number())
+        {
             return result<delete_character_request_data, std::string>::err("Missing or invalid 'character_id' field");
         }
         data.character_id = j["character_id"].get<uint32_t>();
 
         return result<delete_character_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<delete_character_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto enter_game_request_data::from_json(const nlohmann::json& j)
-    -> result<enter_game_request_data, std::string>
+auto enter_game_request_data::from_json(const nlohmann::json& j) -> result<enter_game_request_data, std::string>
 {
-    try {
+    try
+    {
         enter_game_request_data data;
 
-        if (!j.contains("character_id") || !j["character_id"].is_number()) {
+        if (!j.contains("character_id") || !j["character_id"].is_number())
+        {
             return result<enter_game_request_data, std::string>::err("Missing or invalid 'character_id' field");
         }
         data.character_id = j["character_id"].get<uint32_t>();
 
         // Optional: force_disconnect to kick existing session
-        if (j.contains("force_disconnect") && j["force_disconnect"].is_boolean()) {
+        if (j.contains("force_disconnect") && j["force_disconnect"].is_boolean())
+        {
             data.force_disconnect = j["force_disconnect"].get<bool>();
         }
 
@@ -589,16 +626,17 @@ auto enter_game_request_data::from_json(const nlohmann::json& j)
         data.screen_height = safe_int16(j, "screen_height", 600);
 
         return result<enter_game_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<enter_game_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto set_view_range_request_data::from_json(const nlohmann::json& j)
-    -> result<set_view_range_request_data, std::string>
+auto set_view_range_request_data::from_json(const nlohmann::json& j) -> result<set_view_range_request_data, std::string>
 {
-    try {
+    try
+    {
         set_view_range_request_data data;
 
         // Use safe parsing with reasonable defaults
@@ -606,206 +644,253 @@ auto set_view_range_request_data::from_json(const nlohmann::json& j)
         data.screen_height = safe_int16(j, "screen_height", 600);
 
         return result<set_view_range_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<set_view_range_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto player_move_request_data::from_json(const nlohmann::json& j)
-    -> result<player_move_request_data, std::string>
+auto player_move_request_data::from_json(const nlohmann::json& j) -> result<player_move_request_data, std::string>
 {
-    try {
+    try
+    {
         player_move_request_data data;
 
         auto x_opt = safe_int16_required(j, "x");
-        if (!x_opt.has_value()) {
+        if (!x_opt.has_value())
+        {
             return result<player_move_request_data, std::string>::err("Missing or invalid 'x' field");
         }
         data.x = *x_opt;
 
         auto y_opt = safe_int16_required(j, "y");
-        if (!y_opt.has_value()) {
+        if (!y_opt.has_value())
+        {
             return result<player_move_request_data, std::string>::err("Missing or invalid 'y' field");
         }
         data.y = *y_opt;
 
         // Direction is required but clamped to 0-7
-        if (!j.contains("direction") || !j["direction"].is_number()) {
+        if (!j.contains("direction") || !j["direction"].is_number())
+        {
             return result<player_move_request_data, std::string>::err("Missing or invalid 'direction' field");
         }
         data.direction = safe_direction(j, "direction", 0);
 
-        if (j.contains("is_running") && j["is_running"].is_boolean()) {
+        if (j.contains("is_running") && j["is_running"].is_boolean())
+        {
             data.is_running = j["is_running"].get<bool>();
         }
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         // Optional mouse destination coordinates
-        if (j.contains("dest_x") && j["dest_x"].is_number()) {
+        if (j.contains("dest_x") && j["dest_x"].is_number())
+        {
             data.dest_x = safe_int16(j, "dest_x", 0);
         }
-        if (j.contains("dest_y") && j["dest_y"].is_number()) {
+        if (j.contains("dest_y") && j["dest_y"].is_number())
+        {
             data.dest_y = safe_int16(j, "dest_y", 0);
         }
 
         return result<player_move_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_move_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto player_stop_request_data::from_json(const nlohmann::json& j)
-    -> result<player_stop_request_data, std::string>
+auto player_stop_request_data::from_json(const nlohmann::json& j) -> result<player_stop_request_data, std::string>
 {
-    try {
+    try
+    {
         player_stop_request_data data;
 
         auto x_opt = safe_int16_required(j, "x");
-        if (!x_opt.has_value()) {
+        if (!x_opt.has_value())
+        {
             return result<player_stop_request_data, std::string>::err("Missing or invalid 'x' field");
         }
         data.x = *x_opt;
 
         auto y_opt = safe_int16_required(j, "y");
-        if (!y_opt.has_value()) {
+        if (!y_opt.has_value())
+        {
             return result<player_stop_request_data, std::string>::err("Missing or invalid 'y' field");
         }
         data.y = *y_opt;
 
         // Direction is optional but clamped to 0-7 if present
-        if (j.contains("direction") && j["direction"].is_number()) {
+        if (j.contains("direction") && j["direction"].is_number())
+        {
             data.direction = safe_direction(j, "direction", 0);
         }
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         return result<player_stop_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_stop_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-namespace {
-    auto parse_attack_type(const nlohmann::json& j) -> attack_type {
-        if (j.is_number()) {
-            auto val = j.get<int>();
-            if (val >= 0 && val <= 2) {
-                return static_cast<attack_type>(val);
-            }
-        } else if (j.is_string()) {
-            auto str = j.get<std::string>();
-            if (str == "regular") return attack_type::regular;
-            if (str == "dash") return attack_type::dash;
-            if (str == "ranged" || str == "super") return attack_type::ranged;
-        }
-        return attack_type::regular;
-    }
-
-    auto parse_target_type(const nlohmann::json& j) -> target_type {
-        if (j.is_number()) {
-            auto val = j.get<int>();
-            if (val >= 0 && val <= 4) {
-                return static_cast<target_type>(val);
-            }
-        } else if (j.is_string()) {
-            auto str = j.get<std::string>();
-            if (str == "none") return target_type::none;
-            if (str == "player") return target_type::player;
-            if (str == "npc") return target_type::npc;
-            if (str == "ground") return target_type::ground;
-            if (str == "item") return target_type::item;
-        }
-        return target_type::none;
-    }
-}  // namespace
-
-auto player_attack_request_data::from_json(const nlohmann::json& j)
-    -> result<player_attack_request_data, std::string>
+namespace
 {
-    try {
+auto parse_attack_type(const nlohmann::json& j) -> attack_type
+{
+    if (j.is_number())
+    {
+        auto val = j.get<int>();
+        if (val >= 0 && val <= 2)
+        {
+            return static_cast<attack_type>(val);
+        }
+    }
+    else if (j.is_string())
+    {
+        auto str = j.get<std::string>();
+        if (str == "regular")
+            return attack_type::regular;
+        if (str == "dash")
+            return attack_type::dash;
+        if (str == "ranged" || str == "super")
+            return attack_type::ranged;
+    }
+    return attack_type::regular;
+}
+
+auto parse_target_type(const nlohmann::json& j) -> target_type
+{
+    if (j.is_number())
+    {
+        auto val = j.get<int>();
+        if (val >= 0 && val <= 4)
+        {
+            return static_cast<target_type>(val);
+        }
+    }
+    else if (j.is_string())
+    {
+        auto str = j.get<std::string>();
+        if (str == "none")
+            return target_type::none;
+        if (str == "player")
+            return target_type::player;
+        if (str == "npc")
+            return target_type::npc;
+        if (str == "ground")
+            return target_type::ground;
+        if (str == "item")
+            return target_type::item;
+    }
+    return target_type::none;
+}
+} // namespace
+
+auto player_attack_request_data::from_json(const nlohmann::json& j) -> result<player_attack_request_data, std::string>
+{
+    try
+    {
         player_attack_request_data data;
 
         auto x_opt = safe_int16_required(j, "x");
-        if (!x_opt.has_value()) {
+        if (!x_opt.has_value())
+        {
             return result<player_attack_request_data, std::string>::err("Missing or invalid 'x' field");
         }
         data.x = *x_opt;
 
         auto y_opt = safe_int16_required(j, "y");
-        if (!y_opt.has_value()) {
+        if (!y_opt.has_value())
+        {
             return result<player_attack_request_data, std::string>::err("Missing or invalid 'y' field");
         }
         data.y = *y_opt;
 
         // Direction is optional but clamped to 0-7
-        if (j.contains("direction") && j["direction"].is_number()) {
+        if (j.contains("direction") && j["direction"].is_number())
+        {
             data.direction = safe_direction(j, "direction", 0);
         }
 
-        if (j.contains("attack_type")) {
+        if (j.contains("attack_type"))
+        {
             data.type = parse_attack_type(j["attack_type"]);
         }
 
-        if (j.contains("target_type")) {
+        if (j.contains("target_type"))
+        {
             data.tgt_type = parse_target_type(j["target_type"]);
         }
 
-        if (j.contains("target_id") && j["target_id"].is_number()) {
+        if (j.contains("target_id") && j["target_id"].is_number())
+        {
             data.target_id = j["target_id"].get<uint32_t>();
         }
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         return result<player_attack_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_attack_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto player_magic_request_data::from_json(const nlohmann::json& j)
-    -> result<player_magic_request_data, std::string>
+auto player_magic_request_data::from_json(const nlohmann::json& j) -> result<player_magic_request_data, std::string>
 {
-    try {
+    try
+    {
         player_magic_request_data data;
 
         auto x_opt = safe_int16_required(j, "x");
-        if (!x_opt.has_value()) {
+        if (!x_opt.has_value())
+        {
             return result<player_magic_request_data, std::string>::err("Missing or invalid 'x' field");
         }
         data.x = *x_opt;
 
         auto y_opt = safe_int16_required(j, "y");
-        if (!y_opt.has_value()) {
+        if (!y_opt.has_value())
+        {
             return result<player_magic_request_data, std::string>::err("Missing or invalid 'y' field");
         }
         data.y = *y_opt;
 
         // Direction is optional but clamped to 0-7
-        if (j.contains("direction") && j["direction"].is_number()) {
+        if (j.contains("direction") && j["direction"].is_number())
+        {
             data.direction = safe_direction(j, "direction", 0);
         }
 
-        if (!j.contains("spell_id") || !j["spell_id"].is_number()) {
+        if (!j.contains("spell_id") || !j["spell_id"].is_number())
+        {
             return result<player_magic_request_data, std::string>::err("Missing or invalid 'spell_id' field");
         }
         data.spell_id = j["spell_id"].get<uint32_t>();
 
-        if (j.contains("target_type")) {
+        if (j.contains("target_type"))
+        {
             data.tgt_type = parse_target_type(j["target_type"]);
         }
 
-        if (j.contains("target_id") && j["target_id"].is_number()) {
+        if (j.contains("target_id") && j["target_id"].is_number())
+        {
             data.target_id = j["target_id"].get<uint32_t>();
         }
 
@@ -813,94 +898,109 @@ auto player_magic_request_data::from_json(const nlohmann::json& j)
         data.target_x = safe_int16(j, "target_x", 0);
         data.target_y = safe_int16(j, "target_y", 0);
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         return result<player_magic_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_magic_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto player_skill_request_data::from_json(const nlohmann::json& j)
-    -> result<player_skill_request_data, std::string>
+auto player_skill_request_data::from_json(const nlohmann::json& j) -> result<player_skill_request_data, std::string>
 {
-    try {
+    try
+    {
         player_skill_request_data data;
 
         auto x_opt = safe_int16_required(j, "x");
-        if (!x_opt.has_value()) {
+        if (!x_opt.has_value())
+        {
             return result<player_skill_request_data, std::string>::err("Missing or invalid 'x' field");
         }
         data.x = *x_opt;
 
         auto y_opt = safe_int16_required(j, "y");
-        if (!y_opt.has_value()) {
+        if (!y_opt.has_value())
+        {
             return result<player_skill_request_data, std::string>::err("Missing or invalid 'y' field");
         }
         data.y = *y_opt;
 
         // Direction is optional but clamped to 0-7
-        if (j.contains("direction") && j["direction"].is_number()) {
+        if (j.contains("direction") && j["direction"].is_number())
+        {
             data.direction = safe_direction(j, "direction", 0);
         }
 
-        if (!j.contains("skill_id") || !j["skill_id"].is_number()) {
+        if (!j.contains("skill_id") || !j["skill_id"].is_number())
+        {
             return result<player_skill_request_data, std::string>::err("Missing or invalid 'skill_id' field");
         }
         data.skill_id = j["skill_id"].get<uint32_t>();
 
-        if (j.contains("target_type")) {
+        if (j.contains("target_type"))
+        {
             data.tgt_type = parse_target_type(j["target_type"]);
         }
 
-        if (j.contains("target_id") && j["target_id"].is_number()) {
+        if (j.contains("target_id") && j["target_id"].is_number())
+        {
             data.target_id = j["target_id"].get<uint32_t>();
         }
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         return result<player_skill_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_skill_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto player_pickup_request_data::from_json(const nlohmann::json& j)
-    -> result<player_pickup_request_data, std::string>
+auto player_pickup_request_data::from_json(const nlohmann::json& j) -> result<player_pickup_request_data, std::string>
 {
-    try {
+    try
+    {
         player_pickup_request_data data;
 
         auto x_opt = safe_int16_required(j, "x");
-        if (!x_opt.has_value()) {
+        if (!x_opt.has_value())
+        {
             return result<player_pickup_request_data, std::string>::err("Missing or invalid 'x' field");
         }
         data.x = *x_opt;
 
         auto y_opt = safe_int16_required(j, "y");
-        if (!y_opt.has_value()) {
+        if (!y_opt.has_value())
+        {
             return result<player_pickup_request_data, std::string>::err("Missing or invalid 'y' field");
         }
         data.y = *y_opt;
 
-        if (!j.contains("item_id") || !j["item_id"].is_number()) {
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
             return result<player_pickup_request_data, std::string>::err("Missing or invalid 'item_id' field");
         }
         data.item_id = j["item_id"].get<uint32_t>();
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         return result<player_pickup_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_pickup_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
@@ -908,74 +1008,87 @@ auto player_pickup_request_data::from_json(const nlohmann::json& j)
 auto player_interact_request_data::from_json(const nlohmann::json& j)
     -> result<player_interact_request_data, std::string>
 {
-    try {
+    try
+    {
         player_interact_request_data data;
 
         auto x_opt = safe_int16_required(j, "x");
-        if (!x_opt.has_value()) {
+        if (!x_opt.has_value())
+        {
             return result<player_interact_request_data, std::string>::err("Missing or invalid 'x' field");
         }
         data.x = *x_opt;
 
         auto y_opt = safe_int16_required(j, "y");
-        if (!y_opt.has_value()) {
+        if (!y_opt.has_value())
+        {
             return result<player_interact_request_data, std::string>::err("Missing or invalid 'y' field");
         }
         data.y = *y_opt;
 
-        if (j.contains("target_type")) {
+        if (j.contains("target_type"))
+        {
             data.tgt_type = parse_target_type(j["target_type"]);
         }
 
-        if (!j.contains("target_id") || !j["target_id"].is_number()) {
+        if (!j.contains("target_id") || !j["target_id"].is_number())
+        {
             return result<player_interact_request_data, std::string>::err("Missing or invalid 'target_id' field");
         }
         data.target_id = j["target_id"].get<uint32_t>();
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         return result<player_interact_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_interact_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto chat_message_request_data::from_json(const nlohmann::json& j)
-    -> result<chat_message_request_data, std::string>
+auto chat_message_request_data::from_json(const nlohmann::json& j) -> result<chat_message_request_data, std::string>
 {
-    try {
+    try
+    {
         chat_message_request_data data;
 
-        if (!j.contains("content") || !j["content"].is_string()) {
+        if (!j.contains("content") || !j["content"].is_string())
+        {
             return result<chat_message_request_data, std::string>::err("Missing or invalid 'content' field");
         }
         data.content = j["content"].get<std::string>();
 
         // Optional explicit channel override
-        if (j.contains("channel") && j["channel"].is_string()) {
+        if (j.contains("channel") && j["channel"].is_string())
+        {
             data.channel = j["channel"].get<std::string>();
         }
 
         // Optional recipient for whispers
-        if (j.contains("recipient") && j["recipient"].is_string()) {
+        if (j.contains("recipient") && j["recipient"].is_string())
+        {
             data.recipient_name = j["recipient"].get<std::string>();
         }
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         return result<chat_message_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<chat_message_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto chat_message_broadcast_data::to_json() const -> nlohmann::json {
+auto chat_message_broadcast_data::to_json() const -> nlohmann::json
+{
     nlohmann::json data;
     data["channel"] = channel;
     data["sender_id"] = sender_id;
@@ -983,34 +1096,42 @@ auto chat_message_broadcast_data::to_json() const -> nlohmann::json {
     data["content"] = content;
     data["timestamp"] = timestamp;
 
-    if (!flags.empty()) {
+    if (!flags.empty())
+    {
         data["flags"] = flags;
     }
 
-    if (recipient_name.has_value()) {
+    if (recipient_name.has_value())
+    {
         data["recipient_name"] = *recipient_name;
     }
 
     return data;
 }
 
-auto command_request_data::from_json(const nlohmann::json& j)
-    -> result<command_request_data, std::string>
+auto command_request_data::from_json(const nlohmann::json& j) -> result<command_request_data, std::string>
 {
-    try {
+    try
+    {
         command_request_data data;
 
-        if (!j.contains("command") || !j["command"].is_string()) {
+        if (!j.contains("command") || !j["command"].is_string())
+        {
             return result<command_request_data, std::string>::err("Missing or invalid 'command' field");
         }
         data.command = j["command"].get<std::string>();
 
         // Optional args array
-        if (j.contains("args") && j["args"].is_array()) {
-            for (const auto& arg : j["args"]) {
-                if (arg.is_string()) {
+        if (j.contains("args") && j["args"].is_array())
+        {
+            for (const auto& arg : j["args"])
+            {
+                if (arg.is_string())
+                {
                     data.args.push_back(arg.get<std::string>());
-                } else {
+                }
+                else
+                {
                     // Convert non-string args to string
                     data.args.push_back(arg.dump());
                 }
@@ -1018,28 +1139,33 @@ auto command_request_data::from_json(const nlohmann::json& j)
         }
 
         // Optional named params object
-        if (j.contains("params") && j["params"].is_object()) {
+        if (j.contains("params") && j["params"].is_object())
+        {
             data.params = j["params"];
         }
 
-        if (j.contains("timestamp") && j["timestamp"].is_number()) {
+        if (j.contains("timestamp") && j["timestamp"].is_number())
+        {
             data.timestamp = j["timestamp"].get<uint64_t>();
         }
 
         return result<command_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<command_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto command_response_data::to_json() const -> nlohmann::json {
+auto command_response_data::to_json() const -> nlohmann::json
+{
     nlohmann::json data;
     data["success"] = success;
     data["command"] = command;
     data["message"] = message;
 
-    if (!result.is_null()) {
+    if (!result.is_null())
+    {
         data["result"] = result;
     }
 
@@ -1048,88 +1174,88 @@ auto command_response_data::to_json() const -> nlohmann::json {
 
 // Message data to_json implementations
 
-auto character_data_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"id", id},
-        {"name", name},
-        {"level", level},
-        {"class_type", class_type},
-        {"nation", nation},
-        {"gender", gender},
-        {"map_name", map_name},
-        {"pos_x", pos_x},
-        {"pos_y", pos_y},
-        {"hp", hp},
-        {"hp_max", hp_max},
-        {"mp", mp},
-        {"mp_max", mp_max},
-        {"sp", sp},
-        {"sp_max", sp_max},
-        {"gold", gold},
-        {"str", str},
-        {"dex", dex},
-        {"vit", vit},
-        {"int", int_},
-        {"mag", mag},
-        {"cha", cha},
-        {"hair_style", hair_style},
-        {"hair_color", hair_color},
-        {"skin_color", skin_color},
-        {"experience", experience},
-        {"pk_count", pk_count},
-        {"hunger_level", hunger_level},
-        {"guild_name", guild_name},
-        {"guild_tag", guild_tag},
-        {"guild_rank", guild_rank}
-    };
+auto character_data_msg::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"id", id},
+                          {"name", name},
+                          {"level", level},
+                          {"class_type", class_type},
+                          {"nation", nation},
+                          {"gender", gender},
+                          {"map_name", map_name},
+                          {"pos_x", pos_x},
+                          {"pos_y", pos_y},
+                          {"hp", hp},
+                          {"hp_max", hp_max},
+                          {"mp", mp},
+                          {"mp_max", mp_max},
+                          {"sp", sp},
+                          {"sp_max", sp_max},
+                          {"gold", gold},
+                          {"str", str},
+                          {"dex", dex},
+                          {"vit", vit},
+                          {"int", int_},
+                          {"mag", mag},
+                          {"cha", cha},
+                          {"hair_style", hair_style},
+                          {"hair_color", hair_color},
+                          {"skin_color", skin_color},
+                          {"experience", experience},
+                          {"pk_count", pk_count},
+                          {"hunger_level", hunger_level},
+                          {"guild_name", guild_name},
+                          {"guild_tag", guild_tag},
+                          {"guild_rank", guild_rank}};
 }
 
-auto inventory_item_msg::to_json() const -> nlohmann::json {
-    auto j = nlohmann::json{
-        {"slot", slot},
-        {"item_id", item_id},
-        {"name", name},
-        {"count", count},
-        {"durability", durability},
-        {"max_durability", max_durability}
-    };
-    if (!attribute.is_empty()) {
+auto inventory_item_msg::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"slot", slot},
+                            {"item_id", item_id},
+                            {"name", name},
+                            {"count", count},
+                            {"durability", durability},
+                            {"max_durability", max_durability}};
+    if (!attribute.is_empty())
+    {
         j["attribute"] = attribute.to_json();
     }
     return j;
 }
 
-auto equipment_item_msg::to_json() const -> nlohmann::json {
-    auto j = nlohmann::json{
-        {"slot", slot},
-        {"item_id", item_id},
-        {"name", name},
-        {"durability", durability},
-        {"max_durability", max_durability}
-    };
-    if (!attribute.is_empty()) {
+auto equipment_item_msg::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"slot", slot},
+                            {"item_id", item_id},
+                            {"name", name},
+                            {"durability", durability},
+                            {"max_durability", max_durability}};
+    if (!attribute.is_empty())
+    {
         j["attribute"] = attribute.to_json();
     }
     return j;
 }
 
-auto visible_entity_msg::to_json() const -> nlohmann::json {
-    auto j = nlohmann::json{
-        {"entity_id", entity_id},
-        {"type", type},
-        {"name", name},
-        {"x", x},
-        {"y", y},
-        {"hp_percent", hp_percent},
-        {"direction", direction}
-    };
+auto visible_entity_msg::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"entity_id", entity_id},
+                            {"type", type},
+                            {"name", name},
+                            {"x", x},
+                            {"y", y},
+                            {"hp_percent", hp_percent},
+                            {"direction", direction}};
 
-    if (type == "player") {
+    if (type == "player")
+    {
         j["faction"] = faction;
         j["hostility"] = hostility;
         j["pk_status"] = pk_status;
         j["combat_mode"] = combat_mode;
-        if (!guild_name.empty()) {
+        if (!guild_name.empty())
+        {
             j["guild_name"] = guild_name;
             j["guild_tag"] = guild_tag;
         }
@@ -1143,49 +1269,53 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
         j["level"] = player_level;
 
         // Equipment visuals
-        auto equip_to_json = [](const equip_visual_msg& v) -> nlohmann::json {
+        auto equip_to_json = [](const equip_visual_msg& v) -> nlohmann::json
+        {
             nlohmann::json ej;
             ej["appr"] = v.appr;
             ej["color"] = v.color;
-            if (!v.name.empty()) ej["name"] = v.name;
-            if (!v.rarity.empty()) ej["rarity"] = v.rarity;
+            if (!v.name.empty())
+                ej["name"] = v.name;
+            if (!v.rarity.empty())
+                ej["rarity"] = v.rarity;
             return ej;
         };
 
-        j["equipment"] = nlohmann::json{
-            {"weapon", equip_to_json(weapon_visual)},
-            {"shield", equip_to_json(shield_visual)},
-            {"body", equip_to_json(body_visual)},
-            {"pants", equip_to_json(pants_visual)},
-            {"head", equip_to_json(head_visual)},
-            {"arms", equip_to_json(arms_visual)},
-            {"boots", equip_to_json(boots_visual)},
-            {"cape", equip_to_json(cape_visual)}
-        };
+        j["equipment"] = nlohmann::json{{"weapon", equip_to_json(weapon_visual)},
+                                        {"shield", equip_to_json(shield_visual)},
+                                        {"body", equip_to_json(body_visual)},
+                                        {"pants", equip_to_json(pants_visual)},
+                                        {"head", equip_to_json(head_visual)},
+                                        {"arms", equip_to_json(arms_visual)},
+                                        {"boots", equip_to_json(boots_visual)},
+                                        {"cape", equip_to_json(cape_visual)}};
 
         j["weapon_glow"] = weapon_glow;
         j["shield_glow"] = shield_glow;
         j["weapon_speed"] = weapon_speed;
 
         // Status effects
-        if (!status_effects.empty()) {
+        if (!status_effects.empty())
+        {
             j["status_effects"] = status_effects;
         }
 
         // Active buffs
-        if (!active_buffs.empty()) {
+        if (!active_buffs.empty())
+        {
             auto buffs = nlohmann::json::array();
-            for (const auto& b : active_buffs) {
-                buffs.push_back(nlohmann::json{
-                    {"type", b.type},
-                    {"spell_id", b.spell_id},
-                    {"magnitude", b.magnitude},
-                    {"remaining_ms", b.remaining_ms}
-                });
+            for (const auto& b : active_buffs)
+            {
+                buffs.push_back(nlohmann::json{{"type", b.type},
+                                               {"spell_id", b.spell_id},
+                                               {"magnitude", b.magnitude},
+                                               {"remaining_ms", b.remaining_ms}});
             }
             j["active_buffs"] = buffs;
         }
-    } else if (type == "npc") {
+    }
+    else if (type == "npc")
+    {
         j["template_id"] = template_id;
         j["sprite_id"] = sprite_id;
         j["level"] = level;
@@ -1193,184 +1323,169 @@ auto visible_entity_msg::to_json() const -> nlohmann::json {
         j["hostility"] = hostility;
     }
 
-    if (is_dead) {
+    if (is_dead)
+    {
         j["is_dead"] = true;
     }
 
     return j;
 }
 
-auto attack_result_msg::to_json() const -> nlohmann::json {
-    auto j = nlohmann::json{
-        {"hit", hit},
-        {"critical", critical},
-        {"damage", damage},
-        {"target_id", target_id},
-        {"target_hp", target_hp},
-        {"target_hp_max", target_hp_max},
-        {"attacker_x", attacker_x},
-        {"attacker_y", attacker_y}
-    };
-    if (is_ranged) {
+auto attack_result_msg::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"hit", hit},
+                            {"critical", critical},
+                            {"damage", damage},
+                            {"target_id", target_id},
+                            {"target_hp", target_hp},
+                            {"target_hp_max", target_hp_max},
+                            {"attacker_x", attacker_x},
+                            {"attacker_y", attacker_y}};
+    if (is_ranged)
+    {
         j["is_ranged"] = true;
-        if (ammo_count >= 0) {
+        if (ammo_count >= 0)
+        {
             j["ammo_count"] = ammo_count;
         }
-        if (ammo_template_id > 0) {
+        if (ammo_template_id > 0)
+        {
             j["ammo_template_id"] = ammo_template_id;
         }
     }
     return j;
 }
 
-auto magic_result_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"success", success},
-        {"spell_id", spell_id},
-        {"mana_cost", mana_cost},
-        {"damage", damage},
-        {"heal", heal},
-        {"target_id", target_id},
-        {"caster_mp", caster_mp}
-    };
+auto magic_result_msg::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"success", success},
+                          {"spell_id", spell_id},
+                          {"mana_cost", mana_cost},
+                          {"damage", damage},
+                          {"heal", heal},
+                          {"target_id", target_id},
+                          {"caster_mp", caster_mp}};
 }
 
-auto skill_result_msg::to_json() const -> nlohmann::json {
+auto skill_result_msg::to_json() const -> nlohmann::json
+{
     return nlohmann::json{
-        {"success", success},
-        {"skill_id", skill_id},
-        {"effect_value", effect_value},
-        {"target_id", target_id}
-    };
+        {"success", success}, {"skill_id", skill_id}, {"effect_value", effect_value}, {"target_id", target_id}};
 }
 
-auto pickup_result_msg::to_json() const -> nlohmann::json {
-    nlohmann::json j{
-        {"success", success},
-        {"item_id", item_id},
-        {"item_name", item_name},
-        {"quantity", quantity},
-        {"inventory_slot", inventory_slot}
-    };
-    if (!attribute.is_empty()) {
+auto pickup_result_msg::to_json() const -> nlohmann::json
+{
+    nlohmann::json j{{"success", success},
+                     {"item_id", item_id},
+                     {"item_name", item_name},
+                     {"quantity", quantity},
+                     {"inventory_slot", inventory_slot}};
+    if (!attribute.is_empty())
+    {
         j["attribute"] = attribute.to_json();
     }
     return j;
 }
 
-auto interact_result_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"success", success},
-        {"target_id", target_id},
-        {"interaction_type", interaction_type},
-        {"interaction_data", interaction_data}
-    };
+auto interact_result_msg::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"success", success},
+                          {"target_id", target_id},
+                          {"interaction_type", interaction_type},
+                          {"interaction_data", interaction_data}};
 }
 
-auto teleporter_info_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"id", id},
-        {"x", x},
-        {"y", y},
-        {"dest_map", dest_map},
-        {"dest_x", dest_x},
-        {"dest_y", dest_y},
-        {"dest_dir", dest_dir}
-    };
+auto teleporter_info_msg::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"id", id},
+                          {"x", x},
+                          {"y", y},
+                          {"dest_map", dest_map},
+                          {"dest_x", dest_x},
+                          {"dest_y", dest_y},
+                          {"dest_dir", dest_dir}};
 }
 
-auto map_teleporters_msg::to_json() const -> nlohmann::json {
+auto map_teleporters_msg::to_json() const -> nlohmann::json
+{
     nlohmann::json teleporters_json = nlohmann::json::array();
-    for (const auto& tp : teleporters) {
+    for (const auto& tp : teleporters)
+    {
         teleporters_json.push_back(tp.to_json());
     }
 
-    return nlohmann::json{
-        {"map_name", map_name},
-        {"teleporters", std::move(teleporters_json)}
-    };
+    return nlohmann::json{{"map_name", map_name}, {"teleporters", std::move(teleporters_json)}};
 }
 
-auto teleporter_update_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"action", action},
-        {"map_name", map_name},
-        {"teleporter", teleporter.to_json()}
-    };
+auto teleporter_update_msg::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"action", action}, {"map_name", map_name}, {"teleporter", teleporter.to_json()}};
 }
 
-auto player_teleport_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"dest_map", dest_map},
-        {"dest_x", dest_x},
-        {"dest_y", dest_y},
-        {"dest_dir", dest_dir}
-    };
+auto player_teleport_msg::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"dest_map", dest_map}, {"dest_x", dest_x}, {"dest_y", dest_y}, {"dest_dir", dest_dir}};
 }
 
-auto known_spell_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"spell_id", spell_id},
-        {"level", level},
-        {"total_casts", total_casts}
-    };
+auto known_spell_msg::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"spell_id", spell_id}, {"level", level}, {"total_casts", total_casts}};
 }
 
-auto quest_objective_msg::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"id", id},
-        {"status", status},
-        {"current", current},
-        {"required", required}
-    };
+auto quest_objective_msg::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"id", id}, {"status", status}, {"current", current}, {"required", required}};
 }
 
-auto active_quest_msg::to_json() const -> nlohmann::json {
+auto active_quest_msg::to_json() const -> nlohmann::json
+{
     nlohmann::json obj_json = nlohmann::json::array();
-    for (const auto& obj : objectives) {
+    for (const auto& obj : objectives)
+    {
         obj_json.push_back(obj.to_json());
     }
-    return nlohmann::json{
-        {"quest_id", quest_id},
-        {"status", status},
-        {"objectives", std::move(obj_json)}
-    };
+    return nlohmann::json{{"quest_id", quest_id}, {"status", status}, {"objectives", std::move(obj_json)}};
 }
 
-auto game_state_msg::to_json() const -> nlohmann::json {
+auto game_state_msg::to_json() const -> nlohmann::json
+{
     nlohmann::json inv_json = nlohmann::json::array();
-    for (const auto& item : inventory) {
+    for (const auto& item : inventory)
+    {
         inv_json.push_back(item.to_json());
     }
 
     nlohmann::json equip_json = nlohmann::json::array();
-    for (const auto& item : equipment) {
+    for (const auto& item : equipment)
+    {
         equip_json.push_back(item.to_json());
     }
 
     nlohmann::json skills_json = nlohmann::json::array();
-    for (const auto& s : skills) {
-        skills_json.push_back({
-            {"skill_id", s.skill_id},
-            {"level", s.level},
-            {"total_uses", s.total_uses},
-            {"uses_this_level", s.uses_this_level},
-            {"uses_to_next_level", s.uses_to_next_level}
-        });
+    for (const auto& s : skills)
+    {
+        skills_json.push_back({{"skill_id", s.skill_id},
+                               {"level", s.level},
+                               {"total_uses", s.total_uses},
+                               {"uses_this_level", s.uses_this_level},
+                               {"uses_to_next_level", s.uses_to_next_level}});
     }
 
     nlohmann::json spells_json = nlohmann::json::array();
-    for (const auto& spell : spells) {
+    for (const auto& spell : spells)
+    {
         spells_json.push_back(spell.to_json());
     }
 
     nlohmann::json quests_json = nlohmann::json::array();
-    for (const auto& quest : quests) {
+    for (const auto& quest : quests)
+    {
         quests_json.push_back(quest.to_json());
     }
 
     nlohmann::json completed_json = nlohmann::json::array();
-    for (const auto& qid : completed_quests) {
+    for (const auto& qid : completed_quests)
+    {
         completed_json.push_back(qid);
     }
 
@@ -1381,672 +1496,580 @@ auto game_state_msg::to_json() const -> nlohmann::json {
         {"skills", std::move(skills_json)},
         {"spells", std::move(spells_json)},
         {"quests", {{"active", std::move(quests_json)}, {"completed", std::move(completed_json)}}},
-        {"world", {
-            {"environment", {
-                {"hour", time_hour},
-                {"minute", time_minute},
-                {"is_day", is_day},
-                {"weather", weather}
-            }}
-        }}
-    };
+        {"world",
+         {{"environment", {{"hour", time_hour}, {"minute", time_minute}, {"is_day", is_day}, {"weather", weather}}}}}};
 }
 
 // Response builders
 
-auto make_error_response(uint32_t seq, std::string_view error_code,
-                          std::string_view message) -> json_message
+auto make_error_response(uint32_t seq, std::string_view error_code, std::string_view message) -> json_message
 {
-    return json_message{
-        .type = json_message_type::error,
-        .seq = seq,
-        .data = nlohmann::json{
-            {"error_code", std::string(error_code)},
-            {"message", std::string(message)}
-        }
-    };
+    return json_message{.type = json_message_type::error,
+                        .seq = seq,
+                        .data =
+                            nlohmann::json{{"error_code", std::string(error_code)}, {"message", std::string(message)}}};
 }
 
-auto make_login_response(uint32_t seq, bool success,
-                          std::optional<std::string_view> token,
-                          std::optional<std::string_view> error,
-                          std::optional<std::string_view> forum_token) -> json_message
+auto make_login_response(uint32_t seq,
+                         bool success,
+                         std::optional<std::string_view> token,
+                         std::optional<std::string_view> error,
+                         std::optional<std::string_view> forum_token) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success && token.has_value()) {
+    if (success && token.has_value())
+    {
         data["session_token"] = std::string(*token);
     }
 
-    if (success && forum_token.has_value() && !forum_token->empty()) {
+    if (success && forum_token.has_value() && !forum_token->empty())
+    {
         data["forum_token"] = std::string(*forum_token);
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::login_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::login_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_create_account_response(uint32_t seq, bool success,
-                                    std::optional<uint32_t> account_id,
+auto make_create_account_response(uint32_t seq,
+                                  bool success,
+                                  std::optional<uint32_t> account_id,
+                                  std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+
+    if (success && account_id.has_value())
+    {
+        data["account_id"] = *account_id;
+    }
+
+    if (!success && error.has_value())
+    {
+        data["error"] = std::string(*error);
+    }
+
+    return json_message{.type = json_message_type::create_account_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_logout_response(uint32_t seq, bool success) -> json_message
+{
+    return json_message{
+        .type = json_message_type::logout_response, .seq = seq, .data = nlohmann::json{{"success", success}}};
+}
+
+auto make_get_characters_response(uint32_t seq, const std::vector<auth::character_summary>& characters) -> json_message
+{
+    nlohmann::json chars_json = nlohmann::json::array();
+
+    for (const auto& ch : characters)
+    {
+        chars_json.push_back({{"id", ch.id.value},
+                              {"name", ch.name},
+                              {"level", ch.level},
+                              {"class_type", ch.class_type},
+                              {"nation", ch.nation},
+                              {"gender", ch.gender},
+                              {"map_name", ch.map_name},
+                              {"experience", ch.experience},
+                              {"hair_style", ch.hair_style},
+                              {"hair_color", ch.hair_color},
+                              {"skin_color", ch.skin_color}});
+    }
+
+    return json_message{.type = json_message_type::get_characters_response,
+                        .seq = seq,
+                        .data = nlohmann::json{{"success", true}, {"characters", std::move(chars_json)}}};
+}
+
+auto make_create_character_response(uint32_t seq,
+                                    bool success,
+                                    std::optional<uint32_t> character_id,
                                     std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success && account_id.has_value()) {
-        data["account_id"] = *account_id;
-    }
-
-    if (!success && error.has_value()) {
-        data["error"] = std::string(*error);
-    }
-
-    return json_message{
-        .type = json_message_type::create_account_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
-}
-
-auto make_logout_response(uint32_t seq, bool success) -> json_message {
-    return json_message{
-        .type = json_message_type::logout_response,
-        .seq = seq,
-        .data = nlohmann::json{{"success", success}}
-    };
-}
-
-auto make_get_characters_response(uint32_t seq,
-                                    const std::vector<auth::character_summary>& characters) -> json_message
-{
-    nlohmann::json chars_json = nlohmann::json::array();
-
-    for (const auto& ch : characters) {
-        chars_json.push_back({
-            {"id", ch.id.value},
-            {"name", ch.name},
-            {"level", ch.level},
-            {"class_type", ch.class_type},
-            {"nation", ch.nation},
-            {"gender", ch.gender},
-            {"map_name", ch.map_name},
-            {"experience", ch.experience},
-            {"hair_style", ch.hair_style},
-            {"hair_color", ch.hair_color},
-            {"skin_color", ch.skin_color}
-        });
-    }
-
-    return json_message{
-        .type = json_message_type::get_characters_response,
-        .seq = seq,
-        .data = nlohmann::json{
-            {"success", true},
-            {"characters", std::move(chars_json)}
-        }
-    };
-}
-
-auto make_create_character_response(uint32_t seq, bool success,
-                                      std::optional<uint32_t> character_id,
-                                      std::optional<std::string_view> error) -> json_message
-{
-    nlohmann::json data;
-    data["success"] = success;
-
-    if (success && character_id.has_value()) {
+    if (success && character_id.has_value())
+    {
         data["character_id"] = *character_id;
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::create_character_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::create_character_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_delete_character_response(uint32_t seq, bool success,
-                                      std::optional<std::string_view> error) -> json_message
+auto make_delete_character_response(uint32_t seq, bool success, std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::delete_character_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::delete_character_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_enter_game_response(uint32_t seq, bool success,
-                               const game_state_msg* game_state,
-                               std::optional<std::string_view> error) -> json_message
+auto make_enter_game_response(uint32_t seq,
+                              bool success,
+                              const game_state_msg* game_state,
+                              std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success && game_state != nullptr) {
+    if (success && game_state != nullptr)
+    {
         auto state_json = game_state->to_json();
         // Merge game state into data (character, inventory, equipment, skills, world)
-        for (auto& [key, value] : state_json.items()) {
+        for (auto& [key, value] : state_json.items())
+        {
             data[key] = std::move(value);
         }
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::enter_game_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::enter_game_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_inventory_data(uint32_t seq,
-                          const std::vector<inventory_item_msg>& items,
-                          int32_t gold) -> json_message
+auto make_inventory_data(uint32_t seq, const std::vector<inventory_item_msg>& items, int32_t gold) -> json_message
 {
     nlohmann::json items_json = nlohmann::json::array();
-    for (const auto& item : items) {
+    for (const auto& item : items)
+    {
         items_json.push_back(item.to_json());
     }
 
-    return json_message{
-        .type = json_message_type::inventory_data,
-        .seq = seq,
-        .data = nlohmann::json{
-            {"items", std::move(items_json)},
-            {"gold", gold}
-        }
-    };
+    return json_message{.type = json_message_type::inventory_data,
+                        .seq = seq,
+                        .data = nlohmann::json{{"items", std::move(items_json)}, {"gold", gold}}};
 }
 
-auto make_equipment_data(uint32_t seq,
-                          const std::vector<equipment_item_msg>& equipped) -> json_message
+auto make_equipment_data(uint32_t seq, const std::vector<equipment_item_msg>& equipped) -> json_message
 {
     nlohmann::json items_json = nlohmann::json::array();
-    for (const auto& item : equipped) {
+    for (const auto& item : equipped)
+    {
         items_json.push_back(item.to_json());
     }
 
-    return json_message{
-        .type = json_message_type::equipment_data,
-        .seq = seq,
-        .data = nlohmann::json{
-            {"equipment", std::move(items_json)}
-        }
-    };
+    return json_message{.type = json_message_type::equipment_data,
+                        .seq = seq,
+                        .data = nlohmann::json{{"equipment", std::move(items_json)}}};
 }
 
-auto make_skills_data(uint32_t seq,
-                       const std::vector<skill_entry_msg>& skills) -> json_message
+auto make_skills_data(uint32_t seq, const std::vector<skill_entry_msg>& skills) -> json_message
 {
     nlohmann::json skills_json = nlohmann::json::array();
-    for (const auto& s : skills) {
-        skills_json.push_back({
-            {"skill_id", s.skill_id},
-            {"level", s.level},
-            {"total_uses", s.total_uses},
-            {"uses_this_level", s.uses_this_level},
-            {"uses_to_next_level", s.uses_to_next_level}
-        });
+    for (const auto& s : skills)
+    {
+        skills_json.push_back({{"skill_id", s.skill_id},
+                               {"level", s.level},
+                               {"total_uses", s.total_uses},
+                               {"uses_this_level", s.uses_this_level},
+                               {"uses_to_next_level", s.uses_to_next_level}});
     }
 
     return json_message{
-        .type = json_message_type::skills_data,
-        .seq = seq,
-        .data = nlohmann::json{
-            {"skills", std::move(skills_json)}
-        }
-    };
+        .type = json_message_type::skills_data, .seq = seq, .data = nlohmann::json{{"skills", std::move(skills_json)}}};
 }
 
-auto make_entity_spawn(uint32_t seq,
-                        const visible_entity_msg& entity) -> json_message
+auto make_entity_spawn(uint32_t seq, const visible_entity_msg& entity) -> json_message
 {
-    return json_message{
-        .type = json_message_type::entity_spawn,
-        .seq = seq,
-        .data = entity.to_json()
-    };
+    return json_message{.type = json_message_type::entity_spawn, .seq = seq, .data = entity.to_json()};
 }
 
 auto make_entity_despawn(uint32_t seq, uint32_t entity_id) -> json_message
 {
     return json_message{
-        .type = json_message_type::entity_despawn,
-        .seq = seq,
-        .data = nlohmann::json{{"entity_id", entity_id}}
-    };
+        .type = json_message_type::entity_despawn, .seq = seq, .data = nlohmann::json{{"entity_id", entity_id}}};
 }
 
-auto make_player_move_response(uint32_t seq, bool success,
-                                int16_t x, int16_t y, int16_t direction,
-                                std::optional<std::string_view> error) -> json_message
+auto make_player_move_response(uint32_t seq,
+                               bool success,
+                               int16_t x,
+                               int16_t y,
+                               int16_t direction,
+                               std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success) {
+    if (success)
+    {
         data["x"] = x;
         data["y"] = y;
         data["direction"] = direction;
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::player_move_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::player_move_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_player_stop_response(uint32_t seq, bool success,
-                                int16_t x, int16_t y, int16_t direction,
-                                std::optional<std::string_view> error) -> json_message
+auto make_player_stop_response(uint32_t seq,
+                               bool success,
+                               int16_t x,
+                               int16_t y,
+                               int16_t direction,
+                               std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success) {
+    if (success)
+    {
         data["x"] = x;
         data["y"] = y;
         data["direction"] = direction;
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::player_stop_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::player_stop_response, .seq = seq, .data = std::move(data)};
 }
 
 auto make_player_position_update(uint32_t entity_id,
-                                  int16_t x, int16_t y, int16_t direction,
-                                  bool is_running,
-                                  std::optional<int16_t> dest_x,
-                                  std::optional<int16_t> dest_y) -> json_message
+                                 int16_t x,
+                                 int16_t y,
+                                 int16_t direction,
+                                 bool is_running,
+                                 std::optional<int16_t> dest_x,
+                                 std::optional<int16_t> dest_y) -> json_message
 {
     nlohmann::json data{
-        {"entity_id", entity_id},
-        {"x", x},
-        {"y", y},
-        {"direction", direction},
-        {"is_running", is_running}
-    };
+        {"entity_id", entity_id}, {"x", x}, {"y", y}, {"direction", direction}, {"is_running", is_running}};
 
     // Include destination coordinates if available
-    if (dest_x.has_value() && dest_y.has_value()) {
+    if (dest_x.has_value() && dest_y.has_value())
+    {
         data["dest_x"] = *dest_x;
         data["dest_y"] = *dest_y;
     }
 
-    return json_message{
-        .type = json_message_type::player_position_update,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::player_position_update,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = std::move(data)};
 }
 
-auto make_player_attack_response(uint32_t seq, bool success,
-                                  const attack_result_msg* result,
-                                  std::optional<std::string_view> error) -> json_message
-{
-    nlohmann::json data;
-    data["success"] = success;
-
-    if (success && result != nullptr) {
-        data["result"] = result->to_json();
-    }
-
-    if (!success && error.has_value()) {
-        data["error"] = std::string(*error);
-    }
-
-    return json_message{
-        .type = json_message_type::player_attack_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
-}
-
-auto make_player_magic_response(uint32_t seq, bool success,
-                                 const magic_result_msg* result,
+auto make_player_attack_response(uint32_t seq,
+                                 bool success,
+                                 const attack_result_msg* result,
                                  std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success && result != nullptr) {
+    if (success && result != nullptr)
+    {
         data["result"] = result->to_json();
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::player_magic_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::player_attack_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_player_skill_response(uint32_t seq, bool success,
-                                 const skill_result_msg* result,
+auto make_player_magic_response(uint32_t seq,
+                                bool success,
+                                const magic_result_msg* result,
+                                std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+
+    if (success && result != nullptr)
+    {
+        data["result"] = result->to_json();
+    }
+
+    if (!success && error.has_value())
+    {
+        data["error"] = std::string(*error);
+    }
+
+    return json_message{.type = json_message_type::player_magic_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_player_skill_response(uint32_t seq,
+                                bool success,
+                                const skill_result_msg* result,
+                                std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+
+    if (success && result != nullptr)
+    {
+        data["result"] = result->to_json();
+    }
+
+    if (!success && error.has_value())
+    {
+        data["error"] = std::string(*error);
+    }
+
+    return json_message{.type = json_message_type::player_skill_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_player_pickup_response(uint32_t seq,
+                                 bool success,
+                                 const pickup_result_msg* result,
                                  std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success && result != nullptr) {
+    if (success && result != nullptr)
+    {
         data["result"] = result->to_json();
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::player_skill_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::player_pickup_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_player_pickup_response(uint32_t seq, bool success,
-                                  const pickup_result_msg* result,
-                                  std::optional<std::string_view> error) -> json_message
+auto make_player_interact_response(uint32_t seq,
+                                   bool success,
+                                   const interact_result_msg* result,
+                                   std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success && result != nullptr) {
+    if (success && result != nullptr)
+    {
         data["result"] = result->to_json();
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::player_pickup_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::player_interact_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_player_interact_response(uint32_t seq, bool success,
-                                    const interact_result_msg* result,
-                                    std::optional<std::string_view> error) -> json_message
+auto make_pong_response(uint32_t seq) -> json_message
+{
+    return json_message{.type = json_message_type::pong,
+                        .seq = seq,
+                        .data = nlohmann::json{{"timestamp",
+                                                std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                    std::chrono::system_clock::now().time_since_epoch())
+                                                    .count()}}};
+}
+
+auto make_chat_message_response(uint32_t seq, bool success, std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
 
-    if (success && result != nullptr) {
-        data["result"] = result->to_json();
-    }
-
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::player_interact_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::chat_message, .seq = seq, .data = std::move(data)};
 }
 
-auto make_pong_response(uint32_t seq) -> json_message {
-    return json_message{
-        .type = json_message_type::pong,
-        .seq = seq,
-        .data = nlohmann::json{
-            {"timestamp", std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()).count()}
-        }
-    };
-}
-
-auto make_chat_message_response(uint32_t seq, bool success,
-                                 std::optional<std::string_view> error) -> json_message
+auto make_chat_message_broadcast(const chat_message_broadcast_data& data) -> json_message
 {
-    nlohmann::json data;
-    data["success"] = success;
-
-    if (!success && error.has_value()) {
-        data["error"] = std::string(*error);
-    }
-
-    return json_message{
-        .type = json_message_type::chat_message,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::chat_message_broadcast,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = data.to_json()};
 }
 
-auto make_chat_message_broadcast(const chat_message_broadcast_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::chat_message_broadcast,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = data.to_json()
-    };
-}
-
-auto make_command_response(uint32_t seq, bool success,
-                            std::string_view command,
-                            std::string_view message,
-                            const nlohmann::json& result) -> json_message
+auto make_command_response(uint32_t seq,
+                           bool success,
+                           std::string_view command,
+                           std::string_view message,
+                           const nlohmann::json& result) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
     data["command"] = std::string(command);
     data["message"] = std::string(message);
 
-    if (!result.is_null() && !result.empty()) {
+    if (!result.is_null() && !result.empty())
+    {
         data["result"] = result;
     }
 
-    return json_message{
-        .type = json_message_type::command_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::command_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_map_teleporters(const map_teleporters_msg& data) -> json_message {
-    return json_message{
-        .type = json_message_type::map_teleporters,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = data.to_json()
-    };
-}
-
-auto make_teleporter_update(const teleporter_update_msg& data) -> json_message {
-    return json_message{
-        .type = json_message_type::teleporter_update,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = data.to_json()
-    };
-}
-
-auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json_message {
-    return json_message{
-        .type = json_message_type::player_teleport,
-        .seq = seq,
-        .data = data.to_json()
-    };
-}
-
-auto make_combat_attack_broadcast(uint32_t attacker_id, uint32_t target_id,
-                                   int16_t attacker_x, int16_t attacker_y,
-                                   int16_t target_x, int16_t target_y,
-                                   int16_t direction,
-                                   bool hit, bool critical, int32_t damage,
-                                   projectile_type projectile) -> json_message
+auto make_map_teleporters(const map_teleporters_msg& data) -> json_message
 {
-    auto data = nlohmann::json{
-        {"attacker_id", attacker_id},
-        {"target_id", target_id},
-        {"attacker_x", attacker_x},
-        {"attacker_y", attacker_y},
-        {"target_x", target_x},
-        {"target_y", target_y},
-        {"direction", direction},
-        {"hit", hit},
-        {"critical", critical},
-        {"damage", damage}
-    };
-    if (projectile != projectile_type::none) {
+    return json_message{.type = json_message_type::map_teleporters,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = data.to_json()};
+}
+
+auto make_teleporter_update(const teleporter_update_msg& data) -> json_message
+{
+    return json_message{.type = json_message_type::teleporter_update,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = data.to_json()};
+}
+
+auto make_player_teleport(uint32_t seq, const player_teleport_msg& data) -> json_message
+{
+    return json_message{.type = json_message_type::player_teleport, .seq = seq, .data = data.to_json()};
+}
+
+auto make_combat_attack_broadcast(uint32_t attacker_id,
+                                  uint32_t target_id,
+                                  int16_t attacker_x,
+                                  int16_t attacker_y,
+                                  int16_t target_x,
+                                  int16_t target_y,
+                                  int16_t direction,
+                                  bool hit,
+                                  bool critical,
+                                  int32_t damage,
+                                  projectile_type projectile) -> json_message
+{
+    auto data = nlohmann::json{{"attacker_id", attacker_id},
+                               {"target_id", target_id},
+                               {"attacker_x", attacker_x},
+                               {"attacker_y", attacker_y},
+                               {"target_x", target_x},
+                               {"target_y", target_y},
+                               {"direction", direction},
+                               {"hit", hit},
+                               {"critical", critical},
+                               {"damage", damage}};
+    if (projectile != projectile_type::none)
+    {
         data["attack_mode"] = "ranged";
-        switch (projectile) {
-            case projectile_type::arrow:
-                data["projectile_type"] = "arrow";
-                break;
-            case projectile_type::poison_arrow:
-                data["projectile_type"] = "poison_arrow";
-                break;
-            default:
-                break;
+        switch (projectile)
+        {
+        case projectile_type::arrow:
+            data["projectile_type"] = "arrow";
+            break;
+        case projectile_type::poison_arrow:
+            data["projectile_type"] = "poison_arrow";
+            break;
+        default:
+            break;
         }
     }
-    return json_message{
-        .type = json_message_type::combat_attack_broadcast,
-        .seq = 0,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::combat_attack_broadcast, .seq = 0, .data = std::move(data)};
 }
 
 auto make_entity_hp_update(uint32_t entity_id, int32_t hp, int32_t hp_max) -> json_message
 {
-    return json_message{
-        .type = json_message_type::entity_hp_update,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = nlohmann::json{
-            {"entity_id", entity_id},
-            {"hp", hp},
-            {"hp_max", hp_max}
-        }
-    };
+    return json_message{.type = json_message_type::entity_hp_update,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = nlohmann::json{{"entity_id", entity_id}, {"hp", hp}, {"hp_max", hp_max}}};
 }
 
-auto make_entity_death(uint32_t victim_id, uint32_t killer_id,
-                        int16_t x, int16_t y,
-                        int32_t damage) -> json_message
+auto make_entity_death(uint32_t victim_id, uint32_t killer_id, int16_t x, int16_t y, int32_t damage) -> json_message
 {
-    auto j = nlohmann::json{
-        {"victim_id", victim_id},
-        {"killer_id", killer_id},
-        {"x", x},
-        {"y", y}
-    };
-    if (damage > 0) {
+    auto j = nlohmann::json{{"victim_id", victim_id}, {"killer_id", killer_id}, {"x", x}, {"y", y}};
+    if (damage > 0)
+    {
         j["damage"] = damage;
     }
-    return json_message{
-        .type = json_message_type::entity_death,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = std::move(j)
-    };
+    return json_message{.type = json_message_type::entity_death,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = std::move(j)};
 }
 
 // Combat effect data to_json implementation
 
-auto combat_effect_data::to_json() const -> nlohmann::json {
-    nlohmann::json j{
-        {"source_id", source_id},
-        {"target_id", target_id},
-        {"effect_type", effect_type},
-        {"value", value},
-        {"is_critical", is_critical},
-        {"target_x", target_x},
-        {"target_y", target_y}
-    };
+auto combat_effect_data::to_json() const -> nlohmann::json
+{
+    nlohmann::json j{{"source_id", source_id},
+                     {"target_id", target_id},
+                     {"effect_type", effect_type},
+                     {"value", value},
+                     {"is_critical", is_critical},
+                     {"target_x", target_x},
+                     {"target_y", target_y}};
 
-    if (!damage_type.empty()) {
+    if (!damage_type.empty())
+    {
         j["damage_type"] = damage_type;
     }
-    if (spell_id.has_value()) {
+    if (spell_id.has_value())
+    {
         j["spell_id"] = *spell_id;
     }
 
     return j;
 }
 
-auto make_combat_effect(const combat_effect_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::combat_effect,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_combat_effect(const combat_effect_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::combat_effect, .seq = 0, .data = data.to_json()};
 }
 
 // NPC data to_json implementations
 
-auto npc_spawn_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"entity_id", entity_id},
-        {"template_id", template_id},
-        {"sprite_id", sprite_id},
-        {"name", name},
-        {"x", x},
-        {"y", y},
-        {"direction", direction},
-        {"hp", hp},
-        {"max_hp", max_hp},
-        {"level", level},
-        {"category", category},
-        {"hostility", hostility}
-    };
+auto npc_spawn_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"entity_id", entity_id},
+                          {"template_id", template_id},
+                          {"sprite_id", sprite_id},
+                          {"name", name},
+                          {"x", x},
+                          {"y", y},
+                          {"direction", direction},
+                          {"hp", hp},
+                          {"max_hp", max_hp},
+                          {"level", level},
+                          {"category", category},
+                          {"hostility", hostility}};
 }
 
-auto npc_move_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"entity_id", entity_id},
-        {"x", x},
-        {"y", y},
-        {"direction", direction}
-    };
+auto npc_move_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"entity_id", entity_id}, {"x", x}, {"y", y}, {"direction", direction}};
 }
 
-auto npc_attack_data::to_json() const -> nlohmann::json {
-    auto j = nlohmann::json{
-        {"attacker_id", attacker_id},
-        {"target_id", target_id},
-        {"damage", damage},
-        {"is_critical", is_critical},
-        {"attacker_x", attacker_x},
-        {"attacker_y", attacker_y},
-        {"target_x", target_x},
-        {"target_y", target_y}
-    };
-    if (is_ranged) {
+auto npc_attack_data::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"attacker_id", attacker_id},
+                            {"target_id", target_id},
+                            {"damage", damage},
+                            {"is_critical", is_critical},
+                            {"attacker_x", attacker_x},
+                            {"attacker_y", attacker_y},
+                            {"target_x", target_x},
+                            {"target_y", target_y}};
+    if (is_ranged)
+    {
         j["is_ranged"] = true;
         j["projectile_type"] = "arrow";
     }
@@ -2055,51 +2078,40 @@ auto npc_attack_data::to_json() const -> nlohmann::json {
 
 // NPC message builders
 
-auto make_npc_spawn_message(const npc_spawn_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::npc_spawn,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_npc_spawn_message(const npc_spawn_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::npc_spawn, .seq = 0, .data = data.to_json()};
 }
 
-auto make_npc_despawn_message(uint32_t entity_id) -> json_message {
+auto make_npc_despawn_message(uint32_t entity_id) -> json_message
+{
     return json_message{
-        .type = json_message_type::npc_despawn,
-        .seq = 0,
-        .data = nlohmann::json{{"entity_id", entity_id}}
-    };
+        .type = json_message_type::npc_despawn, .seq = 0, .data = nlohmann::json{{"entity_id", entity_id}}};
 }
 
-auto make_npc_move_message(const npc_move_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::npc_move,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_npc_move_message(const npc_move_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::npc_move, .seq = 0, .data = data.to_json()};
 }
 
-auto make_npc_attack_message(const npc_attack_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::npc_attack,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_npc_attack_message(const npc_attack_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::npc_attack, .seq = 0, .data = data.to_json()};
 }
 
 // Ground item spawn data to_json implementation
 
-auto ground_item_spawn_data::to_json() const -> nlohmann::json {
-    auto j = nlohmann::json{
-        {"item_id", item_id},
-        {"template_id", template_id},
-        {"item_name", item_name},
-        {"count", count},
-        {"x", x},
-        {"y", y},
-        {"reason", reason}
-    };
-    if (!attribute.is_empty()) {
+auto ground_item_spawn_data::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"item_id", item_id},
+                            {"template_id", template_id},
+                            {"item_name", item_name},
+                            {"count", count},
+                            {"x", x},
+                            {"y", y},
+                            {"reason", reason}};
+    if (!attribute.is_empty())
+    {
         j["attribute"] = attribute.to_json();
     }
     return j;
@@ -2107,141 +2119,142 @@ auto ground_item_spawn_data::to_json() const -> nlohmann::json {
 
 // Ground item spawn message builder
 
-auto make_ground_item_spawn(const ground_item_spawn_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::ground_item_spawn,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = data.to_json()
-    };
+auto make_ground_item_spawn(const ground_item_spawn_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::ground_item_spawn,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = data.to_json()};
 }
 
 // Ground item data to_json implementation
 
-auto ground_item_removed_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"picker_id", picker_id},
-        {"picker_name", picker_name},
-        {"item_id", item_id},
-        {"item_name", item_name},
-        {"x", x},
-        {"y", y}
-    };
+auto ground_item_removed_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"picker_id", picker_id},
+                          {"picker_name", picker_name},
+                          {"item_id", item_id},
+                          {"item_name", item_name},
+                          {"x", x},
+                          {"y", y}};
 }
 
 // Ground item message builder
 
-auto make_ground_item_removed(const ground_item_removed_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::ground_item_removed,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = data.to_json()
-    };
+auto make_ground_item_removed(const ground_item_removed_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::ground_item_removed,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = data.to_json()};
 }
 
 // Player death info data to_json implementation
 
-auto player_death_info_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"killer_id", killer_id},
-        {"killer_name", killer_name},
-        {"is_pvp", is_pvp},
-        {"xp_lost", xp_lost},
-        {"pk_points_change", pk_points_change},
-        {"gold_reward", gold_reward},
-        {"respawn_delay_ms", respawn_delay_ms},
-        {"respawn_map", respawn_map},
-        {"respawn_x", respawn_x},
-        {"respawn_y", respawn_y}
-    };
+auto player_death_info_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"killer_id", killer_id},
+                          {"killer_name", killer_name},
+                          {"is_pvp", is_pvp},
+                          {"xp_lost", xp_lost},
+                          {"pk_points_change", pk_points_change},
+                          {"gold_reward", gold_reward},
+                          {"respawn_delay_ms", respawn_delay_ms},
+                          {"respawn_map", respawn_map},
+                          {"respawn_x", respawn_x},
+                          {"respawn_y", respawn_y}};
 }
 
 // Player death info message builder
 
-auto make_player_death_info(const player_death_info_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::player_death_info,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_player_death_info(const player_death_info_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::player_death_info, .seq = 0, .data = data.to_json()};
 }
 
 // Hunger update data to_json implementation
 
-auto hunger_update_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"level", level},
-        {"is_starving", is_starving}
-    };
+auto hunger_update_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"level", level}, {"is_starving", is_starving}};
 }
 
 // Hunger update message builder
 
-auto make_hunger_update(int8_t level) -> json_message {
-    return json_message{
-        .type = json_message_type::hunger_update,
-        .seq = 0,  // Broadcasts don't need seq
-        .data = hunger_update_data{level, level <= 0}.to_json()
-    };
+auto make_hunger_update(int8_t level) -> json_message
+{
+    return json_message{.type = json_message_type::hunger_update,
+                        .seq = 0, // Broadcasts don't need seq
+                        .data = hunger_update_data{level, level <= 0}.to_json()};
 }
 
 // Entity info request data from_json implementation
 
-auto entity_info_request_data::from_json(const nlohmann::json& j) -> result<entity_info_request_data, std::string> {
-    try {
+auto entity_info_request_data::from_json(const nlohmann::json& j) -> result<entity_info_request_data, std::string>
+{
+    try
+    {
         entity_info_request_data data;
 
-        if (!j.contains("entity_id") || !j["entity_id"].is_number()) {
+        if (!j.contains("entity_id") || !j["entity_id"].is_number())
+        {
             return result<entity_info_request_data, std::string>::err("Missing or invalid 'entity_id' field");
         }
         data.entity_id = j["entity_id"].get<uint32_t>();
 
         return result<entity_info_request_data, std::string>::ok(std::move(data));
-
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<entity_info_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
 // Entity info response data to_json implementation
 
-auto entity_info_response_data::to_json() const -> nlohmann::json {
-    nlohmann::json j = {
-        {"entity_id", entity_id},
-        {"entity_type", entity_type},
-        {"name", name},
-        {"level", level},
-        {"hp", hp},
-        {"hp_max", hp_max},
-        {"x", x},
-        {"y", y},
-        {"direction", direction}
-    };
+auto entity_info_response_data::to_json() const -> nlohmann::json
+{
+    nlohmann::json j = {{"entity_id", entity_id},
+                        {"entity_type", entity_type},
+                        {"name", name},
+                        {"level", level},
+                        {"hp", hp},
+                        {"hp_max", hp_max},
+                        {"x", x},
+                        {"y", y},
+                        {"direction", direction}};
 
     // Add player-specific fields if present
-    if (faction.has_value()) {
+    if (faction.has_value())
+    {
         j["faction"] = *faction;
     }
-    if (guild_name.has_value()) {
+    if (guild_name.has_value())
+    {
         j["guild_name"] = *guild_name;
     }
-    if (class_type.has_value()) {
+    if (class_type.has_value())
+    {
         j["class_type"] = *class_type;
     }
-    if (pk_count.has_value()) {
+    if (pk_count.has_value())
+    {
         j["pk_count"] = *pk_count;
     }
 
     // Add NPC-specific fields if present
-    if (template_id.has_value()) {
+    if (template_id.has_value())
+    {
         j["template_id"] = *template_id;
     }
-    if (sprite_id.has_value()) {
+    if (sprite_id.has_value())
+    {
         j["sprite_id"] = *sprite_id;
     }
-    if (npc_type.has_value()) {
+    if (npc_type.has_value())
+    {
         j["npc_type"] = *npc_type;
     }
-    if (hostility.has_value()) {
+    if (hostility.has_value())
+    {
         j["hostility"] = *hostility;
     }
 
@@ -2250,151 +2263,180 @@ auto entity_info_response_data::to_json() const -> nlohmann::json {
 
 // Entity info response message builder
 
-auto make_entity_info_response(uint32_t seq, bool success,
-                                const entity_info_response_data* data,
-                                std::optional<std::string_view> error) -> json_message
+auto make_entity_info_response(uint32_t seq,
+                               bool success,
+                               const entity_info_response_data* data,
+                               std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json response_data;
     response_data["success"] = success;
 
-    if (success && data != nullptr) {
+    if (success && data != nullptr)
+    {
         response_data["entity"] = data->to_json();
     }
 
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         response_data["error"] = std::string(*error);
     }
 
-    return json_message{
-        .type = json_message_type::entity_info_response,
-        .seq = seq,
-        .data = std::move(response_data)
-    };
+    return json_message{.type = json_message_type::entity_info_response, .seq = seq, .data = std::move(response_data)};
 }
 
 // === NPC Interaction: from_json implementations ===
 
-auto shop_buy_request_data::from_json(const nlohmann::json& j) -> result<shop_buy_request_data, std::string> {
+auto shop_buy_request_data::from_json(const nlohmann::json& j) -> result<shop_buy_request_data, std::string>
+{
     shop_buy_request_data data;
-    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+    {
         return result<shop_buy_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("item_template_id") || !j["item_template_id"].is_number()) {
+    if (!j.contains("item_template_id") || !j["item_template_id"].is_number())
+    {
         return result<shop_buy_request_data, std::string>::err("Missing item_template_id");
     }
     data.item_template_id = j["item_template_id"].get<uint32_t>();
 
-    if (j.contains("count") && j["count"].is_number()) {
+    if (j.contains("count") && j["count"].is_number())
+    {
         data.count = static_cast<int16_t>(j["count"].get<int>());
     }
     return result<shop_buy_request_data, std::string>::ok(std::move(data));
 }
 
-auto shop_sell_request_data::from_json(const nlohmann::json& j) -> result<shop_sell_request_data, std::string> {
+auto shop_sell_request_data::from_json(const nlohmann::json& j) -> result<shop_sell_request_data, std::string>
+{
     shop_sell_request_data data;
-    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+    {
         return result<shop_sell_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    {
         return result<shop_sell_request_data, std::string>::err("Missing inventory_slot");
     }
     data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
 
-    if (j.contains("count") && j["count"].is_number()) {
+    if (j.contains("count") && j["count"].is_number())
+    {
         data.count = static_cast<int16_t>(j["count"].get<int>());
     }
     return result<shop_sell_request_data, std::string>::ok(std::move(data));
 }
 
-auto shop_sell_confirm_request_data::from_json(const nlohmann::json& j) -> result<shop_sell_confirm_request_data, std::string> {
+auto shop_sell_confirm_request_data::from_json(const nlohmann::json& j)
+    -> result<shop_sell_confirm_request_data, std::string>
+{
     shop_sell_confirm_request_data data;
-    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+    {
         return result<shop_sell_confirm_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    {
         return result<shop_sell_confirm_request_data, std::string>::err("Missing inventory_slot");
     }
     data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
 
-    if (j.contains("count") && j["count"].is_number()) {
+    if (j.contains("count") && j["count"].is_number())
+    {
         data.count = static_cast<int16_t>(j["count"].get<int>());
     }
     return result<shop_sell_confirm_request_data, std::string>::ok(std::move(data));
 }
 
-auto shop_repair_request_data::from_json(const nlohmann::json& j) -> result<shop_repair_request_data, std::string> {
+auto shop_repair_request_data::from_json(const nlohmann::json& j) -> result<shop_repair_request_data, std::string>
+{
     shop_repair_request_data data;
-    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+    {
         return result<shop_repair_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    {
         return result<shop_repair_request_data, std::string>::err("Missing inventory_slot");
     }
     data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
     return result<shop_repair_request_data, std::string>::ok(std::move(data));
 }
 
-auto shop_repair_confirm_request_data::from_json(const nlohmann::json& j) -> result<shop_repair_confirm_request_data, std::string> {
+auto shop_repair_confirm_request_data::from_json(const nlohmann::json& j)
+    -> result<shop_repair_confirm_request_data, std::string>
+{
     shop_repair_confirm_request_data data;
-    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+    {
         return result<shop_repair_confirm_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    {
         return result<shop_repair_confirm_request_data, std::string>::err("Missing inventory_slot");
     }
     data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
     return result<shop_repair_confirm_request_data, std::string>::ok(std::move(data));
 }
 
-auto bank_deposit_request_data::from_json(const nlohmann::json& j) -> result<bank_deposit_request_data, std::string> {
+auto bank_deposit_request_data::from_json(const nlohmann::json& j) -> result<bank_deposit_request_data, std::string>
+{
     bank_deposit_request_data data;
-    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+    {
         return result<bank_deposit_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    {
         return result<bank_deposit_request_data, std::string>::err("Missing inventory_slot");
     }
     data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
     return result<bank_deposit_request_data, std::string>::ok(std::move(data));
 }
 
-auto bank_withdraw_request_data::from_json(const nlohmann::json& j) -> result<bank_withdraw_request_data, std::string> {
+auto bank_withdraw_request_data::from_json(const nlohmann::json& j) -> result<bank_withdraw_request_data, std::string>
+{
     bank_withdraw_request_data data;
-    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+    {
         return result<bank_withdraw_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("bank_slot") || !j["bank_slot"].is_number()) {
+    if (!j.contains("bank_slot") || !j["bank_slot"].is_number())
+    {
         return result<bank_withdraw_request_data, std::string>::err("Missing bank_slot");
     }
     data.bank_slot = static_cast<int16_t>(j["bank_slot"].get<int>());
     return result<bank_withdraw_request_data, std::string>::ok(std::move(data));
 }
 
-auto dialog_choice_request_data::from_json(const nlohmann::json& j) -> result<dialog_choice_request_data, std::string> {
+auto dialog_choice_request_data::from_json(const nlohmann::json& j) -> result<dialog_choice_request_data, std::string>
+{
     dialog_choice_request_data data;
-    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number()) {
+    if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+    {
         return result<dialog_choice_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (j.contains("node_id") && j["node_id"].is_string()) {
+    if (j.contains("node_id") && j["node_id"].is_string())
+    {
         data.node_id = j["node_id"].get<std::string>();
     }
-    if (j.contains("choice_index") && j["choice_index"].is_number()) {
+    if (j.contains("choice_index") && j["choice_index"].is_number())
+    {
         data.choice_index = static_cast<int16_t>(j["choice_index"].get<int>());
     }
     return result<dialog_choice_request_data, std::string>::ok(std::move(data));
@@ -2402,399 +2444,406 @@ auto dialog_choice_request_data::from_json(const nlohmann::json& j) -> result<di
 
 // === NPC Interaction: builder implementations ===
 
-auto make_shop_buy_response(uint32_t seq, bool success,
-                             std::string_view item_name,
-                             int16_t count,
-                             int32_t price_paid,
-                             int64_t gold_remaining,
-                             std::optional<std::string_view> error) -> json_message {
+auto make_shop_buy_response(uint32_t seq,
+                            bool success,
+                            std::string_view item_name,
+                            int16_t count,
+                            int32_t price_paid,
+                            int64_t gold_remaining,
+                            std::optional<std::string_view> error) -> json_message
+{
     nlohmann::json data;
     data["success"] = success;
-    if (success) {
+    if (success)
+    {
         data["item_name"] = std::string(item_name);
         data["count"] = count;
         data["price_paid"] = price_paid;
         data["gold_remaining"] = gold_remaining;
     }
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
-    return json_message{
-        .type = json_message_type::shop_buy_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::shop_buy_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_shop_sell_response(uint32_t seq, bool success,
-                              std::string_view item_name,
-                              int32_t offered_price,
-                              int16_t durability,
-                              std::optional<std::string_view> error) -> json_message {
+auto make_shop_sell_response(uint32_t seq,
+                             bool success,
+                             std::string_view item_name,
+                             int32_t offered_price,
+                             int16_t durability,
+                             std::optional<std::string_view> error) -> json_message
+{
     nlohmann::json data;
     data["success"] = success;
-    if (success) {
+    if (success)
+    {
         data["item_name"] = std::string(item_name);
         data["offered_price"] = offered_price;
         data["durability"] = durability;
     }
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
-    return json_message{
-        .type = json_message_type::shop_sell_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::shop_sell_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_shop_sell_confirm_response(uint32_t seq, bool success,
-                                      int32_t gold_received,
-                                      int64_t gold_total,
-                                      std::optional<std::string_view> error) -> json_message {
+auto make_shop_sell_confirm_response(uint32_t seq,
+                                     bool success,
+                                     int32_t gold_received,
+                                     int64_t gold_total,
+                                     std::optional<std::string_view> error) -> json_message
+{
     nlohmann::json data;
     data["success"] = success;
-    if (success) {
+    if (success)
+    {
         data["gold_received"] = gold_received;
         data["gold_total"] = gold_total;
     }
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
-    return json_message{
-        .type = json_message_type::shop_sell_confirm_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::shop_sell_confirm_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_shop_repair_response(uint32_t seq, bool success,
-                                std::string_view item_name,
-                                int32_t repair_cost,
-                                int16_t durability,
-                                std::optional<std::string_view> error) -> json_message {
+auto make_shop_repair_response(uint32_t seq,
+                               bool success,
+                               std::string_view item_name,
+                               int32_t repair_cost,
+                               int16_t durability,
+                               std::optional<std::string_view> error) -> json_message
+{
     nlohmann::json data;
     data["success"] = success;
-    if (success) {
+    if (success)
+    {
         data["item_name"] = std::string(item_name);
         data["repair_cost"] = repair_cost;
         data["durability"] = durability;
     }
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
-    return json_message{
-        .type = json_message_type::shop_repair_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::shop_repair_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_shop_repair_confirm_response(uint32_t seq, bool success,
-                                        int16_t new_durability,
-                                        int32_t gold_spent,
-                                        int64_t gold_remaining,
-                                        std::optional<std::string_view> error) -> json_message {
+auto make_shop_repair_confirm_response(uint32_t seq,
+                                       bool success,
+                                       int16_t new_durability,
+                                       int32_t gold_spent,
+                                       int64_t gold_remaining,
+                                       std::optional<std::string_view> error) -> json_message
+{
     nlohmann::json data;
     data["success"] = success;
-    if (success) {
+    if (success)
+    {
         data["new_durability"] = new_durability;
         data["gold_spent"] = gold_spent;
         data["gold_remaining"] = gold_remaining;
     }
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
-    return json_message{
-        .type = json_message_type::shop_repair_confirm_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::shop_repair_confirm_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_bank_deposit_response(uint32_t seq, bool success,
+auto make_bank_deposit_response(uint32_t seq,
+                                bool success,
+                                std::string_view item_name,
+                                std::optional<std::string_view> error) -> json_message
+{
+    nlohmann::json data;
+    data["success"] = success;
+    if (success)
+    {
+        data["item_name"] = std::string(item_name);
+    }
+    if (!success && error.has_value())
+    {
+        data["error"] = std::string(*error);
+    }
+    return json_message{.type = json_message_type::bank_deposit_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_bank_withdraw_response(uint32_t seq,
+                                 bool success,
                                  std::string_view item_name,
-                                 std::optional<std::string_view> error) -> json_message {
+                                 std::optional<std::string_view> error) -> json_message
+{
     nlohmann::json data;
     data["success"] = success;
-    if (success) {
+    if (success)
+    {
         data["item_name"] = std::string(item_name);
     }
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
-    return json_message{
-        .type = json_message_type::bank_deposit_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::bank_withdraw_response, .seq = seq, .data = std::move(data)};
 }
 
-auto make_bank_withdraw_response(uint32_t seq, bool success,
-                                  std::string_view item_name,
-                                  std::optional<std::string_view> error) -> json_message {
-    nlohmann::json data;
-    data["success"] = success;
-    if (success) {
-        data["item_name"] = std::string(item_name);
-    }
-    if (!success && error.has_value()) {
-        data["error"] = std::string(*error);
-    }
-    return json_message{
-        .type = json_message_type::bank_withdraw_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
-}
-
-auto dialog_option_msg::to_json() const -> nlohmann::json {
+auto dialog_option_msg::to_json() const -> nlohmann::json
+{
     nlohmann::json j;
     j["label"] = label;
     j["action"] = action;
-    if (!next_node.empty()) {
+    if (!next_node.empty())
+    {
         j["next_node"] = next_node;
     }
     return j;
 }
 
-auto make_dialog_choice_response(uint32_t seq, bool success,
-                                  std::string_view action,
-                                  std::string_view node_id,
-                                  std::string_view text,
-                                  const std::vector<dialog_option_msg>& options,
-                                  std::optional<std::string_view> error) -> json_message {
+auto make_dialog_choice_response(uint32_t seq,
+                                 bool success,
+                                 std::string_view action,
+                                 std::string_view node_id,
+                                 std::string_view text,
+                                 const std::vector<dialog_option_msg>& options,
+                                 std::optional<std::string_view> error) -> json_message
+{
     nlohmann::json data;
     data["success"] = success;
-    if (success) {
+    if (success)
+    {
         data["action"] = std::string(action);
-        if (!node_id.empty()) {
+        if (!node_id.empty())
+        {
             data["node_id"] = std::string(node_id);
         }
-        if (!text.empty()) {
+        if (!text.empty())
+        {
             data["text"] = std::string(text);
         }
-        if (!options.empty()) {
+        if (!options.empty())
+        {
             auto opts = nlohmann::json::array();
-            for (const auto& opt : options) {
+            for (const auto& opt : options)
+            {
                 opts.push_back(opt.to_json());
             }
             data["options"] = std::move(opts);
         }
     }
-    if (!success && error.has_value()) {
+    if (!success && error.has_value())
+    {
         data["error"] = std::string(*error);
     }
-    return json_message{
-        .type = json_message_type::dialog_choice_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::dialog_choice_response, .seq = seq, .data = std::move(data)};
 }
 
 // === Equipment: Equip/Unequip ===
 
-auto player_equip_request_data::from_json(const nlohmann::json& j)
-    -> result<player_equip_request_data, std::string>
+auto player_equip_request_data::from_json(const nlohmann::json& j) -> result<player_equip_request_data, std::string>
 {
-    try {
+    try
+    {
         player_equip_request_data data;
         auto slot = safe_int16_required(j, "inventory_slot");
-        if (!slot) {
+        if (!slot)
+        {
             return result<player_equip_request_data, std::string>::err("Missing or invalid 'inventory_slot'");
         }
         data.inventory_slot = *slot;
 
-        if (!j.contains("target_slot") || !j["target_slot"].is_number()) {
+        if (!j.contains("target_slot") || !j["target_slot"].is_number())
+        {
             return result<player_equip_request_data, std::string>::err("Missing or invalid 'target_slot'");
         }
         data.target_slot = j["target_slot"].get<uint8_t>();
 
         return result<player_equip_request_data, std::string>::ok(std::move(data));
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_equip_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto player_unequip_request_data::from_json(const nlohmann::json& j)
-    -> result<player_unequip_request_data, std::string>
+auto player_unequip_request_data::from_json(const nlohmann::json& j) -> result<player_unequip_request_data, std::string>
 {
-    try {
+    try
+    {
         player_unequip_request_data data;
-        if (!j.contains("equip_slot") || !j["equip_slot"].is_number()) {
+        if (!j.contains("equip_slot") || !j["equip_slot"].is_number())
+        {
             return result<player_unequip_request_data, std::string>::err("Missing or invalid 'equip_slot'");
         }
         data.equip_slot = j["equip_slot"].get<uint8_t>();
         return result<player_unequip_request_data, std::string>::ok(std::move(data));
-    } catch (const nlohmann::json::exception& e) {
+    }
+    catch (const nlohmann::json::exception& e)
+    {
         return result<player_unequip_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
 }
 
-auto equip_result_msg::to_json() const -> nlohmann::json {
+auto equip_result_msg::to_json() const -> nlohmann::json
+{
     nlohmann::json j;
     j["success"] = success;
     j["slot"] = slot;
-    if (success) {
+    if (success)
+    {
         j["item_id"] = item_id;
         j["item_name"] = item_name;
         j["durability"] = durability;
         j["max_durability"] = max_durability;
-        if (!attribute.is_empty()) {
+        if (!attribute.is_empty())
+        {
             j["attribute"] = attribute.to_json();
         }
-        if (swapped_item_id.has_value()) {
+        if (swapped_item_id.has_value())
+        {
             j["swapped_item_id"] = *swapped_item_id;
-            if (swapped_to_inv_slot.has_value()) {
+            if (swapped_to_inv_slot.has_value())
+            {
                 j["swapped_to_inv_slot"] = *swapped_to_inv_slot;
             }
         }
-        if (unequipped_shield_id.has_value()) {
+        if (unequipped_shield_id.has_value())
+        {
             j["unequipped_shield_id"] = *unequipped_shield_id;
-            if (shield_to_inv_slot.has_value()) {
+            if (shield_to_inv_slot.has_value())
+            {
                 j["shield_to_inv_slot"] = *shield_to_inv_slot;
             }
         }
     }
-    if (!success && !error.empty()) {
+    if (!success && !error.empty())
+    {
         j["error"] = error;
     }
     return j;
 }
 
-auto unequip_result_msg::to_json() const -> nlohmann::json {
+auto unequip_result_msg::to_json() const -> nlohmann::json
+{
     nlohmann::json j;
     j["success"] = success;
     j["slot"] = slot;
-    if (success) {
+    if (success)
+    {
         j["item_id"] = item_id;
         j["item_name"] = item_name;
         j["inventory_slot"] = inventory_slot;
-        if (!attribute.is_empty()) {
+        if (!attribute.is_empty())
+        {
             j["attribute"] = attribute.to_json();
         }
     }
-    if (!success && !error.empty()) {
+    if (!success && !error.empty())
+    {
         j["error"] = error;
     }
     return j;
 }
 
-auto equipment_change_broadcast_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"entity_id", entity_id},
-        {"slot", slot},
-        {"item_id", item_id},
-        {"template_id", template_id}
-    };
+auto equipment_change_broadcast_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"entity_id", entity_id}, {"slot", slot}, {"item_id", item_id}, {"template_id", template_id}};
 }
 
-auto stat_update_data::to_json() const -> nlohmann::json {
-    auto j = nlohmann::json{
-        {"max_hp", max_hp},
-        {"max_mp", max_mp},
-        {"max_sp", max_sp},
-        {"attack_power", attack_power},
-        {"magic_power", magic_power},
-        {"defense", defense},
-        {"magic_defense", magic_defense},
-        {"hit_rate", hit_rate},
-        {"dodge_rate", dodge_rate},
-        {"critical_rate", critical_rate}
-    };
+auto stat_update_data::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"max_hp", max_hp},
+                            {"max_mp", max_mp},
+                            {"max_sp", max_sp},
+                            {"attack_power", attack_power},
+                            {"magic_power", magic_power},
+                            {"defense", defense},
+                            {"magic_defense", magic_defense},
+                            {"hit_rate", hit_rate},
+                            {"dodge_rate", dodge_rate},
+                            {"critical_rate", critical_rate}};
 
-    if (hp) j["hp"] = *hp;
-    if (mp) j["mp"] = *mp;
-    if (sp) j["sp"] = *sp;
-    if (experience) j["experience"] = *experience;
-    if (gold) j["gold"] = *gold;
-    if (level) j["level"] = *level;
-    if (pk_count) j["pk_count"] = *pk_count;
-    if (hunger_level) j["hunger_level"] = *hunger_level;
-    if (contribution) j["contribution"] = *contribution;
-    if (enemy_kill_count) j["enemy_kill_count"] = *enemy_kill_count;
+    if (hp)
+        j["hp"] = *hp;
+    if (mp)
+        j["mp"] = *mp;
+    if (sp)
+        j["sp"] = *sp;
+    if (experience)
+        j["experience"] = *experience;
+    if (gold)
+        j["gold"] = *gold;
+    if (level)
+        j["level"] = *level;
+    if (pk_count)
+        j["pk_count"] = *pk_count;
+    if (hunger_level)
+        j["hunger_level"] = *hunger_level;
+    if (contribution)
+        j["contribution"] = *contribution;
+    if (enemy_kill_count)
+        j["enemy_kill_count"] = *enemy_kill_count;
 
     return j;
 }
 
-auto make_player_equip_response(uint32_t seq, const equip_result_msg& result) -> json_message {
-    return json_message{
-        .type = json_message_type::player_equip_response,
-        .seq = seq,
-        .data = result.to_json()
-    };
+auto make_player_equip_response(uint32_t seq, const equip_result_msg& result) -> json_message
+{
+    return json_message{.type = json_message_type::player_equip_response, .seq = seq, .data = result.to_json()};
 }
 
-auto make_player_unequip_response(uint32_t seq, const unequip_result_msg& result) -> json_message {
-    return json_message{
-        .type = json_message_type::player_unequip_response,
-        .seq = seq,
-        .data = result.to_json()
-    };
+auto make_player_unequip_response(uint32_t seq, const unequip_result_msg& result) -> json_message
+{
+    return json_message{.type = json_message_type::player_unequip_response, .seq = seq, .data = result.to_json()};
 }
 
-auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::equipment_change_broadcast,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::equipment_change_broadcast, .seq = 0, .data = data.to_json()};
 }
 
-auto make_stat_update(const stat_update_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::stat_update,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_stat_update(const stat_update_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::stat_update, .seq = 0, .data = data.to_json()};
 }
 
-auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message {
+auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message
+{
     auto spell_array = nlohmann::json::array();
-    for (const auto& s : spells) {
+    for (const auto& s : spells)
+    {
         spell_array.push_back(s.to_json());
     }
-    return json_message{
-        .type = json_message_type::spell_list_update,
-        .seq = 0,
-        .data = nlohmann::json{{"spells", std::move(spell_array)}}
-    };
+    return json_message{.type = json_message_type::spell_list_update,
+                        .seq = 0,
+                        .data = nlohmann::json{{"spells", std::move(spell_array)}}};
 }
 
 // === Render Mode ===
 
-auto render_mode_data::to_json() const -> nlohmann::json {
+auto render_mode_data::to_json() const -> nlohmann::json
+{
     return nlohmann::json{
-        {"mode", std::string(to_string(mode))},
-        {"fair_width", fair_width},
-        {"fair_height", fair_height}
-    };
+        {"mode", std::string(to_string(mode))}, {"fair_width", fair_width}, {"fair_height", fair_height}};
 }
 
-auto make_set_render_mode(const render_mode_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::set_render_mode,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_set_render_mode(const render_mode_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::set_render_mode, .seq = 0, .data = data.to_json()};
 }
 
-auto make_view_range_update(int16_t radius_x, int16_t radius_y, bool sees_all) -> json_message {
-    return json_message{
-        .type = json_message_type::view_range_update,
-        .seq = 0,
-        .data = nlohmann::json{
-            {"radius_x", radius_x},
-            {"radius_y", radius_y},
-            {"sees_all", sees_all}
-        }
-    };
+auto make_view_range_update(int16_t radius_x, int16_t radius_y, bool sees_all) -> json_message
+{
+    return json_message{.type = json_message_type::view_range_update,
+                        .seq = 0,
+                        .data = nlohmann::json{{"radius_x", radius_x}, {"radius_y", radius_y}, {"sees_all", sees_all}}};
 }
 
 // === Crafting: Manufacturing/Alchemy ===
 
-auto manufacture_request_data::from_json(const nlohmann::json& j)
-    -> result<manufacture_request_data, std::string>
+auto manufacture_request_data::from_json(const nlohmann::json& j) -> result<manufacture_request_data, std::string>
 {
     manufacture_request_data data;
     if (j.contains("recipe_index") && j["recipe_index"].is_number())
@@ -2808,8 +2857,7 @@ auto manufacture_request_data::from_json(const nlohmann::json& j)
     return result<manufacture_request_data, std::string>::ok(data);
 }
 
-auto alchemy_request_data::from_json(const nlohmann::json& j)
-    -> result<alchemy_request_data, std::string>
+auto alchemy_request_data::from_json(const nlohmann::json& j) -> result<alchemy_request_data, std::string>
 {
     alchemy_request_data data;
     if (j.contains("recipe_id") && j["recipe_id"].is_number())
@@ -2823,60 +2871,48 @@ auto alchemy_request_data::from_json(const nlohmann::json& j)
     return result<alchemy_request_data, std::string>::ok(data);
 }
 
-auto make_manufacture_list_response(uint32_t seq,
-    const nlohmann::json& recipes) -> json_message
+auto make_manufacture_list_response(uint32_t seq, const nlohmann::json& recipes) -> json_message
 {
     return json_message{
-        .type = json_message_type::manufacture_list_response,
-        .seq = seq,
-        .data = {{"recipes", recipes}}
-    };
+        .type = json_message_type::manufacture_list_response, .seq = seq, .data = {{"recipes", recipes}}};
 }
 
-auto make_manufacture_response(uint32_t seq, bool success,
-    std::string_view item_name,
-    std::optional<std::string_view> error) -> json_message
+auto make_manufacture_response(uint32_t seq,
+                               bool success,
+                               std::string_view item_name,
+                               std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
-    if (!item_name.empty()) data["item_name"] = std::string(item_name);
-    if (error) data["error"] = std::string(*error);
-    return json_message{
-        .type = json_message_type::manufacture_response,
-        .seq = seq,
-        .data = data
-    };
+    if (!item_name.empty())
+        data["item_name"] = std::string(item_name);
+    if (error)
+        data["error"] = std::string(*error);
+    return json_message{.type = json_message_type::manufacture_response, .seq = seq, .data = data};
 }
 
-auto make_alchemy_list_response(uint32_t seq,
-    const nlohmann::json& recipes) -> json_message
+auto make_alchemy_list_response(uint32_t seq, const nlohmann::json& recipes) -> json_message
 {
-    return json_message{
-        .type = json_message_type::alchemy_list_response,
-        .seq = seq,
-        .data = {{"recipes", recipes}}
-    };
+    return json_message{.type = json_message_type::alchemy_list_response, .seq = seq, .data = {{"recipes", recipes}}};
 }
 
-auto make_alchemy_response(uint32_t seq, bool success,
-    std::string_view item_name,
-    std::optional<std::string_view> error) -> json_message
+auto make_alchemy_response(uint32_t seq,
+                           bool success,
+                           std::string_view item_name,
+                           std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
-    if (!item_name.empty()) data["item_name"] = std::string(item_name);
-    if (error) data["error"] = std::string(*error);
-    return json_message{
-        .type = json_message_type::alchemy_response,
-        .seq = seq,
-        .data = data
-    };
+    if (!item_name.empty())
+        data["item_name"] = std::string(item_name);
+    if (error)
+        data["error"] = std::string(*error);
+    return json_message{.type = json_message_type::alchemy_response, .seq = seq, .data = data};
 }
 
 // === Mining ===
 
-auto mine_request_data::from_json(const nlohmann::json& j)
-    -> result<mine_request_data, std::string>
+auto mine_request_data::from_json(const nlohmann::json& j) -> result<mine_request_data, std::string>
 {
     mine_request_data data;
     if (j.contains("target_x") && j["target_x"].is_number())
@@ -2898,225 +2934,171 @@ auto mine_request_data::from_json(const nlohmann::json& j)
     return result<mine_request_data, std::string>::ok(data);
 }
 
-auto make_mine_response(uint32_t seq, bool success,
-    std::string_view item_name,
-    int32_t template_id,
-    bool node_depleted,
-    std::optional<std::string_view> error) -> json_message
+auto make_mine_response(uint32_t seq,
+                        bool success,
+                        std::string_view item_name,
+                        int32_t template_id,
+                        bool node_depleted,
+                        std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
-    if (!item_name.empty()) data["item_name"] = std::string(item_name);
-    if (template_id > 0) data["template_id"] = template_id;
-    if (node_depleted) data["node_depleted"] = true;
-    if (error) data["error"] = std::string(*error);
-    return json_message{
-        .type = json_message_type::mine_response,
-        .seq = seq,
-        .data = data
-    };
+    if (!item_name.empty())
+        data["item_name"] = std::string(item_name);
+    if (template_id > 0)
+        data["template_id"] = template_id;
+    if (node_depleted)
+        data["node_depleted"] = true;
+    if (error)
+        data["error"] = std::string(*error);
+    return json_message{.type = json_message_type::mine_response, .seq = seq, .data = data};
 }
 
-auto make_mineral_spawn(uint32_t node_id, uint8_t mineral_type,
-    int16_t x, int16_t y) -> json_message
+auto make_mineral_spawn(uint32_t node_id, uint8_t mineral_type, int16_t x, int16_t y) -> json_message
 {
-    return json_message{
-        .type = json_message_type::mineral_spawn,
-        .seq = 0,
-        .data = {
-            {"node_id", node_id},
-            {"mineral_type", mineral_type},
-            {"x", x},
-            {"y", y}
-        }
-    };
+    return json_message{.type = json_message_type::mineral_spawn,
+                        .seq = 0,
+                        .data = {{"node_id", node_id}, {"mineral_type", mineral_type}, {"x", x}, {"y", y}}};
 }
 
-auto make_mineral_despawn(uint32_t node_id,
-    int16_t x, int16_t y) -> json_message
+auto make_mineral_despawn(uint32_t node_id, int16_t x, int16_t y) -> json_message
 {
     return json_message{
-        .type = json_message_type::mineral_despawn,
-        .seq = 0,
-        .data = {
-            {"node_id", node_id},
-            {"x", x},
-            {"y", y}
-        }
-    };
+        .type = json_message_type::mineral_despawn, .seq = 0, .data = {{"node_id", node_id}, {"x", x}, {"y", y}}};
 }
 
 // === Fishing ===
 
-auto make_fish_skill_response(uint32_t seq, bool success,
-    std::optional<std::string_view> error) -> json_message
+auto make_fish_skill_response(uint32_t seq, bool success, std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
-    if (error) data["error"] = std::string(*error);
-    return json_message{
-        .type = json_message_type::fish_skill_response,
-        .seq = seq,
-        .data = data
-    };
+    if (error)
+        data["error"] = std::string(*error);
+    return json_message{.type = json_message_type::fish_skill_response, .seq = seq, .data = data};
 }
 
 auto make_fish_engaged(entity_id player_eid,
-    std::string_view fish_name, uint8_t visual_type,
-    int32_t initial_chance) -> json_message
+                       std::string_view fish_name,
+                       uint8_t visual_type,
+                       int32_t initial_chance) -> json_message
 {
-    return json_message{
-        .type = json_message_type::fish_engaged,
-        .seq = 0,
-        .data = {
-            {"fish_name", std::string(fish_name)},
-            {"visual_type", visual_type},
-            {"catch_chance", initial_chance}
-        }
-    };
+    return json_message{.type = json_message_type::fish_engaged,
+                        .seq = 0,
+                        .data = {{"fish_name", std::string(fish_name)},
+                                 {"visual_type", visual_type},
+                                 {"catch_chance", initial_chance}}};
 }
 
-auto make_fish_chance_update(entity_id /*player_eid*/,
-    int32_t catch_chance) -> json_message
+auto make_fish_chance_update(entity_id /*player_eid*/, int32_t catch_chance) -> json_message
 {
     return json_message{
-        .type = json_message_type::fish_chance_update,
-        .seq = 0,
-        .data = {
-            {"catch_chance", catch_chance}
-        }
-    };
+        .type = json_message_type::fish_chance_update, .seq = 0, .data = {{"catch_chance", catch_chance}}};
 }
 
 auto make_fish_catch_response(entity_id /*player_eid*/,
-    std::string_view result_str,
-    std::string_view item_name,
-    int32_t template_id) -> json_message
+                              std::string_view result_str,
+                              std::string_view item_name,
+                              int32_t template_id) -> json_message
 {
     nlohmann::json data;
     data["result"] = std::string(result_str);
-    if (!item_name.empty()) data["item_name"] = std::string(item_name);
-    if (template_id > 0) data["template_id"] = template_id;
-    return json_message{
-        .type = json_message_type::fish_catch_response,
-        .seq = 0,
-        .data = data
-    };
+    if (!item_name.empty())
+        data["item_name"] = std::string(item_name);
+    if (template_id > 0)
+        data["template_id"] = template_id;
+    return json_message{.type = json_message_type::fish_catch_response, .seq = 0, .data = data};
 }
 
-auto make_fish_spawn_broadcast(uint32_t fish_index,
-    uint8_t visual_type, int16_t x, int16_t y) -> json_message
+auto make_fish_spawn_broadcast(uint32_t fish_index, uint8_t visual_type, int16_t x, int16_t y) -> json_message
 {
-    return json_message{
-        .type = json_message_type::fish_spawn_broadcast,
-        .seq = 0,
-        .data = {
-            {"fish_index", fish_index},
-            {"visual_type", visual_type},
-            {"x", x},
-            {"y", y}
-        }
-    };
+    return json_message{.type = json_message_type::fish_spawn_broadcast,
+                        .seq = 0,
+                        .data = {{"fish_index", fish_index}, {"visual_type", visual_type}, {"x", x}, {"y", y}}};
 }
 
-auto make_fish_despawn_broadcast(uint32_t fish_index,
-    int16_t x, int16_t y) -> json_message
+auto make_fish_despawn_broadcast(uint32_t fish_index, int16_t x, int16_t y) -> json_message
 {
-    return json_message{
-        .type = json_message_type::fish_despawn_broadcast,
-        .seq = 0,
-        .data = {
-            {"fish_index", fish_index},
-            {"x", x},
-            {"y", y}
-        }
-    };
+    return json_message{.type = json_message_type::fish_despawn_broadcast,
+                        .seq = 0,
+                        .data = {{"fish_index", fish_index}, {"x", x}, {"y", y}}};
 }
 
 // Environment update
 
-auto environment_update_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"hour", hour},
-        {"minute", minute},
-        {"is_day", is_day},
-        {"weather", weather}
-    };
+auto environment_update_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"hour", hour}, {"minute", minute}, {"is_day", is_day}, {"weather", weather}};
 }
 
-auto make_environment_update(const environment_update_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::environment_update,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_environment_update(const environment_update_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::environment_update, .seq = 0, .data = data.to_json()};
 }
 
 // === Death/Respawn ===
 
-auto respawn_response_data::to_json() const -> nlohmann::json {
-    nlohmann::json j = {
-        {"success", success},
-        {"map", map_name},
-        {"x", x},
-        {"y", y}
-    };
-    if (!error.empty()) {
+auto respawn_response_data::to_json() const -> nlohmann::json
+{
+    nlohmann::json j = {{"success", success}, {"map", map_name}, {"x", x}, {"y", y}};
+    if (!error.empty())
+    {
         j["error"] = error;
     }
     return j;
 }
 
-auto make_respawn_response(uint32_t seq, bool success,
-    std::string_view map_name,
-    int16_t x, int16_t y,
-    std::optional<std::string_view> error) -> json_message
+auto make_respawn_response(uint32_t seq,
+                           bool success,
+                           std::string_view map_name,
+                           int16_t x,
+                           int16_t y,
+                           std::optional<std::string_view> error) -> json_message
 {
     respawn_response_data data;
     data.success = success;
     data.map_name = std::string(map_name);
     data.x = x;
     data.y = y;
-    if (error) data.error = std::string(*error);
+    if (error)
+        data.error = std::string(*error);
 
-    return json_message{
-        .type = json_message_type::respawn_response,
-        .seq = seq,
-        .data = data.to_json()
-    };
+    return json_message{.type = json_message_type::respawn_response, .seq = seq, .data = data.to_json()};
 }
 
 // === Admin Web Tool ===
 
-auto make_enter_admin_mode_response(uint32_t seq, bool success,
-    uint8_t admin_level,
-    std::optional<std::string_view> error) -> json_message
+auto make_enter_admin_mode_response(uint32_t seq,
+                                    bool success,
+                                    uint8_t admin_level,
+                                    std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data = {{"success", success}};
-    if (success) {
+    if (success)
+    {
         data["admin_level"] = admin_level;
     }
-    if (error) {
+    if (error)
+    {
         data["error"] = std::string(*error);
     }
-    return json_message{
-        .type = json_message_type::enter_admin_mode_response,
-        .seq = seq,
-        .data = data
-    };
+    return json_message{.type = json_message_type::enter_admin_mode_response, .seq = seq, .data = data};
 }
 
 auto admin_get_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_player_request_data, std::string>
 {
     admin_get_player_request_data data;
-    if (j.contains("player_name") && j["player_name"].is_string()) {
+    if (j.contains("player_name") && j["player_name"].is_string())
+    {
         data.player_name = j["player_name"].get<std::string>();
     }
-    if (j.contains("player_id") && j["player_id"].is_number()) {
+    if (j.contains("player_id") && j["player_id"].is_number())
+    {
         data.player_id = j["player_id"].get<uint32_t>();
     }
-    if (data.player_name.empty() && data.player_id == 0) {
+    if (data.player_name.empty() && data.player_id == 0)
+    {
         return result<admin_get_player_request_data, std::string>::err("player_name or player_id required");
     }
     return result<admin_get_player_request_data, std::string>::ok(std::move(data));
@@ -3126,11 +3108,13 @@ auto admin_kick_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_kick_player_request_data, std::string>
 {
     admin_kick_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_kick_player_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
-    if (j.contains("reason") && j["reason"].is_string()) {
+    if (j.contains("reason") && j["reason"].is_string())
+    {
         data.reason = j["reason"].get<std::string>();
     }
     return result<admin_kick_player_request_data, std::string>::ok(std::move(data));
@@ -3140,14 +3124,17 @@ auto admin_ban_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_ban_player_request_data, std::string>
 {
     admin_ban_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_ban_player_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
-    if (j.contains("reason") && j["reason"].is_string()) {
+    if (j.contains("reason") && j["reason"].is_string())
+    {
         data.reason = j["reason"].get<std::string>();
     }
-    if (j.contains("duration_hours") && j["duration_hours"].is_number()) {
+    if (j.contains("duration_hours") && j["duration_hours"].is_number())
+    {
         data.duration_hours = j["duration_hours"].get<int32_t>();
     }
     return result<admin_ban_player_request_data, std::string>::ok(std::move(data));
@@ -3157,7 +3144,8 @@ auto admin_unban_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_unban_player_request_data, std::string>
 {
     admin_unban_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_unban_player_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
@@ -3168,11 +3156,13 @@ auto admin_teleport_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_teleport_player_request_data, std::string>
 {
     admin_teleport_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_teleport_player_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
-    if (!j.contains("dest_map") || !j["dest_map"].is_string()) {
+    if (!j.contains("dest_map") || !j["dest_map"].is_string())
+    {
         return result<admin_teleport_player_request_data, std::string>::err("dest_map required");
     }
     data.dest_map = j["dest_map"].get<std::string>();
@@ -3185,22 +3175,24 @@ auto admin_modify_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_modify_player_request_data, std::string>
 {
     admin_modify_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_modify_player_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
-    if (!j.contains("modifications") || !j["modifications"].is_object()) {
+    if (!j.contains("modifications") || !j["modifications"].is_object())
+    {
         return result<admin_modify_player_request_data, std::string>::err("modifications required");
     }
     data.modifications = j["modifications"];
     return result<admin_modify_player_request_data, std::string>::ok(std::move(data));
 }
 
-auto admin_get_map_request_data::from_json(const nlohmann::json& j)
-    -> result<admin_get_map_request_data, std::string>
+auto admin_get_map_request_data::from_json(const nlohmann::json& j) -> result<admin_get_map_request_data, std::string>
 {
     admin_get_map_request_data data;
-    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+    if (!j.contains("map_name") || !j["map_name"].is_string())
+    {
         return result<admin_get_map_request_data, std::string>::err("map_name required");
     }
     data.map_name = j["map_name"].get<std::string>();
@@ -3211,27 +3203,30 @@ auto admin_spawn_npc_request_data::from_json(const nlohmann::json& j)
     -> result<admin_spawn_npc_request_data, std::string>
 {
     admin_spawn_npc_request_data data;
-    if (!j.contains("npc_name") || !j["npc_name"].is_string()) {
+    if (!j.contains("npc_name") || !j["npc_name"].is_string())
+    {
         return result<admin_spawn_npc_request_data, std::string>::err("npc_name required");
     }
     data.npc_name = j["npc_name"].get<std::string>();
-    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+    if (!j.contains("map_name") || !j["map_name"].is_string())
+    {
         return result<admin_spawn_npc_request_data, std::string>::err("map_name required");
     }
     data.map_name = j["map_name"].get<std::string>();
     data.x = safe_int16(j, "x");
     data.y = safe_int16(j, "y");
-    if (j.contains("count") && j["count"].is_number()) {
+    if (j.contains("count") && j["count"].is_number())
+    {
         data.count = safe_int16(j, "count", 1);
     }
     return result<admin_spawn_npc_request_data, std::string>::ok(std::move(data));
 }
 
-auto admin_kill_npc_request_data::from_json(const nlohmann::json& j)
-    -> result<admin_kill_npc_request_data, std::string>
+auto admin_kill_npc_request_data::from_json(const nlohmann::json& j) -> result<admin_kill_npc_request_data, std::string>
 {
     admin_kill_npc_request_data data;
-    if (!j.contains("entity_id") || !j["entity_id"].is_number()) {
+    if (!j.contains("entity_id") || !j["entity_id"].is_number())
+    {
         return result<admin_kill_npc_request_data, std::string>::err("entity_id required");
     }
     data.entity_id = j["entity_id"].get<uint32_t>();
@@ -3242,7 +3237,8 @@ auto admin_get_inventory_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_inventory_request_data, std::string>
 {
     admin_get_inventory_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_get_inventory_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
@@ -3253,16 +3249,19 @@ auto admin_give_item_request_data::from_json(const nlohmann::json& j)
     -> result<admin_give_item_request_data, std::string>
 {
     admin_give_item_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_give_item_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
-    if (!j.contains("item_template_id") || !j["item_template_id"].is_number()) {
+    if (!j.contains("item_template_id") || !j["item_template_id"].is_number())
+    {
         return result<admin_give_item_request_data, std::string>::err("item_template_id required");
     }
     data.item_template_id = j["item_template_id"].get<uint32_t>();
     data.count = safe_int16(j, "count", 1);
-    if (j.contains("attribute") && j["attribute"].is_object()) {
+    if (j.contains("attribute") && j["attribute"].is_object())
+    {
         data.attribute = item::item_attribute::from_json(j["attribute"]);
     }
     return result<admin_give_item_request_data, std::string>::ok(std::move(data));
@@ -3272,11 +3271,13 @@ auto admin_remove_item_request_data::from_json(const nlohmann::json& j)
     -> result<admin_remove_item_request_data, std::string>
 {
     admin_remove_item_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_remove_item_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number()) {
+    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    {
         return result<admin_remove_item_request_data, std::string>::err("inventory_slot required");
     }
     data.inventory_slot = safe_int16(j, "inventory_slot");
@@ -3288,7 +3289,8 @@ auto admin_get_guild_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_guild_request_data, std::string>
 {
     admin_get_guild_request_data data;
-    if (!j.contains("guild_name") || !j["guild_name"].is_string()) {
+    if (!j.contains("guild_name") || !j["guild_name"].is_string())
+    {
         return result<admin_get_guild_request_data, std::string>::err("guild_name required");
     }
     data.guild_name = j["guild_name"].get<std::string>();
@@ -3299,7 +3301,8 @@ auto admin_get_account_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_account_request_data, std::string>
 {
     admin_get_account_request_data data;
-    if (!j.contains("username") || !j["username"].is_string()) {
+    if (!j.contains("username") || !j["username"].is_string())
+    {
         return result<admin_get_account_request_data, std::string>::err("username required");
     }
     data.username = j["username"].get<std::string>();
@@ -3310,7 +3313,8 @@ auto admin_subscribe_map_request_data::from_json(const nlohmann::json& j)
     -> result<admin_subscribe_map_request_data, std::string>
 {
     admin_subscribe_map_request_data data;
-    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+    if (!j.contains("map_name") || !j["map_name"].is_string())
+    {
         return result<admin_subscribe_map_request_data, std::string>::err("map_name required");
     }
     data.map_name = j["map_name"].get<std::string>();
@@ -3321,7 +3325,8 @@ auto admin_get_map_data_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_map_data_request_data, std::string>
 {
     admin_get_map_data_request_data data;
-    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+    if (!j.contains("map_name") || !j["map_name"].is_string())
+    {
         return result<admin_get_map_data_request_data, std::string>::err("map_name required");
     }
     data.map_name = j["map_name"].get<std::string>();
@@ -3332,64 +3337,49 @@ auto admin_subscribe_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_subscribe_player_request_data, std::string>
 {
     admin_subscribe_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_subscribe_player_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
     return result<admin_subscribe_player_request_data, std::string>::ok(std::move(data));
 }
 
-auto make_admin_response(json_message_type type, uint32_t seq, bool success,
-    const nlohmann::json& data,
-    std::optional<std::string_view> error) -> json_message
+auto make_admin_response(json_message_type type,
+                         uint32_t seq,
+                         bool success,
+                         const nlohmann::json& data,
+                         std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json j = data;
     j["success"] = success;
-    if (error) {
+    if (error)
+    {
         j["error"] = std::string(*error);
     }
-    return json_message{
-        .type = type,
-        .seq = seq,
-        .data = j
-    };
+    return json_message{.type = type, .seq = seq, .data = j};
 }
 
-auto make_admin_player_connected(const std::string& name,
-    int16_t level, const std::string& map_name) -> json_message
+auto make_admin_player_connected(const std::string& name, int16_t level, const std::string& map_name) -> json_message
 {
-    return json_message{
-        .type = json_message_type::admin_player_connected,
-        .seq = 0,
-        .data = nlohmann::json{
-            {"name", name},
-            {"level", level},
-            {"map", map_name}
-        }
-    };
+    return json_message{.type = json_message_type::admin_player_connected,
+                        .seq = 0,
+                        .data = nlohmann::json{{"name", name}, {"level", level}, {"map", map_name}}};
 }
 
 auto make_admin_player_disconnected(const std::string& name) -> json_message
 {
     return json_message{
-        .type = json_message_type::admin_player_disconnected,
-        .seq = 0,
-        .data = nlohmann::json{{"name", name}}
-    };
+        .type = json_message_type::admin_player_disconnected, .seq = 0, .data = nlohmann::json{{"name", name}}};
 }
 
 auto make_admin_chat_log(const std::string& channel,
-    const std::string& sender, const std::string& content) -> json_message
+                         const std::string& sender,
+                         const std::string& content) -> json_message
 {
-    return json_message{
-        .type = json_message_type::admin_chat_log,
-        .seq = 0,
-        .data = nlohmann::json{
-            {"channel", channel},
-            {"sender", sender},
-            {"content", content}
-        }
-    };
+    return json_message{.type = json_message_type::admin_chat_log,
+                        .seq = 0,
+                        .data = nlohmann::json{{"channel", channel}, {"sender", sender}, {"content", content}}};
 }
 
 // === Admin expanded request data from_json ===
@@ -3398,7 +3388,8 @@ auto admin_broadcast_request_data::from_json(const nlohmann::json& j)
     -> result<admin_broadcast_request_data, std::string>
 {
     admin_broadcast_request_data data;
-    if (!j.contains("message") || !j["message"].is_string()) {
+    if (!j.contains("message") || !j["message"].is_string())
+    {
         return result<admin_broadcast_request_data, std::string>::err("message required");
     }
     data.message = j["message"].get<std::string>();
@@ -3409,11 +3400,13 @@ auto admin_mute_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_mute_player_request_data, std::string>
 {
     admin_mute_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_mute_player_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
-    if (j.contains("duration_minutes") && j["duration_minutes"].is_number()) {
+    if (j.contains("duration_minutes") && j["duration_minutes"].is_number())
+    {
         data.duration_minutes = j["duration_minutes"].get<int32_t>();
     }
     return result<admin_mute_player_request_data, std::string>::ok(std::move(data));
@@ -3423,7 +3416,8 @@ auto admin_unmute_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_unmute_player_request_data, std::string>
 {
     admin_unmute_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_unmute_player_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
@@ -3434,13 +3428,16 @@ auto admin_get_item_template_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_item_template_request_data, std::string>
 {
     admin_get_item_template_request_data data;
-    if (j.contains("item_id") && j["item_id"].is_number()) {
+    if (j.contains("item_id") && j["item_id"].is_number())
+    {
         data.item_id = j["item_id"].get<uint32_t>();
     }
-    if (j.contains("item_name") && j["item_name"].is_string()) {
+    if (j.contains("item_name") && j["item_name"].is_string())
+    {
         data.item_name = j["item_name"].get<std::string>();
     }
-    if (data.item_id == 0 && data.item_name.empty()) {
+    if (data.item_id == 0 && data.item_name.empty())
+    {
         return result<admin_get_item_template_request_data, std::string>::err("item_id or item_name required");
     }
     return result<admin_get_item_template_request_data, std::string>::ok(std::move(data));
@@ -3450,13 +3447,16 @@ auto admin_get_npc_template_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_npc_template_request_data, std::string>
 {
     admin_get_npc_template_request_data data;
-    if (j.contains("npc_id") && j["npc_id"].is_number()) {
+    if (j.contains("npc_id") && j["npc_id"].is_number())
+    {
         data.npc_id = j["npc_id"].get<uint32_t>();
     }
-    if (j.contains("npc_name") && j["npc_name"].is_string()) {
+    if (j.contains("npc_name") && j["npc_name"].is_string())
+    {
         data.npc_name = j["npc_name"].get<std::string>();
     }
-    if (data.npc_id == 0 && data.npc_name.empty()) {
+    if (data.npc_id == 0 && data.npc_name.empty())
+    {
         return result<admin_get_npc_template_request_data, std::string>::err("npc_id or npc_name required");
     }
     return result<admin_get_npc_template_request_data, std::string>::ok(std::move(data));
@@ -3466,15 +3466,21 @@ auto admin_search_players_request_data::from_json(const nlohmann::json& j)
     -> result<admin_search_players_request_data, std::string>
 {
     admin_search_players_request_data data;
-    if (!j.contains("query") || !j["query"].is_string()) {
+    if (!j.contains("query") || !j["query"].is_string())
+    {
         return result<admin_search_players_request_data, std::string>::err("query required");
     }
     data.query = j["query"].get<std::string>();
-    if (j.contains("level_min") && j["level_min"].is_number()) data.level_min = static_cast<int16_t>(j["level_min"].get<int>());
-    if (j.contains("level_max") && j["level_max"].is_number()) data.level_max = static_cast<int16_t>(j["level_max"].get<int>());
-    if (j.contains("map_name") && j["map_name"].is_string()) data.map_name = j["map_name"];
-    if (j.contains("faction") && j["faction"].is_number()) data.faction = j["faction"];
-    if (j.contains("guild_name") && j["guild_name"].is_string()) data.guild_name = j["guild_name"];
+    if (j.contains("level_min") && j["level_min"].is_number())
+        data.level_min = static_cast<int16_t>(j["level_min"].get<int>());
+    if (j.contains("level_max") && j["level_max"].is_number())
+        data.level_max = static_cast<int16_t>(j["level_max"].get<int>());
+    if (j.contains("map_name") && j["map_name"].is_string())
+        data.map_name = j["map_name"];
+    if (j.contains("faction") && j["faction"].is_number())
+        data.faction = j["faction"];
+    if (j.contains("guild_name") && j["guild_name"].is_string())
+        data.guild_name = j["guild_name"];
     return result<admin_search_players_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3484,8 +3490,10 @@ auto admin_get_audit_log_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_audit_log_request_data, std::string>
 {
     admin_get_audit_log_request_data data;
-    if (j.contains("count") && j["count"].is_number()) data.count = j["count"];
-    if (j.contains("executor_name") && j["executor_name"].is_string()) data.executor_name = j["executor_name"];
+    if (j.contains("count") && j["count"].is_number())
+        data.count = j["count"];
+    if (j.contains("executor_name") && j["executor_name"].is_string())
+        data.executor_name = j["executor_name"];
     return result<admin_get_audit_log_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3493,7 +3501,8 @@ auto admin_set_config_request_data::from_json(const nlohmann::json& j)
     -> result<admin_set_config_request_data, std::string>
 {
     admin_set_config_request_data data;
-    if (!j.contains("values") || !j["values"].is_object()) {
+    if (!j.contains("values") || !j["values"].is_object())
+    {
         return result<admin_set_config_request_data, std::string>::err("Missing 'values' object");
     }
     data.values = j["values"];
@@ -3504,7 +3513,8 @@ auto admin_cancel_scheduled_task_request_data::from_json(const nlohmann::json& j
     -> result<admin_cancel_scheduled_task_request_data, std::string>
 {
     admin_cancel_scheduled_task_request_data data;
-    if (!j.contains("tag") || !j["tag"].is_string()) {
+    if (!j.contains("tag") || !j["tag"].is_string())
+    {
         return result<admin_cancel_scheduled_task_request_data, std::string>::err("Missing 'tag' field");
     }
     data.tag = j["tag"];
@@ -3515,11 +3525,13 @@ auto admin_run_query_request_data::from_json(const nlohmann::json& j)
     -> result<admin_run_query_request_data, std::string>
 {
     admin_run_query_request_data data;
-    if (!j.contains("query_name") || !j["query_name"].is_string()) {
+    if (!j.contains("query_name") || !j["query_name"].is_string())
+    {
         return result<admin_run_query_request_data, std::string>::err("Missing 'query_name' field");
     }
     data.query_name = j["query_name"];
-    if (j.contains("params") && j["params"].is_object()) data.params = j["params"];
+    if (j.contains("params") && j["params"].is_object())
+        data.params = j["params"];
     return result<admin_run_query_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3527,7 +3539,8 @@ auto admin_list_map_npcs_request_data::from_json(const nlohmann::json& j)
     -> result<admin_list_map_npcs_request_data, std::string>
 {
     admin_list_map_npcs_request_data data;
-    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+    if (!j.contains("map_name") || !j["map_name"].is_string())
+    {
         return result<admin_list_map_npcs_request_data, std::string>::err("Missing 'map_name' field");
     }
     data.map_name = j["map_name"];
@@ -3538,7 +3551,8 @@ auto admin_list_map_ground_items_request_data::from_json(const nlohmann::json& j
     -> result<admin_list_map_ground_items_request_data, std::string>
 {
     admin_list_map_ground_items_request_data data;
-    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+    if (!j.contains("map_name") || !j["map_name"].is_string())
+    {
         return result<admin_list_map_ground_items_request_data, std::string>::err("Missing 'map_name' field");
     }
     data.map_name = j["map_name"];
@@ -3549,13 +3563,15 @@ auto admin_remove_ground_item_request_data::from_json(const nlohmann::json& j)
     -> result<admin_remove_ground_item_request_data, std::string>
 {
     admin_remove_ground_item_request_data data;
-    if (!j.contains("map_name") || !j["map_name"].is_string()) {
+    if (!j.contains("map_name") || !j["map_name"].is_string())
+    {
         return result<admin_remove_ground_item_request_data, std::string>::err("Missing 'map_name' field");
     }
-    if (!j.contains("x") || !j["x"].is_number() ||
-        !j.contains("y") || !j["y"].is_number() ||
-        !j.contains("item_id") || !j["item_id"].is_number()) {
-        return result<admin_remove_ground_item_request_data, std::string>::err("Missing required fields: x, y, item_id");
+    if (!j.contains("x") || !j["x"].is_number() || !j.contains("y") || !j["y"].is_number() || !j.contains("item_id") ||
+        !j["item_id"].is_number())
+    {
+        return result<admin_remove_ground_item_request_data, std::string>::err(
+            "Missing required fields: x, y, item_id");
     }
     data.map_name = j["map_name"];
     data.x = safe_int16(j, "x");
@@ -3568,16 +3584,20 @@ auto admin_guild_action_request_data::from_json(const nlohmann::json& j)
     -> result<admin_guild_action_request_data, std::string>
 {
     admin_guild_action_request_data data;
-    if (!j.contains("guild_name") || !j["guild_name"].is_string()) {
+    if (!j.contains("guild_name") || !j["guild_name"].is_string())
+    {
         return result<admin_guild_action_request_data, std::string>::err("Missing 'guild_name' field");
     }
-    if (!j.contains("action") || !j["action"].is_string()) {
+    if (!j.contains("action") || !j["action"].is_string())
+    {
         return result<admin_guild_action_request_data, std::string>::err("Missing 'action' field");
     }
     data.guild_name = j["guild_name"];
     data.action = j["action"];
-    if (j.contains("target_player") && j["target_player"].is_string()) data.target_player = j["target_player"];
-    if (j.contains("rank") && j["rank"].is_string()) data.rank = j["rank"];
+    if (j.contains("target_player") && j["target_player"].is_string())
+        data.target_player = j["target_player"];
+    if (j.contains("rank") && j["rank"].is_string())
+        data.rank = j["rank"];
     return result<admin_guild_action_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3585,10 +3605,12 @@ auto admin_message_player_request_data::from_json(const nlohmann::json& j)
     -> result<admin_message_player_request_data, std::string>
 {
     admin_message_player_request_data data;
-    if (!j.contains("player_name") || !j["player_name"].is_string()) {
+    if (!j.contains("player_name") || !j["player_name"].is_string())
+    {
         return result<admin_message_player_request_data, std::string>::err("Missing 'player_name' field");
     }
-    if (!j.contains("message") || !j["message"].is_string()) {
+    if (!j.contains("message") || !j["message"].is_string())
+    {
         return result<admin_message_player_request_data, std::string>::err("Missing 'message' field");
     }
     data.player_name = j["player_name"];
@@ -3600,10 +3622,14 @@ auto admin_set_environment_request_data::from_json(const nlohmann::json& j)
     -> result<admin_set_environment_request_data, std::string>
 {
     admin_set_environment_request_data data;
-    if (j.contains("map_name") && j["map_name"].is_string()) data.map_name = j["map_name"];
-    if (j.contains("weather") && j["weather"].is_number()) data.weather = j["weather"].get<int>();
-    if (j.contains("hour") && j["hour"].is_number()) data.hour = j["hour"].get<int>();
-    if (j.contains("minute") && j["minute"].is_number()) data.minute = j["minute"].get<int>();
+    if (j.contains("map_name") && j["map_name"].is_string())
+        data.map_name = j["map_name"];
+    if (j.contains("weather") && j["weather"].is_number())
+        data.weather = j["weather"].get<int>();
+    if (j.contains("hour") && j["hour"].is_number())
+        data.hour = j["hour"].get<int>();
+    if (j.contains("minute") && j["minute"].is_number())
+        data.minute = j["minute"].get<int>();
     return result<admin_set_environment_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3611,9 +3637,12 @@ auto admin_shutdown_server_request_data::from_json(const nlohmann::json& j)
     -> result<admin_shutdown_server_request_data, std::string>
 {
     admin_shutdown_server_request_data data;
-    if (j.contains("countdown_seconds") && j["countdown_seconds"].is_number()) data.countdown_seconds = j["countdown_seconds"];
-    if (j.contains("reason") && j["reason"].is_string()) data.reason = j["reason"];
-    if (j.contains("cancel") && j["cancel"].is_boolean()) data.cancel = j["cancel"];
+    if (j.contains("countdown_seconds") && j["countdown_seconds"].is_number())
+        data.countdown_seconds = j["countdown_seconds"];
+    if (j.contains("reason") && j["reason"].is_string())
+        data.reason = j["reason"];
+    if (j.contains("cancel") && j["cancel"].is_boolean())
+        data.cancel = j["cancel"];
     return result<admin_shutdown_server_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3629,8 +3658,10 @@ auto admin_modify_skills_request_data::from_json(const nlohmann::json& j)
         return result<admin_modify_skills_request_data, std::string>::err("Missing 'action'");
     data.player_name = j["player_name"];
     data.action = j["action"];
-    if (j.contains("skill_type") && j["skill_type"].is_number()) data.skill_type = j["skill_type"];
-    if (j.contains("value") && j["value"].is_number()) data.value = j["value"];
+    if (j.contains("skill_type") && j["skill_type"].is_number())
+        data.skill_type = j["skill_type"];
+    if (j.contains("value") && j["value"].is_number())
+        data.value = j["value"];
     return result<admin_modify_skills_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3644,7 +3675,8 @@ auto admin_modify_spells_request_data::from_json(const nlohmann::json& j)
         return result<admin_modify_spells_request_data, std::string>::err("Missing 'action'");
     data.player_name = j["player_name"];
     data.action = j["action"];
-    if (j.contains("spell_id") && j["spell_id"].is_number()) data.spell_id = j["spell_id"];
+    if (j.contains("spell_id") && j["spell_id"].is_number())
+        data.spell_id = j["spell_id"];
     return result<admin_modify_spells_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3668,7 +3700,8 @@ auto admin_quest_action_request_data::from_json(const nlohmann::json& j)
         return result<admin_quest_action_request_data, std::string>::err("Missing 'action'");
     data.player_name = j["player_name"];
     data.action = j["action"];
-    if (j.contains("quest_id") && j["quest_id"].is_number()) data.quest_id = j["quest_id"];
+    if (j.contains("quest_id") && j["quest_id"].is_number())
+        data.quest_id = j["quest_id"];
     return result<admin_quest_action_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3682,8 +3715,10 @@ auto admin_remove_effects_request_data::from_json(const nlohmann::json& j)
         return result<admin_remove_effects_request_data, std::string>::err("Missing 'mode'");
     data.player_name = j["player_name"];
     data.mode = j["mode"];
-    if (j.contains("group") && j["group"].is_number()) data.group = j["group"];
-    if (j.contains("effect_id") && j["effect_id"].is_number()) data.effect_id = j["effect_id"];
+    if (j.contains("group") && j["group"].is_number())
+        data.group = j["group"];
+    if (j.contains("effect_id") && j["effect_id"].is_number())
+        data.effect_id = j["effect_id"];
     return result<admin_remove_effects_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3697,7 +3732,8 @@ auto admin_create_account_request_data::from_json(const nlohmann::json& j)
         return result<admin_create_account_request_data, std::string>::err("Missing 'password'");
     data.username = j["username"];
     data.password = j["password"];
-    if (j.contains("admin_level") && j["admin_level"].is_number()) data.admin_level = j["admin_level"];
+    if (j.contains("admin_level") && j["admin_level"].is_number())
+        data.admin_level = j["admin_level"];
     return result<admin_create_account_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3731,7 +3767,8 @@ auto admin_list_spawn_points_request_data::from_json(const nlohmann::json& j)
     -> result<admin_list_spawn_points_request_data, std::string>
 {
     admin_list_spawn_points_request_data data;
-    if (j.contains("map_name") && j["map_name"].is_string()) data.map_name = j["map_name"];
+    if (j.contains("map_name") && j["map_name"].is_string())
+        data.map_name = j["map_name"];
     return result<admin_list_spawn_points_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3739,10 +3776,13 @@ auto admin_get_spell_template_request_data::from_json(const nlohmann::json& j)
     -> result<admin_get_spell_template_request_data, std::string>
 {
     admin_get_spell_template_request_data data;
-    if (j.contains("spell_id") && j["spell_id"].is_number()) data.spell_id = j["spell_id"];
-    if (j.contains("spell_name") && j["spell_name"].is_string()) data.spell_name = j["spell_name"];
+    if (j.contains("spell_id") && j["spell_id"].is_number())
+        data.spell_id = j["spell_id"];
+    if (j.contains("spell_name") && j["spell_name"].is_string())
+        data.spell_name = j["spell_name"];
     if (data.spell_id == 0 && data.spell_name.empty())
-        return result<admin_get_spell_template_request_data, std::string>::err("Must specify 'spell_id' or 'spell_name'");
+        return result<admin_get_spell_template_request_data, std::string>::err(
+            "Must specify 'spell_id' or 'spell_name'");
     return result<admin_get_spell_template_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3753,7 +3793,8 @@ auto admin_set_maintenance_mode_request_data::from_json(const nlohmann::json& j)
     if (!j.contains("enabled") || !j["enabled"].is_boolean())
         return result<admin_set_maintenance_mode_request_data, std::string>::err("Missing 'enabled'");
     data.enabled = j["enabled"];
-    if (j.contains("message") && j["message"].is_string()) data.message = j["message"];
+    if (j.contains("message") && j["message"].is_string())
+        data.message = j["message"];
     return result<admin_set_maintenance_mode_request_data, std::string>::ok(std::move(data));
 }
 
@@ -3767,11 +3808,16 @@ auto admin_create_character_request_admin_data::from_json(const nlohmann::json& 
         return result<admin_create_character_request_admin_data, std::string>::err("Missing 'name'");
     data.username = j["username"];
     data.name = j["name"];
-    if (j.contains("gender") && j["gender"].is_number()) data.gender = static_cast<int16_t>(j["gender"].get<int>());
-    if (j.contains("hair_style") && j["hair_style"].is_number()) data.hair_style = static_cast<int16_t>(j["hair_style"].get<int>());
-    if (j.contains("hair_color") && j["hair_color"].is_number()) data.hair_color = static_cast<int16_t>(j["hair_color"].get<int>());
-    if (j.contains("skin_color") && j["skin_color"].is_number()) data.skin_color = static_cast<int16_t>(j["skin_color"].get<int>());
-    if (j.contains("underwear_color") && j["underwear_color"].is_number()) data.underwear_color = static_cast<int16_t>(j["underwear_color"].get<int>());
+    if (j.contains("gender") && j["gender"].is_number())
+        data.gender = static_cast<int16_t>(j["gender"].get<int>());
+    if (j.contains("hair_style") && j["hair_style"].is_number())
+        data.hair_style = static_cast<int16_t>(j["hair_style"].get<int>());
+    if (j.contains("hair_color") && j["hair_color"].is_number())
+        data.hair_color = static_cast<int16_t>(j["hair_color"].get<int>());
+    if (j.contains("skin_color") && j["skin_color"].is_number())
+        data.skin_color = static_cast<int16_t>(j["skin_color"].get<int>());
+    if (j.contains("underwear_color") && j["underwear_color"].is_number())
+        data.underwear_color = static_cast<int16_t>(j["underwear_color"].get<int>());
     return result<admin_create_character_request_admin_data, std::string>::ok(std::move(data));
 }
 
@@ -3795,8 +3841,10 @@ auto admin_manage_ip_bans_request_data::from_json(const nlohmann::json& j)
     if (!j.contains("action") || !j["action"].is_string())
         return result<admin_manage_ip_bans_request_data, std::string>::err("Missing 'action'");
     data.action = j["action"];
-    if (j.contains("ip") && j["ip"].is_string()) data.ip = j["ip"];
-    if (j.contains("reason") && j["reason"].is_string()) data.reason = j["reason"];
+    if (j.contains("ip") && j["ip"].is_string())
+        data.ip = j["ip"];
+    if (j.contains("reason") && j["reason"].is_string())
+        data.reason = j["reason"];
     if ((data.action == "add" || data.action == "remove") && data.ip.empty())
         return result<admin_manage_ip_bans_request_data, std::string>::err("Missing 'ip' for add/remove action");
     return result<admin_manage_ip_bans_request_data, std::string>::ok(std::move(data));
@@ -3816,8 +3864,7 @@ auto admin_start_task_request_data::from_json(const nlohmann::json& j)
 
 // === Friend system ===
 
-auto friend_target_request_data::from_json(const nlohmann::json& j)
-    -> result<friend_target_request_data, std::string>
+auto friend_target_request_data::from_json(const nlohmann::json& j) -> result<friend_target_request_data, std::string>
 {
     friend_target_request_data data;
     if (!j.contains("target_name") || !j["target_name"].is_string())
@@ -3828,85 +3875,86 @@ auto friend_target_request_data::from_json(const nlohmann::json& j)
     return result<friend_target_request_data, std::string>::ok(std::move(data));
 }
 
-auto make_friend_response(uint32_t seq, json_message_type type,
-    bool success, std::string_view error) -> json_message
+auto make_friend_response(uint32_t seq, json_message_type type, bool success, std::string_view error) -> json_message
 {
     json_message msg;
     msg.type = type;
     msg.seq = seq;
-    msg.data = {
-        {"success", success}
-    };
-    if (!error.empty()) {
+    msg.data = {{"success", success}};
+    if (!error.empty())
+    {
         msg.data["error"] = std::string(error);
     }
     return msg;
 }
 
 auto make_friend_list_response(uint32_t seq,
-    const std::vector<friend_list_entry_msg>& friends,
-    const std::vector<friend_request_msg>& incoming_requests,
-    const std::vector<friend_request_msg>& outgoing_requests,
-    const std::vector<std::string>& blocked) -> json_message
+                               const std::vector<friend_list_entry_msg>& friends,
+                               const std::vector<friend_request_msg>& incoming_requests,
+                               const std::vector<friend_request_msg>& outgoing_requests,
+                               const std::vector<std::string>& blocked) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::friend_list_response;
     msg.seq = seq;
 
     auto friends_arr = nlohmann::json::array();
-    for (const auto& f : friends) {
-        friends_arr.push_back({
-            {"name", f.name},
-            {"is_online", f.is_online}
-        });
+    for (const auto& f : friends)
+    {
+        friends_arr.push_back({{"name", f.name}, {"is_online", f.is_online}});
     }
 
     auto incoming_arr = nlohmann::json::array();
-    for (const auto& r : incoming_requests) {
+    for (const auto& r : incoming_requests)
+    {
         incoming_arr.push_back({{"name", r.name}});
     }
 
     auto outgoing_arr = nlohmann::json::array();
-    for (const auto& r : outgoing_requests) {
+    for (const auto& r : outgoing_requests)
+    {
         outgoing_arr.push_back({{"name", r.name}});
     }
 
     auto blocked_arr = nlohmann::json::array();
-    for (const auto& b : blocked) {
+    for (const auto& b : blocked)
+    {
         blocked_arr.push_back({{"name", b}});
     }
 
-    msg.data = {
-        {"friends", friends_arr},
-        {"incoming_requests", incoming_arr},
-        {"outgoing_requests", outgoing_arr},
-        {"blocked", blocked_arr}
-    };
+    msg.data = {{"friends", friends_arr},
+                {"incoming_requests", incoming_arr},
+                {"outgoing_requests", outgoing_arr},
+                {"blocked", blocked_arr}};
     return msg;
 }
 
-auto make_friend_request_notification(std::string_view requester_name) -> json_message {
+auto make_friend_request_notification(std::string_view requester_name) -> json_message
+{
     json_message msg;
     msg.type = json_message_type::friend_request_notification;
     msg.data = {{"requester_name", std::string(requester_name)}};
     return msg;
 }
 
-auto make_friend_accepted_notification(std::string_view friend_name) -> json_message {
+auto make_friend_accepted_notification(std::string_view friend_name) -> json_message
+{
     json_message msg;
     msg.type = json_message_type::friend_accepted_notification;
     msg.data = {{"friend_name", std::string(friend_name)}};
     return msg;
 }
 
-auto make_friend_online_notification(std::string_view friend_name) -> json_message {
+auto make_friend_online_notification(std::string_view friend_name) -> json_message
+{
     json_message msg;
     msg.type = json_message_type::friend_online_notification;
     msg.data = {{"friend_name", std::string(friend_name)}};
     return msg;
 }
 
-auto make_friend_offline_notification(std::string_view friend_name) -> json_message {
+auto make_friend_offline_notification(std::string_view friend_name) -> json_message
+{
     json_message msg;
     msg.type = json_message_type::friend_offline_notification;
     msg.data = {{"friend_name", std::string(friend_name)}};
@@ -3915,8 +3963,7 @@ auto make_friend_offline_notification(std::string_view friend_name) -> json_mess
 
 // === Guild system ===
 
-auto guild_create_request_data::from_json(const nlohmann::json& j)
-    -> result<guild_create_request_data, std::string>
+auto guild_create_request_data::from_json(const nlohmann::json& j) -> result<guild_create_request_data, std::string>
 {
     guild_create_request_data data;
     if (!j.contains("name") || !j["name"].is_string())
@@ -3932,8 +3979,7 @@ auto guild_create_request_data::from_json(const nlohmann::json& j)
     return result<guild_create_request_data, std::string>::ok(std::move(data));
 }
 
-auto guild_target_request_data::from_json(const nlohmann::json& j)
-    -> result<guild_target_request_data, std::string>
+auto guild_target_request_data::from_json(const nlohmann::json& j) -> result<guild_target_request_data, std::string>
 {
     guild_target_request_data data;
     if (!j.contains("target_name") || !j["target_name"].is_string())
@@ -3944,8 +3990,7 @@ auto guild_target_request_data::from_json(const nlohmann::json& j)
     return result<guild_target_request_data, std::string>::ok(std::move(data));
 }
 
-auto guild_set_motd_request_data::from_json(const nlohmann::json& j)
-    -> result<guild_set_motd_request_data, std::string>
+auto guild_set_motd_request_data::from_json(const nlohmann::json& j) -> result<guild_set_motd_request_data, std::string>
 {
     guild_set_motd_request_data data;
     if (!j.contains("motd") || !j["motd"].is_string())
@@ -3964,58 +4009,59 @@ auto guild_invite_respond_request_data::from_json(const nlohmann::json& j)
 }
 
 auto make_guild_invite_received(const std::string& guild_name,
-    const std::string& guild_tag, const std::string& inviter_name) -> json_message
+                                const std::string& guild_tag,
+                                const std::string& inviter_name) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::guild_invite_received;
     msg.seq = 0;
-    msg.data = {
-        {"guild_name", guild_name},
-        {"guild_tag", guild_tag},
-        {"inviter_name", inviter_name}
-    };
+    msg.data = {{"guild_name", guild_name}, {"guild_tag", guild_tag}, {"inviter_name", inviter_name}};
     return msg;
 }
 
-auto guild_member_info_msg::to_json() const -> nlohmann::json {
-    return {
-        {"name", name},
-        {"rank", rank},
-        {"rank_name", rank_name},
-        {"is_online", is_online}
-    };
+auto guild_member_info_msg::to_json() const -> nlohmann::json
+{
+    return {{"name", name}, {"rank", rank}, {"rank_name", rank_name}, {"is_online", is_online}};
 }
 
-auto make_guild_response(uint32_t seq, json_message_type type,
-    bool success, std::string_view error,
-    const nlohmann::json& extra) -> json_message
+auto make_guild_response(uint32_t seq,
+                         json_message_type type,
+                         bool success,
+                         std::string_view error,
+                         const nlohmann::json& extra) -> json_message
 {
     json_message msg;
     msg.type = type;
     msg.seq = seq;
     msg.data = {{"success", success}};
-    if (!error.empty()) {
+    if (!error.empty())
+    {
         msg.data["error"] = std::string(error);
     }
-    if (!extra.is_null() && extra.is_object()) {
+    if (!extra.is_null() && extra.is_object())
+    {
         msg.data.merge_patch(extra);
     }
     return msg;
 }
 
-auto make_guild_info_response(uint32_t seq, bool success,
-    const std::string& guild_name, const std::string& tag,
-    const std::string& motd, size_t member_count,
-    const std::string& master_name,
-    const std::vector<guild_member_info_msg>& members,
-    std::string_view error) -> json_message
+auto make_guild_info_response(uint32_t seq,
+                              bool success,
+                              const std::string& guild_name,
+                              const std::string& tag,
+                              const std::string& motd,
+                              size_t member_count,
+                              const std::string& master_name,
+                              const std::vector<guild_member_info_msg>& members,
+                              std::string_view error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::guild_info_response;
     msg.seq = seq;
     msg.data = {{"success", success}};
 
-    if (success) {
+    if (success)
+    {
         msg.data["guild_name"] = guild_name;
         msg.data["tag"] = tag;
         msg.data["motd"] = motd;
@@ -4023,33 +4069,35 @@ auto make_guild_info_response(uint32_t seq, bool success,
         msg.data["master_name"] = master_name;
 
         auto members_arr = nlohmann::json::array();
-        for (const auto& m : members) {
+        for (const auto& m : members)
+        {
             members_arr.push_back(m.to_json());
         }
         msg.data["members"] = members_arr;
     }
 
-    if (!error.empty()) {
+    if (!error.empty())
+    {
         msg.data["error"] = std::string(error);
     }
     return msg;
 }
 
 auto make_guild_update(const std::string& action,
-    const std::string& guild_name, const std::string& player_name,
-    const nlohmann::json& extra) -> json_message
+                       const std::string& guild_name,
+                       const std::string& player_name,
+                       const nlohmann::json& extra) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::guild_update;
     msg.seq = 0;
-    msg.data = {
-        {"action", action},
-        {"guild_name", guild_name}
-    };
-    if (!player_name.empty()) {
+    msg.data = {{"action", action}, {"guild_name", guild_name}};
+    if (!player_name.empty())
+    {
         msg.data["player_name"] = player_name;
     }
-    if (!extra.is_null() && extra.is_object()) {
+    if (!extra.is_null() && extra.is_object())
+    {
         msg.data.merge_patch(extra);
     }
     return msg;
@@ -4057,8 +4105,7 @@ auto make_guild_update(const std::string& action,
 
 // === Use item ===
 
-auto use_item_request_data::from_json(const nlohmann::json& j)
-    -> result<use_item_request_data, std::string>
+auto use_item_request_data::from_json(const nlohmann::json& j) -> result<use_item_request_data, std::string>
 {
     use_item_request_data data;
     auto slot = safe_int16_required(j, "slot");
@@ -4068,23 +4115,29 @@ auto use_item_request_data::from_json(const nlohmann::json& j)
     return result<use_item_request_data, std::string>::ok(std::move(data));
 }
 
-auto make_use_item_response(uint32_t seq, bool success,
-    const std::string& item_name, const std::string& effect,
-    int32_t amount, int32_t current, int32_t max,
-    std::string_view error) -> json_message
+auto make_use_item_response(uint32_t seq,
+                            bool success,
+                            const std::string& item_name,
+                            const std::string& effect,
+                            int32_t amount,
+                            int32_t current,
+                            int32_t max,
+                            std::string_view error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::player_use_item_response;
     msg.seq = seq;
     msg.data = {{"success", success}};
-    if (success) {
+    if (success)
+    {
         msg.data["item_name"] = item_name;
         msg.data["effect"] = effect;
         msg.data["amount"] = amount;
         msg.data["current"] = current;
         msg.data["max"] = max;
     }
-    if (!error.empty()) {
+    if (!error.empty())
+    {
         msg.data["error"] = std::string(error);
     }
     return msg;
@@ -4092,9 +4145,11 @@ auto make_use_item_response(uint32_t seq, bool success,
 
 // === Crusade warfare ===
 
-auto make_select_duty_response(uint32_t seq, bool success,
-    uint8_t duty, int32_t construction_points,
-    std::optional<std::string_view> error) -> json_message
+auto make_select_duty_response(uint32_t seq,
+                               bool success,
+                               uint8_t duty,
+                               int32_t construction_points,
+                               std::optional<std::string_view> error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::select_duty_response;
@@ -4112,9 +4167,11 @@ auto make_select_duty_response(uint32_t seq, bool success,
     return msg;
 }
 
-auto make_summon_war_unit_response(uint32_t seq, bool success,
-    uint8_t unit_type, int32_t remaining_points,
-    std::optional<std::string_view> error) -> json_message
+auto make_summon_war_unit_response(uint32_t seq,
+                                   bool success,
+                                   uint8_t unit_type,
+                                   int32_t remaining_points,
+                                   std::optional<std::string_view> error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::summon_war_unit_response;
@@ -4135,36 +4192,40 @@ auto make_summon_war_unit_response(uint32_t seq, bool success,
 // === War reward summary ===
 
 auto make_crusade_reward_summary(uint32_t seq,
-    uint8_t winner_faction, int32_t contribution, int64_t reward_exp,
-    int64_t reward_gold, int32_t reward_contribution) -> json_message
+                                 uint8_t winner_faction,
+                                 int32_t contribution,
+                                 int64_t reward_exp,
+                                 int64_t reward_gold,
+                                 int32_t reward_contribution) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::crusade_reward_summary;
     msg.seq = seq;
-    msg.data = {
-        {"winner_faction", winner_faction},
-        {"contribution", contribution},
-        {"reward_exp", reward_exp},
-        {"reward_gold", reward_gold},
-        {"reward_contribution", reward_contribution}
-    };
+    msg.data = {{"winner_faction", winner_faction},
+                {"contribution", contribution},
+                {"reward_exp", reward_exp},
+                {"reward_gold", reward_gold},
+                {"reward_contribution", reward_contribution}};
     return msg;
 }
 
-auto make_set_guild_teleport_response(uint32_t seq, bool success,
-    std::optional<std::string_view> error) -> json_message
+auto make_set_guild_teleport_response(uint32_t seq, bool success, std::optional<std::string_view> error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::crusade_set_guild_teleport_response;
     msg.seq = seq;
     msg.data = {{"success", success}};
-    if (error) msg.data["error"] = *error;
+    if (error)
+        msg.data["error"] = *error;
     return msg;
 }
 
-auto make_guild_teleport_response(uint32_t seq, bool success,
-    const std::string& map, int16_t x, int16_t y,
-    std::optional<std::string_view> error) -> json_message
+auto make_guild_teleport_response(uint32_t seq,
+                                  bool success,
+                                  const std::string& map,
+                                  int16_t x,
+                                  int16_t y,
+                                  std::optional<std::string_view> error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::crusade_guild_teleport_response;
@@ -4176,21 +4237,16 @@ auto make_guild_teleport_response(uint32_t seq, bool success,
         msg.data["x"] = x;
         msg.data["y"] = y;
     }
-    if (error) msg.data["error"] = *error;
+    if (error)
+        msg.data["error"] = *error;
     return msg;
 }
 
-auto make_crusade_mp_restore(int16_t source_x, int16_t source_y,
-    int32_t radius, int32_t your_restore) -> json_message
+auto make_crusade_mp_restore(int16_t source_x, int16_t source_y, int32_t radius, int32_t your_restore) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::crusade_mp_restore;
-    msg.data = {
-        {"source_x", source_x},
-        {"source_y", source_y},
-        {"radius", radius},
-        {"your_restore", your_restore}
-    };
+    msg.data = {{"source_x", source_x}, {"source_y", source_y}, {"radius", radius}, {"your_restore", your_restore}};
     return msg;
 }
 
@@ -4211,8 +4267,7 @@ auto admin_perf_stats_request_data::from_json(const nlohmann::json& j)
 
 // === Item audit log ===
 
-auto admin_item_log_request_data::from_json(const nlohmann::json& j)
-    -> result<admin_item_log_request_data, std::string>
+auto admin_item_log_request_data::from_json(const nlohmann::json& j) -> result<admin_item_log_request_data, std::string>
 {
     admin_item_log_request_data data;
     if (j.contains("player_name") && j["player_name"].is_string())
@@ -4228,24 +4283,22 @@ auto admin_item_log_request_data::from_json(const nlohmann::json& j)
     return result<admin_item_log_request_data, std::string>::ok(std::move(data));
 }
 
-auto make_admin_item_log_response(uint32_t seq, bool success,
-    const nlohmann::json& entries, int32_t total,
-    const std::string& error) -> json_message
+auto make_admin_item_log_response(
+    uint32_t seq, bool success, const nlohmann::json& entries, int32_t total, const std::string& error) -> json_message
 {
     nlohmann::json data;
     data["success"] = success;
-    if (success) {
+    if (success)
+    {
         data["entries"] = entries;
         data["total"] = total;
-    } else {
+    }
+    else
+    {
         data["error"] = error;
     }
 
-    return json_message{
-        .type = json_message_type::admin_item_log_response,
-        .seq = seq,
-        .data = std::move(data)
-    };
+    return json_message{.type = json_message_type::admin_item_log_response, .seq = seq, .data = std::move(data)};
 }
 
 // === Command list ===
@@ -4253,12 +4306,7 @@ auto make_admin_item_log_response(uint32_t seq, bool success,
 auto command_entry_msg::to_json() const -> nlohmann::json
 {
     return {
-        {"name", name},
-        {"description", description},
-        {"usage", usage},
-        {"category", category},
-        {"enabled", enabled}
-    };
+        {"name", name}, {"description", description}, {"usage", usage}, {"category", category}, {"enabled", enabled}};
 }
 
 auto make_available_commands(const std::vector<command_entry_msg>& commands) -> json_message
@@ -4267,21 +4315,22 @@ auto make_available_commands(const std::vector<command_entry_msg>& commands) -> 
     msg.type = json_message_type::available_commands;
     msg.seq = 0;
     auto arr = nlohmann::json::array();
-    for (const auto& cmd : commands) {
+    for (const auto& cmd : commands)
+    {
         arr.push_back(cmd.to_json());
     }
     msg.data = {{"commands", std::move(arr)}};
     return msg;
 }
 
-auto make_command_availability_update(
-    const std::vector<std::pair<std::string, bool>>& changes) -> json_message
+auto make_command_availability_update(const std::vector<std::pair<std::string, bool>>& changes) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::command_availability_update;
     msg.seq = 0;
     auto arr = nlohmann::json::array();
-    for (const auto& [name, enabled] : changes) {
+    for (const auto& [name, enabled] : changes)
+    {
         arr.push_back({{"name", name}, {"enabled", enabled}});
     }
     msg.data = {{"commands", std::move(arr)}};
@@ -4290,60 +4339,48 @@ auto make_command_availability_update(
 
 // === Combat mode messages ===
 
-auto make_combat_mode_change_response(uint32_t seq, bool combat_mode) -> json_message {
+auto make_combat_mode_change_response(uint32_t seq, bool combat_mode) -> json_message
+{
     return json_message{
-        .type = json_message_type::combat_mode_change_response,
-        .seq = seq,
-        .data = {{"combat_mode", combat_mode}}
-    };
+        .type = json_message_type::combat_mode_change_response, .seq = seq, .data = {{"combat_mode", combat_mode}}};
 }
 
-auto combat_mode_change_broadcast_data::to_json() const -> nlohmann::json {
-    return nlohmann::json{
-        {"entity_id", entity_id},
-        {"combat_mode", combat_mode}
-    };
+auto combat_mode_change_broadcast_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"entity_id", entity_id}, {"combat_mode", combat_mode}};
 }
 
-auto make_combat_mode_change_broadcast(const combat_mode_change_broadcast_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::combat_mode_change_broadcast,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_combat_mode_change_broadcast(const combat_mode_change_broadcast_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::combat_mode_change_broadcast, .seq = 0, .data = data.to_json()};
 }
 
 // === Player action broadcast ===
 
-auto player_action_broadcast_data::to_json() const -> nlohmann::json {
-    auto j = nlohmann::json{
-        {"entity_id", entity_id},
-        {"action", action},
-        {"direction", direction}
-    };
+auto player_action_broadcast_data::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"entity_id", entity_id}, {"action", action}, {"direction", direction}};
 
-    if (target_id != 0) {
+    if (target_id != 0)
+    {
         j["target_id"] = target_id;
     }
-    if (spell_id != 0) {
+    if (spell_id != 0)
+    {
         j["spell_id"] = spell_id;
     }
 
     return j;
 }
 
-auto make_player_action_broadcast(const player_action_broadcast_data& data) -> json_message {
-    return json_message{
-        .type = json_message_type::player_action_broadcast,
-        .seq = 0,
-        .data = data.to_json()
-    };
+auto make_player_action_broadcast(const player_action_broadcast_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::player_action_broadcast, .seq = 0, .data = data.to_json()};
 }
 
 // === Item upgrade ===
 
-auto item_upgrade_request_data::from_json(const nlohmann::json& j)
-    -> result<item_upgrade_request_data, std::string>
+auto item_upgrade_request_data::from_json(const nlohmann::json& j) -> result<item_upgrade_request_data, std::string>
 {
     item_upgrade_request_data data;
     auto slot = safe_int16_required(j, "item_slot");
@@ -4353,17 +4390,13 @@ auto item_upgrade_request_data::from_json(const nlohmann::json& j)
     return result<item_upgrade_request_data, std::string>::ok(std::move(data));
 }
 
-auto make_item_upgrade_response(uint32_t seq, bool success,
-    int16_t item_slot, uint8_t new_level, std::string_view error) -> json_message
+auto make_item_upgrade_response(
+    uint32_t seq, bool success, int16_t item_slot, uint8_t new_level, std::string_view error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::item_upgrade_response;
     msg.seq = seq;
-    msg.data = {
-        {"success", success},
-        {"item_slot", item_slot},
-        {"new_level", new_level}
-    };
+    msg.data = {{"success", success}, {"item_slot", item_slot}, {"new_level", new_level}};
     if (!error.empty())
         msg.data["error"] = error;
     return msg;
@@ -4371,15 +4404,15 @@ auto make_item_upgrade_response(uint32_t seq, bool success,
 
 // === Special ability ===
 
-auto make_activate_ability_response(uint32_t seq, bool success,
-    uint8_t ability_type, int32_t cooldown_sec,
-    std::string_view error) -> json_message
+auto make_activate_ability_response(
+    uint32_t seq, bool success, uint8_t ability_type, int32_t cooldown_sec, std::string_view error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::activate_ability_response;
     msg.seq = seq;
     msg.data = {{"success", success}};
-    if (success) {
+    if (success)
+    {
         msg.data["ability_type"] = ability_type;
         msg.data["cooldown_sec"] = cooldown_sec;
     }
@@ -4389,17 +4422,14 @@ auto make_activate_ability_response(uint32_t seq, bool success,
 }
 
 auto make_special_ability_status(std::string_view status,
-    uint8_t ability_type, int32_t cooldown_remaining_sec) -> json_message
+                                 uint8_t ability_type,
+                                 int32_t cooldown_remaining_sec) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::special_ability_status;
     msg.seq = 0;
-    msg.data = {
-        {"status", status},
-        {"ability_type", ability_type},
-        {"cooldown_remaining_sec", cooldown_remaining_sec}
-    };
+    msg.data = {{"status", status}, {"ability_type", ability_type}, {"cooldown_remaining_sec", cooldown_remaining_sec}};
     return msg;
 }
 
-}  // namespace hb::network
+} // namespace hb::network

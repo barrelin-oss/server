@@ -7,7 +7,8 @@
 #include "bridge/message_router.h"
 #include "protocol/protocol.h"
 
-namespace hb::bridge::wave5 {
+namespace hb::bridge::wave5
+{
 
 // ========== Wave 5: Social System Handlers ==========
 
@@ -65,4 +66,4 @@ void send_guild_result(const handler_context& ctx, bool success, std::string_vie
 // Send exchange window update
 void send_exchange_update(const handler_context& ctx);
 
-}  // namespace hb::bridge::wave5
+} // namespace hb::bridge::wave5

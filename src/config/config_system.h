@@ -11,9 +11,11 @@
 #include <memory>
 #include <functional>
 
-namespace hb {
+namespace hb
+{
 
-class config_system : public subsystem {
+class config_system : public subsystem
+{
 public:
     config_system();
     ~config_system() override;
@@ -60,4 +62,4 @@ private:
     std::vector<config_changed_callback> change_callbacks_;
 };
 
-}  // namespace hb
+} // namespace hb

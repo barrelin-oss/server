@@ -15,21 +15,28 @@ namespace
 
 auto parse_special_attack_kind(std::string_view str) -> special_attack_kind
 {
-    if (str == "melee" || str == "1") return special_attack_kind::melee;
-    if (str == "ranged" || str == "2") return special_attack_kind::ranged;
-    if (str == "poison" || str == "3") return special_attack_kind::poison;
-    if (str == "stun" || str == "4") return special_attack_kind::stun;
-    if (str == "magic" || str == "5") return special_attack_kind::magic;
-    if (str == "area" || str == "6") return special_attack_kind::area;
-    if (str == "buff" || str == "7") return special_attack_kind::buff;
-    if (str == "summon" || str == "8") return special_attack_kind::summon;
+    if (str == "melee" || str == "1")
+        return special_attack_kind::melee;
+    if (str == "ranged" || str == "2")
+        return special_attack_kind::ranged;
+    if (str == "poison" || str == "3")
+        return special_attack_kind::poison;
+    if (str == "stun" || str == "4")
+        return special_attack_kind::stun;
+    if (str == "magic" || str == "5")
+        return special_attack_kind::magic;
+    if (str == "area" || str == "6")
+        return special_attack_kind::area;
+    if (str == "buff" || str == "7")
+        return special_attack_kind::buff;
+    if (str == "summon" || str == "8")
+        return special_attack_kind::summon;
     return special_attack_kind::none;
 }
 
-}  // namespace
+} // namespace
 
-auto random_spawn_whitelist::load_from_yaml(const std::filesystem::path& path)
-    -> result<size_t, std::string>
+auto random_spawn_whitelist::load_from_yaml(const std::filesystem::path& path) -> result<size_t, std::string>
 {
     try
     {
@@ -37,8 +44,7 @@ auto random_spawn_whitelist::load_from_yaml(const std::filesystem::path& path)
 
         if (!config["random_spawnable_npcs"])
         {
-            return result<size_t, std::string>::err(
-                "Missing 'random_spawnable_npcs' key in YAML");
+            return result<size_t, std::string>::err("Missing 'random_spawnable_npcs' key in YAML");
         }
 
         YAML::Node npcs_node = config["random_spawnable_npcs"];
@@ -46,25 +52,21 @@ auto random_spawn_whitelist::load_from_yaml(const std::filesystem::path& path)
     }
     catch (const YAML::Exception& e)
     {
-        return result<size_t, std::string>::err(
-            std::string("YAML parsing error: ") + e.what());
+        return result<size_t, std::string>::err(std::string("YAML parsing error: ") + e.what());
     }
     catch (const std::exception& e)
     {
-        return result<size_t, std::string>::err(
-            std::string("Error loading whitelist: ") + e.what());
+        return result<size_t, std::string>::err(std::string("Error loading whitelist: ") + e.what());
     }
 }
 
-auto random_spawn_whitelist::load_from_node(const void* yaml_node)
-    -> result<size_t, std::string>
+auto random_spawn_whitelist::load_from_node(const void* yaml_node) -> result<size_t, std::string>
 {
     const auto& node = *static_cast<const YAML::Node*>(yaml_node);
 
     if (!node.IsSequence())
     {
-        return result<size_t, std::string>::err(
-            "random_spawnable_npcs must be a sequence");
+        return result<size_t, std::string>::err("random_spawnable_npcs must be a sequence");
     }
 
     clear();
@@ -119,8 +121,7 @@ auto random_spawn_whitelist::load_from_node(const void* yaml_node)
         entries_.push_back(std::move(entry));
     }
 
-    LOG_INFO(general, "Loaded {} random spawnable NPCs ({} enabled)",
-             entries_.size(), spawnable_count());
+    LOG_INFO(general, "Loaded {} random spawnable NPCs ({} enabled)", entries_.size(), spawnable_count());
 
     return result<size_t, std::string>::ok(entries_.size());
 }
@@ -147,8 +148,7 @@ auto random_spawn_whitelist::is_allowed(npc_id id) const -> bool
     return entry.enabled && entry.template_id.value > 0;
 }
 
-auto random_spawn_whitelist::get(std::string_view name) const
-    -> std::optional<random_spawn_entry>
+auto random_spawn_whitelist::get(std::string_view name) const -> std::optional<random_spawn_entry>
 {
     auto it = name_index_.find(std::string(name));
     if (it == name_index_.end())
@@ -158,8 +158,7 @@ auto random_spawn_whitelist::get(std::string_view name) const
     return entries_[it->second];
 }
 
-auto random_spawn_whitelist::get_by_id(npc_id id) const
-    -> std::optional<random_spawn_entry>
+auto random_spawn_whitelist::get_by_id(npc_id id) const -> std::optional<random_spawn_entry>
 {
     auto it = id_index_.find(id.value);
     if (it == id_index_.end())
@@ -171,10 +170,9 @@ auto random_spawn_whitelist::get_by_id(npc_id id) const
 
 auto random_spawn_whitelist::spawnable_count() const -> size_t
 {
-    return std::count_if(entries_.begin(), entries_.end(),
-        [](const random_spawn_entry& e) {
-            return e.enabled && e.template_id.value > 0;
-        });
+    return std::count_if(entries_.begin(),
+                         entries_.end(),
+                         [](const random_spawn_entry& e) { return e.enabled && e.template_id.value > 0; });
 }
 
 void random_spawn_whitelist::clear()
@@ -184,4 +182,4 @@ void random_spawn_whitelist::clear()
     id_index_.clear();
 }
 
-}  // namespace hb::npc
+} // namespace hb::npc

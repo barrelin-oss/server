@@ -9,7 +9,8 @@
 
 #include <span>
 
-namespace hb::effect {
+namespace hb::effect
+{
 
 // Result of computing modifiers from active effects
 struct effect_modifier_result
@@ -22,4 +23,4 @@ struct effect_modifier_result
 // This is a pure function with no side effects.
 auto compute_effect_modifiers(std::span<const active_effect> effects) -> effect_modifier_result;
 
-}  // namespace hb::effect
+} // namespace hb::effect

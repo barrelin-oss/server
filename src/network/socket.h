@@ -14,36 +14,37 @@
 #include <optional>
 
 #ifdef HB_PLATFORM_WINDOWS
-    #include <WinSock2.h>
-    #include <WS2tcpip.h>
-    #pragma comment(lib, "ws2_32.lib")
-    using socket_handle = SOCKET;
-    constexpr socket_handle invalid_socket_handle = INVALID_SOCKET;
+#include <WinSock2.h>
+#include <WS2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+using socket_handle = SOCKET;
+constexpr socket_handle invalid_socket_handle = INVALID_SOCKET;
 #else
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <unistd.h>
-    #include <fcntl.h>
-    #include <errno.h>
-    using socket_handle = int;
-    constexpr socket_handle invalid_socket_handle = -1;
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+using socket_handle = int;
+constexpr socket_handle invalid_socket_handle = -1;
 #endif
 
-namespace hb::network {
+namespace hb::network
+{
 
 // Socket address wrapper
-struct socket_address {
+struct socket_address
+{
     std::string ip;
     uint16_t port{0};
 
-    [[nodiscard]] auto to_string() const -> std::string {
-        return ip + ":" + std::to_string(port);
-    }
+    [[nodiscard]] auto to_string() const -> std::string { return ip + ":" + std::to_string(port); }
 };
 
 // Socket error codes
-enum class socket_error {
+enum class socket_error
+{
     none = 0,
     would_block,
     connection_reset,
@@ -63,7 +64,8 @@ auto initialize_sockets() -> result<void, std::string>;
 void cleanup_sockets();
 
 // TCP Socket wrapper
-class tcp_socket {
+class tcp_socket
+{
 public:
     tcp_socket();
     explicit tcp_socket(socket_handle handle);
@@ -112,7 +114,8 @@ private:
 };
 
 // TCP Listener for accepting connections
-class tcp_listener {
+class tcp_listener
+{
 public:
     tcp_listener() = default;
     ~tcp_listener();
@@ -138,4 +141,4 @@ private:
     bool listening_{false};
 };
 
-}  // namespace hb::network
+} // namespace hb::network

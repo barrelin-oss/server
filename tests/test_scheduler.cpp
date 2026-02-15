@@ -11,22 +11,20 @@
 
 using namespace hb;
 
-class scheduler_test : public ::testing::Test {
+class scheduler_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        sched_.initialize();
-    }
+    void SetUp() override { sched_.initialize(); }
 
-    void TearDown() override {
-        sched_.shutdown();
-    }
+    void TearDown() override { sched_.shutdown(); }
 
     scheduler sched_;
 };
 
 // Game clock tests
 
-TEST(game_clock_test, initial_state) {
+TEST(game_clock_test, initial_state)
+{
     game_clock clock;
     EXPECT_EQ(clock.hour(), 0);
     EXPECT_EQ(clock.minute(), 0);
@@ -34,7 +32,8 @@ TEST(game_clock_test, initial_state) {
     EXPECT_EQ(clock.day(), 0);
 }
 
-TEST(game_clock_test, advance_time) {
+TEST(game_clock_test, advance_time)
+{
     game_clock clock;
 
     // Advance 1 real second at default time scale (60x)
@@ -45,7 +44,8 @@ TEST(game_clock_test, advance_time) {
     EXPECT_EQ(clock.second(), 0);
 }
 
-TEST(game_clock_test, hour_rollover) {
+TEST(game_clock_test, hour_rollover)
+{
     game_clock clock;
 
     // Advance 60 real seconds = 60 game minutes = 1 game hour
@@ -55,7 +55,8 @@ TEST(game_clock_test, hour_rollover) {
     EXPECT_EQ(clock.minute(), 0);
 }
 
-TEST(game_clock_test, day_night_cycle) {
+TEST(game_clock_test, day_night_cycle)
+{
     game_clock clock;
 
     // At midnight (hour 0), it's night
@@ -77,7 +78,8 @@ TEST(game_clock_test, day_night_cycle) {
     EXPECT_FALSE(clock.is_day());
 }
 
-TEST(game_clock_test, dawn_and_dusk) {
+TEST(game_clock_test, dawn_and_dusk)
+{
     game_clock clock;
 
     // Dawn is 5-7
@@ -101,7 +103,8 @@ TEST(game_clock_test, dawn_and_dusk) {
     EXPECT_FALSE(clock.is_dusk());
 }
 
-TEST(game_clock_test, time_scale) {
+TEST(game_clock_test, time_scale)
+{
     game_clock clock;
 
     // Double speed
@@ -113,34 +116,36 @@ TEST(game_clock_test, time_scale) {
     EXPECT_EQ(clock.minute(), 2);
 }
 
-TEST(game_clock_test, day_of_week) {
+TEST(game_clock_test, day_of_week)
+{
     game_clock clock;
 
-    EXPECT_EQ(clock.day_of_week(), 0);  // Day 0 = Sunday
+    EXPECT_EQ(clock.day_of_week(), 0); // Day 0 = Sunday
 
     // Advance multiple days
     clock.set_time(0, 0);
-    for (int i = 0; i < 24; ++i) {
-        clock.advance(duration_ms{60000});  // 1 real minute = 1 game hour
+    for (int i = 0; i < 24; ++i)
+    {
+        clock.advance(duration_ms{60000}); // 1 real minute = 1 game hour
     }
 
     EXPECT_EQ(clock.day(), 1);
-    EXPECT_EQ(clock.day_of_week(), 1);  // Monday
+    EXPECT_EQ(clock.day_of_week(), 1); // Monday
 }
 
 // Scheduler tests
 
-TEST_F(scheduler_test, lifecycle) {
+TEST_F(scheduler_test, lifecycle)
+{
     EXPECT_TRUE(sched_.is_initialized());
     EXPECT_EQ(sched_.name(), "scheduler");
 }
 
-TEST_F(scheduler_test, schedule_one_shot) {
+TEST_F(scheduler_test, schedule_one_shot)
+{
     std::atomic<int> counter{0};
 
-    auto id = sched_.schedule(duration_ms{10}, [&counter]() {
-        ++counter;
-    });
+    auto id = sched_.schedule(duration_ms{10}, [&counter]() { ++counter; });
 
     EXPECT_TRUE(id.is_valid());
     EXPECT_TRUE(sched_.is_pending(id));
@@ -154,32 +159,31 @@ TEST_F(scheduler_test, schedule_one_shot) {
     EXPECT_FALSE(sched_.is_pending(id));
 }
 
-TEST_F(scheduler_test, schedule_repeating) {
+TEST_F(scheduler_test, schedule_repeating)
+{
     std::atomic<int> counter{0};
 
-    auto id = sched_.schedule_repeating(duration_ms{10}, [&counter]() {
-        ++counter;
-    });
+    auto id = sched_.schedule_repeating(duration_ms{10}, [&counter]() { ++counter; });
 
     EXPECT_TRUE(id.is_valid());
 
     // Wait and update multiple times
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         std::this_thread::sleep_for(std::chrono::milliseconds{15});
         sched_.update(0.015f);
     }
 
     // Should have executed multiple times
     EXPECT_GE(counter.load(), 3);
-    EXPECT_TRUE(sched_.is_pending(id));  // Still active
+    EXPECT_TRUE(sched_.is_pending(id)); // Still active
 }
 
-TEST_F(scheduler_test, cancel_task) {
+TEST_F(scheduler_test, cancel_task)
+{
     std::atomic<int> counter{0};
 
-    auto id = sched_.schedule(duration_ms{100}, [&counter]() {
-        ++counter;
-    });
+    auto id = sched_.schedule(duration_ms{100}, [&counter]() { ++counter; });
 
     EXPECT_TRUE(sched_.is_pending(id));
 
@@ -194,7 +198,8 @@ TEST_F(scheduler_test, cancel_task) {
     EXPECT_EQ(counter.load(), 0);
 }
 
-TEST_F(scheduler_test, cancel_all) {
+TEST_F(scheduler_test, cancel_all)
+{
     std::atomic<int> counter{0};
 
     sched_.schedule(duration_ms{10}, [&counter]() { ++counter; });
@@ -213,7 +218,8 @@ TEST_F(scheduler_test, cancel_all) {
     EXPECT_EQ(counter.load(), 0);
 }
 
-TEST_F(scheduler_test, tagged_tasks) {
+TEST_F(scheduler_test, tagged_tasks)
+{
     std::atomic<int> counter_a{0};
     std::atomic<int> counter_b{0};
 
@@ -235,7 +241,8 @@ TEST_F(scheduler_test, tagged_tasks) {
     EXPECT_EQ(counter_b.load(), 1);
 }
 
-TEST_F(scheduler_test, game_clock_integration) {
+TEST_F(scheduler_test, game_clock_integration)
+{
     auto& clock = sched_.game_time();
 
     EXPECT_EQ(clock.hour(), 0);

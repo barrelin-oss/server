@@ -13,38 +13,45 @@
 #include <functional>
 #include <cstdint>
 
-namespace hb {
-    class mining_registry;
-    class scheduler;
+namespace hb
+{
+class mining_registry;
+class scheduler;
+} // namespace hb
+
+namespace hb::skill
+{
+class skill_system;
 }
 
-namespace hb::skill {
-    class skill_system;
+namespace hb::inventory
+{
+class inventory_system;
 }
 
-namespace hb::inventory {
-    class inventory_system;
+namespace hb::item
+{
+class item_system;
 }
 
-namespace hb::item {
-    class item_system;
+namespace hb::player
+{
+class player_system;
 }
 
-namespace hb::player {
-    class player_system;
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::world {
-    class world_subsystem;
-}
-
-namespace hb::crafting {
+namespace hb::crafting
+{
 
 // Active mineral node on the map
 struct mineral_node
 {
-    uint32_t node_id{};                 // unique ID for protocol
-    int32_t type_id{};                  // references mineral_type_config
+    uint32_t node_id{}; // unique ID for protocol
+    int32_t type_id{};  // references mineral_type_config
     std::string map_name;
     int16_t x{};
     int16_t y{};
@@ -75,12 +82,10 @@ public:
     void start_generation();
 
     // Per-attack mining attempt
-    auto attempt_mine(entity_id player, int16_t target_x, int16_t target_y,
-                      const std::string& map_name) -> mine_result;
+    auto attempt_mine(entity_id player, int16_t target_x, int16_t target_y, const std::string& map_name) -> mine_result;
 
     // Query
-    [[nodiscard]] auto get_node_at(const std::string& map_name,
-                                    int16_t x, int16_t y) const -> const mineral_node*;
+    [[nodiscard]] auto get_node_at(const std::string& map_name, int16_t x, int16_t y) const -> const mineral_node*;
 
     [[nodiscard]] auto node_count() const -> size_t { return nodes_.size(); }
 
@@ -91,18 +96,17 @@ public:
     void set_despawn_callback(node_despawn_callback cb);
 
     // Static for unit testing
-    [[nodiscard]] static auto calculate_success_chance(
-        int16_t skill, int16_t difficulty) -> int32_t;
+    [[nodiscard]] static auto calculate_success_chance(int16_t skill, int16_t difficulty) -> int32_t;
 
 private:
-    void generate_minerals();       // periodic scheduler callback
+    void generate_minerals(); // periodic scheduler callback
     void spawn_mineral(const std::string& map_name, int16_t x, int16_t y, int32_t type_id);
     void despawn_mineral(const std::string& node_key);
     auto roll_drop(const mineral_type_config& config, int16_t skill) -> const mineral_drop*;
 
     static auto make_node_key(const std::string& map, int16_t x, int16_t y) -> std::string;
 
-    std::unordered_map<std::string, mineral_node> nodes_;   // "map:x:y" -> node
+    std::unordered_map<std::string, mineral_node> nodes_; // "map:x:y" -> node
     uint32_t next_node_id_{1};
 
     player::player_system* players_{nullptr};
@@ -117,4 +121,4 @@ private:
     node_despawn_callback despawn_callback_;
 };
 
-}  // namespace hb::crafting
+} // namespace hb::crafting

@@ -18,37 +18,49 @@
 #include <vector>
 #include <regex>
 
-namespace hb::database { class database_system; }
-namespace hb::player { class player_system; }
+namespace hb::database
+{
+class database_system;
+}
+namespace hb::player
+{
+class player_system;
+}
 
-namespace hb::social {
+namespace hb::social
+{
 
 // Guild events
-struct guild_created_event {
+struct guild_created_event
+{
     guild_id guild{};
     player_id founder{};
     std::string guild_name;
 };
 
-struct guild_disbanded_event {
+struct guild_disbanded_event
+{
     guild_id guild{};
     std::string guild_name;
 };
 
-struct guild_member_joined_event {
+struct guild_member_joined_event
+{
     guild_id guild{};
     player_id player{};
     std::string player_name;
 };
 
-struct guild_member_left_event {
+struct guild_member_left_event
+{
     guild_id guild{};
     player_id player{};
     std::string player_name;
     bool was_kicked{false};
 };
 
-struct guild_rank_changed_event {
+struct guild_rank_changed_event
+{
     guild_id guild{};
     player_id player{};
     guild_rank old_rank{};
@@ -56,41 +68,48 @@ struct guild_rank_changed_event {
 };
 
 // Party events
-struct party_created_event {
+struct party_created_event
+{
     party_id party{};
     player_id leader{};
 };
 
-struct party_disbanded_event {
+struct party_disbanded_event
+{
     party_id party{};
 };
 
-struct party_member_joined_event {
+struct party_member_joined_event
+{
     party_id party{};
     player_id player{};
     std::string player_name;
 };
 
-struct party_member_left_event {
+struct party_member_left_event
+{
     party_id party{};
     player_id player{};
     std::string player_name;
     bool was_kicked{false};
 };
 
-struct party_leader_changed_event {
+struct party_leader_changed_event
+{
     party_id party{};
     player_id old_leader{};
     player_id new_leader{};
 };
 
 // Chat events
-struct chat_message_event {
+struct chat_message_event
+{
     chat_message message;
 };
 
 // Social system configuration
-struct social_system_config {
+struct social_system_config
+{
     // Guild settings
     size_t max_guilds{1000};
     int32_t guild_creation_cost{10000};
@@ -111,7 +130,8 @@ struct social_system_config {
 };
 
 // Guild operation results
-enum class guild_result : uint8_t {
+enum class guild_result : uint8_t
+{
     success = 0,
     guild_not_found = 1,
     player_not_member = 2,
@@ -127,7 +147,8 @@ enum class guild_result : uint8_t {
 };
 
 // Party operation results
-enum class party_result : uint8_t {
+enum class party_result : uint8_t
+{
     success = 0,
     party_not_found = 1,
     player_not_member = 2,
@@ -140,7 +161,8 @@ enum class party_result : uint8_t {
 };
 
 // Social system - manages guilds, parties, and chat
-class social_system : public subsystem {
+class social_system : public subsystem
+{
 public:
     using guild_callback = std::function<void(const guild_created_event&)>;
     using party_callback = std::function<void(const party_created_event&)>;
@@ -173,7 +195,8 @@ public:
 
     // ========== Guild Operations ==========
 
-    auto create_guild(player_id founder, const std::string& name, const std::string& tag) -> result<guild_id, guild_result>;
+    auto
+    create_guild(player_id founder, const std::string& name, const std::string& tag) -> result<guild_id, guild_result>;
     auto disband_guild(player_id player, guild_id gid) -> guild_result;
 
     auto invite_to_guild(player_id inviter, guild_id gid, player_id invitee) -> guild_result;
@@ -203,9 +226,10 @@ public:
     [[nodiscard]] auto find_guild_by_name(std::string_view name) const -> guild_id;
     [[nodiscard]] auto guild_count() const -> size_t;
 
-    template<typename Func>
-    void for_each_guild(Func&& func) const {
-        for (const auto& [id, g] : guilds_) {
+    template<typename Func> void for_each_guild(Func&& func) const
+    {
+        for (const auto& [id, g] : guilds_)
+        {
             func(id, g);
         }
     }
@@ -236,9 +260,10 @@ public:
     void update_party_member_stats(player_id player, int32_t hp, int32_t max_hp, int32_t mp, int32_t max_mp);
     void update_party_member_map(player_id player, map_id map);
 
-    template<typename Func>
-    void for_each_party(Func&& func) const {
-        for (const auto& [id, p] : parties_) {
+    template<typename Func> void for_each_party(Func&& func) const
+    {
+        for (const auto& [id, p] : parties_)
+        {
             func(id, p);
         }
     }
@@ -246,7 +271,8 @@ public:
     // ========== Chat Operations ==========
 
     auto send_message(const chat_message& msg) -> filter_result;
-    auto send_local_chat(player_id sender, const std::string& content, map_id map, int16_t x, int16_t y) -> filter_result;
+    auto
+    send_local_chat(player_id sender, const std::string& content, map_id map, int16_t x, int16_t y) -> filter_result;
     auto send_global_chat(player_id sender, const std::string& content) -> filter_result;
     auto send_guild_chat(player_id sender, const std::string& content) -> filter_result;
     auto send_party_chat(player_id sender, const std::string& content) -> filter_result;
@@ -334,9 +360,9 @@ private:
 
     // Guilds
     std::unordered_map<guild_id, guild> guilds_;
-    std::unordered_map<player_id, guild_id> player_guilds_;         // runtime_id → guild_id
-    std::unordered_map<player_id, guild_id> character_guild_index_;  // character_id → guild_id
-    std::unordered_map<player_id, pending_guild_invite> pending_guild_invites_;  // invitee runtime_id → invite
+    std::unordered_map<player_id, guild_id> player_guilds_;                     // runtime_id → guild_id
+    std::unordered_map<player_id, guild_id> character_guild_index_;             // character_id → guild_id
+    std::unordered_map<player_id, pending_guild_invite> pending_guild_invites_; // invitee runtime_id → invite
     uint32_t next_guild_id_{1};
 
     // Parties
@@ -352,12 +378,12 @@ private:
 
     // Friends - all keyed by character_id (persistent)
     friend_list_config friend_config_;
-    std::unordered_map<player_id, std::vector<friend_request>> incoming_requests_;   // char_id → requests TO them
-    std::unordered_map<player_id, std::vector<friend_request>> outgoing_requests_;   // char_id → requests FROM them
-    std::unordered_map<player_id, std::vector<friend_entry>> character_friends_;     // char_id → accepted friends
-    std::unordered_map<player_id, std::unordered_set<player_id>> character_blocks_;  // char_id → blocked char_ids
-    std::unordered_map<player_id, player_id> friend_char_to_runtime_;               // char_id → runtime_id (online only)
-    std::unordered_map<player_id, player_id> friend_runtime_to_char_;               // runtime_id → char_id (online only)
+    std::unordered_map<player_id, std::vector<friend_request>> incoming_requests_;  // char_id → requests TO them
+    std::unordered_map<player_id, std::vector<friend_request>> outgoing_requests_;  // char_id → requests FROM them
+    std::unordered_map<player_id, std::vector<friend_entry>> character_friends_;    // char_id → accepted friends
+    std::unordered_map<player_id, std::unordered_set<player_id>> character_blocks_; // char_id → blocked char_ids
+    std::unordered_map<player_id, player_id> friend_char_to_runtime_; // char_id → runtime_id (online only)
+    std::unordered_map<player_id, player_id> friend_runtime_to_char_; // runtime_id → char_id (online only)
 
     // Callbacks
     std::vector<std::function<void(const guild_created_event&)>> guild_created_callbacks_;
@@ -365,4 +391,4 @@ private:
     std::vector<chat_callback> chat_callbacks_;
 };
 
-}  // namespace hb::social
+} // namespace hb::social

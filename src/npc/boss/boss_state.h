@@ -9,7 +9,8 @@
 #include <chrono>
 #include <vector>
 
-namespace hb::npc::boss {
+namespace hb::npc::boss
+{
 
 struct boss_state
 {
@@ -23,16 +24,14 @@ struct boss_state
     [[nodiscard]] auto time_in_phase_ms() const -> int64_t
     {
         auto now = std::chrono::steady_clock::now();
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - phase_start_time).count();
+        return std::chrono::duration_cast<std::chrono::milliseconds>(now - phase_start_time).count();
     }
 
     [[nodiscard]] auto time_since_spawn_ms() const -> int64_t
     {
         auto now = std::chrono::steady_clock::now();
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-            now - spawn_time).count();
+        return std::chrono::duration_cast<std::chrono::milliseconds>(now - spawn_time).count();
     }
 };
 
-}  // namespace hb::npc::boss
+} // namespace hb::npc::boss

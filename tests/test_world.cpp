@@ -12,14 +12,16 @@ using namespace hb::world;
 using hb::entity_id;
 using hb::map_id;
 
-namespace {
+namespace
+{
 
 auto find_map_file(const char* filename) -> std::filesystem::path
 {
     for (auto prefix : {"bin/mapdata/", "mapdata/", "Debug/mapdata/", "../mapdata/", "../bin/mapdata/"})
     {
         auto p = std::filesystem::path(prefix) / filename;
-        if (std::filesystem::exists(p)) return p;
+        if (std::filesystem::exists(p))
+            return p;
     }
     return {};
 }
@@ -28,7 +30,8 @@ auto find_map_file(const char* filename) -> std::filesystem::path
 
 // Position tests
 
-TEST(position_test, construction) {
+TEST(position_test, construction)
+{
     position p1;
     EXPECT_EQ(p1.x, 0);
     EXPECT_EQ(p1.y, 0);
@@ -38,7 +41,8 @@ TEST(position_test, construction) {
     EXPECT_EQ(p2.y, 20);
 }
 
-TEST(position_test, equality) {
+TEST(position_test, equality)
+{
     position p1{10, 20};
     position p2{10, 20};
     position p3{10, 21};
@@ -47,7 +51,8 @@ TEST(position_test, equality) {
     EXPECT_NE(p1, p3);
 }
 
-TEST(position_test, addition) {
+TEST(position_test, addition)
+{
     position p1{10, 20};
     position p2{5, -3};
 
@@ -56,30 +61,34 @@ TEST(position_test, addition) {
     EXPECT_EQ(result.y, 17);
 }
 
-TEST(position_test, manhattan_distance) {
+TEST(position_test, manhattan_distance)
+{
     position p1{0, 0};
     position p2{3, 4};
 
     EXPECT_EQ(p1.manhattan_distance(p2), 7);
 }
 
-TEST(position_test, euclidean_distance_squared) {
+TEST(position_test, euclidean_distance_squared)
+{
     position p1{0, 0};
     position p2{3, 4};
 
-    EXPECT_EQ(p1.distance_squared(p2), 25);  // 3^2 + 4^2
+    EXPECT_EQ(p1.distance_squared(p2), 25); // 3^2 + 4^2
 }
 
-TEST(position_test, chebyshev_distance) {
+TEST(position_test, chebyshev_distance)
+{
     position p1{0, 0};
     position p2{3, 5};
 
-    EXPECT_EQ(p1.chebyshev_distance(p2), 5);  // max(3, 5)
+    EXPECT_EQ(p1.chebyshev_distance(p2), 5); // max(3, 5)
 }
 
 // Direction tests
 
-TEST(direction_test, direction_offset) {
+TEST(direction_test, direction_offset)
+{
     auto north = direction_offset(direction::north);
     EXPECT_EQ(north.x, 0);
     EXPECT_EQ(north.y, -1);
@@ -89,14 +98,16 @@ TEST(direction_test, direction_offset) {
     EXPECT_EQ(south_east.y, 1);
 }
 
-TEST(direction_test, move_in_direction) {
+TEST(direction_test, move_in_direction)
+{
     position p{10, 10};
     auto moved = move_in_direction(p, direction::north);
     EXPECT_EQ(moved.x, 10);
     EXPECT_EQ(moved.y, 9);
 }
 
-TEST(direction_test, direction_to) {
+TEST(direction_test, direction_to)
+{
     position from{10, 10};
 
     EXPECT_EQ(direction_to(from, position{10, 5}), direction::north);
@@ -107,7 +118,8 @@ TEST(direction_test, direction_to) {
 
 // Rect tests
 
-TEST(rect_test, contains) {
+TEST(rect_test, contains)
+{
     rect r{0, 0, 10, 10};
 
     EXPECT_TRUE(r.contains(position{5, 5}));
@@ -117,14 +129,16 @@ TEST(rect_test, contains) {
     EXPECT_FALSE(r.contains(position{-1, 5}));
 }
 
-TEST(rect_test, dimensions) {
+TEST(rect_test, dimensions)
+{
     rect r{5, 10, 15, 20};
 
     EXPECT_EQ(r.width(), 11);
     EXPECT_EQ(r.height(), 11);
 }
 
-TEST(rect_test, intersects) {
+TEST(rect_test, intersects)
+{
     rect r1{0, 0, 10, 10};
     rect r2{5, 5, 15, 15};
     rect r3{20, 20, 30, 30};
@@ -135,7 +149,8 @@ TEST(rect_test, intersects) {
 
 // Tile tests
 
-TEST(tile_test, static_tile_flags) {
+TEST(tile_test, static_tile_flags)
+{
     static_tile tile;
     tile.flags = tile_flags::none;
 
@@ -150,7 +165,8 @@ TEST(tile_test, static_tile_flags) {
     EXPECT_TRUE(tile.is_water());
 }
 
-TEST(tile_test, dynamic_tile_occupant) {
+TEST(tile_test, dynamic_tile_occupant)
+{
     dynamic_tile tile;
 
     EXPECT_FALSE(tile.has_occupant());
@@ -164,7 +180,8 @@ TEST(tile_test, dynamic_tile_occupant) {
     EXPECT_FALSE(tile.has_occupant());
 }
 
-TEST(tile_test, dynamic_tile_dead_entity) {
+TEST(tile_test, dynamic_tile_dead_entity)
+{
     dynamic_tile tile;
 
     EXPECT_FALSE(tile.has_dead_entity());
@@ -179,7 +196,8 @@ TEST(tile_test, dynamic_tile_dead_entity) {
 
 // Spatial index tests
 
-TEST(spatial_index_test, add_and_query) {
+TEST(spatial_index_test, add_and_query)
+{
     spatial_index index;
     index.initialize(100, 100);
 
@@ -191,7 +209,8 @@ TEST(spatial_index_test, add_and_query) {
     EXPECT_EQ(index.count(), 3);
 }
 
-TEST(spatial_index_test, get_in_range) {
+TEST(spatial_index_test, get_in_range)
+{
     spatial_index index;
     index.initialize(100, 100);
 
@@ -200,13 +219,14 @@ TEST(spatial_index_test, get_in_range) {
     index.add(entity_id{3}, position{50, 50});
 
     auto nearby = index.get_in_range(position{10, 10}, 10);
-    EXPECT_EQ(nearby.size(), 2);  // Entities 1 and 2
+    EXPECT_EQ(nearby.size(), 2); // Entities 1 and 2
 
     auto far = index.get_in_range(position{50, 50}, 5);
-    EXPECT_EQ(far.size(), 1);  // Only entity 3
+    EXPECT_EQ(far.size(), 1); // Only entity 3
 }
 
-TEST(spatial_index_test, update_position) {
+TEST(spatial_index_test, update_position)
+{
     spatial_index index;
     index.initialize(100, 100);
 
@@ -223,7 +243,8 @@ TEST(spatial_index_test, update_position) {
     EXPECT_EQ(pos2->x, 20);
 }
 
-TEST(spatial_index_test, remove) {
+TEST(spatial_index_test, remove)
+{
     spatial_index index;
     index.initialize(100, 100);
 
@@ -234,7 +255,8 @@ TEST(spatial_index_test, remove) {
     EXPECT_FALSE(index.contains(entity_id{1}));
 }
 
-TEST(spatial_index_test, get_in_rect) {
+TEST(spatial_index_test, get_in_rect)
+{
     spatial_index index;
     index.initialize(100, 100);
 
@@ -243,12 +265,13 @@ TEST(spatial_index_test, get_in_rect) {
     index.add(entity_id{3}, position{50, 50});
 
     auto in_rect = index.get_in_rect(rect{5, 5, 20, 20});
-    EXPECT_EQ(in_rect.size(), 2);  // Entities 1 and 2
+    EXPECT_EQ(in_rect.size(), 2); // Entities 1 and 2
 }
 
 // Map tests
 
-TEST(map_test, initialization) {
+TEST(map_test, initialization)
+{
     map m;
     map_config config;
     config.name = "test_map";
@@ -263,7 +286,8 @@ TEST(map_test, initialization) {
     EXPECT_EQ(m.height(), 100);
 }
 
-TEST(map_test, valid_position) {
+TEST(map_test, valid_position)
+{
     map m;
     map_config config;
     config.name = "test";
@@ -277,7 +301,8 @@ TEST(map_test, valid_position) {
     EXPECT_FALSE(m.is_valid_position(position{-1, 0}));
 }
 
-TEST(map_test, tile_access) {
+TEST(map_test, tile_access)
+{
     map m;
     map_config config;
     config.name = "test";
@@ -292,7 +317,8 @@ TEST(map_test, tile_access) {
     ASSERT_NE(dynamic_tile, nullptr);
 }
 
-TEST(map_test, occupancy) {
+TEST(map_test, occupancy)
+{
     map m;
     map_config config;
     config.name = "test";
@@ -315,7 +341,8 @@ TEST(map_test, occupancy) {
     EXPECT_FALSE(m.get_occupant(pos).has_value());
 }
 
-TEST(map_test, teleport) {
+TEST(map_test, teleport)
+{
     map m;
     map_config config;
     config.name = "test";
@@ -339,25 +366,24 @@ TEST(map_test, teleport) {
 
 // World subsystem tests
 
-class world_subsystem_test : public ::testing::Test {
+class world_subsystem_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        world_.initialize();
-    }
+    void SetUp() override { world_.initialize(); }
 
-    void TearDown() override {
-        world_.shutdown();
-    }
+    void TearDown() override { world_.shutdown(); }
 
     world_subsystem world_;
 };
 
-TEST_F(world_subsystem_test, lifecycle) {
+TEST_F(world_subsystem_test, lifecycle)
+{
     EXPECT_TRUE(world_.is_initialized());
     EXPECT_EQ(world_.name(), "world");
 }
 
-TEST_F(world_subsystem_test, create_map) {
+TEST_F(world_subsystem_test, create_map)
+{
     map_config config;
     config.name = "test_map";
     config.width = 100;
@@ -375,7 +401,8 @@ TEST_F(world_subsystem_test, create_map) {
     EXPECT_EQ(m->name(), "test_map");
 }
 
-TEST_F(world_subsystem_test, get_by_name) {
+TEST_F(world_subsystem_test, get_by_name)
+{
     map_config config;
     config.name = "named_map";
     config.width = 50;
@@ -390,7 +417,8 @@ TEST_F(world_subsystem_test, get_by_name) {
     EXPECT_EQ(world_.get_map_by_name("nonexistent"), nullptr);
 }
 
-TEST_F(world_subsystem_test, unload_map) {
+TEST_F(world_subsystem_test, unload_map)
+{
     map_config config;
     config.name = "temp_map";
     config.width = 50;
@@ -404,7 +432,8 @@ TEST_F(world_subsystem_test, unload_map) {
     EXPECT_FALSE(world_.map_exists(id));
 }
 
-TEST_F(world_subsystem_test, duplicate_name_fails) {
+TEST_F(world_subsystem_test, duplicate_name_fails)
+{
     map_config config;
     config.name = "unique_name";
     config.width = 50;
@@ -417,7 +446,8 @@ TEST_F(world_subsystem_test, duplicate_name_fails) {
     EXPECT_TRUE(result2.is_err());
 }
 
-TEST_F(world_subsystem_test, is_walkable) {
+TEST_F(world_subsystem_test, is_walkable)
+{
     map_config config;
     config.name = "walkable_test";
     config.width = 50;
@@ -438,16 +468,19 @@ TEST_F(world_subsystem_test, is_walkable) {
 
 // Map file loading tests
 
-TEST(map_file_test, load_from_file_not_found) {
+TEST(map_file_test, load_from_file_not_found)
+{
     map m;
     auto result = m.load_from_file("nonexistent_map.amd");
     EXPECT_TRUE(result.is_err());
     EXPECT_TRUE(result.error().find("not found") != std::string::npos);
 }
 
-TEST(map_file_test, load_from_real_file) {
+TEST(map_file_test, load_from_real_file)
+{
     auto map_path = find_map_file("bsmith_1.amd");
-    if (map_path.empty()) {
+    if (map_path.empty())
+    {
         GTEST_SKIP() << "Map file not found - skipping real file test";
     }
 
@@ -462,13 +495,15 @@ TEST(map_file_test, load_from_real_file) {
     // Verify map dimensions are reasonable (bsmith is a small shop)
     EXPECT_GT(m.width(), 0);
     EXPECT_GT(m.height(), 0);
-    EXPECT_LT(m.width(), 1000);   // Reasonable upper bound
+    EXPECT_LT(m.width(), 1000); // Reasonable upper bound
     EXPECT_LT(m.height(), 1000);
 }
 
-TEST(map_file_test, load_parses_tile_flags) {
+TEST(map_file_test, load_parses_tile_flags)
+{
     auto map_path = find_map_file("aresden.amd");
-    if (map_path.empty()) {
+    if (map_path.empty())
+    {
         GTEST_SKIP() << "Map file not found - skipping tile flags test";
     }
 
@@ -486,10 +521,13 @@ TEST(map_file_test, load_parses_tile_flags) {
 
     // Count blocked tiles - a city map should have buildings/walls
     int blocked_count = 0;
-    for (int16_t y = 0; y < m.height() && y < 100; ++y) {
-        for (int16_t x = 0; x < m.width() && x < 100; ++x) {
+    for (int16_t y = 0; y < m.height() && y < 100; ++y)
+    {
+        for (int16_t x = 0; x < m.width() && x < 100; ++x)
+        {
             auto* t = m.get_static_tile(x, y);
-            if (t && !t->is_walkable()) {
+            if (t && !t->is_walkable())
+            {
                 ++blocked_count;
             }
         }
@@ -499,9 +537,11 @@ TEST(map_file_test, load_parses_tile_flags) {
     EXPECT_GT(blocked_count, 0) << "Expected some blocked tiles in city map";
 }
 
-TEST_F(world_subsystem_test, load_map_from_file) {
+TEST_F(world_subsystem_test, load_map_from_file)
+{
     auto map_path = find_map_file("bsmith_1.amd");
-    if (map_path.empty()) {
+    if (map_path.empty())
+    {
         GTEST_SKIP() << "Map file not found - skipping world subsystem load test";
     }
 
@@ -520,7 +560,8 @@ TEST_F(world_subsystem_test, load_map_from_file) {
 
 // Ground item tests
 
-TEST_F(world_subsystem_test, add_ground_item) {
+TEST_F(world_subsystem_test, add_ground_item)
+{
     map_config config;
     config.name = "ground_item_map";
     config.width = 50;
@@ -540,7 +581,8 @@ TEST_F(world_subsystem_test, add_ground_item) {
     EXPECT_EQ(world_.ground_item_count(id, pos), 1);
 }
 
-TEST_F(world_subsystem_test, multiple_ground_items) {
+TEST_F(world_subsystem_test, multiple_ground_items)
+{
     map_config config;
     config.name = "multi_ground_map";
     config.width = 50;
@@ -561,7 +603,8 @@ TEST_F(world_subsystem_test, multiple_ground_items) {
     EXPECT_EQ(items.size(), 3);
 }
 
-TEST_F(world_subsystem_test, remove_top_ground_item) {
+TEST_F(world_subsystem_test, remove_top_ground_item)
+{
     map_config config;
     config.name = "remove_ground_map";
     config.width = 50;
@@ -588,7 +631,8 @@ TEST_F(world_subsystem_test, remove_top_ground_item) {
     EXPECT_FALSE(world_.has_ground_items(id, pos));
 }
 
-TEST_F(world_subsystem_test, remove_ground_item_empty) {
+TEST_F(world_subsystem_test, remove_ground_item_empty)
+{
     map_config config;
     config.name = "empty_ground_map";
     config.width = 50;
@@ -602,7 +646,8 @@ TEST_F(world_subsystem_test, remove_ground_item_empty) {
     EXPECT_FALSE(removed.has_value());
 }
 
-TEST_F(world_subsystem_test, ground_items_different_positions) {
+TEST_F(world_subsystem_test, ground_items_different_positions)
+{
     map_config config;
     config.name = "diff_pos_ground_map";
     config.width = 50;
@@ -619,7 +664,8 @@ TEST_F(world_subsystem_test, ground_items_different_positions) {
     EXPECT_EQ(world_.ground_item_count(id, {30, 30}), 0);
 }
 
-TEST_F(world_subsystem_test, ground_items_invalid_map) {
+TEST_F(world_subsystem_test, ground_items_invalid_map)
+{
     // Operations on non-existent map should not crash
     EXPECT_FALSE(world_.has_ground_items(map_id{255}, {10, 10}));
     EXPECT_EQ(world_.ground_item_count(map_id{255}, {10, 10}), 0);
@@ -630,7 +676,8 @@ TEST_F(world_subsystem_test, ground_items_invalid_map) {
 
 // Map feature tests
 
-TEST_F(world_subsystem_test, map_weather) {
+TEST_F(world_subsystem_test, map_weather)
+{
     map_config config;
     config.name = "weather_map";
     config.width = 50;
@@ -646,7 +693,8 @@ TEST_F(world_subsystem_test, map_weather) {
     EXPECT_EQ(m->weather(), weather_type::rain);
 }
 
-TEST_F(world_subsystem_test, map_safe_zone) {
+TEST_F(world_subsystem_test, map_safe_zone)
+{
     map_config config;
     config.name = "safe_map";
     config.width = 100;
@@ -661,7 +709,8 @@ TEST_F(world_subsystem_test, map_safe_zone) {
     EXPECT_EQ(m->safe_zone_count(), 0);
 }
 
-TEST_F(world_subsystem_test, map_dead_entity) {
+TEST_F(world_subsystem_test, map_dead_entity)
+{
     map_config config;
     config.name = "dead_map";
     config.width = 50;
@@ -683,7 +732,8 @@ TEST_F(world_subsystem_test, map_dead_entity) {
     EXPECT_FALSE(m->get_dead_entity(pos).has_value());
 }
 
-TEST_F(world_subsystem_test, map_teleport_management) {
+TEST_F(world_subsystem_test, map_teleport_management)
+{
     map_config config;
     config.name = "tp_map";
     config.width = 50;
@@ -704,10 +754,11 @@ TEST_F(world_subsystem_test, map_teleport_management) {
     EXPECT_EQ(m->teleport_count(), 1);
     EXPECT_FALSE(m->get_teleport_dest({5, 5}).has_value());
 
-    EXPECT_FALSE(m->remove_teleport({99, 99}));  // Non-existent
+    EXPECT_FALSE(m->remove_teleport({99, 99})); // Non-existent
 }
 
-TEST_F(world_subsystem_test, can_move_to) {
+TEST_F(world_subsystem_test, can_move_to)
+{
     map_config config;
     config.name = "move_map";
     config.width = 50;
@@ -729,7 +780,8 @@ TEST_F(world_subsystem_test, can_move_to) {
     EXPECT_TRUE(world_.can_move_to(id, {10, 10}));
 }
 
-TEST_F(world_subsystem_test, for_each_map) {
+TEST_F(world_subsystem_test, for_each_map)
+{
     map_config c1;
     c1.name = "map_a";
     c1.width = 10;
@@ -744,9 +796,7 @@ TEST_F(world_subsystem_test, for_each_map) {
     world_.create_map(c2);
 
     int count = 0;
-    world_.for_each_map([&](map_id, const map&) {
-        ++count;
-    });
+    world_.for_each_map([&](map_id, const map&) { ++count; });
 
     EXPECT_EQ(count, 2);
 }

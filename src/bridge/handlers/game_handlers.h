@@ -16,108 +16,135 @@
 #include <vector>
 #include <string>
 
-namespace hb {
-    class scheduler;
+namespace hb
+{
+class scheduler;
 }
 
-namespace hb::network {
-    class websocket_server;
-    class ws_connection;
+namespace hb::network
+{
+class websocket_server;
+class ws_connection;
+} // namespace hb::network
+
+namespace hb::player
+{
+class player_system;
+struct player;
+} // namespace hb::player
+
+namespace hb::world
+{
+class world_subsystem;
 }
 
-namespace hb::player {
-    class player_system;
-    struct player;
+namespace hb::social
+{
+class social_system;
+struct chat_message_event;
+} // namespace hb::social
+
+namespace hb::admin
+{
+class admin_system;
 }
 
-namespace hb::world {
-    class world_subsystem;
+namespace hb::combat
+{
+class combat_system;
+struct damage_event;
+struct death_event;
+} // namespace hb::combat
+
+namespace hb::magic
+{
+class magic_system;
+struct spell_template;
+struct spell_effect_result;
+} // namespace hb::magic
+
+namespace hb::npc
+{
+class npc_system;
+struct npc;
+} // namespace hb::npc
+
+namespace hb::inventory
+{
+class inventory_system;
 }
 
-namespace hb::social {
-    class social_system;
-    struct chat_message_event;
+namespace hb::item
+{
+class item_system;
 }
 
-namespace hb::admin {
-    class admin_system;
+namespace hb::effect
+{
+class effect_system;
 }
 
-namespace hb::combat {
-    class combat_system;
-    struct damage_event;
-    struct death_event;
+namespace hb
+{
+class loot_registry;
+class shop_registry;
+class dialog_registry;
+class build_recipe_registry;
+class craft_recipe_registry;
+class fishing_registry;
+class item_registry;
+} // namespace hb
+
+namespace hb::crafting
+{
+class manufacturing_system;
+class alchemy_system;
+class mining_system;
+class fishing_system;
+struct fish_type_config;
+struct fish_catch_result;
+} // namespace hb::crafting
+
+namespace hb::skill
+{
+class skill_system;
 }
 
-namespace hb::magic {
-    class magic_system;
-    struct spell_template;
-    struct spell_effect_result;
+namespace hb::quest
+{
+class quest_system;
 }
 
-namespace hb::npc {
-    class npc_system;
-    struct npc;
+namespace hb::war
+{
+class crusade_system;
 }
 
-namespace hb::inventory {
-    class inventory_system;
+namespace hb::audit
+{
+class item_audit_system;
 }
 
-namespace hb::item {
-    class item_system;
-}
-
-namespace hb::effect {
-    class effect_system;
-}
-
-namespace hb {
-    class loot_registry;
-    class shop_registry;
-    class dialog_registry;
-    class build_recipe_registry;
-    class craft_recipe_registry;
-    class fishing_registry;
-    class item_registry;
-}
-
-namespace hb::crafting {
-    class manufacturing_system;
-    class alchemy_system;
-    class mining_system;
-    class fishing_system;
-    struct fish_type_config;
-    struct fish_catch_result;
-}
-
-namespace hb::skill {
-    class skill_system;
-}
-
-namespace hb::quest {
-    class quest_system;
-}
-
-namespace hb::war {
-    class crusade_system;
-}
-
-namespace hb::audit {
-    class item_audit_system;
-}
-
-namespace hb::bridge {
+namespace hb::bridge
+{
 
 // Game message handler
 // Handles movement, actions, chat, and other in-game messages
-class game_handlers {
+class game_handlers
+{
 public:
     game_handlers();
     ~game_handlers();
 
     // Command category for grouping
-    enum class command_category : uint8_t { general, guild, social, gm, admin };
+    enum class command_category : uint8_t
+    {
+        general,
+        guild,
+        social,
+        gm,
+        admin
+    };
 
     // Save player callback type
     using save_player_callback = std::function<void(player_id)>;
@@ -154,7 +181,8 @@ public:
     // Command visibility predicate: returns true if command should be enabled
     using command_visibility = std::function<bool(const player::player&, const social::social_system*)>;
 
-    struct command_descriptor {
+    struct command_descriptor
+    {
         std::string name;
         std::string description;
         std::string usage;
@@ -248,7 +276,8 @@ private:
     void handle_guild_demote(connection_id conn_id, const network::json_message& msg);
     void handle_guild_set_motd(connection_id conn_id, const network::json_message& msg);
     void handle_guild_info(connection_id conn_id, const network::json_message& msg);
-    void broadcast_guild_update(guild_id gid, const std::string& action,
+    void broadcast_guild_update(guild_id gid,
+                                const std::string& action,
                                 const std::string& guild_name,
                                 const std::string& player_name = {},
                                 const nlohmann::json& extra = {});
@@ -269,14 +298,14 @@ private:
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
 
     // NPC interaction helper - validates NPC exists, is in range, and is friendly
-    struct npc_interaction_check {
+    struct npc_interaction_check
+    {
         player::player* plr{nullptr};
         npc::npc* target_npc{nullptr};
         bool valid{false};
         std::string error;
     };
-    auto validate_npc_interaction(connection_id conn_id, uint32_t seq, uint32_t npc_entity_id)
-        -> npc_interaction_check;
+    auto validate_npc_interaction(connection_id conn_id, uint32_t seq, uint32_t npc_entity_id) -> npc_interaction_check;
 
     // Equipment
     void handle_player_equip(connection_id conn_id, const network::json_message& msg);
@@ -299,54 +328,58 @@ private:
     void on_chat_message(const social::chat_message_event& event);
 
     // Helper to send error response
-    void send_error(connection_id conn_id, uint32_t seq,
-                    std::string_view error_code, std::string_view message);
+    void send_error(connection_id conn_id, uint32_t seq, std::string_view error_code, std::string_view message);
 
     // Get connection or return nullptr
     [[nodiscard]] auto get_connection(connection_id conn_id) -> network::ws_connection*;
 
     // Require in-game state
-    [[nodiscard]] auto require_in_game(connection_id conn_id, uint32_t seq)
-        -> network::ws_connection*;
+    [[nodiscard]] auto require_in_game(connection_id conn_id, uint32_t seq) -> network::ws_connection*;
 
     // Broadcast position update to nearby players
-    void broadcast_position_update(player_id moved_player, int16_t x, int16_t y,
-                                    int16_t direction, bool is_running = false,
-                                    std::optional<int16_t> dest_x = std::nullopt,
-                                    std::optional<int16_t> dest_y = std::nullopt);
+    void broadcast_position_update(player_id moved_player,
+                                   int16_t x,
+                                   int16_t y,
+                                   int16_t direction,
+                                   bool is_running = false,
+                                   std::optional<int16_t> dest_x = std::nullopt,
+                                   std::optional<int16_t> dest_y = std::nullopt);
 
     // Handle entity visibility changes after movement
-    void update_entity_visibility(player_id moved_player,
-                                   const world::position& old_pos,
-                                   const world::position& new_pos);
+    void
+    update_entity_visibility(player_id moved_player, const world::position& old_pos, const world::position& new_pos);
 
     // Send chat message to a specific player
     void send_chat_to_player(player_id target, const network::chat_message_broadcast_data& data);
 
     // Send chat to players in range
-    void send_chat_to_nearby(player_id sender, int16_t range,
-                              const network::chat_message_broadcast_data& data);
+    void send_chat_to_nearby(player_id sender, int16_t range, const network::chat_message_broadcast_data& data);
 
     // Teleportation helpers
-    void execute_player_teleport(player_id pid, connection_id conn_id, uint32_t seq,
-                                  const std::string& dest_map,
-                                  const world::position& dest_pos,
-                                  world::direction dest_dir);
+    void execute_player_teleport(player_id pid,
+                                 connection_id conn_id,
+                                 uint32_t seq,
+                                 const std::string& dest_map,
+                                 const world::position& dest_pos,
+                                 world::direction dest_dir);
 
     void send_map_teleporters(connection_id conn_id, const world::map& map);
 
-    void broadcast_teleporter_update(map_id map, const std::string& action,
-                                      const world::position& pos,
-                                      const world::teleport_dest* dest);
+    void broadcast_teleporter_update(map_id map,
+                                     const std::string& action,
+                                     const world::position& pos,
+                                     const world::teleport_dest* dest);
 
-    [[nodiscard]] auto build_visible_entities_at(map_id map, const world::position& pos,
-                                                  int visibility_radius_x,
-                                                  int visibility_radius_y)
-        -> std::vector<network::visible_entity_msg>;
+    [[nodiscard]] auto build_visible_entities_at(map_id map,
+                                                 const world::position& pos,
+                                                 int visibility_radius_x,
+                                                 int visibility_radius_y) -> std::vector<network::visible_entity_msg>;
 
     // Send individual entity_spawn / npc_spawn messages for all visible entities at a position
-    void send_visible_entity_spawns_at(network::ws_connection* conn, player_id viewer,
-                                        map_id map, const world::position& pos);
+    void send_visible_entity_spawns_at(network::ws_connection* conn,
+                                       player_id viewer,
+                                       map_id map,
+                                       const world::position& pos);
 
     // Combat event callbacks
     void on_damage_dealt(const combat::damage_event& event);
@@ -358,25 +391,23 @@ private:
     auto calculate_pk_bounty_reward(uint8_t level) -> int32_t;
     auto get_respawn_map_name(hb::faction f) -> std::string;
     auto get_respawn_position(const std::string& map_name) -> world::position;
-    void execute_respawn(player_id pid, const std::string& map_name,
-                         const world::position& pos);
+    void execute_respawn(player_id pid, const std::string& map_name, const world::position& pos);
 
     // Player action broadcast (animation trigger for nearby clients)
-    void broadcast_player_action(const player::player& plr,
-                                 const network::player_action_broadcast_data& data);
+    void broadcast_player_action(const player::player& plr, const network::player_action_broadcast_data& data);
 
     // Combat broadcast helpers
     void broadcast_hp_update(player_id target, int32_t hp, int32_t hp_max);
     void broadcast_entity_death(player_id victim, player_id killer, int32_t killing_damage = 0);
-    void broadcast_combat_effect(map_id map, const world::position& pos,
-                                 const network::combat_effect_data& data);
-    void broadcast_combat_effect_to_faction(map_id map, const world::position& pos,
+    void broadcast_combat_effect(map_id map, const world::position& pos, const network::combat_effect_data& data);
+    void broadcast_combat_effect_to_faction(map_id map,
+                                            const world::position& pos,
                                             hb::faction faction,
                                             const network::combat_effect_data& data);
 
     // Spell cast callback
-    void on_spell_cast(entity::entity caster, const magic::spell_template& spell,
-                       const magic::spell_effect_result& result);
+    void
+    on_spell_cast(entity::entity caster, const magic::spell_template& spell, const magic::spell_effect_result& result);
 
     // NPC broadcast helpers
     void broadcast_npc_spawn(const npc::npc& n);
@@ -387,8 +418,7 @@ private:
 
     // Item broadcast helpers
     void broadcast_ground_item_spawn(map_id map, const world::position& pos, item_id item);
-    void broadcast_ground_item_removed(player_id picker, map_id map,
-                                       const world::position& pos, item_id item);
+    void broadcast_ground_item_removed(player_id picker, map_id map, const world::position& pos, item_id item);
 
     // XP distribution
     void distribute_npc_kill_exp(entity::entity killer, int32_t base_exp);
@@ -398,9 +428,8 @@ private:
     void handle_npc_despawn_drop(const npc::npc& n);
 
     // Send visible ground items to a player
-    void send_visible_ground_items(connection_id conn_id, map_id map,
-                                    const world::position& pos,
-                                    int radius_x, int radius_y);
+    void send_visible_ground_items(
+        connection_id conn_id, map_id map, const world::position& pos, int radius_x, int radius_y);
 
     // Skill data sync
     void send_skills_data(connection_id conn_id, player_id pid);
@@ -439,4 +468,4 @@ private:
     save_player_callback save_callback_;
 };
 
-}  // namespace hb::bridge
+} // namespace hb::bridge

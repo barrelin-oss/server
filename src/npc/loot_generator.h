@@ -16,9 +16,11 @@
 #include <random>
 #include <vector>
 
-namespace hb::npc {
+namespace hb::npc
+{
 
-namespace detail {
+namespace detail
+{
 
 inline auto loot_rng() -> std::mt19937&
 {
@@ -29,7 +31,8 @@ inline auto loot_rng() -> std::mt19937&
 // Roll a uniform int in [min, max]
 inline auto roll(int min, int max) -> int
 {
-    if (min >= max) return min;
+    if (min >= max)
+        return min;
     std::uniform_int_distribution<int> dist(min, max);
     return dist(loot_rng());
 }
@@ -37,7 +40,8 @@ inline auto roll(int min, int max) -> int
 // Pick a weighted random item from a pool
 inline auto pick_from_pool(const item_pool& pool) -> item_id
 {
-    if (pool.items.empty() || pool.total_weight <= 0) return item_id{0};
+    if (pool.items.empty() || pool.total_weight <= 0)
+        return item_id{0};
 
     int r = roll(1, pool.total_weight);
     int cumulative = 0;
@@ -83,13 +87,13 @@ inline auto generate_attribute(const loot_attribute_config& cfg) -> item::item_a
     return attr;
 }
 
-}  // namespace detail
+} // namespace detail
 
 // A single dropped item with optional attribute
 struct loot_item_result
 {
     item_id template_id{};
-    item::item_attribute attribute{};  // Empty unless attribute config was present
+    item::item_attribute attribute{}; // Empty unless attribute config was present
 };
 
 // Result of loot generation
@@ -109,19 +113,18 @@ struct loot_npc_info
 };
 
 // Generate loot for on_kill phase
-inline auto generate_kill_loot(const loot_registry& reg,
-                                int16_t sprite_id,
-                                int32_t gold_min,
-                                int32_t gold_max,
-                                bool is_summoned) -> loot_result
+inline auto generate_kill_loot(
+    const loot_registry& reg, int16_t sprite_id, int32_t gold_min, int32_t gold_max, bool is_summoned) -> loot_result
 {
     loot_result result;
 
     // Summoned NPCs never drop
-    if (is_summoned) return result;
+    if (is_summoned)
+        return result;
 
     auto* config = reg.get_config(sprite_id);
-    if (!config) return result;
+    if (!config)
+        return result;
 
     const auto& phase = config->on_kill;
 
@@ -165,13 +168,13 @@ inline auto generate_kill_loot(const loot_registry& reg,
 }
 
 // Generate loot for on_despawn phase
-inline auto generate_despawn_loot(const loot_registry& reg,
-                                   int16_t sprite_id) -> loot_result
+inline auto generate_despawn_loot(const loot_registry& reg, int16_t sprite_id) -> loot_result
 {
     loot_result result;
 
     auto* config = reg.get_config(sprite_id);
-    if (!config) return result;
+    if (!config)
+        return result;
 
     const auto& phase = config->on_despawn;
 
@@ -210,4 +213,4 @@ inline auto generate_despawn_loot(const loot_registry& reg,
     return result;
 }
 
-}  // namespace hb::npc
+} // namespace hb::npc

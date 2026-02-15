@@ -7,7 +7,8 @@
 
 #include <yaml-cpp/yaml.h>
 
-namespace hb {
+namespace hb
+{
 
 craft_recipe_registry::craft_recipe_registry() = default;
 craft_recipe_registry::~craft_recipe_registry() = default;
@@ -20,8 +21,10 @@ void craft_recipe_registry::initialize()
 
 void craft_recipe_registry::shutdown()
 {
-    LOG_INFO(general, "Craft recipe registry shut down ({} alchemy, {} crafting)",
-        alchemy_recipes_.size(), crafting_recipes_.size());
+    LOG_INFO(general,
+             "Craft recipe registry shut down ({} alchemy, {} crafting)",
+             alchemy_recipes_.size(),
+             crafting_recipes_.size());
     alchemy_recipes_.clear();
     crafting_recipes_.clear();
     id_index_.clear();
@@ -30,26 +33,25 @@ void craft_recipe_registry::shutdown()
 }
 
 auto craft_recipe_registry::load_recipes(const std::filesystem::path& path,
-                                          const std::string& section_name,
-                                          const item_registry& items,
-                                          std::vector<crafting::craft_recipe>& dest)
-    -> result<size_t, std::string>
+                                         const std::string& section_name,
+                                         const item_registry& items,
+                                         std::vector<crafting::craft_recipe>& dest) -> result<size_t, std::string>
 {
     LOG_INFO(general, "Loading {} from: {}", section_name, path.string());
 
     YAML::Node root;
-    try {
+    try
+    {
         root = YAML::LoadFile(path.string());
-    } catch (const YAML::Exception& e) {
-        return result<size_t, std::string>::err(
-            "Failed to parse craft recipes YAML: " + std::string(e.what())
-        );
+    }
+    catch (const YAML::Exception& e)
+    {
+        return result<size_t, std::string>::err("Failed to parse craft recipes YAML: " + std::string(e.what()));
     }
 
     if (!root[section_name] || !root[section_name].IsSequence())
     {
-        return result<size_t, std::string>::err(
-            "Missing or invalid '" + section_name + "' section");
+        return result<size_t, std::string>::err("Missing or invalid '" + section_name + "' section");
     }
 
     size_t loaded = 0;
@@ -82,8 +84,8 @@ auto craft_recipe_registry::load_recipes(const std::filesystem::path& path,
         }
         else
         {
-            LOG_WARN(general, "Craft recipe id={}: result item '{}' not found in item registry",
-                recipe.id, recipe.result);
+            LOG_WARN(
+                general, "Craft recipe id={}: result item '{}' not found in item registry", recipe.id, recipe.result);
         }
 
         // Parse ingredients
@@ -123,15 +125,13 @@ auto craft_recipe_registry::load_recipes(const std::filesystem::path& path,
 }
 
 auto craft_recipe_registry::load_alchemy(const std::filesystem::path& path,
-                                          const item_registry& items)
-    -> result<size_t, std::string>
+                                         const item_registry& items) -> result<size_t, std::string>
 {
     return load_recipes(path, "alchemy_recipes", items, alchemy_recipes_);
 }
 
 auto craft_recipe_registry::load_crafting(const std::filesystem::path& path,
-                                           const item_registry& items)
-    -> result<size_t, std::string>
+                                          const item_registry& items) -> result<size_t, std::string>
 {
     return load_recipes(path, "crafting_recipes", items, crafting_recipes_);
 }
@@ -142,11 +142,10 @@ auto craft_recipe_registry::get(int32_t id) const -> const crafting::craft_recip
     return it != id_index_.end() ? it->second : nullptr;
 }
 
-auto craft_recipe_registry::find_by_result(std::string_view name) const
-    -> const crafting::craft_recipe*
+auto craft_recipe_registry::find_by_result(std::string_view name) const -> const crafting::craft_recipe*
 {
     auto it = name_index_.find(std::string(name));
     return it != name_index_.end() ? it->second : nullptr;
 }
 
-}  // namespace hb
+} // namespace hb

@@ -6,10 +6,12 @@
 
 #include <cstdint>
 
-namespace hb {
+namespace hb
+{
 
 // Direction (8 directions plus center)
-enum class direction : uint8_t {
+enum class direction : uint8_t
+{
     none = 0,
     north = 1,
     north_east = 2,
@@ -22,7 +24,8 @@ enum class direction : uint8_t {
 };
 
 // Object/entity action states
-enum class object_state : uint8_t {
+enum class object_state : uint8_t
+{
     stop = 0,
     move = 1,
     run = 2,
@@ -38,7 +41,8 @@ enum class object_state : uint8_t {
 };
 
 // NPC behavior states
-enum class npc_behavior : uint8_t {
+enum class npc_behavior : uint8_t
+{
     stop = 0,
     move = 1,
     attack = 2,
@@ -47,7 +51,8 @@ enum class npc_behavior : uint8_t {
 };
 
 // NPC movement types
-enum class npc_move_type : uint8_t {
+enum class npc_move_type : uint8_t
+{
     stop = 0,
     seq_waypoint = 1,
     random_waypoint = 2,
@@ -58,7 +63,8 @@ enum class npc_move_type : uint8_t {
 };
 
 // Equipment positions
-enum class equip_position : uint8_t {
+enum class equip_position : uint8_t
+{
     none = 0,
     head = 1,
     body = 2,
@@ -76,7 +82,8 @@ enum class equip_position : uint8_t {
 };
 
 // Item types
-enum class item_type : int8_t {
+enum class item_type : int8_t
+{
     not_used = -1,
     none = 0,
     equip = 1,
@@ -99,7 +106,8 @@ enum class item_type : int8_t {
 };
 
 // Item equip position (where item is equipped)
-enum class item_equip_pos : uint8_t {
+enum class item_equip_pos : uint8_t
+{
     none = 0,
     head = 1,
     body = 2,
@@ -116,7 +124,8 @@ enum class item_equip_pos : uint8_t {
 };
 
 // Item category for organization
-enum class item_category : uint8_t {
+enum class item_category : uint8_t
+{
     general = 0,
     weapon_sword = 1,
     weapon_axe = 2,
@@ -144,7 +153,8 @@ enum class item_category : uint8_t {
 };
 
 // Item effect types
-enum class item_effect_type : uint8_t {
+enum class item_effect_type : uint8_t
+{
     none = 0,
     attack = 1,
     defense = 2,
@@ -157,7 +167,8 @@ enum class item_effect_type : uint8_t {
 };
 
 // Magic types
-enum class magic_type : uint8_t {
+enum class magic_type : uint8_t
+{
     damage_spot = 1,
     hp_up_spot = 2,
     damage_area = 3,
@@ -179,7 +190,8 @@ enum class magic_type : uint8_t {
 };
 
 // Quest types
-enum class quest_type : uint8_t {
+enum class quest_type : uint8_t
+{
     monster_hunt = 1,
     monster_hunt_timelimit = 2,
     assassination = 3,
@@ -193,7 +205,8 @@ enum class quest_type : uint8_t {
 };
 
 // Player stat attributes
-enum class stat_attribute : uint8_t {
+enum class stat_attribute : uint8_t
+{
     strength = 0x01,
     dexterity = 0x02,
     intelligence = 0x03,
@@ -203,7 +216,8 @@ enum class stat_attribute : uint8_t {
 };
 
 // Faction/side
-enum class faction : uint8_t {
+enum class faction : uint8_t
+{
     neutral = 0,
     aresden = 1,
     elvine = 2
@@ -213,9 +227,12 @@ enum class faction : uint8_t {
 {
     switch (f)
     {
-        case faction::aresden: return "aresden";
-        case faction::elvine:  return "elvine";
-        default:               return "neutral";
+    case faction::aresden:
+        return "aresden";
+    case faction::elvine:
+        return "elvine";
+    default:
+        return "neutral";
     }
 }
 
@@ -229,13 +246,15 @@ enum class faction : uint8_t {
 }
 
 // Map type
-enum class map_type : uint8_t {
+enum class map_type : uint8_t
+{
     normal = 0,
     no_penalty_no_reward = 1
 };
 
 // Owner type (for tiles)
-enum class owner_type : uint8_t {
+enum class owner_type : uint8_t
+{
     none = 0,
     player = 1,
     npc = 2,
@@ -243,7 +262,8 @@ enum class owner_type : uint8_t {
 };
 
 // Dynamic object types
-enum class dynamic_object_type : uint8_t {
+enum class dynamic_object_type : uint8_t
+{
     fire = 1,
     fish = 2,
     fish_object = 3,
@@ -256,7 +276,8 @@ enum class dynamic_object_type : uint8_t {
 };
 
 // Item log types
-enum class item_log_type : uint8_t {
+enum class item_log_type : uint8_t
+{
     give = 1,
     drop = 2,
     get = 3,
@@ -296,7 +317,8 @@ enum class item_log_type : uint8_t {
 };
 
 // Motion confirmation states
-enum class motion_confirm : uint16_t {
+enum class motion_confirm : uint16_t
+{
     move_confirm = 1001,
     move_reject = 1010,
     motion_confirm = 1020,
@@ -305,14 +327,16 @@ enum class motion_confirm : uint16_t {
 };
 
 // Damage type
-enum class damage_type : uint8_t {
+enum class damage_type : uint8_t
+{
     physical = 0,
     magic = 1,
     arrow = 2
 };
 
 // Weather type
-enum class weather_type : uint8_t {
+enum class weather_type : uint8_t
+{
     clear = 0,
     rainy = 1,
     snowy = 2,
@@ -320,11 +344,12 @@ enum class weather_type : uint8_t {
 };
 
 // Time of day
-enum class time_of_day : uint8_t {
+enum class time_of_day : uint8_t
+{
     day = 0,
     night = 1
 };
 
 // Note: log_level and log_category are defined in logger.h
 
-}  // namespace hb
+} // namespace hb

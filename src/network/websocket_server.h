@@ -18,23 +18,26 @@
 #include <atomic>
 #include <chrono>
 
-namespace hb::network {
+namespace hb::network
+{
 
 // Forward declarations
 class ws_connection;
 
 // WebSocket server configuration
-struct websocket_config {
+struct websocket_config
+{
     std::string bind_address = "0.0.0.0";
     uint16_t port = 2848;
     int max_connections = 2000;
     bool enable_ping = true;
     int ping_interval_seconds = 30;
-    bool enable_per_message_deflate = false;  // Compression
+    bool enable_per_message_deflate = false; // Compression
 };
 
 // WebSocket event types
-enum class ws_event_type {
+enum class ws_event_type
+{
     connected,
     disconnected,
     message,
@@ -42,7 +45,8 @@ enum class ws_event_type {
 };
 
 // WebSocket connection state
-enum class ws_connection_state {
+enum class ws_connection_state
+{
     connecting,
     connected,
     authenticated,
@@ -53,15 +57,22 @@ enum class ws_connection_state {
 };
 
 // Admin subscription mode for spectator functionality
-struct admin_subscription {
-    enum class mode : uint8_t { none, map, player };
+struct admin_subscription
+{
+    enum class mode : uint8_t
+    {
+        none,
+        map,
+        player
+    };
     mode sub_mode{mode::none};
     map_id target_map{};
     player_id target_player{};
 };
 
 // Connection info for events
-struct ws_connection_info {
+struct ws_connection_info
+{
     connection_id id;
     std::string remote_address;
     ws_connection_state state;
@@ -74,7 +85,8 @@ using disconnect_handler = std::function<void(connection_id, const std::string& 
 using error_handler = std::function<void(connection_id, const std::string& error)>;
 
 // WebSocket connection wrapper
-class ws_connection {
+class ws_connection
+{
 public:
     ws_connection(connection_id id, ix::WebSocket* socket);
     ~ws_connection();
@@ -106,8 +118,18 @@ public:
     [[nodiscard]] auto session_token() const -> const std::string& { return session_token_; }
 
     // Mouse destination tracking (where client clicked to walk to)
-    void set_destination(int16_t x, int16_t y) { dest_x_ = x; dest_y_ = y; has_destination_ = true; }
-    void clear_destination() { dest_x_ = 0; dest_y_ = 0; has_destination_ = false; }
+    void set_destination(int16_t x, int16_t y)
+    {
+        dest_x_ = x;
+        dest_y_ = y;
+        has_destination_ = true;
+    }
+    void clear_destination()
+    {
+        dest_x_ = 0;
+        dest_y_ = 0;
+        has_destination_ = false;
+    }
     [[nodiscard]] auto has_destination() const -> bool { return has_destination_; }
     [[nodiscard]] auto dest_x() const -> int16_t { return dest_x_; }
     [[nodiscard]] auto dest_y() const -> int16_t { return dest_y_; }
@@ -141,7 +163,7 @@ private:
     void set_remote_address(std::string_view addr);
 
     connection_id id_;
-    ix::WebSocket* socket_;  // Raw pointer - IXWebSocket owns this
+    ix::WebSocket* socket_; // Raw pointer - IXWebSocket owns this
     std::string remote_address_;
     ws_connection_state state_{ws_connection_state::connecting};
     account_id account_{};
@@ -163,7 +185,8 @@ private:
 };
 
 // WebSocket server
-class websocket_server {
+class websocket_server
+{
 public:
     websocket_server();
     ~websocket_server();
@@ -219,10 +242,11 @@ public:
     void process_pending_disconnects();
 
     // Iteration
-    template<typename Func>
-    void for_each_connection(Func&& func) {
+    template<typename Func> void for_each_connection(Func&& func)
+    {
         std::lock_guard lock{mutex_};
-        for (auto& [id, conn] : connections_) {
+        for (auto& [id, conn] : connections_)
+        {
             func(*conn);
         }
     }
@@ -245,7 +269,8 @@ private:
     std::atomic<uint32_t> next_id_{1};
 
     // Pending disconnects (thread-safe queue for main thread processing)
-    struct pending_disconnect {
+    struct pending_disconnect
+    {
         connection_id id;
         std::string reason;
         ix::ConnectionState* state_ptr;
@@ -260,4 +285,4 @@ private:
     error_handler error_handler_;
 };
 
-}  // namespace hb::network
+} // namespace hb::network

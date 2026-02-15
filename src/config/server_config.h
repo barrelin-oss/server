@@ -13,10 +13,12 @@
 #include <chrono>
 #include <vector>
 
-namespace hb {
+namespace hb
+{
 
 // Database configuration
-struct database_config {
+struct database_config
+{
     std::string host = "localhost";
     uint16_t port = 5432;
     std::string database = "helbreath";
@@ -28,7 +30,8 @@ struct database_config {
 };
 
 // WebSocket configuration
-struct websocket_config {
+struct websocket_config
+{
     std::string bind_address = "0.0.0.0";
     uint16_t port = 2848;
     int max_connections = 2000;
@@ -37,32 +40,36 @@ struct websocket_config {
 };
 
 // Authentication configuration
-struct auth_config {
+struct auth_config
+{
     uint32_t max_characters_per_account = 4;
     std::chrono::seconds session_duration{3600};      // 1 hour
     std::chrono::seconds session_max_duration{86400}; // 24 hours
     bool allow_registration = true;
     uint32_t max_login_attempts = 5;
-    std::chrono::seconds lockout_duration{300};       // 5 minutes
+    std::chrono::seconds lockout_duration{300}; // 5 minutes
 };
 
 // Forum authentication configuration (external PHP auth)
-struct forum_auth_config {
+struct forum_auth_config
+{
     bool enabled = false;
-    std::string login_url;      // URL to auth_login.php
-    std::string validate_url;   // URL to auth_validate.php
+    std::string login_url;    // URL to auth_login.php
+    std::string validate_url; // URL to auth_validate.php
     std::string api_key;
 };
 
 // Auto-save configuration
-struct auto_save_config {
+struct auto_save_config
+{
     bool enabled = true;
-    uint32_t interval_seconds = 300;  // 5 minutes default
+    uint32_t interval_seconds = 300; // 5 minutes default
 };
 
 // Logging configuration
-struct logging_config {
-    std::string console_level = "trace";  // trace, debug, info, warn, error, critical, off
+struct logging_config
+{
+    std::string console_level = "trace"; // trace, debug, info, warn, error, critical, off
     std::string file_level = "trace";
     std::string log_directory = "logs";
     std::string log_file = "hgserver.log";
@@ -71,12 +78,13 @@ struct logging_config {
 };
 
 // Main server configuration
-struct server_config {
+struct server_config
+{
     // Server identity
     std::string server_name = "HGServer";
 
     // Game server settings (legacy)
-    std::string game_server_addr;  // Auto-detected if empty
+    std::string game_server_addr; // Auto-detected if empty
     uint16_t game_server_port = 2848;
 
     // Log server connection (legacy - optional with self-contained auth)
@@ -139,7 +147,8 @@ struct server_config {
 };
 
 // Game balance/settings configuration
-struct game_config {
+struct game_config
+{
     // Player limits
     uint16_t max_clients = 2000;
     uint16_t max_level = 180;
@@ -172,9 +181,9 @@ struct game_config {
     int enemy_kill_adjust = 0;
 
     // View mode / fair resolution (default for all maps)
-    uint8_t default_view_mode = 0;    // 0=scaled, 1=extended, 2=special
-    int16_t fair_width = 800;         // Fair zone width in pixels
-    int16_t fair_height = 600;        // Fair zone height in pixels
+    uint8_t default_view_mode = 0; // 0=scaled, 1=extended, 2=special
+    int16_t fair_width = 800;      // Fair zone width in pixels
+    int16_t fair_height = 600;     // Fair zone height in pixels
 
     // Misc
     uint16_t char_point_limit = 1000;
@@ -185,12 +194,14 @@ struct game_config {
 };
 
 // Admin configuration
-struct admin_entry {
+struct admin_entry
+{
     std::string name;
     int level = 0;
 };
 
-struct admin_config {
+struct admin_config
+{
     std::vector<admin_entry> admins;
     std::vector<std::string> banned_ips;
 
@@ -211,4 +222,4 @@ struct admin_config {
     static auto load_from_file(const std::filesystem::path& path) -> result<admin_config, std::string>;
 };
 
-}  // namespace hb
+} // namespace hb

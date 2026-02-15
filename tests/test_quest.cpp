@@ -8,16 +8,17 @@
 #include "quest/quest.h"
 #include "quest/quest_system.h"
 
-using hb::player_id;
-using hb::quest_id;
-using hb::npc_id;
 using hb::item_id;
 using hb::map_id;
+using hb::npc_id;
+using hb::player_id;
+using hb::quest_id;
 using namespace hb::quest;
 
 // Objective tests
 
-TEST(objective_state_test, default_values) {
+TEST(objective_state_test, default_values)
+{
     objective_state state;
     EXPECT_EQ(state.status, objective_status::incomplete);
     EXPECT_EQ(state.current_count, 0);
@@ -25,20 +26,22 @@ TEST(objective_state_test, default_values) {
     EXPECT_FALSE(state.is_complete());
 }
 
-TEST(objective_state_test, add_progress) {
+TEST(objective_state_test, add_progress)
+{
     objective_state state;
     state.required_count = 10;
 
-    EXPECT_FALSE(state.add_progress(5));  // Not complete yet
+    EXPECT_FALSE(state.add_progress(5)); // Not complete yet
     EXPECT_EQ(state.current_count, 5);
     EXPECT_FALSE(state.is_complete());
 
-    EXPECT_TRUE(state.add_progress(5));   // Now complete
+    EXPECT_TRUE(state.add_progress(5)); // Now complete
     EXPECT_EQ(state.current_count, 10);
     EXPECT_TRUE(state.is_complete());
 }
 
-TEST(objective_state_test, progress_percent) {
+TEST(objective_state_test, progress_percent)
+{
     objective_state state;
     state.required_count = 100;
 
@@ -52,7 +55,8 @@ TEST(objective_state_test, progress_percent) {
     EXPECT_FLOAT_EQ(state.progress_percent(), 100.0f);
 }
 
-TEST(objective_state_test, fail) {
+TEST(objective_state_test, fail)
+{
     objective_state state;
     state.fail();
 
@@ -60,7 +64,8 @@ TEST(objective_state_test, fail) {
     EXPECT_FALSE(state.is_complete());
 }
 
-TEST(objective_state_test, reset) {
+TEST(objective_state_test, reset)
+{
     objective_state state;
     state.current_count = 50;
     state.status = objective_status::complete;
@@ -73,7 +78,8 @@ TEST(objective_state_test, reset) {
 
 // Reward tests
 
-TEST(quest_rewards_test, has_rewards) {
+TEST(quest_rewards_test, has_rewards)
+{
     quest_rewards empty;
     EXPECT_FALSE(empty.has_rewards());
 
@@ -90,7 +96,8 @@ TEST(quest_rewards_test, has_rewards) {
     EXPECT_TRUE(with_items.has_rewards());
 }
 
-TEST(quest_rewards_test, apply_multiplier) {
+TEST(quest_rewards_test, apply_multiplier)
+{
     quest_rewards base;
     base.experience = 100;
     base.gold = 50;
@@ -110,7 +117,8 @@ TEST(quest_rewards_test, apply_multiplier) {
 
 // Quest state tests
 
-TEST(quest_state_test, status_checks) {
+TEST(quest_state_test, status_checks)
+{
     quest_state state;
 
     state.status = quest_status::active;
@@ -125,7 +133,8 @@ TEST(quest_state_test, status_checks) {
     EXPECT_TRUE(state.is_failed());
 }
 
-TEST(quest_state_test, time_tracking) {
+TEST(quest_state_test, time_tracking)
+{
     quest_state state;
     state.time_limit_seconds = 60;
     state.elapsed_seconds = 0;
@@ -142,7 +151,8 @@ TEST(quest_state_test, time_tracking) {
     EXPECT_EQ(state.remaining_time(), 0);
 }
 
-TEST(quest_state_test, initialize_objectives) {
+TEST(quest_state_test, initialize_objectives)
+{
     std::vector<objective_template> templates;
 
     objective_template kill_obj;
@@ -167,13 +177,15 @@ TEST(quest_state_test, initialize_objectives) {
 
 // Quest journal tests
 
-TEST(quest_journal_test, can_accept_quest) {
+TEST(quest_journal_test, can_accept_quest)
+{
     quest_journal journal;
     EXPECT_TRUE(journal.can_accept_quest());
     EXPECT_EQ(journal.active_count(), 0);
 }
 
-TEST(quest_journal_test, has_active_quest) {
+TEST(quest_journal_test, has_active_quest)
+{
     quest_journal journal;
 
     quest_state state;
@@ -185,7 +197,8 @@ TEST(quest_journal_test, has_active_quest) {
     EXPECT_FALSE(journal.has_active_quest(quest_id{2}));
 }
 
-TEST(quest_journal_test, has_completed_quest) {
+TEST(quest_journal_test, has_completed_quest)
+{
     quest_journal journal;
     journal.completed_quests.push_back(quest_id{1});
 
@@ -195,9 +208,11 @@ TEST(quest_journal_test, has_completed_quest) {
 
 // Quest system tests
 
-class quest_system_test : public ::testing::Test {
+class quest_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         system_.initialize();
 
         // Create a test quest template
@@ -220,19 +235,19 @@ protected:
         system_.register_quest(std::move(tmpl));
     }
 
-    void TearDown() override {
-        system_.shutdown();
-    }
+    void TearDown() override { system_.shutdown(); }
 
     quest_system system_;
 };
 
-TEST_F(quest_system_test, lifecycle) {
+TEST_F(quest_system_test, lifecycle)
+{
     EXPECT_TRUE(system_.is_initialized());
     EXPECT_EQ(system_.name(), "quest_system");
 }
 
-TEST_F(quest_system_test, register_quest) {
+TEST_F(quest_system_test, register_quest)
+{
     EXPECT_EQ(system_.quest_count(), 1);
 
     const auto* tmpl = system_.get_quest_template(quest_id{1});
@@ -240,7 +255,8 @@ TEST_F(quest_system_test, register_quest) {
     EXPECT_EQ(tmpl->name, "Test Quest");
 }
 
-TEST_F(quest_system_test, register_unregister_player) {
+TEST_F(quest_system_test, register_unregister_player)
+{
     player_id player{1};
 
     system_.register_player(player);
@@ -250,7 +266,8 @@ TEST_F(quest_system_test, register_unregister_player) {
     EXPECT_EQ(system_.get_journal(player), nullptr);
 }
 
-TEST_F(quest_system_test, accept_quest) {
+TEST_F(quest_system_test, accept_quest)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -259,7 +276,8 @@ TEST_F(quest_system_test, accept_quest) {
     EXPECT_TRUE(system_.has_quest(player, quest_id{1}));
 }
 
-TEST_F(quest_system_test, accept_nonexistent_quest) {
+TEST_F(quest_system_test, accept_nonexistent_quest)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -267,7 +285,8 @@ TEST_F(quest_system_test, accept_nonexistent_quest) {
     EXPECT_EQ(result, accept_result::quest_not_found);
 }
 
-TEST_F(quest_system_test, accept_duplicate_quest) {
+TEST_F(quest_system_test, accept_duplicate_quest)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -276,7 +295,8 @@ TEST_F(quest_system_test, accept_duplicate_quest) {
     EXPECT_EQ(result, accept_result::already_active);
 }
 
-TEST_F(quest_system_test, abandon_quest) {
+TEST_F(quest_system_test, abandon_quest)
+{
     player_id player{1};
     system_.register_player(player);
     system_.accept_quest(player, quest_id{1});
@@ -285,7 +305,8 @@ TEST_F(quest_system_test, abandon_quest) {
     EXPECT_FALSE(system_.has_quest(player, quest_id{1}));
 }
 
-TEST_F(quest_system_test, get_active_quests) {
+TEST_F(quest_system_test, get_active_quests)
+{
     player_id player{1};
     system_.register_player(player);
     system_.accept_quest(player, quest_id{1});
@@ -295,7 +316,8 @@ TEST_F(quest_system_test, get_active_quests) {
     EXPECT_EQ(active[0], quest_id{1});
 }
 
-TEST_F(quest_system_test, kill_progress) {
+TEST_F(quest_system_test, kill_progress)
+{
     player_id player{1};
     system_.register_player(player);
     system_.accept_quest(player, quest_id{1});
@@ -311,13 +333,15 @@ TEST_F(quest_system_test, kill_progress) {
     EXPECT_FALSE(state->objectives[0].is_complete());
 }
 
-TEST_F(quest_system_test, quest_completion) {
+TEST_F(quest_system_test, quest_completion)
+{
     player_id player{1};
     system_.register_player(player);
     system_.accept_quest(player, quest_id{1});
 
     // Kill all 5 required NPCs
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         system_.on_kill({player, npc_id{100}, false});
     }
 
@@ -327,13 +351,15 @@ TEST_F(quest_system_test, quest_completion) {
     EXPECT_TRUE(state->objectives[0].is_complete());
 }
 
-TEST_F(quest_system_test, turn_in_quest) {
+TEST_F(quest_system_test, turn_in_quest)
+{
     player_id player{1};
     system_.register_player(player);
     system_.accept_quest(player, quest_id{1});
 
     // Complete the objective
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         system_.on_kill({player, npc_id{100}, false});
     }
 
@@ -343,7 +369,8 @@ TEST_F(quest_system_test, turn_in_quest) {
     EXPECT_TRUE(system_.has_completed_quest(player, quest_id{1}));
 }
 
-TEST_F(quest_system_test, incomplete_turn_in) {
+TEST_F(quest_system_test, incomplete_turn_in)
+{
     player_id player{1};
     system_.register_player(player);
     system_.accept_quest(player, quest_id{1});
@@ -353,23 +380,27 @@ TEST_F(quest_system_test, incomplete_turn_in) {
     EXPECT_EQ(result, complete_result::objectives_incomplete);
 }
 
-TEST_F(quest_system_test, completion_callback) {
+TEST_F(quest_system_test, completion_callback)
+{
     player_id player{1};
     system_.register_player(player);
 
     bool callback_fired = false;
-    system_.on_quest_completed([&](const quest_completed_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.player, player);
-        EXPECT_EQ(event.quest, quest_id{1});
-        EXPECT_EQ(event.rewards.experience, 100);
-        EXPECT_EQ(event.rewards.gold, 50);
-    });
+    system_.on_quest_completed(
+        [&](const quest_completed_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.player, player);
+            EXPECT_EQ(event.quest, quest_id{1});
+            EXPECT_EQ(event.rewards.experience, 100);
+            EXPECT_EQ(event.rewards.gold, 50);
+        });
 
     system_.accept_quest(player, quest_id{1});
 
     // Complete and turn in
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         system_.on_kill({player, npc_id{100}, false});
     }
     system_.complete_quest(player, quest_id{1});
@@ -377,7 +408,8 @@ TEST_F(quest_system_test, completion_callback) {
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(quest_system_test, get_available_quests) {
+TEST_F(quest_system_test, get_available_quests)
+{
     player_id player{1};
     system_.register_player(player);
 
@@ -385,7 +417,8 @@ TEST_F(quest_system_test, get_available_quests) {
     EXPECT_EQ(available.size(), 1);
 }
 
-TEST_F(quest_system_test, get_quests_from_npc) {
+TEST_F(quest_system_test, get_quests_from_npc)
+{
     // Register a quest with a specific quest giver
     quest_template tmpl;
     tmpl.id = quest_id{2};
@@ -398,7 +431,8 @@ TEST_F(quest_system_test, get_quests_from_npc) {
     EXPECT_EQ(quests[0], quest_id{2});
 }
 
-TEST_F(quest_system_test, prerequisite_check) {
+TEST_F(quest_system_test, prerequisite_check)
+{
     // Register a quest with prerequisites
     quest_template tmpl;
     tmpl.id = quest_id{3};
@@ -415,7 +449,8 @@ TEST_F(quest_system_test, prerequisite_check) {
 }
 
 // Collection objective test
-TEST_F(quest_system_test, collect_item_progress) {
+TEST_F(quest_system_test, collect_item_progress)
+{
     // Add a collection quest
     quest_template tmpl;
     tmpl.id = quest_id{10};
@@ -442,7 +477,8 @@ TEST_F(quest_system_test, collect_item_progress) {
 }
 
 // Location objective test
-TEST_F(quest_system_test, visit_location_progress) {
+TEST_F(quest_system_test, visit_location_progress)
+{
     // Add a location quest
     quest_template tmpl;
     tmpl.id = quest_id{11};

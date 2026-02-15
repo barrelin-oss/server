@@ -11,14 +11,11 @@ namespace hb::npc
 {
 
 // Forward declarations for helper functions
-static auto parse_rule(const YAML::Node& node, npc_registry* registry,
-                       const random_spawn_whitelist* whitelist)
-    -> std::unique_ptr<spawn_rule>;
+static auto parse_rule(const YAML::Node& node,
+                       npc_registry* registry,
+                       const random_spawn_whitelist* whitelist) -> std::unique_ptr<spawn_rule>;
 
-spawn_rule_engine::spawn_rule_engine()
-    : rng_(std::random_device{}())
-{
-}
+spawn_rule_engine::spawn_rule_engine() : rng_(std::random_device{}()) {}
 
 void spawn_rule_engine::initialize()
 {
@@ -32,8 +29,7 @@ void spawn_rule_engine::shutdown()
     whitelist_.clear();
 }
 
-auto spawn_rule_engine::load_from_file(const std::filesystem::path& path)
-    -> result<size_t, std::string>
+auto spawn_rule_engine::load_from_file(const std::filesystem::path& path) -> result<size_t, std::string>
 {
     config_path_ = path;
 
@@ -53,13 +49,13 @@ auto spawn_rule_engine::load_from_file(const std::filesystem::path& path)
             auto whitelist_result = whitelist_.load_from_node(&whitelist_node);
             if (whitelist_result.is_err())
             {
-                LOG_WARN(general, "Failed to load random spawn whitelist: {}",
-                         whitelist_result.error());
+                LOG_WARN(general, "Failed to load random spawn whitelist: {}", whitelist_result.error());
             }
         }
         else
         {
-            LOG_WARN(general, "No random_spawnable_npcs section found - "
+            LOG_WARN(general,
+                     "No random_spawnable_npcs section found - "
                      "all NPCs will be allowed for random spawning");
         }
 
@@ -158,8 +154,7 @@ auto spawn_rule_engine::reload() -> result<void, std::string>
     return result<void, std::string>::ok();
 }
 
-auto spawn_rule_engine::select_npc(const spawn_context& ctx) const
-    -> std::optional<npc_id>
+auto spawn_rule_engine::select_npc(const spawn_context& ctx) const -> std::optional<npc_id>
 {
     auto entries = get_matching_npcs(ctx);
     if (entries.empty())
@@ -170,8 +165,7 @@ auto spawn_rule_engine::select_npc(const spawn_context& ctx) const
     return select_from_weighted(entries);
 }
 
-auto spawn_rule_engine::get_matching_npcs(const spawn_context& ctx) const
-    -> std::vector<weighted_npc_entry>
+auto spawn_rule_engine::get_matching_npcs(const spawn_context& ctx) const -> std::vector<weighted_npc_entry>
 {
     std::vector<std::vector<weighted_npc_entry>> matching_lists;
 
@@ -215,11 +209,10 @@ auto spawn_rule_engine::get_map_rule_count(std::string_view map_name) const -> s
     {
         return it->second.size();
     }
-    return global_rules_.size();  // Use all rules if no map-specific config
+    return global_rules_.size(); // Use all rules if no map-specific config
 }
 
-auto spawn_rule_engine::merge_weighted_lists(
-    const std::vector<std::vector<weighted_npc_entry>>& lists) const
+auto spawn_rule_engine::merge_weighted_lists(const std::vector<std::vector<weighted_npc_entry>>& lists) const
     -> std::vector<weighted_npc_entry>
 {
     if (lists.empty())
@@ -288,9 +281,9 @@ auto spawn_rule_engine::select_from_weighted(const std::vector<weighted_npc_entr
 
 // Helper function to parse NPC list from YAML
 // If whitelist is provided, only NPCs in the whitelist are included
-static auto parse_npc_list(const YAML::Node& npcs_node, npc_registry* registry,
-                           const random_spawn_whitelist* whitelist = nullptr)
-    -> std::vector<weighted_npc_entry>
+static auto parse_npc_list(const YAML::Node& npcs_node,
+                           npc_registry* registry,
+                           const random_spawn_whitelist* whitelist = nullptr) -> std::vector<weighted_npc_entry>
 {
     std::vector<weighted_npc_entry> npcs;
 
@@ -331,63 +324,84 @@ static auto parse_npc_list(const YAML::Node& npcs_node, npc_registry* registry,
 // Helper function to parse biome type from string
 static auto parse_biome_type(const std::string& str) -> biome_type
 {
-    if (str == "water") return biome_type::water;
-    if (str == "farm") return biome_type::farm;
-    if (str == "forest") return biome_type::forest;
-    if (str == "mountain") return biome_type::mountain;
-    if (str == "dungeon") return biome_type::dungeon;
-    if (str == "safe_zone") return biome_type::safe_zone;
-    if (str == "fight_zone") return biome_type::fight_zone;
-    return biome_type::forest;  // Default
+    if (str == "water")
+        return biome_type::water;
+    if (str == "farm")
+        return biome_type::farm;
+    if (str == "forest")
+        return biome_type::forest;
+    if (str == "mountain")
+        return biome_type::mountain;
+    if (str == "dungeon")
+        return biome_type::dungeon;
+    if (str == "safe_zone")
+        return biome_type::safe_zone;
+    if (str == "fight_zone")
+        return biome_type::fight_zone;
+    return biome_type::forest; // Default
 }
 
 // Helper function to parse time period from string
 static auto parse_time_period(const std::string& str) -> time_period
 {
-    if (str == "day") return time_period::day;
-    if (str == "night") return time_period::night;
-    if (str == "dawn") return time_period::dawn;
-    if (str == "dusk") return time_period::dusk;
-    if (str == "hour_range") return time_period::hour_range;
-    return time_period::day;  // Default
+    if (str == "day")
+        return time_period::day;
+    if (str == "night")
+        return time_period::night;
+    if (str == "dawn")
+        return time_period::dawn;
+    if (str == "dusk")
+        return time_period::dusk;
+    if (str == "hour_range")
+        return time_period::hour_range;
+    return time_period::day; // Default
 }
 
 // Helper function to parse proximity condition from string
 static auto parse_proximity_condition(const std::string& str) -> proximity_condition
 {
-    if (str == "min_distance") return proximity_condition::min_distance;
-    if (str == "max_distance") return proximity_condition::max_distance;
-    if (str == "player_count") return proximity_condition::player_count;
-    return proximity_condition::min_distance;  // Default
+    if (str == "min_distance")
+        return proximity_condition::min_distance;
+    if (str == "max_distance")
+        return proximity_condition::max_distance;
+    if (str == "player_count")
+        return proximity_condition::player_count;
+    return proximity_condition::min_distance; // Default
 }
 
 // Helper function to parse composite operator from string
 static auto parse_composite_operator(const std::string& str) -> composite_operator
 {
-    if (str == "and") return composite_operator::op_and;
-    if (str == "or") return composite_operator::op_or;
-    if (str == "not") return composite_operator::op_not;
-    return composite_operator::op_and;  // Default
+    if (str == "and")
+        return composite_operator::op_and;
+    if (str == "or")
+        return composite_operator::op_or;
+    if (str == "not")
+        return composite_operator::op_not;
+    return composite_operator::op_and; // Default
 }
 
 // Helper function to parse weather type from string
 static auto parse_weather_type(const std::string& str) -> world::weather_type
 {
-    if (str == "clear") return world::weather_type::clear;
-    if (str == "rain") return world::weather_type::rain;
-    if (str == "snow") return world::weather_type::snow;
-    return world::weather_type::clear;  // Default
+    if (str == "clear")
+        return world::weather_type::clear;
+    if (str == "rain")
+        return world::weather_type::rain;
+    if (str == "snow")
+        return world::weather_type::snow;
+    return world::weather_type::clear; // Default
 }
 
 // Forward declaration for recursive parsing
-static auto parse_rule(const YAML::Node& node, npc_registry* registry,
-                       const random_spawn_whitelist* whitelist)
-    -> std::unique_ptr<spawn_rule>;
+static auto parse_rule(const YAML::Node& node,
+                       npc_registry* registry,
+                       const random_spawn_whitelist* whitelist) -> std::unique_ptr<spawn_rule>;
 
 // Parse a single spawn rule from YAML
-static auto parse_rule(const YAML::Node& node, npc_registry* registry,
-                       const random_spawn_whitelist* whitelist)
-    -> std::unique_ptr<spawn_rule>
+static auto parse_rule(const YAML::Node& node,
+                       npc_registry* registry,
+                       const random_spawn_whitelist* whitelist) -> std::unique_ptr<spawn_rule>
 {
     if (!node["type"])
     {

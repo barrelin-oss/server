@@ -13,18 +13,21 @@
 #include <utility>
 #include <vector>
 
-namespace hb::network {
-    struct json_message;
+namespace hb::network
+{
+struct json_message;
 }
 
-namespace hb::war {
+namespace hb::war
+{
 
 // Callback types for external interactions
 using apocalypse_broadcast_all_fn = std::function<void(const network::json_message&)>;
 using apocalypse_broadcast_player_fn = std::function<void(player_id, const network::json_message&)>;
 using apocalypse_teleport_home_fn = std::function<void(player_id)>;
 using apocalypse_teleport_to_fn = std::function<void(player_id, const std::string&, world::position)>;
-using apocalypse_get_players_on_map_fn = std::function<std::vector<std::pair<player_id, world::position>>(const std::string&)>;
+using apocalypse_get_players_on_map_fn =
+    std::function<std::vector<std::pair<player_id, world::position>>(const std::string&)>;
 
 enum class apocalypse_result : uint8_t
 {
@@ -81,4 +84,4 @@ private:
     apocalypse_get_players_on_map_fn get_players_on_map_fn_;
 };
 
-}  // namespace hb::war
+} // namespace hb::war

@@ -3,12 +3,14 @@
 
 #include "core/event_bus.h"
 
-namespace hb {
+namespace hb
+{
 
 // Global event bus singleton implementation
-auto global_event_bus() -> event_bus& {
+auto global_event_bus() -> event_bus&
+{
     static event_bus instance;
     return instance;
 }
 
-}  // namespace hb
+} // namespace hb

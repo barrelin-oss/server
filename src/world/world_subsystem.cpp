@@ -6,23 +6,28 @@
 #include "entity/entity_manager.h"
 #include "entity/components/transform.h"
 
-namespace hb::world {
+namespace hb::world
+{
 
 world_subsystem::world_subsystem() = default;
 
-world_subsystem::~world_subsystem() {
-    if (is_initialized()) {
+world_subsystem::~world_subsystem()
+{
+    if (is_initialized())
+    {
         shutdown();
     }
 }
 
-void world_subsystem::initialize() {
+void world_subsystem::initialize()
+{
     LOG_INFO(general, "World subsystem initializing...");
     set_initialized(true);
     LOG_INFO(general, "World subsystem initialized");
 }
 
-void world_subsystem::shutdown() {
+void world_subsystem::shutdown()
+{
     LOG_INFO(general, "World subsystem shutting down...");
 
     maps_.clear();
@@ -32,23 +37,28 @@ void world_subsystem::shutdown() {
     LOG_INFO(general, "World subsystem shutdown complete");
 }
 
-void world_subsystem::update(float /*delta_time*/) {
+void world_subsystem::update(float /*delta_time*/)
+{
     // Update weather, dynamic objects, etc.
     // For now, no per-frame updates needed
 }
 
-void world_subsystem::set_config(const world_config& config) {
+void world_subsystem::set_config(const world_config& config)
+{
     config_ = config;
 }
 
-auto world_subsystem::create_map(const map_config& config) -> result<map_id, std::string> {
+auto world_subsystem::create_map(const map_config& config) -> result<map_id, std::string>
+{
     // Check map limit
-    if (maps_.size() >= static_cast<size_t>(config_.max_maps)) {
+    if (maps_.size() >= static_cast<size_t>(config_.max_maps))
+    {
         return result<map_id, std::string>::err("Maximum map count reached");
     }
 
     // Check for duplicate name
-    if (name_to_id_.contains(config.name)) {
+    if (name_to_id_.contains(config.name))
+    {
         return result<map_id, std::string>::err("Map with name '" + config.name + "' already exists");
     }
 
@@ -64,9 +74,11 @@ auto world_subsystem::create_map(const map_config& config) -> result<map_id, std
     return result<map_id, std::string>::ok(id);
 }
 
-auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_id, std::string> {
+auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_id, std::string>
+{
     // Check map limit
-    if (maps_.size() >= static_cast<size_t>(config_.max_maps)) {
+    if (maps_.size() >= static_cast<size_t>(config_.max_maps))
+    {
         return result<map_id, std::string>::err("Maximum map count reached");
     }
 
@@ -77,14 +89,15 @@ auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_
     // For now, use filename as map name
     map_config config;
     config.name = path.stem().string();
-    config.width = 700;   // Default Helbreath map size
+    config.width = 700; // Default Helbreath map size
     config.height = 550;
 
     new_map->initialize(id, config);
 
     // Load the binary map data (.amd file)
     auto load_result = new_map->load_from_file(path);
-    if (load_result.is_err()) {
+    if (load_result.is_err())
+    {
         return result<map_id, std::string>::err(load_result.error());
     }
 
@@ -93,14 +106,18 @@ auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_
     auto config_path = path;
     config_path.replace_extension(".yaml");
 
-    if (std::filesystem::exists(config_path)) {
+    if (std::filesystem::exists(config_path))
+    {
         auto config_result = new_map->load_config_file(config_path);
-        if (config_result.is_err()) {
-            LOG_WARN(general, "Failed to load config for map '{}': {}",
-                     config.name, config_result.error());
+        if (config_result.is_err())
+        {
+            LOG_WARN(general, "Failed to load config for map '{}': {}", config.name, config_result.error());
             // Continue anyway - map data is loaded, just missing config
-        } else {
-            LOG_DEBUG(general, "Loaded config for map '{}' ({} initial points, {} safe zones, {} spawners)",
+        }
+        else
+        {
+            LOG_DEBUG(general,
+                      "Loaded config for map '{}' ({} initial points, {} safe zones, {} spawners)",
                       config.name,
                       new_map->initial_point_count(),
                       new_map->safe_zone_count(),
@@ -116,9 +133,11 @@ auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_
     return result<map_id, std::string>::ok(id);
 }
 
-void world_subsystem::unload_map(map_id id) {
+void world_subsystem::unload_map(map_id id)
+{
     auto it = maps_.find(id);
-    if (it == maps_.end()) {
+    if (it == maps_.end())
+    {
         return;
     }
 
@@ -129,94 +148,113 @@ void world_subsystem::unload_map(map_id id) {
     LOG_INFO(general, "Unloaded map '{}' (id={})", name, id.value);
 }
 
-auto world_subsystem::get_map(map_id id) -> map* {
+auto world_subsystem::get_map(map_id id) -> map*
+{
     auto it = maps_.find(id);
     return it != maps_.end() ? it->second.get() : nullptr;
 }
 
-auto world_subsystem::get_map(map_id id) const -> const map* {
+auto world_subsystem::get_map(map_id id) const -> const map*
+{
     auto it = maps_.find(id);
     return it != maps_.end() ? it->second.get() : nullptr;
 }
 
-auto world_subsystem::get_map_by_name(std::string_view name) -> map* {
+auto world_subsystem::get_map_by_name(std::string_view name) -> map*
+{
     auto it = name_to_id_.find(std::string(name));
-    if (it == name_to_id_.end()) {
+    if (it == name_to_id_.end())
+    {
         return nullptr;
     }
     return get_map(it->second);
 }
 
-auto world_subsystem::get_map_by_name(std::string_view name) const -> const map* {
+auto world_subsystem::get_map_by_name(std::string_view name) const -> const map*
+{
     auto it = name_to_id_.find(std::string(name));
-    if (it == name_to_id_.end()) {
+    if (it == name_to_id_.end())
+    {
         return nullptr;
     }
     return get_map(it->second);
 }
 
-void world_subsystem::set_map_disabled(std::string_view map_name, bool disabled) {
+void world_subsystem::set_map_disabled(std::string_view map_name, bool disabled)
+{
     auto* m = get_map_by_name(map_name);
-    if (m) {
+    if (m)
+    {
         m->set_disabled(disabled);
     }
 }
 
-auto world_subsystem::is_map_disabled(std::string_view map_name) const -> bool {
+auto world_subsystem::is_map_disabled(std::string_view map_name) const -> bool
+{
     auto* m = get_map_by_name(map_name);
     return m && m->is_disabled();
 }
 
-auto world_subsystem::is_walkable(map_id map_id, const position& pos) const -> bool {
+auto world_subsystem::is_walkable(map_id map_id, const position& pos) const -> bool
+{
     auto* m = get_map(map_id);
     return m && m->is_walkable(pos);
 }
 
-auto world_subsystem::can_move_to(map_id map_id, const position& pos) const -> bool {
+auto world_subsystem::can_move_to(map_id map_id, const position& pos) const -> bool
+{
     auto* m = get_map(map_id);
     return m && m->can_move_to(pos);
 }
 
-auto world_subsystem::get_entities_in_range(map_id map_id, const position& center, int radius) const
-    -> std::vector<entity_id>
+auto world_subsystem::get_entities_in_range(map_id map_id,
+                                            const position& center,
+                                            int radius) const -> std::vector<entity_id>
 {
     auto* m = get_map(map_id);
-    if (!m) {
+    if (!m)
+    {
         return {};
     }
     return m->get_entities_in_range(center, radius);
 }
 
-auto world_subsystem::get_all_entities_in_range(map_id mid, const position& center, int radius) const
-    -> std::vector<entity_query_result>
+auto world_subsystem::get_all_entities_in_range(map_id mid,
+                                                const position& center,
+                                                int radius) const -> std::vector<entity_query_result>
 {
     std::vector<entity_query_result> result;
 
     auto* m = get_map(mid);
-    if (!m) {
+    if (!m)
+    {
         return result;
     }
 
     auto* em = subsystems().get<entity::entity_manager>();
-    if (!em) {
+    if (!em)
+    {
         return result;
     }
 
     // Get all entity IDs in range from spatial index
     auto entity_ids = m->get_entities_in_range(center, radius);
 
-    for (auto eid : entity_ids) {
+    for (auto eid : entity_ids)
+    {
         // Construct entity with index and generation 0 for lookup
         // (entity_manager will validate the generation)
         entity::entity e{eid.value, 0};
 
         auto type = em->get_type(e);
-        if (type == entity::entity_type::none) {
-            continue;  // Entity doesn't exist or stale reference
+        if (type == entity::entity_type::none)
+        {
+            continue; // Entity doesn't exist or stale reference
         }
 
         // Get position from transform component
-        if (auto* t = em->get_component<entity::transform>(e)) {
+        if (auto* t = em->get_component<entity::transform>(e))
+        {
             result.push_back({e, type, t->pos});
         }
     }
@@ -225,28 +263,30 @@ auto world_subsystem::get_all_entities_in_range(map_id mid, const position& cent
 }
 
 // Ground item management
-void world_subsystem::add_ground_item(map_id map, const position& pos, item_id item) {
+void world_subsystem::add_ground_item(map_id map, const position& pos, item_id item)
+{
     map_position_key key{map, pos};
-    ground_items_[key].push_back(ground_item_entry{
-        .item = item,
-        .drop_time = std::chrono::steady_clock::now()
-    });
+    ground_items_[key].push_back(ground_item_entry{.item = item, .drop_time = std::chrono::steady_clock::now()});
 
     // Update dynamic tile item count
     auto* m = get_map(map);
-    if (m) {
+    if (m)
+    {
         auto* dyn_tile = m->get_dynamic_tile(pos);
-        if (dyn_tile) {
+        if (dyn_tile)
+        {
             dyn_tile->item_count = static_cast<uint8_t>(ground_items_[key].size());
         }
     }
 }
 
-auto world_subsystem::remove_top_ground_item(map_id map, const position& pos) -> std::optional<item_id> {
+auto world_subsystem::remove_top_ground_item(map_id map, const position& pos) -> std::optional<item_id>
+{
     map_position_key key{map, pos};
     auto it = ground_items_.find(key);
 
-    if (it == ground_items_.end() || it->second.empty()) {
+    if (it == ground_items_.end() || it->second.empty())
+    {
         return std::nullopt;
     }
 
@@ -256,52 +296,61 @@ auto world_subsystem::remove_top_ground_item(map_id map, const position& pos) ->
 
     // Clean up empty entry
     bool erased = false;
-    if (it->second.empty()) {
+    if (it->second.empty())
+    {
         ground_items_.erase(it);
         erased = true;
     }
 
     // Update dynamic tile item count
     auto* m = get_map(map);
-    if (m) {
+    if (m)
+    {
         auto* dyn_tile = m->get_dynamic_tile(pos);
-        if (dyn_tile) {
-            dyn_tile->item_count = !erased ?
-                static_cast<uint8_t>(it->second.size()) : 0;
+        if (dyn_tile)
+        {
+            dyn_tile->item_count = !erased ? static_cast<uint8_t>(it->second.size()) : 0;
         }
     }
 
     return item;
 }
 
-auto world_subsystem::get_ground_items(map_id map, const position& pos) const -> std::vector<item_id> {
+auto world_subsystem::get_ground_items(map_id map, const position& pos) const -> std::vector<item_id>
+{
     map_position_key key{map, pos};
     auto it = ground_items_.find(key);
-    if (it == ground_items_.end()) return {};
+    if (it == ground_items_.end())
+        return {};
 
     std::vector<item_id> result;
     result.reserve(it->second.size());
-    for (const auto& entry : it->second) {
+    for (const auto& entry : it->second)
+    {
         result.push_back(entry.item);
     }
     return result;
 }
 
-auto world_subsystem::has_ground_items(map_id map, const position& pos) const -> bool {
+auto world_subsystem::has_ground_items(map_id map, const position& pos) const -> bool
+{
     map_position_key key{map, pos};
     auto it = ground_items_.find(key);
     return it != ground_items_.end() && !it->second.empty();
 }
 
-auto world_subsystem::ground_item_count(map_id map, const position& pos) const -> size_t {
+auto world_subsystem::ground_item_count(map_id map, const position& pos) const -> size_t
+{
     map_position_key key{map, pos};
     auto it = ground_items_.find(key);
     return it != ground_items_.end() ? it->second.size() : 0;
 }
 
-auto world_subsystem::total_ground_item_count() const -> size_t {
+auto world_subsystem::total_ground_item_count() const -> size_t
+{
     size_t total = 0;
-    for (const auto& [key, entries] : ground_items_) {
+    for (const auto& [key, entries] : ground_items_)
+    {
         total += entries.size();
     }
     return total;
@@ -313,36 +362,48 @@ auto world_subsystem::remove_expired_ground_items(std::chrono::seconds max_age)
     std::vector<std::tuple<map_id, position, item_id>> expired;
     auto now = std::chrono::steady_clock::now();
 
-    for (auto it = ground_items_.begin(); it != ground_items_.end(); ) {
+    for (auto it = ground_items_.begin(); it != ground_items_.end();)
+    {
         auto& entries = it->second;
         auto map = it->first.map;
         auto pos = it->first.pos;
 
-        for (auto eit = entries.begin(); eit != entries.end(); ) {
-            if (now - eit->drop_time >= max_age) {
+        for (auto eit = entries.begin(); eit != entries.end();)
+        {
+            if (now - eit->drop_time >= max_age)
+            {
                 expired.emplace_back(map, pos, eit->item);
                 eit = entries.erase(eit);
-            } else {
+            }
+            else
+            {
                 ++eit;
             }
         }
 
-        if (entries.empty()) {
+        if (entries.empty())
+        {
             // Update dynamic tile
             auto* m = get_map(map);
-            if (m) {
+            if (m)
+            {
                 auto* dyn_tile = m->get_dynamic_tile(pos);
-                if (dyn_tile) {
+                if (dyn_tile)
+                {
                     dyn_tile->item_count = 0;
                 }
             }
             it = ground_items_.erase(it);
-        } else {
+        }
+        else
+        {
             // Update dynamic tile count
             auto* m = get_map(map);
-            if (m) {
+            if (m)
+            {
                 auto* dyn_tile = m->get_dynamic_tile(pos);
-                if (dyn_tile) {
+                if (dyn_tile)
+                {
                     dyn_tile->item_count = static_cast<uint8_t>(entries.size());
                 }
             }
@@ -353,34 +414,43 @@ auto world_subsystem::remove_expired_ground_items(std::chrono::seconds max_age)
     return expired;
 }
 
-auto world_subsystem::remove_ground_item(map_id map, const position& pos, item_id item) -> bool {
+auto world_subsystem::remove_ground_item(map_id map, const position& pos, item_id item) -> bool
+{
     map_position_key key{map, pos};
     auto it = ground_items_.find(key);
-    if (it == ground_items_.end()) return false;
+    if (it == ground_items_.end())
+        return false;
 
     auto& entries = it->second;
-    auto eit = std::find_if(entries.begin(), entries.end(),
-        [&](const ground_item_entry& e) { return e.item == item; });
-    if (eit == entries.end()) return false;
+    auto eit = std::find_if(entries.begin(), entries.end(), [&](const ground_item_entry& e) { return e.item == item; });
+    if (eit == entries.end())
+        return false;
 
     entries.erase(eit);
 
-    if (entries.empty()) {
+    if (entries.empty())
+    {
         auto* m = get_map(map);
-        if (m) {
+        if (m)
+        {
             auto* dyn_tile = m->get_dynamic_tile(pos);
-            if (dyn_tile) dyn_tile->item_count = 0;
+            if (dyn_tile)
+                dyn_tile->item_count = 0;
         }
         ground_items_.erase(it);
-    } else {
+    }
+    else
+    {
         auto* m = get_map(map);
-        if (m) {
+        if (m)
+        {
             auto* dyn_tile = m->get_dynamic_tile(pos);
-            if (dyn_tile) dyn_tile->item_count = static_cast<uint8_t>(entries.size());
+            if (dyn_tile)
+                dyn_tile->item_count = static_cast<uint8_t>(entries.size());
         }
     }
 
     return true;
 }
 
-}  // namespace hb::world
+} // namespace hb::world

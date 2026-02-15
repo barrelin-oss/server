@@ -9,15 +9,18 @@
 #include <chrono>
 #include <unordered_map>
 
-namespace hb {
+namespace hb
+{
 class subsystem_manager;
 }
 
-namespace hb::npc {
+namespace hb::npc
+{
 class npc_system;
 }
 
-namespace hb::npc::script {
+namespace hb::npc::script
+{
 
 struct script_state
 {
@@ -46,4 +49,4 @@ private:
     npc_system* npc_sys_{nullptr};
 };
 
-}  // namespace hb::npc::script
+} // namespace hb::npc::script

@@ -6,10 +6,12 @@
 #include <string>
 #include <cstdint>
 
-namespace hb::entity {
+namespace hb::entity
+{
 
 // Name component
-struct name {
+struct name
+{
     std::string value;
 
     name() = default;
@@ -18,7 +20,8 @@ struct name {
 };
 
 // Guild membership component
-struct guild_member {
+struct guild_member
+{
     uint32_t guild_id{0};
     uint8_t rank{0};
 
@@ -26,21 +29,26 @@ struct guild_member {
 };
 
 // Faction/side component
-enum class faction : uint8_t {
+enum class faction : uint8_t
+{
     none = 0,
     aresden = 1,
     elvine = 2,
-    neutral = 3,  // For NPCs
+    neutral = 3, // For NPCs
 };
 
-struct faction_component {
+struct faction_component
+{
     faction side{faction::none};
 
-    [[nodiscard]] auto is_hostile_to(faction other) const -> bool {
-        if (side == faction::none || other == faction::none) return false;
-        if (side == faction::neutral || other == faction::neutral) return false;
+    [[nodiscard]] auto is_hostile_to(faction other) const -> bool
+    {
+        if (side == faction::none || other == faction::none)
+            return false;
+        if (side == faction::neutral || other == faction::neutral)
+            return false;
         return side != other;
     }
 };
 
-}  // namespace hb::entity
+} // namespace hb::entity

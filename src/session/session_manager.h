@@ -12,43 +12,50 @@
 #include <mutex>
 #include <chrono>
 
-namespace hb::session {
+namespace hb::session
+{
 
 // Session events (published to event bus)
-struct session_created_event {
+struct session_created_event
+{
     session_id id;
     connection_id connection;
     std::chrono::system_clock::time_point timestamp;
 };
 
-struct session_authenticated_event {
+struct session_authenticated_event
+{
     session_id id;
     account_info account;
     std::chrono::system_clock::time_point timestamp;
 };
 
-struct session_state_changed_event {
+struct session_state_changed_event
+{
     session_id id;
     session_state old_state;
     session_state new_state;
     std::chrono::system_clock::time_point timestamp;
 };
 
-struct session_destroyed_event {
+struct session_destroyed_event
+{
     session_id id;
     std::string reason;
     std::chrono::system_clock::time_point timestamp;
 };
 
 // Session manager configuration
-struct session_config {
+struct session_config
+{
     std::chrono::milliseconds auth_timeout{std::chrono::seconds{30}};
     std::chrono::milliseconds idle_timeout{std::chrono::minutes{15}};
     size_t max_sessions{2000};
 };
 
 // Session manager subsystem
-class session_manager : public subsystem {
+class session_manager : public subsystem
+{
 public:
     session_manager();
     ~session_manager() override;
@@ -85,18 +92,20 @@ public:
     [[nodiscard]] auto count_in_game() const -> size_t;
 
     // Iteration
-    template<typename F>
-    void for_each(F&& func) {
+    template<typename F> void for_each(F&& func)
+    {
         std::lock_guard lock{mutex_};
-        for (auto& [id, sess] : sessions_) {
+        for (auto& [id, sess] : sessions_)
+        {
             func(*sess);
         }
     }
 
-    template<typename F>
-    void for_each(F&& func) const {
+    template<typename F> void for_each(F&& func) const
+    {
         std::lock_guard lock{mutex_};
-        for (const auto& [id, sess] : sessions_) {
+        for (const auto& [id, sess] : sessions_)
+        {
             func(*sess);
         }
     }
@@ -114,7 +123,7 @@ private:
 
     // Timeout checking
     float timeout_check_timer_{0.0f};
-    static constexpr float timeout_check_interval = 5.0f;  // Check every 5 seconds
+    static constexpr float timeout_check_interval = 5.0f; // Check every 5 seconds
 };
 
-}  // namespace hb::session
+} // namespace hb::session

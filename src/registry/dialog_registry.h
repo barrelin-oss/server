@@ -12,10 +12,12 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 // Dialog registry subsystem - loads dialog trees from YAML
-class dialog_registry : public subsystem {
+class dialog_registry : public subsystem
+{
 public:
     dialog_registry();
     ~dialog_registry() override;
@@ -32,8 +34,7 @@ public:
     [[nodiscard]] auto get_dialog(std::string_view npc_name) const -> const npc::dialog_tree*;
 
     // Get a specific node within an NPC's dialog tree
-    [[nodiscard]] auto get_node(std::string_view npc_name, std::string_view node_id) const
-        -> const npc::dialog_node*;
+    [[nodiscard]] auto get_node(std::string_view npc_name, std::string_view node_id) const -> const npc::dialog_node*;
 
     // Stats
     [[nodiscard]] auto count() const -> size_t { return dialogs_.size(); }
@@ -42,4 +43,4 @@ private:
     std::unordered_map<std::string, npc::dialog_tree> dialogs_;
 };
 
-}  // namespace hb
+} // namespace hb

@@ -11,7 +11,8 @@
 #include <string>
 #include <vector>
 
-namespace hb::npc {
+namespace hb::npc
+{
 
 // A single weighted item in a pool
 struct weighted_item
@@ -31,17 +32,17 @@ struct item_pool
 // Attribute generation config for loot drops
 struct loot_attribute_config
 {
-    uint8_t max_upgrade_level{0};           // Random upgrade 0..N
-    uint8_t enchantment_chance{0};          // % chance for main enchantment (0-100)
-    uint8_t sub_enchantment_chance{0};      // % chance for sub enchantment (0-100)
-    uint8_t max_enchantment_value{15};      // Max value for enchantments (0-15)
+    uint8_t max_upgrade_level{0};      // Random upgrade 0..N
+    uint8_t enchantment_chance{0};     // % chance for main enchantment (0-100)
+    uint8_t sub_enchantment_chance{0}; // % chance for sub enchantment (0-100)
+    uint8_t max_enchantment_value{15}; // Max value for enchantments (0-15)
 };
 
 // A reference to a named pool with a drop chance
 struct loot_drop_entry
 {
     std::string pool_name;
-    int16_t chance{0};  // per 10000
+    int16_t chance{0}; // per 10000
     std::optional<loot_attribute_config> attribute;
 };
 
@@ -55,7 +56,7 @@ struct multi_drop_config
 // Config for one drop phase (on_kill or on_despawn)
 struct loot_phase_config
 {
-    int16_t gold_chance{0};  // per 10000; gold amounts come from npc template
+    int16_t gold_chance{0}; // per 10000; gold amounts come from npc template
     std::optional<multi_drop_config> multi_drop;
     std::vector<loot_drop_entry> drops;
 };
@@ -67,4 +68,4 @@ struct npc_loot_config
     loot_phase_config on_despawn;
 };
 
-}  // namespace hb::npc
+} // namespace hb::npc

@@ -8,11 +8,13 @@
 #include <chrono>
 #include <unordered_map>
 
-namespace hb::npc {
+namespace hb::npc
+{
 class npc_system;
 }
 
-namespace hb::npc::bt {
+namespace hb::npc::bt
+{
 
 struct bt_context
 {
@@ -24,4 +26,4 @@ struct bt_context
     std::unordered_map<const bt_node*, std::chrono::steady_clock::time_point> cooldowns;
 };
 
-}  // namespace hb::npc::bt
+} // namespace hb::npc::bt

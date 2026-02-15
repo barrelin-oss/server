@@ -11,16 +11,15 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace hb::npc::script {
+namespace hb::npc::script
+{
 
 class script_loader
 {
 public:
-    auto load_from_file(const std::filesystem::path& path)
-        -> result<npc_script, std::string>;
+    auto load_from_file(const std::filesystem::path& path) -> result<npc_script, std::string>;
 
-    auto load_directory(const std::filesystem::path& dir)
-        -> result<size_t, std::string>;
+    auto load_directory(const std::filesystem::path& dir) -> result<size_t, std::string>;
 
     [[nodiscard]] auto get_script(std::string_view name) const -> const npc_script*;
 
@@ -33,4 +32,4 @@ private:
     std::filesystem::path scripts_dir_;
 };
 
-}  // namespace hb::npc::script
+} // namespace hb::npc::script

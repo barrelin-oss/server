@@ -12,14 +12,16 @@ using namespace hb::entity;
 
 // Spell tests
 
-TEST(spell_template_test, default_values) {
+TEST(spell_template_test, default_values)
+{
     spell_template spell;
     EXPECT_EQ(spell.category, spell_category::attack);
     EXPECT_EQ(spell.target_type, spell_target::single_enemy);
     EXPECT_EQ(spell.mana_cost, 0);
 }
 
-TEST(spell_template_test, is_offensive) {
+TEST(spell_template_test, is_offensive)
+{
     spell_template spell;
     spell.category = spell_category::attack;
     EXPECT_TRUE(spell.is_offensive());
@@ -29,7 +31,8 @@ TEST(spell_template_test, is_offensive) {
     EXPECT_TRUE(spell.is_offensive());
 }
 
-TEST(spell_template_test, is_defensive) {
+TEST(spell_template_test, is_defensive)
+{
     spell_template spell;
     spell.category = spell_category::healing;
     EXPECT_TRUE(spell.is_defensive());
@@ -39,7 +42,8 @@ TEST(spell_template_test, is_defensive) {
     EXPECT_TRUE(spell.is_defensive());
 }
 
-TEST(spell_template_test, is_aoe) {
+TEST(spell_template_test, is_aoe)
+{
     spell_template spell;
     spell.target_type = spell_target::single_enemy;
     EXPECT_FALSE(spell.is_aoe());
@@ -51,7 +55,8 @@ TEST(spell_template_test, is_aoe) {
     EXPECT_TRUE(spell.is_aoe());
 }
 
-TEST(cast_target_test, entity_and_position) {
+TEST(cast_target_test, entity_and_position)
+{
     cast_target target;
     EXPECT_FALSE(target.has_entity());
 
@@ -62,7 +67,8 @@ TEST(cast_target_test, entity_and_position) {
     EXPECT_TRUE(target.has_position());
 }
 
-TEST(spell_cast_state_test, active) {
+TEST(spell_cast_state_test, active)
+{
     spell_cast_state state;
     EXPECT_FALSE(state.is_active());
 
@@ -73,7 +79,8 @@ TEST(spell_cast_state_test, active) {
     EXPECT_FALSE(state.is_active());
 }
 
-TEST(spell_cast_state_test, progress) {
+TEST(spell_cast_state_test, progress)
+{
     spell_cast_state state;
     state.spell = spell_id{1};
     state.start_time_ms = 0;
@@ -84,7 +91,8 @@ TEST(spell_cast_state_test, progress) {
     EXPECT_FLOAT_EQ(state.progress(1000), 1.0f);
 }
 
-TEST(spell_cast_state_test, is_complete) {
+TEST(spell_cast_state_test, is_complete)
+{
     spell_cast_state state;
     state.spell = spell_id{1};
     state.start_time_ms = 0;
@@ -95,7 +103,8 @@ TEST(spell_cast_state_test, is_complete) {
     EXPECT_TRUE(state.is_complete(1500));
 }
 
-TEST(spell_knowledge_test, cooldown) {
+TEST(spell_knowledge_test, cooldown)
+{
     spell_knowledge knowledge;
     knowledge.spell = spell_id{1};
     knowledge.last_cast_time_ms = 0;
@@ -112,9 +121,11 @@ TEST(spell_knowledge_test, cooldown) {
 
 // Magic system tests
 
-class magic_system_test : public ::testing::Test {
+class magic_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         system_.initialize();
 
         // Register a test spell
@@ -123,33 +134,34 @@ protected:
         test_spell_.category = spell_category::attack;
         test_spell_.target_type = spell_target::single_enemy;
         test_spell_.mana_cost = 10;
-        test_spell_.cast_time_ms = 0;  // Instant
+        test_spell_.cast_time_ms = 0; // Instant
         test_spell_.cooldown_ms = 1000;
         test_spell_.base_damage = 50;
         system_.register_spell(test_spell_);
     }
 
-    void TearDown() override {
-        system_.shutdown();
-    }
+    void TearDown() override { system_.shutdown(); }
 
     magic_system system_;
     spell_template test_spell_;
 };
 
-TEST_F(magic_system_test, lifecycle) {
+TEST_F(magic_system_test, lifecycle)
+{
     EXPECT_TRUE(system_.is_initialized());
     EXPECT_EQ(system_.name(), "magic_system");
 }
 
-TEST_F(magic_system_test, register_and_get_spell) {
+TEST_F(magic_system_test, register_and_get_spell)
+{
     const auto* spell = system_.get_spell(spell_id{1});
     ASSERT_NE(spell, nullptr);
     EXPECT_EQ(spell->name, "Test Spell");
     EXPECT_EQ(spell->base_damage, 50);
 }
 
-TEST_F(magic_system_test, learn_spell) {
+TEST_F(magic_system_test, learn_spell)
+{
     entity caster{1};
 
     EXPECT_FALSE(system_.knows_spell(caster, spell_id{1}));
@@ -159,7 +171,8 @@ TEST_F(magic_system_test, learn_spell) {
     EXPECT_EQ(system_.get_spell_level(caster, spell_id{1}), 1);
 }
 
-TEST_F(magic_system_test, forget_spell) {
+TEST_F(magic_system_test, forget_spell)
+{
     entity caster{1};
 
     system_.learn_spell(caster, spell_id{1});
@@ -169,7 +182,8 @@ TEST_F(magic_system_test, forget_spell) {
     EXPECT_FALSE(system_.knows_spell(caster, spell_id{1}));
 }
 
-TEST_F(magic_system_test, level_up_spell) {
+TEST_F(magic_system_test, level_up_spell)
+{
     entity caster{1};
 
     system_.learn_spell(caster, spell_id{1});
@@ -179,7 +193,8 @@ TEST_F(magic_system_test, level_up_spell) {
     EXPECT_EQ(system_.get_spell_level(caster, spell_id{1}), 2);
 }
 
-TEST_F(magic_system_test, can_cast) {
+TEST_F(magic_system_test, can_cast)
+{
     entity caster{1};
 
     // Not learned yet
@@ -191,7 +206,8 @@ TEST_F(magic_system_test, can_cast) {
     EXPECT_EQ(result, cast_result::success);
 }
 
-TEST_F(magic_system_test, instant_cast) {
+TEST_F(magic_system_test, instant_cast)
+{
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
 
@@ -206,7 +222,8 @@ TEST_F(magic_system_test, instant_cast) {
     EXPECT_GT(effect.damage_dealt, 0);
 }
 
-TEST_F(magic_system_test, cooldown) {
+TEST_F(magic_system_test, cooldown)
+{
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
 
@@ -225,7 +242,8 @@ TEST_F(magic_system_test, cooldown) {
     EXPECT_EQ(system_.get_cooldown_remaining(caster, spell_id{1}), 0);
 }
 
-TEST_F(magic_system_test, reset_all_cooldowns) {
+TEST_F(magic_system_test, reset_all_cooldowns)
+{
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
 
@@ -239,7 +257,8 @@ TEST_F(magic_system_test, reset_all_cooldowns) {
     EXPECT_EQ(system_.get_cooldown_remaining(caster, spell_id{1}), 0);
 }
 
-TEST_F(magic_system_test, is_casting) {
+TEST_F(magic_system_test, is_casting)
+{
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
 
@@ -254,7 +273,8 @@ TEST_F(magic_system_test, is_casting) {
     EXPECT_FALSE(system_.is_casting(caster));
 }
 
-TEST_F(magic_system_test, cancel_cast) {
+TEST_F(magic_system_test, cancel_cast)
+{
     // Register a channeled spell
     spell_template channel_spell;
     channel_spell.id = spell_id{2};
@@ -276,24 +296,28 @@ TEST_F(magic_system_test, cancel_cast) {
     EXPECT_FALSE(system_.is_casting(caster));
 }
 
-TEST_F(magic_system_test, calculate_mana_cost) {
+TEST_F(magic_system_test, calculate_mana_cost)
+{
     entity caster{1};
 
     int32_t cost = system_.calculate_mana_cost(caster, spell_id{1});
-    EXPECT_EQ(cost, 10);  // Base cost from test_spell_
+    EXPECT_EQ(cost, 10); // Base cost from test_spell_
 }
 
-TEST_F(magic_system_test, spell_callback) {
+TEST_F(magic_system_test, spell_callback)
+{
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
 
     bool callback_called = false;
     spell_template received_spell;
 
-    system_.on_spell_cast([&](entity e, const spell_template& spell, const spell_effect_result&) {
-        callback_called = true;
-        received_spell = spell;
-    });
+    system_.on_spell_cast(
+        [&](entity e, const spell_template& spell, const spell_effect_result&)
+        {
+            callback_called = true;
+            received_spell = spell;
+        });
 
     cast_target target;
     target.target = entity{2};
@@ -305,18 +329,20 @@ TEST_F(magic_system_test, spell_callback) {
 
 // Self-targeting prevention
 
-TEST_F(magic_system_test, offensive_spell_blocks_self_target) {
+TEST_F(magic_system_test, offensive_spell_blocks_self_target)
+{
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
 
     cast_target target;
-    target.target = caster;  // Target self
+    target.target = caster; // Target self
 
     auto result = system_.can_cast(caster, spell_id{1}, target);
     EXPECT_EQ(result, cast_result::invalid_target);
 }
 
-TEST_F(magic_system_test, healing_spell_allows_self_target) {
+TEST_F(magic_system_test, healing_spell_allows_self_target)
+{
     spell_template heal;
     heal.id = spell_id{50};
     heal.name = "Self Heal";
@@ -330,7 +356,7 @@ TEST_F(magic_system_test, healing_spell_allows_self_target) {
     system_.learn_spell(caster, spell_id{50});
 
     cast_target target;
-    target.target = caster;  // Target self
+    target.target = caster; // Target self
 
     auto result = system_.can_cast(caster, spell_id{50}, target);
     EXPECT_EQ(result, cast_result::success);
@@ -338,7 +364,8 @@ TEST_F(magic_system_test, healing_spell_allows_self_target) {
 
 // Range validation
 
-TEST_F(magic_system_test, range_check_skipped_without_player_system) {
+TEST_F(magic_system_test, range_check_skipped_without_player_system)
+{
     // Without player_system wired, range check is skipped
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
@@ -353,12 +380,14 @@ TEST_F(magic_system_test, range_check_skipped_without_player_system) {
 
 // Additional magic system tests
 
-TEST_F(magic_system_test, get_nonexistent_spell) {
+TEST_F(magic_system_test, get_nonexistent_spell)
+{
     const auto* spell = system_.get_spell(spell_id{999});
     EXPECT_EQ(spell, nullptr);
 }
 
-TEST_F(magic_system_test, learn_same_spell_twice) {
+TEST_F(magic_system_test, learn_same_spell_twice)
+{
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
     system_.learn_spell(caster, spell_id{1});
@@ -368,21 +397,24 @@ TEST_F(magic_system_test, learn_same_spell_twice) {
     EXPECT_EQ(system_.get_spell_level(caster, spell_id{1}), 1);
 }
 
-TEST_F(magic_system_test, forget_unlearned_spell) {
+TEST_F(magic_system_test, forget_unlearned_spell)
+{
     entity caster{1};
     // Should not crash
     system_.forget_spell(caster, spell_id{1});
     EXPECT_FALSE(system_.knows_spell(caster, spell_id{1}));
 }
 
-TEST_F(magic_system_test, level_up_unlearned_spell) {
+TEST_F(magic_system_test, level_up_unlearned_spell)
+{
     entity caster{1};
     // Should not crash or create knowledge
     system_.level_up_spell(caster, spell_id{1});
     EXPECT_FALSE(system_.knows_spell(caster, spell_id{1}));
 }
 
-TEST_F(magic_system_test, cast_unknown_spell) {
+TEST_F(magic_system_test, cast_unknown_spell)
+{
     entity caster{1};
     system_.learn_spell(caster, spell_id{1});
 
@@ -393,7 +425,8 @@ TEST_F(magic_system_test, cast_unknown_spell) {
     EXPECT_TRUE(result.is_err());
 }
 
-TEST_F(magic_system_test, cast_unlearned_spell) {
+TEST_F(magic_system_test, cast_unlearned_spell)
+{
     entity caster{1};
     // Don't learn the spell
 
@@ -404,7 +437,8 @@ TEST_F(magic_system_test, cast_unlearned_spell) {
     EXPECT_TRUE(result.is_err());
 }
 
-TEST_F(magic_system_test, begin_cast_channeled_spell) {
+TEST_F(magic_system_test, begin_cast_channeled_spell)
+{
     spell_template channel_spell;
     channel_spell.id = spell_id{10};
     channel_spell.name = "Big Fireball";
@@ -432,12 +466,14 @@ TEST_F(magic_system_test, begin_cast_channeled_spell) {
     EXPECT_EQ(state->spell->value, 10);
 }
 
-TEST_F(magic_system_test, get_cast_state_not_casting) {
+TEST_F(magic_system_test, get_cast_state_not_casting)
+{
     entity caster{1};
     EXPECT_EQ(system_.get_cast_state(caster), nullptr);
 }
 
-TEST_F(magic_system_test, healing_spell) {
+TEST_F(magic_system_test, healing_spell)
+{
     spell_template heal_spell;
     heal_spell.id = spell_id{20};
     heal_spell.name = "Heal";
@@ -459,13 +495,15 @@ TEST_F(magic_system_test, healing_spell) {
     EXPECT_GT(result.value().heal_applied, 0);
 }
 
-TEST_F(magic_system_test, calculate_damage) {
+TEST_F(magic_system_test, calculate_damage)
+{
     entity caster{1};
     int32_t damage = system_.calculate_damage(caster, spell_id{1});
     EXPECT_GT(damage, 0);
 }
 
-TEST_F(magic_system_test, calculate_heal) {
+TEST_F(magic_system_test, calculate_heal)
+{
     spell_template heal_spell;
     heal_spell.id = spell_id{30};
     heal_spell.name = "Minor Heal";
@@ -478,17 +516,19 @@ TEST_F(magic_system_test, calculate_heal) {
     EXPECT_GT(heal, 0);
 }
 
-TEST_F(magic_system_test, mana_cost_with_modifier) {
+TEST_F(magic_system_test, mana_cost_with_modifier)
+{
     magic_system_config config;
     config.global_mana_cost_modifier = 2.0f;
     system_.set_config(config);
 
     entity caster{1};
     int32_t cost = system_.calculate_mana_cost(caster, spell_id{1});
-    EXPECT_EQ(cost, 20);  // 10 base * 2.0 modifier
+    EXPECT_EQ(cost, 20); // 10 base * 2.0 modifier
 }
 
-TEST_F(magic_system_test, set_player_spells) {
+TEST_F(magic_system_test, set_player_spells)
+{
     entity caster{1};
 
     std::vector<spell_knowledge> spells;
@@ -507,28 +547,32 @@ TEST_F(magic_system_test, set_player_spells) {
     EXPECT_EQ(player_spells->size(), 1);
 }
 
-TEST_F(magic_system_test, get_player_spells_unknown_caster) {
+TEST_F(magic_system_test, get_player_spells_unknown_caster)
+{
     const auto* spells = system_.get_player_spells(entity{999});
     EXPECT_EQ(spells, nullptr);
 }
 
 // Spell template feature tests
 
-TEST(spell_template_test, utility_spell) {
+TEST(spell_template_test, utility_spell)
+{
     spell_template spell;
     spell.category = spell_category::utility;
     EXPECT_FALSE(spell.is_offensive());
     EXPECT_FALSE(spell.is_defensive());
 }
 
-TEST(spell_template_test, summon_spell) {
+TEST(spell_template_test, summon_spell)
+{
     spell_template spell;
     spell.category = spell_category::summon;
     EXPECT_FALSE(spell.is_offensive());
     EXPECT_FALSE(spell.is_defensive());
 }
 
-TEST(spell_template_test, ground_target) {
+TEST(spell_template_test, ground_target)
+{
     spell_template spell;
     spell.target_type = spell_target::ground;
     EXPECT_FALSE(spell.is_aoe());
@@ -537,23 +581,26 @@ TEST(spell_template_test, ground_target) {
     EXPECT_FALSE(spell.is_aoe());
 }
 
-TEST(cast_target_test, default_no_position) {
+TEST(cast_target_test, default_no_position)
+{
     cast_target target;
     EXPECT_FALSE(target.has_entity());
     EXPECT_FALSE(target.has_position());
 }
 
-TEST(spell_cast_state_test, cancel_stops_activity) {
+TEST(spell_cast_state_test, cancel_stops_activity)
+{
     spell_cast_state state;
     state.spell = spell_id{1};
     EXPECT_TRUE(state.is_active());
 
     state.cancel();
     EXPECT_FALSE(state.is_active());
-    EXPECT_FLOAT_EQ(state.progress(500), 0.0f);  // Progress returns 0 when inactive
+    EXPECT_FLOAT_EQ(state.progress(500), 0.0f); // Progress returns 0 when inactive
 }
 
-TEST(spell_knowledge_test, total_casts_tracking) {
+TEST(spell_knowledge_test, total_casts_tracking)
+{
     spell_knowledge knowledge;
     knowledge.total_casts = 5;
     EXPECT_EQ(knowledge.total_casts, 5);
@@ -572,10 +619,11 @@ TEST(spell_knowledge_test, total_casts_tracking) {
 #include "combat/combat_system.h"
 #include "core/subsystem.h"
 
-using hb::player_id;
 using hb::map_id;
+using hb::player_id;
 
-class magic_aoe_test : public ::testing::Test {
+class magic_aoe_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -608,7 +656,7 @@ protected:
         aoe_attack.mana_cost = 20;
         aoe_attack.aoe_radius = 3;
         aoe_attack.base_damage = 50;
-        aoe_attack.range = 2;  // 24 tiles
+        aoe_attack.range = 2; // 24 tiles
         magic_->register_spell(aoe_attack);
 
         // Register single-target attack spell with short range
@@ -619,14 +667,11 @@ protected:
         single_attack.target_type = spell_target::single_enemy;
         single_attack.mana_cost = 8;
         single_attack.base_damage = 30;
-        single_attack.range = 1;  // 12 tiles
+        single_attack.range = 1; // 12 tiles
         magic_->register_spell(single_attack);
     }
 
-    void TearDown() override
-    {
-        hb::subsystems().clear_all();
-    }
+    void TearDown() override { hb::subsystems().clear_all(); }
 
     auto create_player_at(hb::world::position pos, hb::faction faction = hb::faction::neutral) -> player_id
     {
@@ -637,7 +682,8 @@ protected:
         player_sys_->set_position(pid, map_id_, pos, hb::world::direction::south);
 
         auto* p = player_sys_->get_player(pid);
-        if (p) {
+        if (p)
+        {
             p->mp = 1000;
             p->experience.level = 100;
             p->computed.intelligence = 100;
@@ -677,9 +723,12 @@ TEST_F(magic_aoe_test, aoe_spell_excludes_caster)
     // Enemy should be hit
     bool enemy_hit = false;
     bool caster_hit = false;
-    for (auto& t : effect.affected_targets) {
-        if (t.id == enemy_pid.value) enemy_hit = true;
-        if (t.id == caster_pid.value) caster_hit = true;
+    for (auto& t : effect.affected_targets)
+    {
+        if (t.id == enemy_pid.value)
+            enemy_hit = true;
+        if (t.id == caster_pid.value)
+            caster_hit = true;
     }
     EXPECT_TRUE(enemy_hit);
     EXPECT_FALSE(caster_hit) << "Caster should not be hit by their own AOE";
@@ -696,7 +745,7 @@ TEST_F(magic_aoe_test, aoe_spell_skips_same_faction)
     magic_->learn_spell(caster_e, hb::spell_id(1));
 
     cast_target target;
-    target.target_pos = hb::world::position{51, 50};  // Center between all three
+    target.target_pos = hb::world::position{51, 50}; // Center between all three
 
     auto result = magic_->instant_cast(caster_e, hb::spell_id(1), target);
     ASSERT_TRUE(result.is_ok());
@@ -704,9 +753,12 @@ TEST_F(magic_aoe_test, aoe_spell_skips_same_faction)
     auto& effect = result.value();
     bool ally_hit = false;
     bool enemy_hit = false;
-    for (auto& t : effect.affected_targets) {
-        if (t.id == ally_pid.value) ally_hit = true;
-        if (t.id == enemy_pid.value) enemy_hit = true;
+    for (auto& t : effect.affected_targets)
+    {
+        if (t.id == ally_pid.value)
+            ally_hit = true;
+        if (t.id == enemy_pid.value)
+            enemy_hit = true;
     }
     EXPECT_FALSE(ally_hit) << "Same-faction ally should not be hit by enemy AOE";
     EXPECT_TRUE(enemy_hit);
@@ -732,9 +784,12 @@ TEST_F(magic_aoe_test, aoe_spell_center_from_position)
     auto& effect = result.value();
     bool near_hit = false;
     bool far_hit = false;
-    for (auto& t : effect.affected_targets) {
-        if (t.id == near_enemy.value) near_hit = true;
-        if (t.id == far_enemy.value) far_hit = true;
+    for (auto& t : effect.affected_targets)
+    {
+        if (t.id == near_enemy.value)
+            near_hit = true;
+        if (t.id == far_enemy.value)
+            far_hit = true;
     }
     EXPECT_TRUE(near_hit) << "Enemy within AOE radius should be hit";
     EXPECT_FALSE(far_hit) << "Enemy outside AOE radius should not be hit";
@@ -743,12 +798,12 @@ TEST_F(magic_aoe_test, aoe_spell_center_from_position)
 TEST_F(magic_aoe_test, range_check_blocks_distant_target)
 {
     auto caster_pid = create_player_at({10, 10});
-    auto enemy_pid = create_player_at({80, 80});  // ~140 manhattan distance
+    auto enemy_pid = create_player_at({80, 80}); // ~140 manhattan distance
 
     entity caster_e(caster_pid.value);
     entity enemy_e(enemy_pid.value);
 
-    magic_->learn_spell(caster_e, hb::spell_id(2));  // range=1 (12 tiles)
+    magic_->learn_spell(caster_e, hb::spell_id(2)); // range=1 (12 tiles)
 
     cast_target target;
     target.target = enemy_e;
@@ -760,12 +815,12 @@ TEST_F(magic_aoe_test, range_check_blocks_distant_target)
 TEST_F(magic_aoe_test, range_check_allows_close_target)
 {
     auto caster_pid = create_player_at({50, 50});
-    auto enemy_pid = create_player_at({55, 50});  // 5 tiles manhattan
+    auto enemy_pid = create_player_at({55, 50}); // 5 tiles manhattan
 
     entity caster_e(caster_pid.value);
     entity enemy_e(enemy_pid.value);
 
-    magic_->learn_spell(caster_e, hb::spell_id(2));  // range=1 (12 tiles)
+    magic_->learn_spell(caster_e, hb::spell_id(2)); // range=1 (12 tiles)
 
     cast_target target;
     target.target = enemy_e;
@@ -780,16 +835,16 @@ TEST_F(magic_aoe_test, range_check_with_position_target)
 
     entity caster_e(caster_pid.value);
 
-    magic_->learn_spell(caster_e, hb::spell_id(1));  // range=2 (24 tiles)
+    magic_->learn_spell(caster_e, hb::spell_id(1)); // range=2 (24 tiles)
 
     // Position within range
     cast_target close_target;
-    close_target.target_pos = hb::world::position{60, 50};  // 10 tiles
+    close_target.target_pos = hb::world::position{60, 50}; // 10 tiles
     EXPECT_EQ(magic_->can_cast(caster_e, hb::spell_id(1), close_target), cast_result::success);
 
     // Position out of range
     cast_target far_target;
-    far_target.target_pos = hb::world::position{90, 90};  // 80 tiles
+    far_target.target_pos = hb::world::position{90, 90}; // 80 tiles
     EXPECT_EQ(magic_->can_cast(caster_e, hb::spell_id(1), far_target), cast_result::out_of_range);
 }
 
@@ -815,7 +870,7 @@ TEST_F(magic_aoe_test, mana_deducted_on_instant_cast)
     entity caster_e(caster_pid.value);
     entity enemy_e(enemy_pid.value);
 
-    magic_->learn_spell(caster_e, hb::spell_id(1));  // mana_cost = 20
+    magic_->learn_spell(caster_e, hb::spell_id(1)); // mana_cost = 20
 
     auto* caster = player_sys_->get_player(caster_pid);
     ASSERT_NE(caster, nullptr);

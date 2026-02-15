@@ -12,10 +12,12 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 // Loot registry subsystem - loads loot pools and NPC loot configs from YAML
-class loot_registry : public subsystem {
+class loot_registry : public subsystem
+{
 public:
     loot_registry();
     ~loot_registry() override;
@@ -46,4 +48,4 @@ private:
     std::unordered_map<int16_t, npc::npc_loot_config> configs_;
 };
 
-}  // namespace hb
+} // namespace hb

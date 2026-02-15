@@ -16,7 +16,8 @@
 #include <cmath>
 #include <algorithm>
 
-namespace hb::crafting {
+namespace hb::crafting
+{
 
 mining_system::mining_system() = default;
 mining_system::~mining_system() = default;
@@ -35,12 +36,12 @@ void mining_system::shutdown()
 }
 
 void mining_system::set_dependencies(player::player_system* players,
-                                      skill::skill_system* skills,
-                                      inventory::inventory_system* inventory,
-                                      item::item_system* items,
-                                      mining_registry* registry,
-                                      scheduler* sched,
-                                      world::world_subsystem* world)
+                                     skill::skill_system* skills,
+                                     inventory::inventory_system* inventory,
+                                     item::item_system* items,
+                                     mining_registry* registry,
+                                     scheduler* sched,
+                                     world::world_subsystem* world)
 {
     players_ = players;
     skills_ = skills;
@@ -60,18 +61,25 @@ void mining_system::start_generation()
     }
 
     scheduler_->register_task("mineral_gen",
-        "Spawn mineral nodes for mining",
-        duration_ms{10000}, true,
-        [this]() -> task_callback {
-            return [this]() { generate_minerals(); };
-        });
+                              "Spawn mineral nodes for mining",
+                              duration_ms{10000},
+                              true,
+                              [this]() -> task_callback
+                              {
+                                  return [this]()
+                                  {
+                                      generate_minerals();
+                                  };
+                              });
     scheduler_->start_task("mineral_gen");
 
     LOG_INFO(general, "Mining system: mineral generation started (10s interval)");
 }
 
-auto mining_system::attempt_mine(entity_id player_eid, int16_t target_x, int16_t target_y,
-                                  const std::string& map_name) -> mine_result
+auto mining_system::attempt_mine(entity_id player_eid,
+                                 int16_t target_x,
+                                 int16_t target_y,
+                                 const std::string& map_name) -> mine_result
 {
     mine_result result;
 
@@ -158,8 +166,7 @@ auto mining_system::attempt_mine(entity_id player_eid, int16_t target_x, int16_t
             result.count = 1;
 
             // Create item and add to inventory
-            auto item_result = items_->create_from_template(
-                item_id{static_cast<uint32_t>(drop->template_id)}, 1);
+            auto item_result = items_->create_from_template(item_id{static_cast<uint32_t>(drop->template_id)}, 1);
             if (item_result.is_ok())
             {
                 auto created_id = item_result.value();
@@ -189,8 +196,7 @@ auto mining_system::attempt_mine(entity_id player_eid, int16_t target_x, int16_t
     return result;
 }
 
-auto mining_system::get_node_at(const std::string& map_name,
-                                 int16_t x, int16_t y) const -> const mineral_node*
+auto mining_system::get_node_at(const std::string& map_name, int16_t x, int16_t y) const -> const mineral_node*
 {
     auto key = make_node_key(map_name, x, y);
     auto it = nodes_.find(key);
@@ -224,60 +230,62 @@ void mining_system::generate_minerals()
         return;
     }
 
-    world_->for_each_map([this](map_id /*id*/, world::map& m) {
-        auto& gen = m.get_mineral_generator();
-        if (!gen.enabled || gen.level <= 0)
+    world_->for_each_map(
+        [this](map_id /*id*/, world::map& m)
         {
-            return;
-        }
-
-        // 25% chance per tick
-        thread_local std::mt19937 rng{std::random_device{}()};
-        std::uniform_int_distribution<int> d4(1, 4);
-        if (d4(rng) != 1)
-        {
-            return;
-        }
-
-        auto& points = m.get_mineral_points();
-        if (points.empty())
-        {
-            return;
-        }
-
-        // Count current nodes on this map
-        auto map_name = std::string(m.name());
-        int32_t current_count = 0;
-        for (const auto& [key, node] : nodes_)
-        {
-            if (node.map_name == map_name)
+            auto& gen = m.get_mineral_generator();
+            if (!gen.enabled || gen.level <= 0)
             {
-                ++current_count;
+                return;
             }
-        }
 
-        if (current_count >= m.max_mineral())
-        {
-            return;
-        }
+            // 25% chance per tick
+            thread_local std::mt19937 rng{std::random_device{}()};
+            std::uniform_int_distribution<int> d4(1, 4);
+            if (d4(rng) != 1)
+            {
+                return;
+            }
 
-        // Pick random mineral point
-        std::uniform_int_distribution<size_t> point_dist(0, points.size() - 1);
-        const auto& point = points[point_dist(rng)];
+            auto& points = m.get_mineral_points();
+            if (points.empty())
+            {
+                return;
+            }
 
-        // Skip if position already occupied
-        auto key = make_node_key(map_name, point.x, point.y);
-        if (nodes_.contains(key))
-        {
-            return;
-        }
+            // Count current nodes on this map
+            auto map_name = std::string(m.name());
+            int32_t current_count = 0;
+            for (const auto& [key, node] : nodes_)
+            {
+                if (node.map_name == map_name)
+                {
+                    ++current_count;
+                }
+            }
 
-        // Random type: d(generator_level) -> type_id
-        std::uniform_int_distribution<int> type_dist(1, gen.level);
-        auto type_id = type_dist(rng);
+            if (current_count >= m.max_mineral())
+            {
+                return;
+            }
 
-        spawn_mineral(map_name, point.x, point.y, type_id);
-    });
+            // Pick random mineral point
+            std::uniform_int_distribution<size_t> point_dist(0, points.size() - 1);
+            const auto& point = points[point_dist(rng)];
+
+            // Skip if position already occupied
+            auto key = make_node_key(map_name, point.x, point.y);
+            if (nodes_.contains(key))
+            {
+                return;
+            }
+
+            // Random type: d(generator_level) -> type_id
+            std::uniform_int_distribution<int> type_dist(1, gen.level);
+            auto type_id = type_dist(rng);
+
+            spawn_mineral(map_name, point.x, point.y, type_id);
+        });
 }
 
 void mining_system::spawn_mineral(const std::string& map_name, int16_t x, int16_t y, int32_t type_id)
@@ -290,14 +298,12 @@ void mining_system::spawn_mineral(const std::string& map_name, int16_t x, int16_
 
     auto key = make_node_key(map_name, x, y);
 
-    mineral_node node{
-        .node_id = next_node_id_++,
-        .type_id = type_id,
-        .map_name = map_name,
-        .x = x,
-        .y = y,
-        .hits_remaining = type_config->max_hits
-    };
+    mineral_node node{.node_id = next_node_id_++,
+                      .type_id = type_id,
+                      .map_name = map_name,
+                      .x = x,
+                      .y = y,
+                      .hits_remaining = type_config->max_hits};
 
     if (spawn_callback_)
     {
@@ -366,4 +372,4 @@ auto mining_system::make_node_key(const std::string& map, int16_t x, int16_t y) 
     return map + ":" + std::to_string(x) + ":" + std::to_string(y);
 }
 
-}  // namespace hb::crafting
+} // namespace hb::crafting

@@ -8,9 +8,11 @@
 #include <fstream>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
-class craft_recipe_registry_test : public ::testing::Test {
+class craft_recipe_registry_test : public ::testing::Test
+{
 protected:
     void SetUp() override
     {
@@ -123,10 +125,8 @@ alchemy_recipes:
 
 TEST_F(craft_recipe_registry_test, lookup_by_id_across_categories)
 {
-    load_items(
-        "1\tPotion\t5\t0\t5\t25\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
-        "2\tGem\t5\t0\t5\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
-    );
+    load_items("1\tPotion\t5\t0\t5\t25\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
+               "2\tGem\t5\t0\t5\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\n");
 
     auto alchemy_path = write_file("recipes.yaml", R"(
 alchemy_recipes:
@@ -224,4 +224,4 @@ alchemy_recipes:
     EXPECT_EQ(recipe->result_template_id, 0);
 }
 
-}  // namespace hb
+} // namespace hb

@@ -8,22 +8,23 @@
 #include <array>
 #include <cstdint>
 
-namespace hb::item {
+namespace hb::item
+{
 
 // Upgrade stone template IDs
-inline constexpr uint32_t xelima_stone_id = 656;  // Weapon upgrade stone
-inline constexpr uint32_t merien_stone_id = 657;   // Armor upgrade stone
+inline constexpr uint32_t xelima_stone_id = 656; // Weapon upgrade stone
+inline constexpr uint32_t merien_stone_id = 657; // Armor upgrade stone
 
 // Max upgrade level
 inline constexpr uint8_t max_upgrade_level = 15;
 
 // Legacy probability table (per-level success rate out of 10000)
 inline constexpr std::array<int, 16> upgrade_base_prob = {
-    3000, 2500, 2000, 1500, 1000, 1000, 800, 800, 500, 300, 100, 100, 100, 100, 100, 0
-};
+    3000, 2500, 2000, 1500, 1000, 1000, 800, 800, 500, 300, 100, 100, 100, 100, 100, 0};
 
 // Upgrade result
-struct upgrade_result {
+struct upgrade_result
+{
     bool success{false};
     uint8_t new_level{0};
     bool stone_consumed{true};
@@ -38,4 +39,4 @@ struct upgrade_result {
 // Custom-made items with high quality get a probability boost
 auto attempt_upgrade(item& target_item) -> upgrade_result;
 
-}  // namespace hb::item
+} // namespace hb::item

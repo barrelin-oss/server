@@ -11,10 +11,12 @@
 #include <unordered_map>
 #include <string_view>
 
-namespace hb::inventory {
+namespace hb::inventory
+{
 
 // Inventory operation results
-enum class inventory_result : uint8_t {
+enum class inventory_result : uint8_t
+{
     success = 0,
     inventory_full = 1,
     item_not_found = 2,
@@ -27,7 +29,8 @@ enum class inventory_result : uint8_t {
 };
 
 // Inventory system configuration
-struct inventory_system_config {
+struct inventory_system_config
+{
     int32_t default_inventory_size{50};
     int32_t default_bank_size{200};
     bool enable_weight_limit{false};
@@ -35,7 +38,8 @@ struct inventory_system_config {
 };
 
 // Inventory system - manages player inventories
-class inventory_system : public subsystem {
+class inventory_system : public subsystem
+{
 public:
     inventory_system();
     ~inventory_system() override;
@@ -105,4 +109,4 @@ private:
     std::unordered_map<entity_id, entity_id> trade_partners_;
 };
 
-}  // namespace hb::inventory
+} // namespace hb::inventory

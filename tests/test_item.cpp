@@ -8,21 +8,23 @@
 #include "item/item_effect.h"
 #include "item/item_system.h"
 
-using hb::item_id;
 using hb::entity_id;
+using hb::item_id;
 using namespace hb::entity;
 using namespace hb::item;
 
 // Item tests
 
-TEST(item_test, default_values) {
+TEST(item_test, default_values)
+{
     item itm;
     EXPECT_FALSE(itm.is_valid());
     EXPECT_EQ(itm.count, 1);
     EXPECT_EQ(itm.type, item_type::none);
 }
 
-TEST(item_test, is_equipment) {
+TEST(item_test, is_equipment)
+{
     item itm;
     itm.type = item_type::weapon;
     EXPECT_TRUE(itm.is_equipment());
@@ -34,7 +36,8 @@ TEST(item_test, is_equipment) {
     EXPECT_FALSE(itm.is_equipment());
 }
 
-TEST(item_test, is_broken) {
+TEST(item_test, is_broken)
+{
     item itm;
     itm.max_durability = 100;
     itm.durability = 50;
@@ -48,7 +51,8 @@ TEST(item_test, is_broken) {
     EXPECT_FALSE(itm.is_broken());
 }
 
-TEST(item_test, durability_operations) {
+TEST(item_test, durability_operations)
+{
     item itm;
     itm.max_durability = 100;
     itm.durability = 100;
@@ -66,17 +70,19 @@ TEST(item_test, durability_operations) {
     EXPECT_EQ(itm.durability, 100);
 }
 
-TEST(item_test, indestructible) {
+TEST(item_test, indestructible)
+{
     item itm;
     itm.max_durability = 100;
     itm.durability = 100;
     itm.indestructible = true;
 
     itm.damage_durability(200);
-    EXPECT_EQ(itm.durability, 100);  // No damage
+    EXPECT_EQ(itm.durability, 100); // No damage
 }
 
-TEST(item_test, stacking) {
+TEST(item_test, stacking)
+{
     item itm1;
     itm1.template_id = item_id{100};
     itm1.count = 50;
@@ -97,7 +103,8 @@ TEST(item_test, stacking) {
     EXPECT_EQ(itm2.count, 0);
 }
 
-TEST(item_test, stacking_overflow) {
+TEST(item_test, stacking_overflow)
+{
     item itm1;
     itm1.template_id = item_id{100};
     itm1.count = 80;
@@ -116,7 +123,8 @@ TEST(item_test, stacking_overflow) {
     EXPECT_EQ(itm2.count, 11);
 }
 
-TEST(item_test, split) {
+TEST(item_test, split)
+{
     item itm;
     itm.template_id = item_id{100};
     itm.count = 50;
@@ -129,24 +137,26 @@ TEST(item_test, split) {
 
 // Item effect tests
 
-TEST(item_effect_test, apply_effects) {
+TEST(item_effect_test, apply_effects)
+{
     item itm;
     itm.effects[0] = {item_effect_type::str_bonus, 10};
     itm.effects[1] = {item_effect_type::attack_bonus, 25};
     itm.attack_power = 50;
     itm.defense = 30;
-    itm.durability = 100;  // Not broken
+    itm.durability = 100; // Not broken
     itm.max_durability = 100;
 
     hb::player::stat_modifiers mods;
     apply_item_base_stats(itm, mods);
 
-    EXPECT_EQ(mods.attack_power, 75);  // 50 base + 25 from effect
+    EXPECT_EQ(mods.attack_power, 75); // 50 base + 25 from effect
     EXPECT_EQ(mods.defense, 30);
     EXPECT_EQ(mods.strength, 10);
 }
 
-TEST(item_effect_test, broken_item_no_stats) {
+TEST(item_effect_test, broken_item_no_stats)
+{
     item itm;
     itm.attack_power = 100;
     itm.durability = 0;
@@ -155,10 +165,11 @@ TEST(item_effect_test, broken_item_no_stats) {
     hb::player::stat_modifiers mods;
     apply_item_base_stats(itm, mods);
 
-    EXPECT_EQ(mods.attack_power, 0);  // Broken = no stats
+    EXPECT_EQ(mods.attack_power, 0); // Broken = no stats
 }
 
-TEST(requirement_check_test, meets_requirements) {
+TEST(requirement_check_test, meets_requirements)
+{
     item itm;
     itm.level_requirement = 10;
     itm.str_requirement = 20;
@@ -178,25 +189,24 @@ TEST(requirement_check_test, meets_requirements) {
 
 // Item system tests
 
-class item_system_test : public ::testing::Test {
+class item_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        system_.initialize();
-    }
+    void SetUp() override { system_.initialize(); }
 
-    void TearDown() override {
-        system_.shutdown();
-    }
+    void TearDown() override { system_.shutdown(); }
 
     item_system system_;
 };
 
-TEST_F(item_system_test, lifecycle) {
+TEST_F(item_system_test, lifecycle)
+{
     EXPECT_TRUE(system_.is_initialized());
     EXPECT_EQ(system_.name(), "item_system");
 }
 
-TEST_F(item_system_test, create_item) {
+TEST_F(item_system_test, create_item)
+{
     item_create_info info;
     info.template_id = item_id{100};
     info.count = 5;
@@ -213,7 +223,8 @@ TEST_F(item_system_test, create_item) {
     EXPECT_EQ(itm->count, 5);
 }
 
-TEST_F(item_system_test, destroy_item) {
+TEST_F(item_system_test, destroy_item)
+{
     item_create_info info;
     info.template_id = item_id{100};
 
@@ -225,7 +236,8 @@ TEST_F(item_system_test, destroy_item) {
     EXPECT_FALSE(system_.item_exists(id));
 }
 
-TEST_F(item_system_test, ownership) {
+TEST_F(item_system_test, ownership)
+{
     item_create_info info;
     info.template_id = item_id{100};
     info.owner = entity_id{42};
@@ -243,7 +255,8 @@ TEST_F(item_system_test, ownership) {
     EXPECT_FALSE(itm->owner.is_valid());
 }
 
-TEST_F(item_system_test, stack_items) {
+TEST_F(item_system_test, stack_items)
+{
     item_create_info info1;
     info1.template_id = item_id{100};
     info1.count = 50;
@@ -269,10 +282,11 @@ TEST_F(item_system_test, stack_items) {
 
     EXPECT_TRUE(system_.try_stack(id1, id2));
     EXPECT_EQ(system_.get_item(id1)->count, 80);
-    EXPECT_FALSE(system_.item_exists(id2));  // Destroyed after stacking
+    EXPECT_FALSE(system_.item_exists(id2)); // Destroyed after stacking
 }
 
-TEST_F(item_system_test, split_item) {
+TEST_F(item_system_test, split_item)
+{
     item_create_info info;
     info.template_id = item_id{100};
     info.count = 50;
@@ -288,7 +302,8 @@ TEST_F(item_system_test, split_item) {
     EXPECT_EQ(system_.get_item(new_id)->count, 20);
 }
 
-TEST_F(item_system_test, durability_operations) {
+TEST_F(item_system_test, durability_operations)
+{
     item_create_info info;
     info.template_id = item_id{100};
 
@@ -310,7 +325,8 @@ TEST_F(item_system_test, durability_operations) {
 
 // Additional item system tests
 
-TEST_F(item_system_test, max_items_limit) {
+TEST_F(item_system_test, max_items_limit)
+{
     item_system_config config;
     config.max_items = 3;
     system_.set_config(config);
@@ -326,16 +342,19 @@ TEST_F(item_system_test, max_items_limit) {
     EXPECT_TRUE(r4.is_err());
 }
 
-TEST_F(item_system_test, get_nonexistent_item) {
+TEST_F(item_system_test, get_nonexistent_item)
+{
     EXPECT_EQ(system_.get_item(item_id{999}), nullptr);
 }
 
-TEST_F(item_system_test, destroy_nonexistent_item) {
+TEST_F(item_system_test, destroy_nonexistent_item)
+{
     // Should not crash
     system_.destroy_item(item_id{999});
 }
 
-TEST_F(item_system_test, set_owner) {
+TEST_F(item_system_test, set_owner)
+{
     item_create_info info;
     info.template_id = item_id{100};
 
@@ -350,7 +369,8 @@ TEST_F(item_system_test, set_owner) {
     EXPECT_EQ(owned[0].value, id.value);
 }
 
-TEST_F(item_system_test, multiple_items_same_owner) {
+TEST_F(item_system_test, multiple_items_same_owner)
+{
     item_create_info info;
     info.template_id = item_id{1};
     info.owner = entity_id{42};
@@ -363,13 +383,14 @@ TEST_F(item_system_test, multiple_items_same_owner) {
     EXPECT_EQ(owned.size(), 3);
 }
 
-TEST_F(item_system_test, stack_different_templates_fails) {
+TEST_F(item_system_test, stack_different_templates_fails)
+{
     item_create_info info1;
     info1.template_id = item_id{100};
     info1.count = 10;
 
     item_create_info info2;
-    info2.template_id = item_id{200};  // Different template
+    info2.template_id = item_id{200}; // Different template
     info2.count = 5;
 
     auto r1 = system_.create_item(info1);
@@ -384,10 +405,11 @@ TEST_F(item_system_test, stack_different_templates_fails) {
 
     // Different templates should not stack
     EXPECT_FALSE(system_.try_stack(r1.value(), r2.value()));
-    EXPECT_TRUE(system_.item_exists(r2.value()));  // Source still exists
+    EXPECT_TRUE(system_.item_exists(r2.value())); // Source still exists
 }
 
-TEST_F(item_system_test, split_item_count_one_fails) {
+TEST_F(item_system_test, split_item_count_one_fails)
+{
     item_create_info info;
     info.template_id = item_id{100};
     info.count = 1;
@@ -401,7 +423,8 @@ TEST_F(item_system_test, split_item_count_one_fails) {
     // This depends on implementation - let's just verify no crash
 }
 
-TEST_F(item_system_test, for_each_item) {
+TEST_F(item_system_test, for_each_item)
+{
     item_create_info info;
     info.template_id = item_id{1};
 
@@ -409,13 +432,12 @@ TEST_F(item_system_test, for_each_item) {
     system_.create_item(info);
 
     int count = 0;
-    system_.for_each_item([&](item_id, item&) {
-        ++count;
-    });
+    system_.for_each_item([&](item_id, item&) { ++count; });
     EXPECT_EQ(count, 2);
 }
 
-TEST_F(item_system_test, for_each_item_owned_by) {
+TEST_F(item_system_test, for_each_item_owned_by)
+{
     item_create_info info1;
     info1.template_id = item_id{1};
     info1.owner = entity_id{10};
@@ -429,27 +451,27 @@ TEST_F(item_system_test, for_each_item_owned_by) {
     system_.create_item(info2);
 
     int count = 0;
-    system_.for_each_item_owned_by(entity_id{10}, [&](item_id, item&) {
-        ++count;
-    });
+    system_.for_each_item_owned_by(entity_id{10}, [&](item_id, item&) { ++count; });
     EXPECT_EQ(count, 2);
 }
 
-TEST_F(item_system_test, durability_to_zero_breaks_item) {
+TEST_F(item_system_test, durability_to_zero_breaks_item)
+{
     item_create_info info;
     info.template_id = item_id{100};
 
     auto result = system_.create_item(info);
     auto id = result.value();
 
-    system_.damage_durability(id, 200);  // More than max
+    system_.damage_durability(id, 200); // More than max
     EXPECT_EQ(system_.get_item(id)->durability, 0);
     EXPECT_TRUE(system_.get_item(id)->is_broken());
 }
 
 // Item struct edge cases
 
-TEST(item_test, durability_percent_zero_max) {
+TEST(item_test, durability_percent_zero_max)
+{
     item itm;
     itm.max_durability = 0;
     itm.durability = 0;
@@ -458,7 +480,8 @@ TEST(item_test, durability_percent_zero_max) {
     EXPECT_FLOAT_EQ(itm.durability_percent(), 1.0f);
 }
 
-TEST(item_test, cannot_stack_non_stackable) {
+TEST(item_test, cannot_stack_non_stackable)
+{
     item itm1;
     itm1.template_id = item_id{100};
     itm1.stackable = false;
@@ -470,7 +493,8 @@ TEST(item_test, cannot_stack_non_stackable) {
     EXPECT_FALSE(itm1.can_stack_with(itm2));
 }
 
-TEST(item_test, cannot_stack_full) {
+TEST(item_test, cannot_stack_full)
+{
     item itm1;
     itm1.template_id = item_id{100};
     itm1.count = 99;
@@ -482,10 +506,11 @@ TEST(item_test, cannot_stack_full) {
     itm2.count = 1;
     itm2.stackable = true;
 
-    EXPECT_FALSE(itm1.can_stack_with(itm2));  // Already at max
+    EXPECT_FALSE(itm1.can_stack_with(itm2)); // Already at max
 }
 
-TEST(item_test, is_consumable) {
+TEST(item_test, is_consumable)
+{
     item itm;
     itm.type = item_type::consumable;
     EXPECT_TRUE(itm.is_consumable());
@@ -494,25 +519,28 @@ TEST(item_test, is_consumable) {
     EXPECT_FALSE(itm.is_consumable());
 }
 
-TEST(item_test, item_type_gold) {
+TEST(item_test, item_type_gold)
+{
     item itm;
     itm.type = item_type::gold;
     EXPECT_FALSE(itm.is_equipment());
     EXPECT_FALSE(itm.is_consumable());
 }
 
-TEST(item_test, repair_caps_at_max) {
+TEST(item_test, repair_caps_at_max)
+{
     item itm;
     itm.max_durability = 100;
     itm.durability = 80;
 
     itm.repair(50);
-    EXPECT_EQ(itm.durability, 100);  // Capped at max
+    EXPECT_EQ(itm.durability, 100); // Capped at max
 }
 
 // Item effect edge cases
 
-TEST(item_effect_test, empty_effect) {
+TEST(item_effect_test, empty_effect)
+{
     item_effect effect;
     EXPECT_TRUE(effect.is_empty());
 
@@ -520,7 +548,8 @@ TEST(item_effect_test, empty_effect) {
     EXPECT_FALSE(effect.is_empty());
 }
 
-TEST(item_effect_test, multiple_effects) {
+TEST(item_effect_test, multiple_effects)
+{
     item itm;
     itm.effects[0] = {item_effect_type::str_bonus, 10};
     itm.effects[1] = {item_effect_type::dex_bonus, 5};
@@ -535,5 +564,5 @@ TEST(item_effect_test, multiple_effects) {
 
     EXPECT_EQ(mods.strength, 10);
     EXPECT_EQ(mods.dexterity, 5);
-    EXPECT_EQ(mods.defense, 30);  // 10 base + 20 from effect
+    EXPECT_EQ(mods.defense, 30); // 10 base + 20 from effect
 }

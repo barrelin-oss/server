@@ -13,10 +13,12 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 // Item registry subsystem - loads and provides access to item templates
-class item_registry : public subsystem {
+class item_registry : public subsystem
+{
 public:
     item_registry();
     ~item_registry() override;
@@ -63,8 +65,8 @@ private:
 
     // Storage
     std::vector<item_template> items_;
-    std::unordered_map<uint32_t, size_t> id_index_;     // id -> vector index
+    std::unordered_map<uint32_t, size_t> id_index_;      // id -> vector index
     std::unordered_map<std::string, size_t> name_index_; // lowercase name -> vector index
 };
 
-}  // namespace hb
+} // namespace hb

@@ -9,10 +9,12 @@
 
 #include <cstdint>
 
-namespace hb::combat {
+namespace hb::combat
+{
 
 // Damage type categories
-enum class damage_type : uint8_t {
+enum class damage_type : uint8_t
+{
     physical = 0,
     magic = 1,
     fire = 2,
@@ -21,11 +23,12 @@ enum class damage_type : uint8_t {
     poison = 5,
     holy = 6,
     dark = 7,
-    pure = 8,  // Ignores all defenses
+    pure = 8, // Ignores all defenses
 };
 
 // Attack result flags
-enum class hit_flags : uint16_t {
+enum class hit_flags : uint16_t
+{
     none = 0,
     hit = 1 << 0,
     miss = 1 << 1,
@@ -39,50 +42,42 @@ enum class hit_flags : uint16_t {
     counter = 1 << 9,
 };
 
-inline auto operator|(hit_flags a, hit_flags b) -> hit_flags {
+inline auto operator|(hit_flags a, hit_flags b) -> hit_flags
+{
     return static_cast<hit_flags>(static_cast<uint16_t>(a) | static_cast<uint16_t>(b));
 }
 
-inline auto operator&(hit_flags a, hit_flags b) -> hit_flags {
+inline auto operator&(hit_flags a, hit_flags b) -> hit_flags
+{
     return static_cast<hit_flags>(static_cast<uint16_t>(a) & static_cast<uint16_t>(b));
 }
 
 // Result of a hit resolution
-struct hit_result {
+struct hit_result
+{
     hit_flags flags{hit_flags::none};
     damage_type type{damage_type::physical};
-    int32_t raw_damage{0};       // Before defenses
-    int32_t final_damage{0};     // After defenses
-    int32_t absorbed{0};         // Absorbed by shields/effects
-    int32_t reflected{0};        // Reflected back to attacker
+    int32_t raw_damage{0};   // Before defenses
+    int32_t final_damage{0}; // After defenses
+    int32_t absorbed{0};     // Absorbed by shields/effects
+    int32_t reflected{0};    // Reflected back to attacker
 
-    [[nodiscard]] auto is_hit() const -> bool {
-        return (flags & hit_flags::hit) != hit_flags::none;
-    }
+    [[nodiscard]] auto is_hit() const -> bool { return (flags & hit_flags::hit) != hit_flags::none; }
 
-    [[nodiscard]] auto is_miss() const -> bool {
-        return (flags & hit_flags::miss) != hit_flags::none;
-    }
+    [[nodiscard]] auto is_miss() const -> bool { return (flags & hit_flags::miss) != hit_flags::none; }
 
-    [[nodiscard]] auto is_critical() const -> bool {
-        return (flags & hit_flags::critical) != hit_flags::none;
-    }
+    [[nodiscard]] auto is_critical() const -> bool { return (flags & hit_flags::critical) != hit_flags::none; }
 
-    [[nodiscard]] auto is_blocked() const -> bool {
-        return (flags & hit_flags::blocked) != hit_flags::none;
-    }
+    [[nodiscard]] auto is_blocked() const -> bool { return (flags & hit_flags::blocked) != hit_flags::none; }
 
-    [[nodiscard]] auto is_dodged() const -> bool {
-        return (flags & hit_flags::dodged) != hit_flags::none;
-    }
+    [[nodiscard]] auto is_dodged() const -> bool { return (flags & hit_flags::dodged) != hit_flags::none; }
 
-    [[nodiscard]] auto caused_death() const -> bool {
-        return (flags & hit_flags::killed) != hit_flags::none;
-    }
+    [[nodiscard]] auto caused_death() const -> bool { return (flags & hit_flags::killed) != hit_flags::none; }
 };
 
 // Attack event - published when an attack is attempted
-struct attack_event {
+struct attack_event
+{
     hb::entity::entity attacker{};
     hb::entity::entity defender{};
     damage_type type{damage_type::physical};
@@ -91,11 +86,12 @@ struct attack_event {
     uint16_t skill_id{0};
     bool is_ranged{false};
     bool is_dash{false};
-    int32_t distance{0};  // Attacker-defender distance at time of attack
+    int32_t distance{0}; // Attacker-defender distance at time of attack
 };
 
 // Damage event - published when damage is applied
-struct damage_event {
+struct damage_event
+{
     hb::entity::entity target{};
     hb::entity::entity source{};
     hit_result result{};
@@ -103,16 +99,18 @@ struct damage_event {
 };
 
 // How an entity was killed
-enum class kill_method : uint8_t {
+enum class kill_method : uint8_t
+{
     melee = 0,
     dash,
     bow,
     magic,
-    misc  // poison, dynamic object, etc.
+    misc // poison, dynamic object, etc.
 };
 
 // Death event - published when an entity dies
-struct death_event {
+struct death_event
+{
     hb::entity::entity victim{};
     hb::entity::entity killer{};
     hb::world::position location{};
@@ -122,7 +120,8 @@ struct death_event {
 };
 
 // Combat context for damage calculations
-struct combat_context {
+struct combat_context
+{
     hb::entity::entity attacker{};
     hb::entity::entity defender{};
     damage_type type{damage_type::physical};
@@ -132,14 +131,14 @@ struct combat_context {
     int32_t magic_power{0};
     int32_t hit_rate{0};
     int32_t critical_rate{0};
-    int32_t critical_damage{0};  // Percentage (150 = 150%)
+    int32_t critical_damage{0}; // Percentage (150 = 150%)
 
     // Defender stats
     int32_t defense{0};
     int32_t magic_defense{0};
     int32_t dodge_rate{0};
     int32_t block_rate{0};
-    int32_t damage_reduction{0};  // Percentage
+    int32_t damage_reduction{0}; // Percentage
 
     // Positional
     bool is_backstab{false};
@@ -156,4 +155,4 @@ struct combat_context {
     uint8_t weapon_enchantment_value{0};
 };
 
-}  // namespace hb::combat
+} // namespace hb::combat

@@ -30,10 +30,7 @@ protected:
         social.connect_friend(player_id{300}, player_id{3}, "Charlie");
     }
 
-    void TearDown() override
-    {
-        social.shutdown();
-    }
+    void TearDown() override { social.shutdown(); }
 
     social_system social;
 
@@ -238,7 +235,7 @@ TEST_F(friend_system_test, block_player_success)
     EXPECT_EQ(result, friend_result::success);
 
     EXPECT_TRUE(social.is_blocked_friend(alice_char, bob_char));
-    EXPECT_FALSE(social.is_blocked_friend(bob_char, alice_char));  // Unidirectional
+    EXPECT_FALSE(social.is_blocked_friend(bob_char, alice_char)); // Unidirectional
 }
 
 TEST_F(friend_system_test, block_removes_existing_friendship)
@@ -429,8 +426,8 @@ TEST(friend_protocol_test, parse_friend_target_request_empty_name)
 
 TEST(friend_protocol_test, make_friend_response_success)
 {
-    auto msg = hb::network::make_friend_response(42,
-        hb::network::json_message_type::friend_request_send_response, true);
+    auto msg =
+        hb::network::make_friend_response(42, hb::network::json_message_type::friend_request_send_response, true);
     EXPECT_EQ(msg.type, hb::network::json_message_type::friend_request_send_response);
     EXPECT_EQ(msg.seq, 42u);
     EXPECT_TRUE(msg.data["success"].get<bool>());
@@ -439,18 +436,15 @@ TEST(friend_protocol_test, make_friend_response_success)
 
 TEST(friend_protocol_test, make_friend_response_failure)
 {
-    auto msg = hb::network::make_friend_response(42,
-        hb::network::json_message_type::friend_request_send_response, false, "is_blocked");
+    auto msg = hb::network::make_friend_response(
+        42, hb::network::json_message_type::friend_request_send_response, false, "is_blocked");
     EXPECT_FALSE(msg.data["success"].get<bool>());
     EXPECT_EQ(msg.data["error"].get<std::string>(), "is_blocked");
 }
 
 TEST(friend_protocol_test, make_friend_list_response)
 {
-    std::vector<hb::network::friend_list_entry_msg> friends = {
-        {"Alice", true},
-        {"Bob", false}
-    };
+    std::vector<hb::network::friend_list_entry_msg> friends = {{"Alice", true}, {"Bob", false}};
     std::vector<hb::network::friend_request_msg> incoming = {{"Charlie", false}};
     std::vector<hb::network::friend_request_msg> outgoing = {{"Dave", true}};
     std::vector<std::string> blocked = {"Eve"};
@@ -520,7 +514,8 @@ TEST(friend_protocol_test, message_type_roundtrip)
         hb::network::json_message_type::friend_offline_notification,
     };
 
-    for (auto type : types) {
+    for (auto type : types)
+    {
         auto str = hb::network::to_string(type);
         EXPECT_NE(str, "unknown") << "Type " << static_cast<int>(type) << " has no string mapping";
 

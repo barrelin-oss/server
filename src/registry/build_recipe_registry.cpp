@@ -7,7 +7,8 @@
 
 #include <yaml-cpp/yaml.h>
 
-namespace hb {
+namespace hb
+{
 
 build_recipe_registry::build_recipe_registry() = default;
 build_recipe_registry::~build_recipe_registry() = default;
@@ -27,18 +28,18 @@ void build_recipe_registry::shutdown()
 }
 
 auto build_recipe_registry::load_from_file(const std::filesystem::path& path,
-                                            const item_registry& items)
-    -> result<size_t, std::string>
+                                           const item_registry& items) -> result<size_t, std::string>
 {
     LOG_INFO(general, "Loading build recipes from: {}", path.string());
 
     YAML::Node root;
-    try {
+    try
+    {
         root = YAML::LoadFile(path.string());
-    } catch (const YAML::Exception& e) {
-        return result<size_t, std::string>::err(
-            "Failed to parse build recipes YAML: " + std::string(e.what())
-        );
+    }
+    catch (const YAML::Exception& e)
+    {
+        return result<size_t, std::string>::err("Failed to parse build recipes YAML: " + std::string(e.what()));
     }
 
     if (!root["build_recipes"] || !root["build_recipes"].IsSequence())
@@ -81,8 +82,7 @@ auto build_recipe_registry::load_from_file(const std::filesystem::path& path,
         }
         else
         {
-            LOG_WARN(general, "Build recipe '{}': result item '{}' not found in item registry",
-                index, recipe.result);
+            LOG_WARN(general, "Build recipe '{}': result item '{}' not found in item registry", index, recipe.result);
         }
 
         // Parse ingredients
@@ -121,11 +121,10 @@ auto build_recipe_registry::get(int32_t index) const -> const crafting::build_re
     return &recipes_[static_cast<size_t>(index)];
 }
 
-auto build_recipe_registry::find_by_result(std::string_view name) const
-    -> const crafting::build_recipe*
+auto build_recipe_registry::find_by_result(std::string_view name) const -> const crafting::build_recipe*
 {
     auto it = name_index_.find(std::string(name));
     return it != name_index_.end() ? &recipes_[it->second] : nullptr;
 }
 
-}  // namespace hb
+} // namespace hb

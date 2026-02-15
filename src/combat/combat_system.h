@@ -13,20 +13,23 @@
 #include <vector>
 #include <string_view>
 
-namespace hb::combat {
+namespace hb::combat
+{
 
 // Combat system configuration
-struct combat_system_config {
+struct combat_system_config
+{
     bool enable_pvp{true};
     bool enable_friendly_fire{false};
     int32_t attack_cooldown_ms{1000};
-    int32_t death_protection_ms{3000};  // Invulnerability after respawn
-    float pvp_damage_modifier{0.7f};    // PvP damage reduction
+    int32_t death_protection_ms{3000}; // Invulnerability after respawn
+    float pvp_damage_modifier{0.7f};   // PvP damage reduction
     float pve_damage_modifier{1.0f};
 };
 
 // Combat result after processing an attack
-struct combat_result {
+struct combat_result
+{
     hit_result hit;
     bool target_killed{false};
     int32_t exp_reward{0};
@@ -34,7 +37,8 @@ struct combat_result {
 };
 
 // Combat system - handles all combat interactions
-class combat_system : public subsystem {
+class combat_system : public subsystem
+{
 public:
     using damage_callback = std::function<void(const damage_event&)>;
     using death_callback = std::function<void(const death_event&)>;
@@ -86,8 +90,8 @@ private:
     void notify_death(const death_event& event);
 
     // Helper methods for building combat context
-    auto build_combat_context(hb::entity::entity attacker, hb::entity::entity defender,
-                              damage_type type) -> combat_context;
+    auto
+    build_combat_context(hb::entity::entity attacker, hb::entity::entity defender, damage_type type) -> combat_context;
     [[nodiscard]] auto is_player_entity(hb::entity::entity e) const -> bool;
     [[nodiscard]] auto check_entity_dead(hb::entity::entity e) const -> bool;
     [[nodiscard]] auto calculate_kill_rewards(hb::entity::entity target) const -> std::pair<int32_t, int32_t>;
@@ -99,7 +103,8 @@ private:
     std::vector<death_callback> death_callbacks_;
 
     // Combat state tracking
-    struct combat_state {
+    struct combat_state
+    {
         bool in_combat{false};
         int64_t invulnerable_until_ms{0};
         int32_t kill_count{0};
@@ -110,4 +115,4 @@ private:
     std::vector<death_event> pending_deaths_;
 };
 
-}  // namespace hb::combat
+} // namespace hb::combat

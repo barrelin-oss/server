@@ -13,10 +13,12 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 // NPC registry subsystem - loads and provides access to NPC templates
-class npc_registry : public subsystem {
+class npc_registry : public subsystem
+{
 public:
     npc_registry();
     ~npc_registry() override;
@@ -66,4 +68,4 @@ private:
     std::unordered_map<std::string, size_t> name_index_;
 };
 
-}  // namespace hb
+} // namespace hb

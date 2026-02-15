@@ -10,21 +10,23 @@
 
 using namespace hb;
 
-class config_test : public ::testing::Test {
+class config_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         // Create a temporary directory for test files
         test_dir_ = std::filesystem::temp_directory_path() / "hgserver_test";
         std::filesystem::create_directories(test_dir_);
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         // Clean up test files
         std::filesystem::remove_all(test_dir_);
     }
 
-    auto create_test_file(const std::string& filename, const std::string& content)
-        -> std::filesystem::path
+    auto create_test_file(const std::string& filename, const std::string& content) -> std::filesystem::path
     {
         auto path = test_dir_ / filename;
         std::ofstream file(path);
@@ -35,7 +37,8 @@ protected:
     std::filesystem::path test_dir_;
 };
 
-TEST_F(config_test, server_config_defaults) {
+TEST_F(config_test, server_config_defaults)
+{
     server_config config;
 
     EXPECT_EQ(config.server_name, "HGServer");
@@ -44,13 +47,13 @@ TEST_F(config_test, server_config_defaults) {
     EXPECT_EQ(config.log_server_port, 3000);
 }
 
-TEST_F(config_test, server_config_load_ini) {
+TEST_F(config_test, server_config_load_ini)
+{
     auto path = create_test_file("test_server.cfg",
-        "game-server-name = TestServer\n"
-        "game-server-port = 3000\n"
-        "log-server-address = 192.168.1.1\n"
-        "log-server-port = 4000\n"
-    );
+                                 "game-server-name = TestServer\n"
+                                 "game-server-port = 3000\n"
+                                 "log-server-address = 192.168.1.1\n"
+                                 "log-server-port = 4000\n");
 
     auto result = server_config::load_from_file(path);
 
@@ -63,12 +66,14 @@ TEST_F(config_test, server_config_load_ini) {
     EXPECT_EQ(config.log_server_port, 4000);
 }
 
-TEST_F(config_test, server_config_load_nonexistent) {
+TEST_F(config_test, server_config_load_nonexistent)
+{
     auto result = server_config::load_from_file("nonexistent.cfg");
     EXPECT_TRUE(result.is_err());
 }
 
-TEST_F(config_test, server_config_json_roundtrip) {
+TEST_F(config_test, server_config_json_roundtrip)
+{
     server_config original;
     original.server_name = "JsonTest";
     original.game_server_port = 5000;
@@ -90,7 +95,8 @@ TEST_F(config_test, server_config_json_roundtrip) {
     EXPECT_EQ(loaded.log_server_addr, original.log_server_addr);
 }
 
-TEST_F(config_test, game_config_defaults) {
+TEST_F(config_test, game_config_defaults)
+{
     game_config config;
 
     EXPECT_EQ(config.max_clients, 2000);
@@ -99,7 +105,8 @@ TEST_F(config_test, game_config_defaults) {
     EXPECT_EQ(config.maximum_hit_ratio, 99);
 }
 
-TEST_F(config_test, config_system_lifecycle) {
+TEST_F(config_test, config_system_lifecycle)
+{
     config_system system;
 
     EXPECT_FALSE(system.is_initialized());
@@ -112,11 +119,11 @@ TEST_F(config_test, config_system_lifecycle) {
     EXPECT_FALSE(system.is_initialized());
 }
 
-TEST_F(config_test, config_system_load_server) {
+TEST_F(config_test, config_system_load_server)
+{
     auto path = create_test_file("server.cfg",
-        "game-server-name = SystemTest\n"
-        "game-server-port = 9999\n"
-    );
+                                 "game-server-name = SystemTest\n"
+                                 "game-server-port = 9999\n");
 
     config_system system;
     system.initialize();
@@ -130,25 +137,20 @@ TEST_F(config_test, config_system_load_server) {
     system.shutdown();
 }
 
-TEST_F(config_test, config_system_change_callback) {
-    auto path = create_test_file("callback.cfg",
-        "game-server-name = Initial\n"
-    );
+TEST_F(config_test, config_system_change_callback)
+{
+    auto path = create_test_file("callback.cfg", "game-server-name = Initial\n");
 
     config_system system;
     system.initialize();
 
     bool callback_called = false;
-    system.on_config_changed([&]() {
-        callback_called = true;
-    });
+    system.on_config_changed([&]() { callback_called = true; });
 
     system.load_server_config(path);
 
     // Create new config file for reload
-    create_test_file("callback.cfg",
-        "game-server-name = Reloaded\n"
-    );
+    create_test_file("callback.cfg", "game-server-name = Reloaded\n");
 
     system.reload();
 
@@ -158,14 +160,14 @@ TEST_F(config_test, config_system_change_callback) {
     system.shutdown();
 }
 
-TEST_F(config_test, ini_parse_comments) {
+TEST_F(config_test, ini_parse_comments)
+{
     auto path = create_test_file("comments.cfg",
-        "# This is a comment\n"
-        "; This is also a comment\n"
-        "game-server-name = CommentTest\n"
-        "# Another comment\n"
-        "game-server-port = 1234\n"
-    );
+                                 "# This is a comment\n"
+                                 "; This is also a comment\n"
+                                 "game-server-name = CommentTest\n"
+                                 "# Another comment\n"
+                                 "game-server-port = 1234\n");
 
     auto result = server_config::load_from_file(path);
     ASSERT_TRUE(result.is_ok());
@@ -174,11 +176,11 @@ TEST_F(config_test, ini_parse_comments) {
     EXPECT_EQ(result.value().game_server_port, 1234);
 }
 
-TEST_F(config_test, ini_parse_whitespace) {
+TEST_F(config_test, ini_parse_whitespace)
+{
     auto path = create_test_file("whitespace.cfg",
-        "  game-server-name   =   WhitespaceTest  \n"
-        "\tgame-server-port\t=\t5678\t\n"
-    );
+                                 "  game-server-name   =   WhitespaceTest  \n"
+                                 "\tgame-server-port\t=\t5678\t\n");
 
     auto result = server_config::load_from_file(path);
     ASSERT_TRUE(result.is_ok());
@@ -187,11 +189,11 @@ TEST_F(config_test, ini_parse_whitespace) {
     EXPECT_EQ(result.value().game_server_port, 5678);
 }
 
-TEST_F(config_test, ini_parse_case_insensitive_keys) {
+TEST_F(config_test, ini_parse_case_insensitive_keys)
+{
     auto path = create_test_file("case.cfg",
-        "GAME-SERVER-NAME = UpperCase\n"
-        "Game-Server-Port = 4321\n"
-    );
+                                 "GAME-SERVER-NAME = UpperCase\n"
+                                 "Game-Server-Port = 4321\n");
 
     auto result = server_config::load_from_file(path);
     ASSERT_TRUE(result.is_ok());
@@ -200,7 +202,8 @@ TEST_F(config_test, ini_parse_case_insensitive_keys) {
     EXPECT_EQ(result.value().game_server_port, 4321);
 }
 
-TEST_F(config_test, ini_parse_empty_file) {
+TEST_F(config_test, ini_parse_empty_file)
+{
     auto path = create_test_file("empty.cfg", "");
 
     auto result = server_config::load_from_file(path);

@@ -15,29 +15,35 @@
 #include <functional>
 #include <vector>
 
-namespace hb {
+namespace hb
+{
 
 // Forward declarations
-namespace network {
-    class websocket_server;
+namespace network
+{
+class websocket_server;
 }
-namespace bridge {
-    class auth_handlers;
-    class game_handlers;
-    class admin_web_handlers;
-}
-namespace war {
-    class war_persistence;
+namespace bridge
+{
+class auth_handlers;
+class game_handlers;
+class admin_web_handlers;
+} // namespace bridge
+namespace war
+{
+class war_persistence;
 }
 
 // Application configuration
-struct application_config {
+struct application_config
+{
     std::string config_file = "server.yaml";
     uint32_t tick_interval_ms = 100; // Game tick interval
 };
 
 // Main application class
-class application {
+class application
+{
 public:
     // Get the singleton instance
     [[nodiscard]] static auto instance() -> application&;
@@ -111,4 +117,4 @@ private:
     task_id auto_save_task_id_;
 };
 
-}  // namespace hb
+} // namespace hb

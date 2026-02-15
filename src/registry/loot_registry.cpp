@@ -6,7 +6,8 @@
 
 #include <yaml-cpp/yaml.h>
 
-namespace hb {
+namespace hb
+{
 
 loot_registry::loot_registry() = default;
 loot_registry::~loot_registry() = default;
@@ -25,18 +26,18 @@ void loot_registry::shutdown()
     set_initialized(false);
 }
 
-auto loot_registry::load_from_file(const std::filesystem::path& path)
-    -> result<size_t, std::string>
+auto loot_registry::load_from_file(const std::filesystem::path& path) -> result<size_t, std::string>
 {
     LOG_INFO(general, "Loading loot tables from: {}", path.string());
 
     YAML::Node root;
-    try {
+    try
+    {
         root = YAML::LoadFile(path.string());
-    } catch (const YAML::Exception& e) {
-        return result<size_t, std::string>::err(
-            "Failed to parse loot YAML: " + std::string(e.what())
-        );
+    }
+    catch (const YAML::Exception& e)
+    {
+        return result<size_t, std::string>::err("Failed to parse loot YAML: " + std::string(e.what()));
     }
 
     // Parse pools
@@ -67,8 +68,8 @@ auto loot_registry::load_from_file(const std::filesystem::path& path)
                 }
             }
 
-            LOG_DEBUG(general, "  Pool '{}': {} items, total weight {}",
-                pool_name, pool.items.size(), pool.total_weight);
+            LOG_DEBUG(
+                general, "  Pool '{}': {} items, total weight {}", pool_name, pool.items.size(), pool.total_weight);
             pools_[pool_name] = std::move(pool);
         }
     }
@@ -119,10 +120,15 @@ auto loot_registry::load_from_file(const std::filesystem::path& path)
                         {
                             npc::loot_attribute_config attr_cfg;
                             auto& an = drop["attribute"];
-                            if (an["max_upgrade"]) attr_cfg.max_upgrade_level = static_cast<uint8_t>(an["max_upgrade"].as<int>());
-                            if (an["enchant_chance"]) attr_cfg.enchantment_chance = static_cast<uint8_t>(an["enchant_chance"].as<int>());
-                            if (an["sub_enchant_chance"]) attr_cfg.sub_enchantment_chance = static_cast<uint8_t>(an["sub_enchant_chance"].as<int>());
-                            if (an["max_value"]) attr_cfg.max_enchantment_value = static_cast<uint8_t>(an["max_value"].as<int>());
+                            if (an["max_upgrade"])
+                                attr_cfg.max_upgrade_level = static_cast<uint8_t>(an["max_upgrade"].as<int>());
+                            if (an["enchant_chance"])
+                                attr_cfg.enchantment_chance = static_cast<uint8_t>(an["enchant_chance"].as<int>());
+                            if (an["sub_enchant_chance"])
+                                attr_cfg.sub_enchantment_chance =
+                                    static_cast<uint8_t>(an["sub_enchant_chance"].as<int>());
+                            if (an["max_value"])
+                                attr_cfg.max_enchantment_value = static_cast<uint8_t>(an["max_value"].as<int>());
                             entry.attribute = attr_cfg;
                         }
                         phase.drops.push_back(std::move(entry));
@@ -161,4 +167,4 @@ auto loot_registry::get_config(int16_t sprite_id) const -> const npc::npc_loot_c
     return it != configs_.end() ? &it->second : nullptr;
 }
 
-}  // namespace hb
+} // namespace hb

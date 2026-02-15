@@ -16,7 +16,8 @@
 #include <fstream>
 #include <filesystem>
 
-namespace {
+namespace
+{
 
 using namespace hb;
 
@@ -96,9 +97,9 @@ TEST(use_item_test, hp_potion_template_fields)
     tmpl.name = "RedPotion";
     tmpl.type = item_type::eat;
     tmpl.use_effect.type = consumable_effect_type::hp_restore;
-    tmpl.use_effect.v1 = 2;   // dice count
-    tmpl.use_effect.v2 = 12;  // dice sides
-    tmpl.use_effect.v3 = 10;  // flat bonus
+    tmpl.use_effect.v1 = 2;  // dice count
+    tmpl.use_effect.v2 = 12; // dice sides
+    tmpl.use_effect.v3 = 10; // flat bonus
 
     EXPECT_TRUE(tmpl.is_usable());
     // is_consumable is set by YAML loader, not default — test that in registry test
@@ -116,7 +117,7 @@ TEST(use_item_test, recall_scroll_template_fields)
     tmpl.name = "RecallScroll";
     tmpl.type = item_type::use_deplete;
     tmpl.use_effect.type = consumable_effect_type::magic_scroll;
-    tmpl.use_effect.v1 = 1;  // scroll subtype: recall
+    tmpl.use_effect.v1 = 1; // scroll subtype: recall
 
     EXPECT_TRUE(tmpl.is_usable());
     EXPECT_EQ(tmpl.use_effect.type, consumable_effect_type::magic_scroll);
@@ -150,7 +151,8 @@ TEST(potion_speed_test, normal_speed_does_not_trigger)
     auto base = std::chrono::steady_clock::now();
 
     // 300ms intervals — well above threshold
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; ++i)
+    {
         tracker.record_use(base + std::chrono::milliseconds(300 * i));
     }
     EXPECT_FALSE(tracker.is_speed_hack());
@@ -162,7 +164,8 @@ TEST(potion_speed_test, fast_speed_triggers_after_three)
     auto base = std::chrono::steady_clock::now();
 
     // 50ms intervals — way below threshold
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; ++i)
+    {
         tracker.record_use(base + std::chrono::milliseconds(50 * i));
     }
     EXPECT_TRUE(tracker.is_speed_hack());
@@ -174,7 +177,8 @@ TEST(potion_speed_test, resets_after_two_second_gap)
     auto base = std::chrono::steady_clock::now();
 
     // Fast burst
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; ++i)
+    {
         tracker.record_use(base + std::chrono::milliseconds(50 * i));
     }
     EXPECT_TRUE(tracker.is_speed_hack());
@@ -190,7 +194,8 @@ TEST(potion_speed_test, resets_after_five_accumulated)
     auto base = std::chrono::steady_clock::now();
 
     // 5 uses at moderate speed (just under 2s total)
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         tracker.record_use(base + std::chrono::milliseconds(350 * i));
     }
     // count is now 5, so next use resets
@@ -202,26 +207,30 @@ TEST(potion_speed_test, resets_after_five_accumulated)
 // Dice roll range tests (using a local replica)
 // ============================================================================
 
-namespace {
+namespace
+{
 
 auto test_dice_roll(int count, int sides, int bonus) -> int32_t
 {
-    if (count <= 0 || sides <= 0) return bonus;
+    if (count <= 0 || sides <= 0)
+        return bonus;
     thread_local std::mt19937 rng{std::random_device{}()};
     std::uniform_int_distribution<int> dist(1, sides);
     int32_t total = bonus;
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; ++i)
+    {
         total += dist(rng);
     }
     return total;
 }
 
-}  // namespace
+} // namespace
 
 TEST(dice_roll_test, output_in_expected_range)
 {
     // 2d12+10 → range [12, 34]
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i)
+    {
         int32_t result = test_dice_roll(2, 12, 10);
         EXPECT_GE(result, 12);
         EXPECT_LE(result, 34);
@@ -241,7 +250,8 @@ TEST(dice_roll_test, zero_sides_returns_bonus)
 TEST(dice_roll_test, one_die_one_side_returns_count_plus_bonus)
 {
     // 3d1+5 = always 8
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 20; ++i)
+    {
         EXPECT_EQ(test_dice_roll(3, 1, 5), 8);
     }
 }
@@ -296,9 +306,9 @@ TEST(use_item_protocol_test, message_type_to_string)
 TEST(use_item_protocol_test, message_type_parse)
 {
     EXPECT_EQ(network::parse_message_type("player_use_item_request"),
-        network::json_message_type::player_use_item_request);
+              network::json_message_type::player_use_item_request);
     EXPECT_EQ(network::parse_message_type("player_use_item_response"),
-        network::json_message_type::player_use_item_response);
+              network::json_message_type::player_use_item_response);
 }
 
 // ============================================================================
@@ -311,7 +321,7 @@ TEST(use_item_player_test, heal_hp_caps_at_max)
     plr.computed.max_hp = 100;
     plr.hp = 80;
 
-    plr.heal_hp(50);  // Would go to 130, should cap at 100
+    plr.heal_hp(50); // Would go to 130, should cap at 100
     EXPECT_EQ(plr.hp, 100);
 }
 
@@ -349,7 +359,7 @@ TEST(use_item_player_test, hunger_restore_caps_at_100)
 {
     player::hunger_state hunger;
     hunger.level = 80;
-    hunger.consume(30);  // 80 + 30 = 110, should cap at 100
+    hunger.consume(30); // 80 + 30 = 110, should cap at 100
     EXPECT_EQ(hunger.level, 100);
 }
 
@@ -413,9 +423,12 @@ TEST(use_item_inventory_test, last_item_cleared)
     inventory::inventory_slot slot;
     slot.set(item_id{91}, 1);
 
-    if (slot.count <= 1) {
+    if (slot.count <= 1)
+    {
         slot.clear();
-    } else {
+    }
+    else
+    {
         --slot.count;
     }
 
@@ -427,9 +440,12 @@ TEST(use_item_inventory_test, stack_five_to_four)
     inventory::inventory_slot slot;
     slot.set(item_id{91}, 5);
 
-    if (slot.count <= 1) {
+    if (slot.count <= 1)
+    {
         slot.clear();
-    } else {
+    }
+    else
+    {
         --slot.count;
     }
 
@@ -501,4 +517,4 @@ TEST(use_item_registry_test, parses_consumable_fields_from_yaml)
     std::filesystem::remove(temp_path);
 }
 
-}  // namespace
+} // namespace

@@ -6,23 +6,30 @@
 
 #include <yaml-cpp/yaml.h>
 
-namespace hb::npc::boss {
+namespace hb::npc::boss
+{
 
-namespace {
+namespace
+{
 
 auto parse_trigger_type(const std::string& str) -> phase_trigger_type
 {
-    if (str == "hp_below") return phase_trigger_type::hp_below;
-    if (str == "hp_above") return phase_trigger_type::hp_above;
-    if (str == "timer") return phase_trigger_type::timer;
-    if (str == "adds_dead") return phase_trigger_type::adds_dead;
+    if (str == "hp_below")
+        return phase_trigger_type::hp_below;
+    if (str == "hp_above")
+        return phase_trigger_type::hp_above;
+    if (str == "timer")
+        return phase_trigger_type::timer;
+    if (str == "adds_dead")
+        return phase_trigger_type::adds_dead;
     return phase_trigger_type::hp_below;
 }
 
 auto parse_trigger(const YAML::Node& node) -> phase_trigger
 {
     phase_trigger trigger;
-    if (!node) return trigger;
+    if (!node)
+        return trigger;
 
     trigger.type = parse_trigger_type(node["type"].as<std::string>("hp_below"));
     trigger.hp_threshold = node["threshold"].as<float>(0.0f);
@@ -54,10 +61,9 @@ auto parse_phase(const YAML::Node& node) -> boss_phase
     return phase;
 }
 
-}  // anonymous namespace
+} // anonymous namespace
 
-auto boss_loader::load_from_file(const std::filesystem::path& path)
-    -> result<boss_config, std::string>
+auto boss_loader::load_from_file(const std::filesystem::path& path) -> result<boss_config, std::string>
 {
     try
     {
@@ -85,18 +91,15 @@ auto boss_loader::load_from_file(const std::filesystem::path& path)
     }
     catch (const YAML::Exception& e)
     {
-        return result<boss_config, std::string>::err(
-            std::string("YAML error loading boss config: ") + e.what());
+        return result<boss_config, std::string>::err(std::string("YAML error loading boss config: ") + e.what());
     }
     catch (const std::exception& e)
     {
-        return result<boss_config, std::string>::err(
-            std::string("Error loading boss config: ") + e.what());
+        return result<boss_config, std::string>::err(std::string("Error loading boss config: ") + e.what());
     }
 }
 
-auto boss_loader::load_directory(const std::filesystem::path& dir)
-    -> result<size_t, std::string>
+auto boss_loader::load_directory(const std::filesystem::path& dir) -> result<size_t, std::string>
 {
     configs_dir_ = dir;
 
@@ -108,10 +111,12 @@ auto boss_loader::load_directory(const std::filesystem::path& dir)
     size_t count = 0;
     for (const auto& entry : std::filesystem::directory_iterator(dir))
     {
-        if (!entry.is_regular_file()) continue;
+        if (!entry.is_regular_file())
+            continue;
 
         auto ext = entry.path().extension().string();
-        if (ext != ".yaml" && ext != ".yml") continue;
+        if (ext != ".yaml" && ext != ".yml")
+            continue;
 
         auto res = load_from_file(entry.path());
         if (res.is_ok())
@@ -120,8 +125,7 @@ auto boss_loader::load_directory(const std::filesystem::path& dir)
         }
         else
         {
-            LOG_WARN(general, "Failed to load boss config {}: {}",
-                entry.path().string(), res.error());
+            LOG_WARN(general, "Failed to load boss config {}: {}", entry.path().string(), res.error());
         }
     }
 
@@ -151,4 +155,4 @@ void boss_loader::clear()
     configs_.clear();
 }
 
-}  // namespace hb::npc::boss
+} // namespace hb::npc::boss

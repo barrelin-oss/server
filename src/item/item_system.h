@@ -15,26 +15,30 @@
 #include <vector>
 #include <string_view>
 
-namespace hb::item {
+namespace hb::item
+{
 
 // Item system configuration
-struct item_system_config {
+struct item_system_config
+{
     uint32_t max_items{100000};
     bool enable_durability_decay{true};
     int32_t decay_check_interval_ms{60000};
 };
 
 // Item creation info
-struct item_create_info {
+struct item_create_info
+{
     item_id template_id{};
     int16_t count{1};
     entity_id owner{};
     bool full_durability{true};
-    std::optional<item_attribute> attribute;  // Pre-set attribute (from persistence/crafting)
+    std::optional<item_attribute> attribute; // Pre-set attribute (from persistence/crafting)
 };
 
 // Item system - manages all item instances
-class item_system : public subsystem {
+class item_system : public subsystem
+{
 public:
     item_system();
     ~item_system() override;
@@ -76,26 +80,27 @@ public:
     void repair_item_full(item_id id);
 
     // Iteration
-    template<typename Func>
-    void for_each_item(Func&& func) {
-        for (auto& [id, item_ptr] : items_) {
+    template<typename Func> void for_each_item(Func&& func)
+    {
+        for (auto& [id, item_ptr] : items_)
+        {
             func(id, *item_ptr);
         }
     }
 
-    template<typename Func>
-    void for_each_item_owned_by(entity_id owner, Func&& func) {
-        for (auto& [id, item_ptr] : items_) {
-            if (item_ptr->owner == owner) {
+    template<typename Func> void for_each_item_owned_by(entity_id owner, Func&& func)
+    {
+        for (auto& [id, item_ptr] : items_)
+        {
+            if (item_ptr->owner == owner)
+            {
                 func(id, *item_ptr);
             }
         }
     }
 
 private:
-    [[nodiscard]] auto next_item_id() -> item_id {
-        return item_id{next_id_++};
-    }
+    [[nodiscard]] auto next_item_id() -> item_id { return item_id{next_id_++}; }
 
     void update_durability_decay(float delta_time);
     void populate_from_template(item& itm, item_id template_id);
@@ -107,4 +112,4 @@ private:
     float decay_accumulator_{0.0f};
 };
 
-}  // namespace hb::item
+} // namespace hb::item

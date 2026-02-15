@@ -8,21 +8,23 @@
 #include "social/chat.h"
 #include "social/social_system.h"
 
-using hb::player_id;
 using hb::guild_id;
 using hb::map_id;
+using hb::player_id;
 using namespace hb::social;
 
 // Guild tests
 
-TEST(guild_test, default_state) {
+TEST(guild_test, default_state)
+{
     guild g;
     EXPECT_EQ(g.member_count(), 0);
     EXPECT_TRUE(g.is_empty());
     EXPECT_FALSE(g.is_full());
 }
 
-TEST(guild_test, add_remove_member) {
+TEST(guild_test, add_remove_member)
+{
     guild g;
     g.add_member(player_id{1}, "Player1", guild_rank::guild_master);
 
@@ -38,7 +40,8 @@ TEST(guild_test, add_remove_member) {
     EXPECT_FALSE(g.is_member(player_id{1}));
 }
 
-TEST(guild_test, permissions) {
+TEST(guild_test, permissions)
+{
     guild g;
     g.add_member(player_id{1}, "Master", guild_rank::guild_master);
     g.add_member(player_id{2}, "Officer", guild_rank::officer);
@@ -57,7 +60,8 @@ TEST(guild_test, permissions) {
     EXPECT_FALSE(g.has_permission(player_id{3}, guild_permission::invite));
 }
 
-TEST(guild_test, rank_modification) {
+TEST(guild_test, rank_modification)
+{
     guild g;
     g.add_member(player_id{1}, "Player", guild_rank::recruit);
 
@@ -71,14 +75,16 @@ TEST(guild_test, rank_modification) {
 
 // Party tests
 
-TEST(party_test, default_state) {
+TEST(party_test, default_state)
+{
     party p;
     EXPECT_EQ(p.member_count(), 0);
     EXPECT_TRUE(p.is_empty());
     EXPECT_FALSE(p.is_full());
 }
 
-TEST(party_test, add_remove_member) {
+TEST(party_test, add_remove_member)
+{
     party p;
     p.id = party_id{1};
     p.add_member(player_id{1}, "Player1", 10);
@@ -100,7 +106,8 @@ TEST(party_test, add_remove_member) {
     EXPECT_TRUE(p.is_leader(player_id{2}));
 }
 
-TEST(party_test, set_leader) {
+TEST(party_test, set_leader)
+{
     party p;
     p.id = party_id{1};
     p.add_member(player_id{1}, "Player1", 10);
@@ -113,7 +120,8 @@ TEST(party_test, set_leader) {
     EXPECT_FALSE(p.is_leader(player_id{1}));
 }
 
-TEST(party_test, average_level) {
+TEST(party_test, average_level)
+{
     party p;
     p.add_member(player_id{1}, "P1", 10);
     p.add_member(player_id{2}, "P2", 20);
@@ -122,7 +130,8 @@ TEST(party_test, average_level) {
     EXPECT_FLOAT_EQ(p.average_level(), 20.0f);
 }
 
-TEST(party_test, round_robin_loot) {
+TEST(party_test, round_robin_loot)
+{
     party p;
     p.id = party_id{1};
     p.add_member(player_id{1}, "P1", 10);
@@ -132,10 +141,11 @@ TEST(party_test, round_robin_loot) {
     EXPECT_EQ(p.get_next_looter(), player_id{1});
     EXPECT_EQ(p.get_next_looter(), player_id{2});
     EXPECT_EQ(p.get_next_looter(), player_id{3});
-    EXPECT_EQ(p.get_next_looter(), player_id{1});  // Wraps around
+    EXPECT_EQ(p.get_next_looter(), player_id{1}); // Wraps around
 }
 
-TEST(party_test, invites) {
+TEST(party_test, invites)
+{
     party p;
     p.id = party_id{1};
 
@@ -149,7 +159,8 @@ TEST(party_test, invites) {
 
 // Chat tests
 
-TEST(chat_settings_test, default_state) {
+TEST(chat_settings_test, default_state)
+{
     chat_settings settings;
 
     EXPECT_TRUE(settings.is_channel_enabled(chat_channel::local));
@@ -157,7 +168,8 @@ TEST(chat_settings_test, default_state) {
     EXPECT_FALSE(settings.is_player_blocked(player_id{1}));
 }
 
-TEST(chat_settings_test, block_unblock) {
+TEST(chat_settings_test, block_unblock)
+{
     chat_settings settings;
 
     settings.block_player(player_id{1});
@@ -167,7 +179,8 @@ TEST(chat_settings_test, block_unblock) {
     EXPECT_FALSE(settings.is_player_blocked(player_id{1}));
 }
 
-TEST(chat_settings_test, channel_toggle) {
+TEST(chat_settings_test, channel_toggle)
+{
     chat_settings settings;
 
     settings.set_channel_enabled(chat_channel::global, false);
@@ -177,14 +190,16 @@ TEST(chat_settings_test, channel_toggle) {
     EXPECT_TRUE(settings.is_channel_enabled(chat_channel::global));
 }
 
-TEST(chat_rate_limit_test, can_send) {
+TEST(chat_rate_limit_test, can_send)
+{
     chat_rate_limit limit;
     limit.reset();
 
     EXPECT_TRUE(limit.can_send());
 
     // Send max messages
-    for (int i = 0; i < chat_rate_limit::max_messages_per_second; ++i) {
+    for (int i = 0; i < chat_rate_limit::max_messages_per_second; ++i)
+    {
         limit.record_message();
     }
 
@@ -193,9 +208,11 @@ TEST(chat_rate_limit_test, can_send) {
 
 // Social system tests
 
-class social_system_test : public ::testing::Test {
+class social_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         system_.initialize();
 
         social_system_config config;
@@ -211,21 +228,21 @@ protected:
         system_.register_player(player_id{3}, "Player3");
     }
 
-    void TearDown() override {
-        system_.shutdown();
-    }
+    void TearDown() override { system_.shutdown(); }
 
     social_system system_;
 };
 
-TEST_F(social_system_test, lifecycle) {
+TEST_F(social_system_test, lifecycle)
+{
     EXPECT_TRUE(system_.is_initialized());
     EXPECT_EQ(system_.name(), "social_system");
 }
 
 // Guild system tests
 
-TEST_F(social_system_test, create_guild) {
+TEST_F(social_system_test, create_guild)
+{
     auto result = system_.create_guild(player_id{1}, "Test Guild", "TG");
     ASSERT_TRUE(result.is_ok());
 
@@ -240,7 +257,8 @@ TEST_F(social_system_test, create_guild) {
     EXPECT_EQ(g->member_count(), 1);
 }
 
-TEST_F(social_system_test, guild_duplicate_name) {
+TEST_F(social_system_test, guild_duplicate_name)
+{
     system_.create_guild(player_id{1}, "Test Guild", "TG");
 
     auto result = system_.create_guild(player_id{2}, "Test Guild", "T2");
@@ -248,13 +266,15 @@ TEST_F(social_system_test, guild_duplicate_name) {
     EXPECT_EQ(result.error(), guild_result::name_taken);
 }
 
-TEST_F(social_system_test, guild_invalid_name) {
-    auto result = system_.create_guild(player_id{1}, "AB", "TG");  // Too short
+TEST_F(social_system_test, guild_invalid_name)
+{
+    auto result = system_.create_guild(player_id{1}, "AB", "TG"); // Too short
     EXPECT_FALSE(result.is_ok());
     EXPECT_EQ(result.error(), guild_result::invalid_name);
 }
 
-TEST_F(social_system_test, guild_join_leave) {
+TEST_F(social_system_test, guild_join_leave)
+{
     auto result = system_.create_guild(player_id{1}, "Test Guild", "TG");
     guild_id gid = result.value();
 
@@ -266,7 +286,8 @@ TEST_F(social_system_test, guild_join_leave) {
     EXPECT_EQ(g->member_count(), 1);
 }
 
-TEST_F(social_system_test, guild_kick) {
+TEST_F(social_system_test, guild_kick)
+{
     auto result = system_.create_guild(player_id{1}, "Test Guild", "TG");
     guild_id gid = result.value();
     system_.join_guild(player_id{2}, gid);
@@ -279,14 +300,16 @@ TEST_F(social_system_test, guild_kick) {
     EXPECT_EQ(g->member_count(), 1);
 }
 
-TEST_F(social_system_test, guild_cannot_kick_self) {
+TEST_F(social_system_test, guild_cannot_kick_self)
+{
     system_.create_guild(player_id{1}, "Test Guild", "TG");
 
     auto result = system_.kick_from_guild(player_id{1}, player_id{1});
     EXPECT_EQ(result, guild_result::cannot_kick_self);
 }
 
-TEST_F(social_system_test, guild_promote_demote) {
+TEST_F(social_system_test, guild_promote_demote)
+{
     auto result = system_.create_guild(player_id{1}, "Test Guild", "TG");
     guild_id gid = result.value();
     system_.join_guild(player_id{2}, gid);
@@ -302,7 +325,8 @@ TEST_F(social_system_test, guild_promote_demote) {
     EXPECT_EQ(member->rank, guild_rank::recruit);
 }
 
-TEST_F(social_system_test, guild_set_motd) {
+TEST_F(social_system_test, guild_set_motd)
+{
     auto result = system_.create_guild(player_id{1}, "Test Guild", "TG");
     guild_id gid = result.value();
 
@@ -312,7 +336,8 @@ TEST_F(social_system_test, guild_set_motd) {
     EXPECT_EQ(g->motd, "Welcome to the guild!");
 }
 
-TEST_F(social_system_test, find_guild_by_name) {
+TEST_F(social_system_test, find_guild_by_name)
+{
     auto result = system_.create_guild(player_id{1}, "Test Guild", "TG");
     guild_id gid = result.value();
 
@@ -322,7 +347,8 @@ TEST_F(social_system_test, find_guild_by_name) {
 
 // Party system tests
 
-TEST_F(social_system_test, create_party) {
+TEST_F(social_system_test, create_party)
+{
     auto result = system_.create_party(player_id{1});
     ASSERT_TRUE(result.is_ok());
 
@@ -336,7 +362,8 @@ TEST_F(social_system_test, create_party) {
     EXPECT_TRUE(p->is_leader(player_id{1}));
 }
 
-TEST_F(social_system_test, party_invite_accept) {
+TEST_F(social_system_test, party_invite_accept)
+{
     // First invite auto-creates party
     system_.invite_to_party(player_id{1}, player_id{2});
 
@@ -349,7 +376,8 @@ TEST_F(social_system_test, party_invite_accept) {
     EXPECT_EQ(p->member_count(), 2);
 }
 
-TEST_F(social_system_test, party_leave) {
+TEST_F(social_system_test, party_leave)
+{
     auto result = system_.create_party(player_id{1});
     party_id pid = result.value();
 
@@ -362,7 +390,8 @@ TEST_F(social_system_test, party_leave) {
     EXPECT_EQ(p->member_count(), 1);
 }
 
-TEST_F(social_system_test, party_kick) {
+TEST_F(social_system_test, party_kick)
+{
     auto result = system_.create_party(player_id{1});
     party_id pid = result.value();
 
@@ -376,7 +405,8 @@ TEST_F(social_system_test, party_kick) {
     EXPECT_EQ(p->member_count(), 1);
 }
 
-TEST_F(social_system_test, party_leader_transfer) {
+TEST_F(social_system_test, party_leader_transfer)
+{
     auto result = system_.create_party(player_id{1});
     party_id pid = result.value();
 
@@ -389,7 +419,8 @@ TEST_F(social_system_test, party_leader_transfer) {
     EXPECT_TRUE(p->is_leader(player_id{2}));
 }
 
-TEST_F(social_system_test, party_loot_mode) {
+TEST_F(social_system_test, party_loot_mode)
+{
     auto result = system_.create_party(player_id{1});
     party_id pid = result.value();
 
@@ -399,7 +430,8 @@ TEST_F(social_system_test, party_loot_mode) {
     EXPECT_EQ(p->loot, loot_mode::round_robin);
 }
 
-TEST_F(social_system_test, party_disband) {
+TEST_F(social_system_test, party_disband)
+{
     auto result = system_.create_party(player_id{1});
     party_id pid = result.value();
 
@@ -411,80 +443,96 @@ TEST_F(social_system_test, party_disband) {
 
 // Chat system tests
 
-TEST_F(social_system_test, send_local_chat) {
+TEST_F(social_system_test, send_local_chat)
+{
     bool callback_fired = false;
-    system_.on_chat_message([&](const chat_message_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.message.sender, player_id{1});
-        EXPECT_EQ(event.message.channel, chat_channel::local);
-        EXPECT_EQ(event.message.content, "Hello!");
-    });
+    system_.on_chat_message(
+        [&](const chat_message_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.message.sender, player_id{1});
+            EXPECT_EQ(event.message.channel, chat_channel::local);
+            EXPECT_EQ(event.message.content, "Hello!");
+        });
 
     auto result = system_.send_local_chat(player_id{1}, "Hello!", map_id{1}, 100, 100);
     EXPECT_EQ(result, filter_result::allowed);
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(social_system_test, send_guild_chat_no_guild) {
+TEST_F(social_system_test, send_guild_chat_no_guild)
+{
     auto result = system_.send_guild_chat(player_id{1}, "Hello guild!");
     EXPECT_EQ(result, filter_result::blocked);
 }
 
-TEST_F(social_system_test, send_guild_chat_with_guild) {
+TEST_F(social_system_test, send_guild_chat_with_guild)
+{
     system_.create_guild(player_id{1}, "Test Guild", "TG");
 
     bool callback_fired = false;
-    system_.on_chat_message([&](const chat_message_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.message.channel, chat_channel::guild);
-    });
+    system_.on_chat_message(
+        [&](const chat_message_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.message.channel, chat_channel::guild);
+        });
 
     auto result = system_.send_guild_chat(player_id{1}, "Hello guild!");
     EXPECT_EQ(result, filter_result::allowed);
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(social_system_test, send_party_chat_no_party) {
+TEST_F(social_system_test, send_party_chat_no_party)
+{
     auto result = system_.send_party_chat(player_id{1}, "Hello party!");
     EXPECT_EQ(result, filter_result::blocked);
 }
 
-TEST_F(social_system_test, send_party_chat_with_party) {
+TEST_F(social_system_test, send_party_chat_with_party)
+{
     system_.create_party(player_id{1});
 
     bool callback_fired = false;
-    system_.on_chat_message([&](const chat_message_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.message.channel, chat_channel::party);
-    });
+    system_.on_chat_message(
+        [&](const chat_message_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.message.channel, chat_channel::party);
+        });
 
     auto result = system_.send_party_chat(player_id{1}, "Hello party!");
     EXPECT_EQ(result, filter_result::allowed);
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(social_system_test, whisper) {
+TEST_F(social_system_test, whisper)
+{
     bool callback_fired = false;
-    system_.on_chat_message([&](const chat_message_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.message.sender, player_id{1});
-        EXPECT_EQ(event.message.recipient, player_id{2});
-        EXPECT_EQ(event.message.channel, chat_channel::whisper);
-    });
+    system_.on_chat_message(
+        [&](const chat_message_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.message.sender, player_id{1});
+            EXPECT_EQ(event.message.recipient, player_id{2});
+            EXPECT_EQ(event.message.channel, chat_channel::whisper);
+        });
 
     auto result = system_.send_whisper(player_id{1}, player_id{2}, "Secret message");
     EXPECT_EQ(result, filter_result::allowed);
     EXPECT_TRUE(callback_fired);
 }
 
-TEST_F(social_system_test, whisper_blocked_player) {
+TEST_F(social_system_test, whisper_blocked_player)
+{
     system_.block_player(player_id{2}, player_id{1});
 
     auto result = system_.send_whisper(player_id{1}, player_id{2}, "Hello");
     EXPECT_EQ(result, filter_result::blocked);
 }
 
-TEST_F(social_system_test, block_unblock_player) {
+TEST_F(social_system_test, block_unblock_player)
+{
     system_.block_player(player_id{1}, player_id{2});
 
     auto* settings = system_.get_chat_settings(player_id{1});
@@ -495,7 +543,8 @@ TEST_F(social_system_test, block_unblock_player) {
     EXPECT_FALSE(settings->is_player_blocked(player_id{2}));
 }
 
-TEST_F(social_system_test, profanity_filter) {
+TEST_F(social_system_test, profanity_filter)
+{
     social_system_config config;
     config.min_guild_name_length = 3;
     config.max_guild_name_length = 20;
@@ -506,10 +555,12 @@ TEST_F(social_system_test, profanity_filter) {
     system_.set_config(config);
 
     bool callback_fired = false;
-    system_.on_chat_message([&](const chat_message_event& event) {
-        callback_fired = true;
-        EXPECT_EQ(event.message.content, "This is *******!");
-    });
+    system_.on_chat_message(
+        [&](const chat_message_event& event)
+        {
+            callback_fired = true;
+            EXPECT_EQ(event.message.content, "This is *******!");
+        });
 
     auto result = system_.send_local_chat(player_id{1}, "This is badword!", map_id{1}, 100, 100);
     EXPECT_EQ(result, filter_result::censored);

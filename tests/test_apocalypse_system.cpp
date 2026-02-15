@@ -14,9 +14,11 @@ using namespace hb::war;
 
 // ========== Apocalypse System Tests ==========
 
-class apocalypse_system_test : public ::testing::Test {
+class apocalypse_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         sys_.initialize();
 
         // Default config with one gate on "icebound" that teleports to "druncncity"
@@ -37,29 +39,23 @@ protected:
         sys_.set_config(cfg);
 
         // Wire mock callbacks
-        sys_.set_broadcast_all_fn([this](const hb::network::json_message& msg) {
-            broadcast_all_msgs_.push_back(msg);
-        });
-        sys_.set_broadcast_player_fn([this](player_id pid, const hb::network::json_message& msg) {
-            player_msgs_.emplace_back(pid, msg);
-        });
-        sys_.set_teleport_home_fn([this](player_id pid) {
-            teleport_home_calls_.push_back(pid);
-        });
-        sys_.set_teleport_to_fn([this](player_id pid, const std::string& map, hb::world::position pos) {
-            teleport_to_calls_.emplace_back(pid, map, pos);
-        });
-        sys_.set_get_players_on_map_fn([this](const std::string& map_name)
-            -> std::vector<std::pair<player_id, hb::world::position>> {
-            auto it = players_on_map_.find(map_name);
-            if (it != players_on_map_.end()) return it->second;
-            return {};
-        });
+        sys_.set_broadcast_all_fn([this](const hb::network::json_message& msg) { broadcast_all_msgs_.push_back(msg); });
+        sys_.set_broadcast_player_fn([this](player_id pid, const hb::network::json_message& msg)
+                                     { player_msgs_.emplace_back(pid, msg); });
+        sys_.set_teleport_home_fn([this](player_id pid) { teleport_home_calls_.push_back(pid); });
+        sys_.set_teleport_to_fn([this](player_id pid, const std::string& map, hb::world::position pos)
+                                { teleport_to_calls_.emplace_back(pid, map, pos); });
+        sys_.set_get_players_on_map_fn(
+            [this](const std::string& map_name) -> std::vector<std::pair<player_id, hb::world::position>>
+            {
+                auto it = players_on_map_.find(map_name);
+                if (it != players_on_map_.end())
+                    return it->second;
+                return {};
+            });
     }
 
-    void TearDown() override {
-        sys_.shutdown();
-    }
+    void TearDown() override { sys_.shutdown(); }
 
     apocalypse_system sys_;
 
@@ -67,12 +63,12 @@ protected:
     std::vector<hb::network::json_message> broadcast_all_msgs_;
     std::vector<std::pair<player_id, hb::network::json_message>> player_msgs_;
     std::vector<player_id> teleport_home_calls_;
-    struct teleport_to_entry {
+    struct teleport_to_entry
+    {
         player_id pid;
         std::string map;
         hb::world::position pos;
-        teleport_to_entry(player_id p, std::string m, hb::world::position ps)
-            : pid(p), map(std::move(m)), pos(ps) {}
+        teleport_to_entry(player_id p, std::string m, hb::world::position ps) : pid(p), map(std::move(m)), pos(ps) {}
     };
     std::vector<teleport_to_entry> teleport_to_calls_;
 
@@ -80,35 +76,41 @@ protected:
     std::unordered_map<std::string, std::vector<std::pair<player_id, hb::world::position>>> players_on_map_;
 };
 
-TEST_F(apocalypse_system_test, starts_inactive) {
+TEST_F(apocalypse_system_test, starts_inactive)
+{
     EXPECT_FALSE(sys_.is_active());
 }
 
-TEST_F(apocalypse_system_test, start_event_succeeds) {
+TEST_F(apocalypse_system_test, start_event_succeeds)
+{
     auto result = sys_.start_event();
     EXPECT_EQ(result, apocalypse_result::success);
     EXPECT_TRUE(sys_.is_active());
 }
 
-TEST_F(apocalypse_system_test, start_twice_fails) {
+TEST_F(apocalypse_system_test, start_twice_fails)
+{
     sys_.start_event();
     auto r2 = sys_.start_event();
     EXPECT_EQ(r2, apocalypse_result::already_active);
 }
 
-TEST_F(apocalypse_system_test, end_event_succeeds) {
+TEST_F(apocalypse_system_test, end_event_succeeds)
+{
     sys_.start_event();
     auto result = sys_.end_event();
     EXPECT_EQ(result, apocalypse_result::success);
     EXPECT_FALSE(sys_.is_active());
 }
 
-TEST_F(apocalypse_system_test, end_inactive_fails) {
+TEST_F(apocalypse_system_test, end_inactive_fails)
+{
     auto result = sys_.end_event();
     EXPECT_EQ(result, apocalypse_result::not_active);
 }
 
-TEST_F(apocalypse_system_test, start_broadcasts_message) {
+TEST_F(apocalypse_system_test, start_broadcasts_message)
+{
     sys_.start_event();
 
     ASSERT_EQ(broadcast_all_msgs_.size(), 1);
@@ -116,7 +118,8 @@ TEST_F(apocalypse_system_test, start_broadcasts_message) {
     EXPECT_TRUE(broadcast_all_msgs_[0].data["active"].get<bool>());
 }
 
-TEST_F(apocalypse_system_test, end_broadcasts_message) {
+TEST_F(apocalypse_system_test, end_broadcasts_message)
+{
     sys_.start_event();
     broadcast_all_msgs_.clear();
 
@@ -127,27 +130,30 @@ TEST_F(apocalypse_system_test, end_broadcasts_message) {
     EXPECT_FALSE(broadcast_all_msgs_[0].data["active"].get<bool>());
 }
 
-TEST_F(apocalypse_system_test, shutdown_ends_active_event) {
+TEST_F(apocalypse_system_test, shutdown_ends_active_event)
+{
     sys_.start_event();
     EXPECT_TRUE(sys_.is_active());
     sys_.shutdown();
     EXPECT_FALSE(sys_.is_active());
 }
 
-TEST_F(apocalypse_system_test, gate_check_not_triggered_before_interval) {
+TEST_F(apocalypse_system_test, gate_check_not_triggered_before_interval)
+{
     players_on_map_["icebound"] = {{player_id(1), {50, 50}}};
 
     sys_.start_event();
-    sys_.update(2.0f);  // Less than 3s interval
+    sys_.update(2.0f); // Less than 3s interval
 
     EXPECT_TRUE(player_msgs_.empty());
 }
 
-TEST_F(apocalypse_system_test, gate_check_sends_notification) {
+TEST_F(apocalypse_system_test, gate_check_sends_notification)
+{
     players_on_map_["icebound"] = {{player_id(1), {50, 50}}};
 
     sys_.start_event();
-    sys_.update(3.0f);  // Triggers gate check
+    sys_.update(3.0f); // Triggers gate check
 
     ASSERT_EQ(player_msgs_.size(), 1);
     EXPECT_EQ(player_msgs_[0].first, player_id(1));
@@ -157,7 +163,8 @@ TEST_F(apocalypse_system_test, gate_check_sends_notification) {
     EXPECT_EQ(player_msgs_[0].second.data["gate_y"], 31);
 }
 
-TEST_F(apocalypse_system_test, gate_teleports_player_on_tile) {
+TEST_F(apocalypse_system_test, gate_teleports_player_on_tile)
+{
     // Player at teleport tile (89,31)
     players_on_map_["icebound"] = {{player_id(1), {89, 31}}};
 
@@ -171,7 +178,8 @@ TEST_F(apocalypse_system_test, gate_teleports_player_on_tile) {
     EXPECT_EQ(teleport_to_calls_[0].pos.y, 18);
 }
 
-TEST_F(apocalypse_system_test, gate_no_teleport_off_tile) {
+TEST_F(apocalypse_system_test, gate_no_teleport_off_tile)
+{
     // Player NOT on a teleport tile
     players_on_map_["icebound"] = {{player_id(1), {50, 50}}};
 
@@ -183,7 +191,8 @@ TEST_F(apocalypse_system_test, gate_no_teleport_off_tile) {
     EXPECT_EQ(player_msgs_.size(), 1);
 }
 
-TEST_F(apocalypse_system_test, gate_no_teleport_without_destination) {
+TEST_F(apocalypse_system_test, gate_no_teleport_without_destination)
+{
     // Gate with no destination
     apocalypse_config cfg;
     cfg.gate_check_interval_seconds = 3.0f;
@@ -208,7 +217,8 @@ TEST_F(apocalypse_system_test, gate_no_teleport_without_destination) {
     EXPECT_TRUE(teleport_to_calls_.empty());
 }
 
-TEST_F(apocalypse_system_test, end_ejects_from_apocalypse_maps) {
+TEST_F(apocalypse_system_test, end_ejects_from_apocalypse_maps)
+{
     players_on_map_["druncncity"] = {
         {player_id(1), {10, 10}},
         {player_id(2), {20, 20}},
@@ -222,7 +232,8 @@ TEST_F(apocalypse_system_test, end_ejects_from_apocalypse_maps) {
     EXPECT_EQ(teleport_home_calls_[1], player_id(2));
 }
 
-TEST_F(apocalypse_system_test, end_does_not_eject_from_normal_maps) {
+TEST_F(apocalypse_system_test, end_does_not_eject_from_normal_maps)
+{
     // Player on middleland (not in apocalypse_maps)
     players_on_map_["middleland"] = {{player_id(1), {50, 50}}};
 
@@ -232,7 +243,8 @@ TEST_F(apocalypse_system_test, end_does_not_eject_from_normal_maps) {
     EXPECT_TRUE(teleport_home_calls_.empty());
 }
 
-TEST_F(apocalypse_system_test, gate_check_inactive_does_nothing) {
+TEST_F(apocalypse_system_test, gate_check_inactive_does_nothing)
+{
     players_on_map_["icebound"] = {{player_id(1), {89, 31}}};
 
     // Don't start the event — just update
@@ -244,9 +256,11 @@ TEST_F(apocalypse_system_test, gate_check_inactive_does_nothing) {
 
 // ========== Force Recall System Tests ==========
 
-class force_recall_test : public ::testing::Test {
+class force_recall_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         sys_.initialize();
 
         force_recall_config cfg;
@@ -257,18 +271,18 @@ protected:
         sys_.set_config(cfg);
     }
 
-    void TearDown() override {
-        sys_.shutdown();
-    }
+    void TearDown() override { sys_.shutdown(); }
 
     force_recall_system sys_;
 };
 
-TEST_F(force_recall_test, initial_state) {
+TEST_F(force_recall_test, initial_state)
+{
     EXPECT_EQ(sys_.tracked_count(), 0);
 }
 
-TEST_F(force_recall_test, track_player_in_enemy_territory) {
+TEST_F(force_recall_test, track_player_in_enemy_territory)
+{
     player_id pid(1);
     sys_.check_player_territory(pid, war_faction::aresden, war_faction::elvine);
 
@@ -281,25 +295,29 @@ TEST_F(force_recall_test, track_player_in_enemy_territory) {
     EXPECT_GT(tracker->time_remaining_seconds, 0);
 }
 
-TEST_F(force_recall_test, friendly_territory_not_tracked) {
+TEST_F(force_recall_test, friendly_territory_not_tracked)
+{
     player_id pid(1);
     sys_.check_player_territory(pid, war_faction::aresden, war_faction::aresden);
     EXPECT_FALSE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, neutral_player_not_tracked) {
+TEST_F(force_recall_test, neutral_player_not_tracked)
+{
     player_id pid(1);
     sys_.check_player_territory(pid, war_faction::neutral, war_faction::elvine);
     EXPECT_FALSE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, neutral_map_not_tracked) {
+TEST_F(force_recall_test, neutral_map_not_tracked)
+{
     player_id pid(1);
     sys_.check_player_territory(pid, war_faction::aresden, war_faction::neutral);
     EXPECT_FALSE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, returning_to_friendly_removes_tracker) {
+TEST_F(force_recall_test, returning_to_friendly_removes_tracker)
+{
     player_id pid(1);
     sys_.check_player_territory(pid, war_faction::aresden, war_faction::elvine);
     EXPECT_TRUE(sys_.is_tracked(pid));
@@ -308,14 +326,16 @@ TEST_F(force_recall_test, returning_to_friendly_removes_tracker) {
     EXPECT_FALSE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, remove_player) {
+TEST_F(force_recall_test, remove_player)
+{
     player_id pid(1);
     sys_.check_player_territory(pid, war_faction::aresden, war_faction::elvine);
     sys_.remove_player(pid);
     EXPECT_FALSE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, already_tracked_not_re_added) {
+TEST_F(force_recall_test, already_tracked_not_re_added)
+{
     player_id pid(1);
     sys_.check_player_territory(pid, war_faction::aresden, war_faction::elvine);
     auto* t1 = sys_.get_tracker(pid);
@@ -327,7 +347,8 @@ TEST_F(force_recall_test, already_tracked_not_re_added) {
     EXPECT_EQ(t2->time_remaining_seconds, time1);
 }
 
-TEST_F(force_recall_test, timer_expires_triggers_recall) {
+TEST_F(force_recall_test, timer_expires_triggers_recall)
+{
     // Use override to make duration deterministic (not day-of-week dependent)
     force_recall_config cfg;
     cfg.enabled = true;
@@ -337,9 +358,12 @@ TEST_F(force_recall_test, timer_expires_triggers_recall) {
 
     player_id pid(1);
     bool recalled = false;
-    sys_.set_execute_fn([&](player_id p) {
-        if (p == pid) recalled = true;
-    });
+    sys_.set_execute_fn(
+        [&](player_id p)
+        {
+            if (p == pid)
+                recalled = true;
+        });
 
     sys_.check_player_territory(pid, war_faction::aresden, war_faction::elvine);
 
@@ -350,26 +374,28 @@ TEST_F(force_recall_test, timer_expires_triggers_recall) {
     EXPECT_FALSE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, timer_sends_warnings) {
+TEST_F(force_recall_test, timer_sends_warnings)
+{
     player_id pid(1);
     std::vector<hb::network::json_message> msgs;
-    sys_.set_broadcast_fn([&](player_id, const hb::network::json_message& msg) {
-        msgs.push_back(msg);
-    });
+    sys_.set_broadcast_fn([&](player_id, const hb::network::json_message& msg) { msgs.push_back(msg); });
 
     sys_.check_player_territory(pid, war_faction::aresden, war_faction::elvine);
 
     // First message is the initial timer notification
     bool has_timer = false;
-    for (const auto& msg : msgs) {
-        if (msg.type == hb::network::json_message_type::force_recall_timer) {
+    for (const auto& msg : msgs)
+    {
+        if (msg.type == hb::network::json_message_type::force_recall_timer)
+        {
             has_timer = true;
         }
     }
     EXPECT_TRUE(has_timer);
 }
 
-TEST_F(force_recall_test, disabled_config_does_nothing) {
+TEST_F(force_recall_test, disabled_config_does_nothing)
+{
     force_recall_config cfg;
     cfg.enabled = false;
     sys_.set_config(cfg);
@@ -379,7 +405,8 @@ TEST_F(force_recall_test, disabled_config_does_nothing) {
     EXPECT_FALSE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, multiple_players_tracked) {
+TEST_F(force_recall_test, multiple_players_tracked)
+{
     sys_.check_player_territory(player_id(1), war_faction::aresden, war_faction::elvine);
     sys_.check_player_territory(player_id(2), war_faction::elvine, war_faction::aresden);
 
@@ -390,23 +417,21 @@ TEST_F(force_recall_test, multiple_players_tracked) {
 
 // ========== Protocol Message Tests ==========
 
-TEST(phase5_protocol_test, apocalypse_message_types) {
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::apocalypse_started),
-              "apocalypse_started");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::apocalypse_ended),
-              "apocalypse_ended");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::apocalypse_gate_open),
-              "apocalypse_gate_open");
+TEST(phase5_protocol_test, apocalypse_message_types)
+{
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::apocalypse_started), "apocalypse_started");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::apocalypse_ended), "apocalypse_ended");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::apocalypse_gate_open), "apocalypse_gate_open");
 }
 
-TEST(phase5_protocol_test, force_recall_message_types) {
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::force_recall_timer),
-              "force_recall_timer");
-    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::force_recall_execute),
-              "force_recall_execute");
+TEST(phase5_protocol_test, force_recall_message_types)
+{
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::force_recall_timer), "force_recall_timer");
+    EXPECT_EQ(hb::network::to_string(hb::network::json_message_type::force_recall_execute), "force_recall_execute");
 }
 
-TEST(phase5_protocol_test, message_type_roundtrip) {
+TEST(phase5_protocol_test, message_type_roundtrip)
+{
     auto parsed = hb::network::parse_message_type("apocalypse_started");
     EXPECT_EQ(parsed, hb::network::json_message_type::apocalypse_started);
 
@@ -422,10 +447,11 @@ TEST(phase5_protocol_test, message_type_roundtrip) {
 
 // ========== A3: Force Recall Override Duration ==========
 
-TEST_F(force_recall_test, override_duration_active) {
+TEST_F(force_recall_test, override_duration_active)
+{
     force_recall_config cfg;
     cfg.enabled = true;
-    cfg.override_duration_seconds = 600;  // 10 minutes override
+    cfg.override_duration_seconds = 600; // 10 minutes override
     cfg.default_duration_seconds = 180;
     cfg.raid_times = get_default_raid_times();
     sys_.set_config(cfg);
@@ -438,10 +464,11 @@ TEST_F(force_recall_test, override_duration_active) {
     EXPECT_EQ(tracker->time_remaining_seconds, 600);
 }
 
-TEST_F(force_recall_test, override_zero_falls_through) {
+TEST_F(force_recall_test, override_zero_falls_through)
+{
     force_recall_config cfg;
     cfg.enabled = true;
-    cfg.override_duration_seconds = 0;  // Not active
+    cfg.override_duration_seconds = 0; // Not active
     cfg.default_duration_seconds = 180;
     cfg.raid_times = get_default_raid_times();
     sys_.set_config(cfg);
@@ -454,9 +481,11 @@ TEST_F(force_recall_test, override_zero_falls_through) {
 
 // ========== Crusade Integration Tests ==========
 
-class force_recall_crusade_test : public ::testing::Test {
+class force_recall_crusade_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         sys_.initialize();
 
         force_recall_config cfg;
@@ -466,17 +495,11 @@ protected:
         sys_.set_config(cfg);
 
         sys_.set_crusade_check([this]() { return crusade_active_; });
-        sys_.set_execute_fn([this](player_id pid) {
-            recalled_players_.push_back(pid);
-        });
-        sys_.set_debuff_removal_fn([this](player_id pid) {
-            debuff_removed_players_.push_back(pid);
-        });
+        sys_.set_execute_fn([this](player_id pid) { recalled_players_.push_back(pid); });
+        sys_.set_debuff_removal_fn([this](player_id pid) { debuff_removed_players_.push_back(pid); });
     }
 
-    void TearDown() override {
-        sys_.shutdown();
-    }
+    void TearDown() override { sys_.shutdown(); }
 
     force_recall_system sys_;
     bool crusade_active_{false};
@@ -484,7 +507,8 @@ protected:
     std::vector<player_id> debuff_removed_players_;
 };
 
-TEST_F(force_recall_crusade_test, timer_paused_during_crusade) {
+TEST_F(force_recall_crusade_test, timer_paused_during_crusade)
+{
     crusade_active_ = true;
 
     player_id pid(1);
@@ -502,7 +526,8 @@ TEST_F(force_recall_crusade_test, timer_paused_during_crusade) {
     EXPECT_EQ(t2->time_remaining_seconds, initial_time);
 }
 
-TEST_F(force_recall_crusade_test, timer_resumes_after_crusade) {
+TEST_F(force_recall_crusade_test, timer_resumes_after_crusade)
+{
     crusade_active_ = true;
 
     player_id pid(1);
@@ -525,7 +550,8 @@ TEST_F(force_recall_crusade_test, timer_resumes_after_crusade) {
     EXPECT_LT(t2->time_remaining_seconds, initial_time);
 }
 
-TEST_F(force_recall_crusade_test, in_own_town_pauses_timer) {
+TEST_F(force_recall_crusade_test, in_own_town_pauses_timer)
+{
     // Not during crusade — in_own_town still pauses
     crusade_active_ = false;
 
@@ -564,7 +590,8 @@ TEST_F(force_recall_crusade_test, in_own_town_pauses_timer) {
     sys2.shutdown();
 }
 
-TEST_F(force_recall_crusade_test, tracker_set_during_crusade_flag) {
+TEST_F(force_recall_crusade_test, tracker_set_during_crusade_flag)
+{
     // When crusade is active, new trackers get set_during_crusade = true
     crusade_active_ = true;
 
@@ -576,7 +603,8 @@ TEST_F(force_recall_crusade_test, tracker_set_during_crusade_flag) {
     EXPECT_TRUE(tracker->set_during_crusade);
 }
 
-TEST_F(force_recall_crusade_test, tracker_without_crusade_flag) {
+TEST_F(force_recall_crusade_test, tracker_without_crusade_flag)
+{
     // When crusade is not active, new trackers get set_during_crusade = false
     crusade_active_ = false;
 
@@ -588,7 +616,8 @@ TEST_F(force_recall_crusade_test, tracker_without_crusade_flag) {
     EXPECT_FALSE(tracker->set_during_crusade);
 }
 
-TEST_F(force_recall_crusade_test, clear_crusade_trackers_removes_crusade_only) {
+TEST_F(force_recall_crusade_test, clear_crusade_trackers_removes_crusade_only)
+{
     crusade_active_ = true;
 
     // Create a tracker during crusade
@@ -612,14 +641,16 @@ TEST_F(force_recall_crusade_test, clear_crusade_trackers_removes_crusade_only) {
     EXPECT_TRUE(sys_.is_tracked(normal_player));
 }
 
-TEST_F(force_recall_crusade_test, clear_crusade_trackers_empty_is_safe) {
+TEST_F(force_recall_crusade_test, clear_crusade_trackers_empty_is_safe)
+{
     sys_.clear_crusade_trackers();
     EXPECT_EQ(sys_.tracked_count(), 0);
 }
 
 // ========== Building Recall Tests ==========
 
-TEST_F(force_recall_crusade_test, building_recall_during_crusade) {
+TEST_F(force_recall_crusade_test, building_recall_during_crusade)
+{
     crusade_active_ = true;
 
     player_id pid(1);
@@ -630,7 +661,8 @@ TEST_F(force_recall_crusade_test, building_recall_during_crusade) {
     EXPECT_EQ(recalled_players_[0], pid);
 }
 
-TEST_F(force_recall_crusade_test, building_recall_aresden_in_elvine_building) {
+TEST_F(force_recall_crusade_test, building_recall_aresden_in_elvine_building)
+{
     crusade_active_ = true;
 
     player_id pid(2);
@@ -641,7 +673,8 @@ TEST_F(force_recall_crusade_test, building_recall_aresden_in_elvine_building) {
     EXPECT_EQ(recalled_players_[0], pid);
 }
 
-TEST_F(force_recall_crusade_test, building_recall_friendly_not_recalled) {
+TEST_F(force_recall_crusade_test, building_recall_friendly_not_recalled)
+{
     crusade_active_ = true;
 
     player_id pid(1);
@@ -651,7 +684,8 @@ TEST_F(force_recall_crusade_test, building_recall_friendly_not_recalled) {
     EXPECT_TRUE(recalled_players_.empty());
 }
 
-TEST_F(force_recall_crusade_test, building_recall_neutral_building_no_recall) {
+TEST_F(force_recall_crusade_test, building_recall_neutral_building_no_recall)
+{
     crusade_active_ = true;
 
     player_id pid(1);
@@ -661,7 +695,8 @@ TEST_F(force_recall_crusade_test, building_recall_neutral_building_no_recall) {
     EXPECT_TRUE(recalled_players_.empty());
 }
 
-TEST_F(force_recall_crusade_test, building_recall_only_during_crusade) {
+TEST_F(force_recall_crusade_test, building_recall_only_during_crusade)
+{
     crusade_active_ = false;
 
     player_id pid(1);
@@ -671,7 +706,8 @@ TEST_F(force_recall_crusade_test, building_recall_only_during_crusade) {
     EXPECT_TRUE(recalled_players_.empty());
 }
 
-TEST_F(force_recall_crusade_test, building_recall_non_building_map_ignored) {
+TEST_F(force_recall_crusade_test, building_recall_non_building_map_ignored)
+{
     crusade_active_ = true;
 
     player_id pid(1);
@@ -683,7 +719,8 @@ TEST_F(force_recall_crusade_test, building_recall_non_building_map_ignored) {
 
 // ========== Building Debuff Removal Tests ==========
 
-TEST_F(force_recall_crusade_test, building_debuff_removal_in_building) {
+TEST_F(force_recall_crusade_test, building_debuff_removal_in_building)
+{
     player_id pid(1);
     sys_.check_building_debuffs(pid, "cath_1");
 
@@ -691,7 +728,8 @@ TEST_F(force_recall_crusade_test, building_debuff_removal_in_building) {
     EXPECT_EQ(debuff_removed_players_[0], pid);
 }
 
-TEST_F(force_recall_crusade_test, building_debuff_no_removal_outside_building) {
+TEST_F(force_recall_crusade_test, building_debuff_no_removal_outside_building)
+{
     player_id pid(1);
     sys_.check_building_debuffs(pid, "aresden");
 
@@ -700,7 +738,8 @@ TEST_F(force_recall_crusade_test, building_debuff_no_removal_outside_building) {
 
 // ========== Building Map Classification Tests ==========
 
-TEST(force_recall_building_test, is_building_map_known_buildings) {
+TEST(force_recall_building_test, is_building_map_known_buildings)
+{
     EXPECT_TRUE(force_recall_system::is_building_map("wrhus"));
     EXPECT_TRUE(force_recall_system::is_building_map("gshop_1"));
     EXPECT_TRUE(force_recall_system::is_building_map("bsmith_1"));
@@ -716,58 +755,67 @@ TEST(force_recall_building_test, is_building_map_known_buildings) {
     EXPECT_TRUE(force_recall_system::is_building_map("gldhall"));
 }
 
-TEST(force_recall_building_test, is_building_map_non_buildings) {
+TEST(force_recall_building_test, is_building_map_non_buildings)
+{
     EXPECT_FALSE(force_recall_system::is_building_map("aresden"));
     EXPECT_FALSE(force_recall_system::is_building_map("elvine"));
     EXPECT_FALSE(force_recall_system::is_building_map("middleland"));
     EXPECT_FALSE(force_recall_system::is_building_map(""));
 }
 
-TEST(force_recall_building_test, building_faction_suffix_1_is_aresden) {
+TEST(force_recall_building_test, building_faction_suffix_1_is_aresden)
+{
     EXPECT_EQ(force_recall_system::get_building_faction("gshop_1"), war_faction::aresden);
     EXPECT_EQ(force_recall_system::get_building_faction("bsmith_1"), war_faction::aresden);
     EXPECT_EQ(force_recall_system::get_building_faction("CmdHall_1"), war_faction::aresden);
 }
 
-TEST(force_recall_building_test, building_faction_suffix_2_is_elvine) {
+TEST(force_recall_building_test, building_faction_suffix_2_is_elvine)
+{
     EXPECT_EQ(force_recall_system::get_building_faction("gshop_2"), war_faction::elvine);
     EXPECT_EQ(force_recall_system::get_building_faction("bsmith_2"), war_faction::elvine);
     EXPECT_EQ(force_recall_system::get_building_faction("CmdHall_2"), war_faction::elvine);
 }
 
-TEST(force_recall_building_test, building_faction_neutral_buildings) {
+TEST(force_recall_building_test, building_faction_neutral_buildings)
+{
     EXPECT_EQ(force_recall_system::get_building_faction("wrhus"), war_faction::neutral);
     EXPECT_EQ(force_recall_system::get_building_faction("wzdtwr"), war_faction::neutral);
     EXPECT_EQ(force_recall_system::get_building_faction("gldhall"), war_faction::neutral);
 }
 
-TEST(force_recall_building_test, building_faction_non_building_is_neutral) {
+TEST(force_recall_building_test, building_faction_non_building_is_neutral)
+{
     EXPECT_EQ(force_recall_system::get_building_faction("aresden"), war_faction::neutral);
     EXPECT_EQ(force_recall_system::get_building_faction("elvine"), war_faction::neutral);
 }
 
 // ========== Plan 10: Force Recall Completeness Tests ==========
 
-TEST(force_recall_defaults_test, friday_raid_time_600_seconds) {
+TEST(force_recall_defaults_test, friday_raid_time_600_seconds)
+{
     auto defaults = get_default_raid_times();
     // Friday = day 5
     bool found = false;
-    for (const auto& entry : defaults) {
-        if (entry.day_of_week == 5) {
-            EXPECT_EQ(entry.duration_seconds, 600);  // 10 min, not 15
+    for (const auto& entry : defaults)
+    {
+        if (entry.day_of_week == 5)
+        {
+            EXPECT_EQ(entry.duration_seconds, 600); // 10 min, not 15
             found = true;
         }
     }
     EXPECT_TRUE(found) << "Friday entry missing from defaults";
 }
 
-TEST_F(force_recall_test, day_transition_resets_long_timer) {
+TEST_F(force_recall_test, day_transition_resets_long_timer)
+{
     // Simulate a player with a long timer (e.g., Sunday's 3600s)
     // Then trigger day transition where new day duration is shorter
     force_recall_config cfg;
     cfg.enabled = true;
     cfg.override_duration_seconds = 0;
-    cfg.default_duration_seconds = 100;  // Will be used as current day duration
+    cfg.default_duration_seconds = 100; // Will be used as current day duration
     cfg.warning_interval_seconds = 30;
     sys_.set_config(cfg);
 
@@ -811,7 +859,8 @@ TEST_F(force_recall_test, day_transition_resets_long_timer) {
     EXPECT_GE(tracker->time_remaining_seconds, 3599);
 }
 
-TEST_F(force_recall_test, fight_zone_uses_configured_duration) {
+TEST_F(force_recall_test, fight_zone_uses_configured_duration)
+{
     force_recall_config cfg;
     cfg.enabled = true;
     cfg.fight_zone_recall_enabled = true;
@@ -832,7 +881,8 @@ TEST_F(force_recall_test, fight_zone_uses_configured_duration) {
     EXPECT_EQ(tracker->max_time_seconds, 7080);
 }
 
-TEST_F(force_recall_test, fight_zone_exempt_when_disabled) {
+TEST_F(force_recall_test, fight_zone_exempt_when_disabled)
+{
     force_recall_config cfg;
     cfg.enabled = true;
     cfg.fight_zone_recall_enabled = false;
@@ -849,7 +899,8 @@ TEST_F(force_recall_test, fight_zone_exempt_when_disabled) {
     EXPECT_FALSE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, fight_zone_toggle_via_admin) {
+TEST_F(force_recall_test, fight_zone_toggle_via_admin)
+{
     force_recall_config cfg;
     cfg.enabled = true;
     cfg.fight_zone_recall_enabled = true;
@@ -873,10 +924,11 @@ TEST_F(force_recall_test, fight_zone_toggle_via_admin) {
     EXPECT_TRUE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, jail_fixed_5_minute_timer) {
+TEST_F(force_recall_test, jail_fixed_5_minute_timer)
+{
     force_recall_config cfg;
     cfg.enabled = true;
-    cfg.override_duration_seconds = 3600;  // Normal override is 1 hour
+    cfg.override_duration_seconds = 3600; // Normal override is 1 hour
     cfg.jail_duration_seconds = 300;
     cfg.warning_interval_seconds = 30;
     sys_.set_config(cfg);
@@ -890,10 +942,11 @@ TEST_F(force_recall_test, jail_fixed_5_minute_timer) {
     EXPECT_TRUE(sys_.is_tracked(pid));
     auto* tracker = sys_.get_tracker(pid);
     ASSERT_NE(tracker, nullptr);
-    EXPECT_EQ(tracker->time_remaining_seconds, 300);  // Always 5 min regardless of override
+    EXPECT_EQ(tracker->time_remaining_seconds, 300); // Always 5 min regardless of override
 }
 
-TEST_F(force_recall_test, jail_ignores_day_duration) {
+TEST_F(force_recall_test, jail_ignores_day_duration)
+{
     force_recall_config cfg;
     cfg.enabled = true;
     cfg.override_duration_seconds = 0;
@@ -914,7 +967,8 @@ TEST_F(force_recall_test, jail_ignores_day_duration) {
     EXPECT_EQ(tracker->time_remaining_seconds, 300);
 }
 
-TEST_F(force_recall_test, fight_zone_ignores_faction_rules) {
+TEST_F(force_recall_test, fight_zone_ignores_faction_rules)
+{
     // Fight zone recall works even for neutral players/maps
     force_recall_config cfg;
     cfg.enabled = true;
@@ -932,7 +986,8 @@ TEST_F(force_recall_test, fight_zone_ignores_faction_rules) {
     EXPECT_TRUE(sys_.is_tracked(pid));
 }
 
-TEST_F(force_recall_test, day_transition_keeps_short_timer) {
+TEST_F(force_recall_test, day_transition_keeps_short_timer)
+{
     // Player with 100s timer; new day has 3600s limit — timer should be unchanged
     force_recall_config cfg;
     cfg.enabled = true;
@@ -958,7 +1013,8 @@ TEST_F(force_recall_test, day_transition_keeps_short_timer) {
     EXPECT_GE(tracker->time_remaining_seconds, 99);
 }
 
-TEST(force_recall_fight_zone_calc_test, fight_zone_timer_until_even_hour) {
+TEST(force_recall_fight_zone_calc_test, fight_zone_timer_until_even_hour)
+{
     // At 13:30: (120 - 1*60 - 30 - 2) * 60 = 28 * 60 = 1680s
     EXPECT_EQ(force_recall_system::calculate_fight_zone_duration(13, 30), 1680);
 
@@ -978,12 +1034,13 @@ TEST(force_recall_fight_zone_calc_test, fight_zone_timer_until_even_hour) {
     EXPECT_EQ(force_recall_system::calculate_fight_zone_duration(1, 30), 1680);
 }
 
-TEST_F(force_recall_test, fight_zone_dynamic_duration_when_config_zero) {
+TEST_F(force_recall_test, fight_zone_dynamic_duration_when_config_zero)
+{
     // When fight_zone_duration_seconds is 0, use dynamic even-hour calculation
     force_recall_config cfg;
     cfg.enabled = true;
     cfg.fight_zone_recall_enabled = true;
-    cfg.fight_zone_duration_seconds = 0;  // Use dynamic calculation
+    cfg.fight_zone_duration_seconds = 0; // Use dynamic calculation
     cfg.warning_interval_seconds = 30;
     sys_.set_config(cfg);
 
@@ -1001,7 +1058,8 @@ TEST_F(force_recall_test, fight_zone_dynamic_duration_when_config_zero) {
     EXPECT_LE(tracker->time_remaining_seconds, 7080);
 }
 
-TEST_F(force_recall_test, check_day_transition_only_runs_on_day_change) {
+TEST_F(force_recall_test, check_day_transition_only_runs_on_day_change)
+{
     // Day transition logic should not fire on every update, only when day changes
     force_recall_config cfg;
     cfg.enabled = true;

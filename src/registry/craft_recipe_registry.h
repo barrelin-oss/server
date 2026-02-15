@@ -13,7 +13,8 @@
 #include <string_view>
 #include <filesystem>
 
-namespace hb {
+namespace hb
+{
 
 class item_registry;
 
@@ -29,12 +30,10 @@ public:
     void shutdown() override;
 
     // Load alchemy recipes from recipes.yaml (alchemy_recipes: section)
-    auto load_alchemy(const std::filesystem::path& path, const item_registry& items)
-        -> result<size_t, std::string>;
+    auto load_alchemy(const std::filesystem::path& path, const item_registry& items) -> result<size_t, std::string>;
 
     // Load crafting recipes from craft_recipes.yaml (crafting_recipes: section)
-    auto load_crafting(const std::filesystem::path& path, const item_registry& items)
-        -> result<size_t, std::string>;
+    auto load_crafting(const std::filesystem::path& path, const item_registry& items) -> result<size_t, std::string>;
 
     // Lookup by recipe ID (searches both alchemy and crafting)
     [[nodiscard]] auto get(int32_t id) const -> const crafting::craft_recipe*;
@@ -57,9 +56,10 @@ public:
     [[nodiscard]] auto crafting_count() const -> size_t { return crafting_recipes_.size(); }
 
 private:
-    auto load_recipes(const std::filesystem::path& path, const std::string& section_name,
-                      const item_registry& items, std::vector<crafting::craft_recipe>& dest)
-        -> result<size_t, std::string>;
+    auto load_recipes(const std::filesystem::path& path,
+                      const std::string& section_name,
+                      const item_registry& items,
+                      std::vector<crafting::craft_recipe>& dest) -> result<size_t, std::string>;
 
     std::vector<crafting::craft_recipe> alchemy_recipes_;
     std::vector<crafting::craft_recipe> crafting_recipes_;
@@ -67,4 +67,4 @@ private:
     std::unordered_map<std::string, const crafting::craft_recipe*> name_index_;
 };
 
-}  // namespace hb
+} // namespace hb

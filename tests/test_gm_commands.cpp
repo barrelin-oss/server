@@ -11,9 +11,11 @@ using namespace hb::admin;
 
 // ========== GM Command Registration Tests ==========
 
-class gm_commands_test : public ::testing::Test {
+class gm_commands_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
+    void SetUp() override
+    {
         admin_.initialize();
 
         // Create command context with null pointers for isolated testing
@@ -26,65 +28,73 @@ protected:
         register_gm_commands(admin_, ctx_);
     }
 
-    void TearDown() override {
-        admin_.shutdown();
-    }
+    void TearDown() override { admin_.shutdown(); }
 
     admin_system admin_;
     gm_command_context ctx_;
 };
 
-TEST_F(gm_commands_test, goto_command_registered) {
+TEST_F(gm_commands_test, goto_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("goto"));
-    EXPECT_TRUE(admin_.has_command("warp"));   // alias
-    EXPECT_TRUE(admin_.has_command("gotp"));   // alias
+    EXPECT_TRUE(admin_.has_command("warp")); // alias
+    EXPECT_TRUE(admin_.has_command("gotp")); // alias
 }
 
-TEST_F(gm_commands_test, summon_command_registered) {
+TEST_F(gm_commands_test, summon_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("summonplayer"));
     EXPECT_TRUE(admin_.has_command("bring"));  // alias
     EXPECT_TRUE(admin_.has_command("summon")); // alias
 }
 
-TEST_F(gm_commands_test, teleport_command_registered) {
+TEST_F(gm_commands_test, teleport_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("teleport"));
-    EXPECT_TRUE(admin_.has_command("tp"));     // alias
-    EXPECT_TRUE(admin_.has_command("move"));   // alias
+    EXPECT_TRUE(admin_.has_command("tp"));   // alias
+    EXPECT_TRUE(admin_.has_command("move")); // alias
 }
 
-TEST_F(gm_commands_test, heal_command_registered) {
+TEST_F(gm_commands_test, heal_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("heal"));
     EXPECT_TRUE(admin_.has_command("restore")); // alias
 }
 
-TEST_F(gm_commands_test, kill_command_registered) {
+TEST_F(gm_commands_test, kill_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("kill"));
-    EXPECT_TRUE(admin_.has_command("slay"));   // alias
+    EXPECT_TRUE(admin_.has_command("slay")); // alias
 }
 
-TEST_F(gm_commands_test, setlevel_command_registered) {
+TEST_F(gm_commands_test, setlevel_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("setlevel"));
-    EXPECT_TRUE(admin_.has_command("level"));  // alias
+    EXPECT_TRUE(admin_.has_command("level")); // alias
 }
 
-TEST_F(gm_commands_test, setstats_command_registered) {
+TEST_F(gm_commands_test, setstats_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("setstats"));
     EXPECT_TRUE(admin_.has_command("stat"));    // alias
     EXPECT_TRUE(admin_.has_command("setstat")); // alias
 }
 
-TEST_F(gm_commands_test, setgold_command_registered) {
+TEST_F(gm_commands_test, setgold_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("setgold"));
-    EXPECT_TRUE(admin_.has_command("gold"));   // alias
+    EXPECT_TRUE(admin_.has_command("gold")); // alias
 }
 
-TEST_F(gm_commands_test, getinfo_command_registered) {
+TEST_F(gm_commands_test, getinfo_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("getinfo"));
     EXPECT_TRUE(admin_.has_command("info"));       // alias
     EXPECT_TRUE(admin_.has_command("playerinfo")); // alias
 }
 
-TEST_F(gm_commands_test, where_command_registered) {
+TEST_F(gm_commands_test, where_command_registered)
+{
     EXPECT_TRUE(admin_.has_command("where"));
     EXPECT_TRUE(admin_.has_command("find"));   // alias
     EXPECT_TRUE(admin_.has_command("locate")); // alias
@@ -92,7 +102,8 @@ TEST_F(gm_commands_test, where_command_registered) {
 
 // ========== Command Permission Tests ==========
 
-TEST_F(gm_commands_test, goto_requires_game_master) {
+TEST_F(gm_commands_test, goto_requires_game_master)
+{
     player_id helper{1};
     player_id gm{2};
 
@@ -106,7 +117,8 @@ TEST_F(gm_commands_test, goto_requires_game_master) {
     EXPECT_TRUE(admin_.can_execute(gm, "goto"));
 }
 
-TEST_F(gm_commands_test, kill_requires_senior_gm) {
+TEST_F(gm_commands_test, kill_requires_senior_gm)
+{
     player_id gm{1};
     player_id senior{2};
 
@@ -120,7 +132,8 @@ TEST_F(gm_commands_test, kill_requires_senior_gm) {
     EXPECT_TRUE(admin_.can_execute(senior, "kill"));
 }
 
-TEST_F(gm_commands_test, setlevel_requires_admin) {
+TEST_F(gm_commands_test, setlevel_requires_admin)
+{
     player_id senior{1};
     player_id admin{2};
 
@@ -134,7 +147,8 @@ TEST_F(gm_commands_test, setlevel_requires_admin) {
     EXPECT_TRUE(admin_.can_execute(admin, "setlevel"));
 }
 
-TEST_F(gm_commands_test, getinfo_requires_helper) {
+TEST_F(gm_commands_test, getinfo_requires_helper)
+{
     player_id player{1};
     player_id helper{2};
 
@@ -150,7 +164,8 @@ TEST_F(gm_commands_test, getinfo_requires_helper) {
 
 // ========== Command Execution Tests (with null systems) ==========
 
-TEST_F(gm_commands_test, goto_fails_without_player_system) {
+TEST_F(gm_commands_test, goto_fails_without_player_system)
+{
     player_id gm{1};
     admin_.register_admin(gm, "GM", admin_level::game_master);
 
@@ -160,7 +175,8 @@ TEST_F(gm_commands_test, goto_fails_without_player_system) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, summon_fails_without_player_system) {
+TEST_F(gm_commands_test, summon_fails_without_player_system)
+{
     player_id gm{1};
     admin_.register_admin(gm, "GM", admin_level::game_master);
 
@@ -170,7 +186,8 @@ TEST_F(gm_commands_test, summon_fails_without_player_system) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, teleport_fails_without_systems) {
+TEST_F(gm_commands_test, teleport_fails_without_systems)
+{
     player_id gm{1};
     admin_.register_admin(gm, "GM", admin_level::game_master);
 
@@ -180,7 +197,8 @@ TEST_F(gm_commands_test, teleport_fails_without_systems) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, heal_fails_without_player_system) {
+TEST_F(gm_commands_test, heal_fails_without_player_system)
+{
     player_id gm{1};
     admin_.register_admin(gm, "GM", admin_level::game_master);
 
@@ -190,7 +208,8 @@ TEST_F(gm_commands_test, heal_fails_without_player_system) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, kill_fails_without_player_system) {
+TEST_F(gm_commands_test, kill_fails_without_player_system)
+{
     player_id senior{1};
     admin_.register_admin(senior, "SeniorGM", admin_level::senior_gm);
 
@@ -200,7 +219,8 @@ TEST_F(gm_commands_test, kill_fails_without_player_system) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, setlevel_fails_without_player_system) {
+TEST_F(gm_commands_test, setlevel_fails_without_player_system)
+{
     player_id admin{1};
     admin_.register_admin(admin, "Admin", admin_level::admin);
 
@@ -210,7 +230,8 @@ TEST_F(gm_commands_test, setlevel_fails_without_player_system) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, setstats_fails_without_player_system) {
+TEST_F(gm_commands_test, setstats_fails_without_player_system)
+{
     player_id admin{1};
     admin_.register_admin(admin, "Admin", admin_level::admin);
 
@@ -220,7 +241,8 @@ TEST_F(gm_commands_test, setstats_fails_without_player_system) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, setgold_fails_without_player_system) {
+TEST_F(gm_commands_test, setgold_fails_without_player_system)
+{
     player_id admin{1};
     admin_.register_admin(admin, "Admin", admin_level::admin);
 
@@ -230,7 +252,8 @@ TEST_F(gm_commands_test, setgold_fails_without_player_system) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, getinfo_fails_without_player_system) {
+TEST_F(gm_commands_test, getinfo_fails_without_player_system)
+{
     player_id helper{1};
     admin_.register_admin(helper, "Helper", admin_level::helper);
 
@@ -240,7 +263,8 @@ TEST_F(gm_commands_test, getinfo_fails_without_player_system) {
     EXPECT_TRUE(result.message.find("not available") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, where_fails_without_player_system) {
+TEST_F(gm_commands_test, where_fails_without_player_system)
+{
     player_id helper{1};
     admin_.register_admin(helper, "Helper", admin_level::helper);
 
@@ -252,7 +276,8 @@ TEST_F(gm_commands_test, where_fails_without_player_system) {
 
 // ========== Command Argument Validation Tests ==========
 
-TEST_F(gm_commands_test, goto_requires_player_name) {
+TEST_F(gm_commands_test, goto_requires_player_name)
+{
     player_id gm{1};
     admin_.register_admin(gm, "GM", admin_level::game_master);
 
@@ -263,7 +288,8 @@ TEST_F(gm_commands_test, goto_requires_player_name) {
     EXPECT_FALSE(result.success);
 }
 
-TEST_F(gm_commands_test, teleport_requires_three_arguments) {
+TEST_F(gm_commands_test, teleport_requires_three_arguments)
+{
     player_id gm{1};
     admin_.register_admin(gm, "GM", admin_level::game_master);
 
@@ -273,7 +299,8 @@ TEST_F(gm_commands_test, teleport_requires_three_arguments) {
     EXPECT_FALSE(result.success);
 }
 
-TEST_F(gm_commands_test, setlevel_requires_two_arguments) {
+TEST_F(gm_commands_test, setlevel_requires_two_arguments)
+{
     player_id admin{1};
     admin_.register_admin(admin, "Admin", admin_level::admin);
 
@@ -283,7 +310,8 @@ TEST_F(gm_commands_test, setlevel_requires_two_arguments) {
     EXPECT_FALSE(result.success);
 }
 
-TEST_F(gm_commands_test, setstats_requires_three_arguments) {
+TEST_F(gm_commands_test, setstats_requires_three_arguments)
+{
     player_id admin{1};
     admin_.register_admin(admin, "Admin", admin_level::admin);
 
@@ -293,7 +321,8 @@ TEST_F(gm_commands_test, setstats_requires_three_arguments) {
     EXPECT_FALSE(result.success);
 }
 
-TEST_F(gm_commands_test, setgold_requires_two_arguments) {
+TEST_F(gm_commands_test, setgold_requires_two_arguments)
+{
     player_id admin{1};
     admin_.register_admin(admin, "Admin", admin_level::admin);
 
@@ -305,22 +334,23 @@ TEST_F(gm_commands_test, setgold_requires_two_arguments) {
 
 // ========== Command Help Text Tests ==========
 
-TEST_F(gm_commands_test, goto_has_help_text) {
+TEST_F(gm_commands_test, goto_has_help_text)
+{
     auto help = admin_.get_help("goto");
     EXPECT_FALSE(help.empty());
-    EXPECT_TRUE(help.find("teleport") != std::string::npos ||
-                help.find("Teleport") != std::string::npos);
+    EXPECT_TRUE(help.find("teleport") != std::string::npos || help.find("Teleport") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, heal_has_help_text) {
+TEST_F(gm_commands_test, heal_has_help_text)
+{
     auto help = admin_.get_help("heal");
     EXPECT_FALSE(help.empty());
-    EXPECT_TRUE(help.find("HP") != std::string::npos ||
-                help.find("Restore") != std::string::npos ||
+    EXPECT_TRUE(help.find("HP") != std::string::npos || help.find("Restore") != std::string::npos ||
                 help.find("heal") != std::string::npos);
 }
 
-TEST_F(gm_commands_test, setlevel_has_help_text) {
+TEST_F(gm_commands_test, setlevel_has_help_text)
+{
     auto help = admin_.get_help("setlevel");
     EXPECT_FALSE(help.empty());
     EXPECT_TRUE(help.find("level") != std::string::npos);
@@ -328,18 +358,20 @@ TEST_F(gm_commands_test, setlevel_has_help_text) {
 
 // ========== Admin Level Hierarchy Tests ==========
 
-TEST_F(gm_commands_test, higher_levels_can_use_lower_level_commands) {
+TEST_F(gm_commands_test, higher_levels_can_use_lower_level_commands)
+{
     player_id owner{1};
     admin_.register_admin(owner, "Owner", admin_level::owner);
 
     // Owner should be able to use all commands
-    EXPECT_TRUE(admin_.can_execute(owner, "goto"));      // game_master
-    EXPECT_TRUE(admin_.can_execute(owner, "kill"));      // senior_gm
-    EXPECT_TRUE(admin_.can_execute(owner, "setlevel"));  // admin
-    EXPECT_TRUE(admin_.can_execute(owner, "getinfo"));   // helper
+    EXPECT_TRUE(admin_.can_execute(owner, "goto"));     // game_master
+    EXPECT_TRUE(admin_.can_execute(owner, "kill"));     // senior_gm
+    EXPECT_TRUE(admin_.can_execute(owner, "setlevel")); // admin
+    EXPECT_TRUE(admin_.can_execute(owner, "getinfo"));  // helper
 }
 
-TEST_F(gm_commands_test, commands_available_at_correct_level) {
+TEST_F(gm_commands_test, commands_available_at_correct_level)
+{
     // Get commands for each level and verify appropriate access
     auto helper_cmds = admin_.get_commands_for_level(admin_level::helper);
     auto gm_cmds = admin_.get_commands_for_level(admin_level::game_master);
@@ -358,7 +390,8 @@ TEST_F(gm_commands_test, commands_available_at_correct_level) {
 
 // ========== gm_command_context Tests ==========
 
-TEST(gm_command_context_test, default_construction) {
+TEST(gm_command_context_test, default_construction)
+{
     gm_command_context ctx;
 
     EXPECT_EQ(ctx.players, nullptr);
@@ -368,7 +401,8 @@ TEST(gm_command_context_test, default_construction) {
 
 // ========== Command Result Types ==========
 
-TEST(gm_command_result_test, ok_result) {
+TEST(gm_command_result_test, ok_result)
+{
     auto result = command_result::ok("Operation successful");
 
     EXPECT_TRUE(result.success);
@@ -376,7 +410,8 @@ TEST(gm_command_result_test, ok_result) {
     EXPECT_FALSE(result.broadcast);
 }
 
-TEST(gm_command_result_test, ok_broadcast_result) {
+TEST(gm_command_result_test, ok_broadcast_result)
+{
     auto result = command_result::ok_broadcast("Server message");
 
     EXPECT_TRUE(result.success);
@@ -384,7 +419,8 @@ TEST(gm_command_result_test, ok_broadcast_result) {
     EXPECT_TRUE(result.broadcast);
 }
 
-TEST(gm_command_result_test, error_result) {
+TEST(gm_command_result_test, error_result)
+{
     auto result = command_result::error("Something went wrong");
 
     EXPECT_FALSE(result.success);
@@ -394,7 +430,8 @@ TEST(gm_command_result_test, error_result) {
 
 // ========== Arg Spec Tests ==========
 
-TEST(arg_spec_test, player_name_arg) {
+TEST(arg_spec_test, player_name_arg)
+{
     arg_spec spec;
     spec.name = "player";
     spec.type = arg_type::player_name;
@@ -406,7 +443,8 @@ TEST(arg_spec_test, player_name_arg) {
     EXPECT_TRUE(spec.required);
 }
 
-TEST(arg_spec_test, optional_arg_with_default) {
+TEST(arg_spec_test, optional_arg_with_default)
+{
     arg_spec spec;
     spec.name = "count";
     spec.type = arg_type::integer;
@@ -419,7 +457,8 @@ TEST(arg_spec_test, optional_arg_with_default) {
     EXPECT_EQ(spec.default_value, "1");
 }
 
-TEST(arg_spec_test, map_name_arg) {
+TEST(arg_spec_test, map_name_arg)
+{
     arg_spec spec;
     spec.name = "map";
     spec.type = arg_type::map_name;
@@ -430,7 +469,8 @@ TEST(arg_spec_test, map_name_arg) {
 
 // ========== Arg Type Enum Tests ==========
 
-TEST(arg_type_test, distinct_values) {
+TEST(arg_type_test, distinct_values)
+{
     EXPECT_NE(static_cast<int>(arg_type::string), static_cast<int>(arg_type::integer));
     EXPECT_NE(static_cast<int>(arg_type::integer), static_cast<int>(arg_type::floating));
     EXPECT_NE(static_cast<int>(arg_type::floating), static_cast<int>(arg_type::boolean));

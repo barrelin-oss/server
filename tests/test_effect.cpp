@@ -15,8 +15,8 @@
 using namespace hb::effect;
 
 using hb::magic_type;
-using hb::spell_id;
 using hb::spell_effect_type;
+using hb::spell_id;
 using hb::player::player_status;
 using hb::player::stat_modifiers;
 
@@ -24,7 +24,8 @@ using hb::player::stat_modifiers;
 // active_effect tests
 // ============================================================
 
-TEST(active_effect_test, effect_id_validity) {
+TEST(active_effect_test, effect_id_validity)
+{
     effect_id invalid{};
     EXPECT_FALSE(invalid.is_valid());
     EXPECT_EQ(invalid.value, 0u);
@@ -34,7 +35,8 @@ TEST(active_effect_test, effect_id_validity) {
     EXPECT_EQ(valid.value, 42u);
 }
 
-TEST(active_effect_test, effect_id_comparison) {
+TEST(active_effect_test, effect_id_comparison)
+{
     effect_id a{1};
     effect_id b{1};
     effect_id c{2};
@@ -43,7 +45,8 @@ TEST(active_effect_test, effect_id_comparison) {
     EXPECT_NE(a, c);
 }
 
-TEST(active_effect_test, default_construction) {
+TEST(active_effect_test, default_construction)
+{
     active_effect eff{};
     EXPECT_FALSE(eff.id.is_valid());
     EXPECT_FALSE(eff.source.is_valid());
@@ -59,7 +62,8 @@ TEST(active_effect_test, default_construction) {
 // compute_effect_modifiers tests
 // ============================================================
 
-TEST(effect_modifiers_test, empty_effects) {
+TEST(effect_modifiers_test, empty_effects)
+{
     std::vector<active_effect> effects;
     auto result = compute_effect_modifiers(effects);
 
@@ -69,7 +73,8 @@ TEST(effect_modifiers_test, empty_effects) {
     EXPECT_EQ(result.modifiers.move_speed, 0);
 }
 
-TEST(effect_modifiers_test, protection_adds_defense) {
+TEST(effect_modifiers_test, protection_adds_defense)
+{
     active_effect eff{};
     eff.group = magic_type::protection;
     eff.magnitude = 25;
@@ -82,7 +87,8 @@ TEST(effect_modifiers_test, protection_adds_defense) {
     EXPECT_NE(result.status & player_status::protection, player_status::none);
 }
 
-TEST(effect_modifiers_test, berserk_modifies_attack_and_defense) {
+TEST(effect_modifiers_test, berserk_modifies_attack_and_defense)
+{
     active_effect eff{};
     eff.group = magic_type::berserk;
     eff.magnitude = 30;
@@ -96,7 +102,8 @@ TEST(effect_modifiers_test, berserk_modifies_attack_and_defense) {
     EXPECT_NE(result.status & player_status::berserk, player_status::none);
 }
 
-TEST(effect_modifiers_test, buff_attack_adds_attack_power) {
+TEST(effect_modifiers_test, buff_attack_adds_attack_power)
+{
     active_effect eff{};
     eff.type = spell_effect_type::buff_attack;
     eff.magnitude = 20;
@@ -109,7 +116,8 @@ TEST(effect_modifiers_test, buff_attack_adds_attack_power) {
     EXPECT_NE(result.status & player_status::attack_up, player_status::none);
 }
 
-TEST(effect_modifiers_test, buff_defense_adds_defense) {
+TEST(effect_modifiers_test, buff_defense_adds_defense)
+{
     active_effect eff{};
     eff.type = spell_effect_type::buff_defense;
     eff.magnitude = 15;
@@ -122,7 +130,8 @@ TEST(effect_modifiers_test, buff_defense_adds_defense) {
     EXPECT_NE(result.status & player_status::defense_up, player_status::none);
 }
 
-TEST(effect_modifiers_test, buff_speed_adds_move_speed) {
+TEST(effect_modifiers_test, buff_speed_adds_move_speed)
+{
     active_effect eff{};
     eff.type = spell_effect_type::buff_speed;
     eff.magnitude = 10;
@@ -135,7 +144,8 @@ TEST(effect_modifiers_test, buff_speed_adds_move_speed) {
     EXPECT_NE(result.status & player_status::haste, player_status::none);
 }
 
-TEST(effect_modifiers_test, debuff_slow_reduces_move_speed) {
+TEST(effect_modifiers_test, debuff_slow_reduces_move_speed)
+{
     active_effect eff{};
     eff.type = spell_effect_type::debuff_slow;
     eff.magnitude = 5;
@@ -148,7 +158,8 @@ TEST(effect_modifiers_test, debuff_slow_reduces_move_speed) {
     EXPECT_NE(result.status & player_status::slow, player_status::none);
 }
 
-TEST(effect_modifiers_test, poison_only_sets_status) {
+TEST(effect_modifiers_test, poison_only_sets_status)
+{
     // Poison doesn't modify stats - it acts through periodic ticks
     active_effect eff{};
     eff.group = magic_type::poison;
@@ -165,7 +176,8 @@ TEST(effect_modifiers_test, poison_only_sets_status) {
     EXPECT_EQ(result.modifiers.defense, 0);
 }
 
-TEST(effect_modifiers_test, stun_sets_status) {
+TEST(effect_modifiers_test, stun_sets_status)
+{
     active_effect eff{};
     eff.type = spell_effect_type::stun;
     eff.status_flag = player_status::stunned;
@@ -176,7 +188,8 @@ TEST(effect_modifiers_test, stun_sets_status) {
     EXPECT_NE(result.status & player_status::stunned, player_status::none);
 }
 
-TEST(effect_modifiers_test, freeze_sets_status) {
+TEST(effect_modifiers_test, freeze_sets_status)
+{
     active_effect eff{};
     eff.type = spell_effect_type::freeze;
     eff.status_flag = player_status::frozen;
@@ -187,7 +200,8 @@ TEST(effect_modifiers_test, freeze_sets_status) {
     EXPECT_NE(result.status & player_status::frozen, player_status::none);
 }
 
-TEST(effect_modifiers_test, multiple_effects_combine) {
+TEST(effect_modifiers_test, multiple_effects_combine)
+{
     active_effect prot{};
     prot.group = magic_type::protection;
     prot.magnitude = 20;
@@ -207,7 +221,8 @@ TEST(effect_modifiers_test, multiple_effects_combine) {
     EXPECT_NE(result.status & player_status::attack_up, player_status::none);
 }
 
-TEST(effect_modifiers_test, paralyzed_status_from_group) {
+TEST(effect_modifiers_test, paralyzed_status_from_group)
+{
     active_effect eff{};
     eff.group = magic_type::hold_paralyze;
     eff.status_flag = player_status::paralyzed;
@@ -218,7 +233,8 @@ TEST(effect_modifiers_test, paralyzed_status_from_group) {
     EXPECT_NE(result.status & player_status::paralyzed, player_status::none);
 }
 
-TEST(effect_modifiers_test, silenced_status_from_group) {
+TEST(effect_modifiers_test, silenced_status_from_group)
+{
     active_effect eff{};
     eff.group = magic_type::inhibition;
     eff.status_flag = player_status::silenced;
@@ -229,7 +245,8 @@ TEST(effect_modifiers_test, silenced_status_from_group) {
     EXPECT_NE(result.status & player_status::silenced, player_status::none);
 }
 
-TEST(effect_modifiers_test, invisible_status_from_group) {
+TEST(effect_modifiers_test, invisible_status_from_group)
+{
     active_effect eff{};
     eff.group = magic_type::invisibility;
     eff.status_flag = player_status::invisible;
@@ -240,7 +257,8 @@ TEST(effect_modifiers_test, invisible_status_from_group) {
     EXPECT_NE(result.status & player_status::invisible, player_status::none);
 }
 
-TEST(effect_modifiers_test, cursed_status_from_confusion) {
+TEST(effect_modifiers_test, cursed_status_from_confusion)
+{
     active_effect eff{};
     eff.group = magic_type::confusion;
     eff.status_flag = player_status::cursed;
@@ -255,22 +273,20 @@ TEST(effect_modifiers_test, cursed_status_from_confusion) {
 // effect_system tests
 // ============================================================
 
-class effect_system_test : public ::testing::Test {
+class effect_system_test : public ::testing::Test
+{
 protected:
-    void SetUp() override {
-        sys_.initialize();
-    }
+    void SetUp() override { sys_.initialize(); }
 
-    void TearDown() override {
-        sys_.shutdown();
-    }
+    void TearDown() override { sys_.shutdown(); }
 
     effect_system sys_;
     hb::entity::entity caster{1};
     hb::entity::entity target{2};
 };
 
-TEST_F(effect_system_test, apply_effect_returns_valid_id) {
+TEST_F(effect_system_test, apply_effect_returns_valid_id)
+{
     apply_effect_params params{};
     params.source = caster;
     params.target = target;
@@ -284,7 +300,8 @@ TEST_F(effect_system_test, apply_effect_returns_valid_id) {
     EXPECT_TRUE(eid.is_valid());
 }
 
-TEST_F(effect_system_test, group_slot_blocks_second_effect) {
+TEST_F(effect_system_test, group_slot_blocks_second_effect)
+{
     apply_effect_params params1{};
     params1.source = caster;
     params1.target = target;
@@ -300,20 +317,21 @@ TEST_F(effect_system_test, group_slot_blocks_second_effect) {
     apply_effect_params params2{};
     params2.source = caster;
     params2.target = target;
-    params2.group = magic_type::protection;  // Same group!
+    params2.group = magic_type::protection; // Same group!
     params2.type = spell_effect_type::buff_defense;
     params2.magnitude = 50;
     params2.duration_ms = 20000;
 
     auto eid2 = sys_.apply_effect(params2);
-    EXPECT_FALSE(eid2.is_valid());  // Blocked
+    EXPECT_FALSE(eid2.is_valid()); // Blocked
 
     // Original effect should still be there
     EXPECT_TRUE(sys_.has_effect_in_group(target, magic_type::protection));
     EXPECT_EQ(sys_.effect_count(target), 1u);
 }
 
-TEST_F(effect_system_test, different_groups_coexist) {
+TEST_F(effect_system_test, different_groups_coexist)
+{
     apply_effect_params prot{};
     prot.source = caster;
     prot.target = target;
@@ -336,7 +354,8 @@ TEST_F(effect_system_test, different_groups_coexist) {
     EXPECT_EQ(sys_.effect_count(target), 2u);
 }
 
-TEST_F(effect_system_test, remove_effect_by_id) {
+TEST_F(effect_system_test, remove_effect_by_id)
+{
     apply_effect_params params{};
     params.source = caster;
     params.target = target;
@@ -352,7 +371,8 @@ TEST_F(effect_system_test, remove_effect_by_id) {
     EXPECT_FALSE(sys_.has_effect_in_group(target, magic_type::protection));
 }
 
-TEST_F(effect_system_test, remove_effects_by_group) {
+TEST_F(effect_system_test, remove_effects_by_group)
+{
     apply_effect_params prot{};
     prot.source = caster;
     prot.target = target;
@@ -377,7 +397,8 @@ TEST_F(effect_system_test, remove_effects_by_group) {
     EXPECT_TRUE(sys_.has_effect_in_group(target, magic_type::berserk));
 }
 
-TEST_F(effect_system_test, remove_all_effects) {
+TEST_F(effect_system_test, remove_all_effects)
+{
     apply_effect_params prot{};
     prot.source = caster;
     prot.target = target;
@@ -400,7 +421,8 @@ TEST_F(effect_system_test, remove_all_effects) {
     EXPECT_EQ(sys_.effect_count(target), 0u);
 }
 
-TEST_F(effect_system_test, has_effect_by_type) {
+TEST_F(effect_system_test, has_effect_by_type)
+{
     apply_effect_params params{};
     params.source = caster;
     params.target = target;
@@ -414,7 +436,8 @@ TEST_F(effect_system_test, has_effect_by_type) {
     EXPECT_FALSE(sys_.has_effect(target, spell_effect_type::stun));
 }
 
-TEST_F(effect_system_test, has_status) {
+TEST_F(effect_system_test, has_status)
+{
     apply_effect_params params{};
     params.source = caster;
     params.target = target;
@@ -428,7 +451,8 @@ TEST_F(effect_system_test, has_status) {
     EXPECT_FALSE(sys_.has_status(target, player_status::stunned));
 }
 
-TEST_F(effect_system_test, get_effect_modifiers) {
+TEST_F(effect_system_test, get_effect_modifiers)
+{
     apply_effect_params params{};
     params.source = caster;
     params.target = target;
@@ -445,16 +469,19 @@ TEST_F(effect_system_test, get_effect_modifiers) {
     EXPECT_NE(mods->status & player_status::protection, player_status::none);
 }
 
-TEST_F(effect_system_test, effect_applied_callback_fires) {
+TEST_F(effect_system_test, effect_applied_callback_fires)
+{
     bool called = false;
     hb::entity::entity callback_target{};
     effect_id callback_eid{};
 
-    sys_.on_effect_applied([&](hb::entity::entity t, const active_effect& eff) {
-        called = true;
-        callback_target = t;
-        callback_eid = eff.id;
-    });
+    sys_.on_effect_applied(
+        [&](hb::entity::entity t, const active_effect& eff)
+        {
+            called = true;
+            callback_target = t;
+            callback_eid = eff.id;
+        });
 
     apply_effect_params params{};
     params.source = caster;
@@ -470,14 +497,17 @@ TEST_F(effect_system_test, effect_applied_callback_fires) {
     EXPECT_EQ(callback_eid, eid);
 }
 
-TEST_F(effect_system_test, effect_removed_callback_fires) {
+TEST_F(effect_system_test, effect_removed_callback_fires)
+{
     bool called = false;
     hb::entity::entity callback_target{};
 
-    sys_.on_effect_removed([&](hb::entity::entity t, const active_effect&) {
-        called = true;
-        callback_target = t;
-    });
+    sys_.on_effect_removed(
+        [&](hb::entity::entity t, const active_effect&)
+        {
+            called = true;
+            callback_target = t;
+        });
 
     apply_effect_params params{};
     params.source = caster;
@@ -494,7 +524,8 @@ TEST_F(effect_system_test, effect_removed_callback_fires) {
     EXPECT_EQ(callback_target, target);
 }
 
-TEST_F(effect_system_test, no_effect_on_nonexistent_target) {
+TEST_F(effect_system_test, no_effect_on_nonexistent_target)
+{
     hb::entity::entity nonexistent{999};
     EXPECT_FALSE(sys_.has_effect_in_group(nonexistent, magic_type::protection));
     EXPECT_FALSE(sys_.has_effect(nonexistent, spell_effect_type::poison));
@@ -504,23 +535,25 @@ TEST_F(effect_system_test, no_effect_on_nonexistent_target) {
     EXPECT_EQ(sys_.effect_count(nonexistent), 0u);
 }
 
-TEST_F(effect_system_test, permanent_effect_no_expiry) {
+TEST_F(effect_system_test, permanent_effect_no_expiry)
+{
     apply_effect_params params{};
     params.source = caster;
     params.target = target;
     params.group = magic_type::protection;
     params.magnitude = 25;
-    params.duration_ms = 0;  // Permanent
+    params.duration_ms = 0; // Permanent
 
     sys_.apply_effect(params);
 
     auto* effects = sys_.get_effects(target);
     ASSERT_NE(effects, nullptr);
     ASSERT_EQ(effects->size(), 1u);
-    EXPECT_EQ((*effects)[0].expires_at_ms, 0);  // No expiry
+    EXPECT_EQ((*effects)[0].expires_at_ms, 0); // No expiry
 }
 
-TEST_F(effect_system_test, multiple_targets_independent) {
+TEST_F(effect_system_test, multiple_targets_independent)
+{
     hb::entity::entity target2{3};
 
     apply_effect_params p1{};
@@ -533,7 +566,7 @@ TEST_F(effect_system_test, multiple_targets_independent) {
     apply_effect_params p2{};
     p2.source = caster;
     p2.target = target2;
-    p2.group = magic_type::protection;  // Same group, different target = OK
+    p2.group = magic_type::protection; // Same group, different target = OK
     p2.magnitude = 50;
     p2.duration_ms = 10000;
 
@@ -551,14 +584,17 @@ TEST_F(effect_system_test, multiple_targets_independent) {
     EXPECT_EQ(sys_.effect_count(target2), 1u);
 }
 
-TEST_F(effect_system_test, tick_callback_fires_on_update) {
+TEST_F(effect_system_test, tick_callback_fires_on_update)
+{
     int tick_count = 0;
     hb::entity::entity tick_target{};
 
-    sys_.on_effect_tick([&](hb::entity::entity t, const active_effect&) {
-        ++tick_count;
-        tick_target = t;
-    });
+    sys_.on_effect_tick(
+        [&](hb::entity::entity t, const active_effect&)
+        {
+            ++tick_count;
+            tick_target = t;
+        });
 
     apply_effect_params params{};
     params.source = caster;
@@ -566,8 +602,8 @@ TEST_F(effect_system_test, tick_callback_fires_on_update) {
     params.group = magic_type::poison;
     params.type = spell_effect_type::poison;
     params.magnitude = 10;
-    params.duration_ms = 100000;  // Long duration
-    params.tick_interval_ms = 1;  // Very short tick for testing
+    params.duration_ms = 100000; // Long duration
+    params.tick_interval_ms = 1; // Very short tick for testing
 
     sys_.apply_effect(params);
 
@@ -585,7 +621,8 @@ TEST_F(effect_system_test, tick_callback_fires_on_update) {
 // Player modifier split tests
 // ============================================================
 
-TEST(player_modifier_split_test, equipment_and_effect_combine) {
+TEST(player_modifier_split_test, equipment_and_effect_combine)
+{
     hb::player::player p{};
     p.base.strength = 20;
     p.base.dexterity = 15;
@@ -608,7 +645,8 @@ TEST(player_modifier_split_test, equipment_and_effect_combine) {
     EXPECT_EQ(p.modifiers.attack_power, 45);
 }
 
-TEST(player_modifier_split_test, equipment_change_preserves_effects) {
+TEST(player_modifier_split_test, equipment_change_preserves_effects)
+{
     hb::player::player p{};
     p.base.strength = 20;
     p.base.dexterity = 15;
@@ -630,10 +668,11 @@ TEST(player_modifier_split_test, equipment_change_preserves_effects) {
 
     // Effect modifier should be preserved
     EXPECT_EQ(p.modifiers.defense, 55);
-    EXPECT_EQ(p.effect_modifiers.defense, 25);  // Unchanged
+    EXPECT_EQ(p.effect_modifiers.defense, 25); // Unchanged
 }
 
-TEST(player_modifier_split_test, effect_change_preserves_equipment) {
+TEST(player_modifier_split_test, effect_change_preserves_equipment)
+{
     hb::player::player p{};
     p.base.strength = 20;
     p.base.dexterity = 15;
@@ -655,14 +694,15 @@ TEST(player_modifier_split_test, effect_change_preserves_equipment) {
 
     // Equipment modifier should be preserved
     EXPECT_EQ(p.modifiers.defense, 50);
-    EXPECT_EQ(p.equipment_modifiers.defense, 50);  // Unchanged
+    EXPECT_EQ(p.equipment_modifiers.defense, 50); // Unchanged
 }
 
 // ============================================================
 // Status flag management tests
 // ============================================================
 
-TEST(player_status_test, effect_managed_mask_preserves_gm_flags) {
+TEST(player_status_test, effect_managed_mask_preserves_gm_flags)
+{
     hb::player::player p{};
 
     // Set a non-effect-managed flag
@@ -670,10 +710,9 @@ TEST(player_status_test, effect_managed_mask_preserves_gm_flags) {
 
     // Simulate set_effect_status - clear effect flags, set new ones
     constexpr auto effect_managed_mask =
-        player_status::poisoned | player_status::paralyzed | player_status::invisible |
-        player_status::frozen | player_status::berserk | player_status::protection |
-        player_status::defense_up | player_status::attack_up | player_status::magic_up |
-        player_status::haste | player_status::slow | player_status::stunned |
+        player_status::poisoned | player_status::paralyzed | player_status::invisible | player_status::frozen |
+        player_status::berserk | player_status::protection | player_status::defense_up | player_status::attack_up |
+        player_status::magic_up | player_status::haste | player_status::slow | player_status::stunned |
         player_status::silenced | player_status::invincible | player_status::cursed;
 
     auto effect_flags = player_status::poisoned | player_status::protection;
@@ -685,15 +724,15 @@ TEST(player_status_test, effect_managed_mask_preserves_gm_flags) {
     EXPECT_FALSE(p.has_status(player_status::stunned));
 }
 
-TEST(player_status_test, clearing_effects_preserves_gm_flags) {
+TEST(player_status_test, clearing_effects_preserves_gm_flags)
+{
     hb::player::player p{};
     p.status = player_status::gm_invisible | player_status::poisoned | player_status::berserk;
 
     constexpr auto effect_managed_mask =
-        player_status::poisoned | player_status::paralyzed | player_status::invisible |
-        player_status::frozen | player_status::berserk | player_status::protection |
-        player_status::defense_up | player_status::attack_up | player_status::magic_up |
-        player_status::haste | player_status::slow | player_status::stunned |
+        player_status::poisoned | player_status::paralyzed | player_status::invisible | player_status::frozen |
+        player_status::berserk | player_status::protection | player_status::defense_up | player_status::attack_up |
+        player_status::magic_up | player_status::haste | player_status::slow | player_status::stunned |
         player_status::silenced | player_status::invincible | player_status::cursed;
 
     // Clear all effect-managed flags

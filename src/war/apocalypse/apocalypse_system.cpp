@@ -9,7 +9,8 @@
 #include <chrono>
 #include <ctime>
 
-namespace hb::war {
+namespace hb::war
+{
 
 apocalypse_system::~apocalypse_system()
 {
@@ -74,7 +75,8 @@ void apocalypse_system::update(float delta_time)
 
 auto apocalypse_system::start_event() -> apocalypse_result
 {
-    if (active_) return apocalypse_result::already_active;
+    if (active_)
+        return apocalypse_result::already_active;
 
     active_ = true;
     gate_check_accumulator_ = 0.0f;
@@ -99,7 +101,8 @@ auto apocalypse_system::start_event() -> apocalypse_result
 
 auto apocalypse_system::end_event() -> apocalypse_result
 {
-    if (!active_) return apocalypse_result::not_active;
+    if (!active_)
+        return apocalypse_result::not_active;
 
     LOG_INFO(general, "Apocalypse event ended");
 
@@ -124,7 +127,8 @@ auto apocalypse_system::end_event() -> apocalypse_result
 
 void apocalypse_system::check_gates()
 {
-    if (!get_players_on_map_fn_) return;
+    if (!get_players_on_map_fn_)
+        return;
 
     for (const auto& gate : config_.gates)
     {
@@ -149,11 +153,10 @@ void apocalypse_system::check_gates()
             // If player is standing on a teleport tile and destination exists, teleport
             if (!gate.destination_map.empty() && teleport_to_fn_)
             {
-                bool on_tile = std::any_of(
-                    gate.teleport_tiles.begin(),
-                    gate.teleport_tiles.end(),
-                    [&](const auto& tile) { return tile.first == pos.x && tile.second == pos.y; }
-                );
+                bool on_tile =
+                    std::any_of(gate.teleport_tiles.begin(),
+                                gate.teleport_tiles.end(),
+                                [&](const auto& tile) { return tile.first == pos.x && tile.second == pos.y; });
 
                 if (on_tile)
                 {
@@ -166,7 +169,8 @@ void apocalypse_system::check_gates()
 
 void apocalypse_system::eject_players_from_apocalypse_maps()
 {
-    if (!get_players_on_map_fn_ || !teleport_home_fn_) return;
+    if (!get_players_on_map_fn_ || !teleport_home_fn_)
+        return;
 
     for (const auto& map_name : config_.apocalypse_maps)
     {
@@ -190,7 +194,8 @@ auto apocalypse_system::check_end_schedule() const -> bool
 
 auto apocalypse_system::check_schedule(const std::vector<apocalypse_schedule_entry>& entries) const -> bool
 {
-    if (entries.empty()) return false;
+    if (entries.empty())
+        return false;
 
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
@@ -203,9 +208,7 @@ auto apocalypse_system::check_schedule(const std::vector<apocalypse_schedule_ent
 
     for (const auto& entry : entries)
     {
-        if (local_tm.tm_wday == entry.day_of_week &&
-            local_tm.tm_hour == entry.hour &&
-            local_tm.tm_min == entry.minute)
+        if (local_tm.tm_wday == entry.day_of_week && local_tm.tm_hour == entry.hour && local_tm.tm_min == entry.minute)
         {
             return true;
         }
@@ -213,4 +216,4 @@ auto apocalypse_system::check_schedule(const std::vector<apocalypse_schedule_ent
     return false;
 }
 
-}  // namespace hb::war
+} // namespace hb::war

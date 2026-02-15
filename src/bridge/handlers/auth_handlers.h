@@ -94,8 +94,8 @@ public:
                     effect::effect_system* effects = nullptr,
                     item_registry* item_reg = nullptr);
 
-    // Main message handler - routes to specific handlers
-    void handle_message(connection_id conn_id, const network::json_message& msg);
+    // Main message handler - routes to specific handlers. Returns true if handled.
+    bool handle_message(connection_id conn_id, const network::json_message& msg);
 
     // Handle player disconnect (save and cleanup) - called by application on disconnect
     void handle_player_disconnect(connection_id conn_id);

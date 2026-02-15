@@ -202,8 +202,8 @@ public:
     // Send guild command availability update to a player
     void send_guild_command_update(player_id pid);
 
-    // Main message handler - routes to specific handlers
-    void handle_message(connection_id conn_id, const network::json_message& msg);
+    // Main message handler - routes to specific handlers. Returns true if handled.
+    bool handle_message(connection_id conn_id, const network::json_message& msg);
 
 private:
     // Individual message handlers - Movement

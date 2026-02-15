@@ -127,218 +127,217 @@ void admin_web_handlers::initialize(network::websocket_server* ws_server,
     audit_ = audit;
 }
 
-void admin_web_handlers::handle_message(connection_id conn_id, const network::json_message& msg)
+bool admin_web_handlers::handle_message(connection_id conn_id, const network::json_message& msg)
 {
     using mt = network::json_message_type;
     switch (msg.type)
     {
     case mt::admin_server_stats_request:
         handle_server_stats(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_players_request:
         handle_list_players(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_player_request:
         handle_get_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_kick_player_request:
         handle_kick_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_ban_player_request:
         handle_ban_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_teleport_player_request:
         handle_teleport_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_modify_player_request:
         handle_modify_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_maps_request:
         handle_list_maps(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_map_request:
         handle_get_map(conn_id, msg);
-        break;
+        return true;
     case mt::admin_spawn_npc_request:
         handle_spawn_npc(conn_id, msg);
-        break;
+        return true;
     case mt::admin_kill_npc_request:
         handle_kill_npc(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_inventory_request:
         handle_get_inventory(conn_id, msg);
-        break;
+        return true;
     case mt::admin_give_item_request:
         handle_give_item(conn_id, msg);
-        break;
+        return true;
     case mt::admin_remove_item_request:
         handle_remove_item(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_guilds_request:
         handle_list_guilds(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_guild_request:
         handle_get_guild(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_account_request:
         handle_get_account(conn_id, msg);
-        break;
+        return true;
     case mt::admin_unban_player_request:
         handle_unban_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_subscribe_map_request:
         handle_subscribe_map(conn_id, msg);
-        break;
+        return true;
     case mt::admin_subscribe_player_request:
         handle_subscribe_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_unsubscribe_request:
         handle_unsubscribe(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_map_data_request:
         handle_get_map_data(conn_id, msg);
-        break;
+        return true;
     case mt::admin_broadcast_request:
         handle_broadcast(conn_id, msg);
-        break;
+        return true;
     case mt::admin_mute_player_request:
         handle_mute_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_unmute_player_request:
         handle_unmute_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_item_templates_request:
         handle_list_item_templates(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_item_template_request:
         handle_get_item_template(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_npc_templates_request:
         handle_list_npc_templates(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_npc_template_request:
         handle_get_npc_template(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_war_status_request:
         handle_get_war_status(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_parties_request:
         handle_list_parties(conn_id, msg);
-        break;
+        return true;
     case mt::admin_search_players_request:
         handle_search_players(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_audit_log_request:
         handle_get_audit_log(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_config_request:
         handle_get_config(conn_id, msg);
-        break;
+        return true;
     case mt::admin_set_config_request:
         handle_set_config(conn_id, msg);
-        break;
+        return true;
     case mt::admin_reload_config_request:
         handle_reload_config(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_scheduled_tasks_request:
         handle_list_scheduled_tasks(conn_id, msg);
-        break;
+        return true;
     case mt::admin_cancel_scheduled_task_request:
         handle_cancel_scheduled_task(conn_id, msg);
-        break;
+        return true;
     case mt::admin_start_task_request:
         handle_start_task(conn_id, msg);
-        break;
+        return true;
     case mt::admin_run_query_request:
         handle_run_query(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_map_npcs_request:
         handle_list_map_npcs(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_map_ground_items_request:
         handle_list_map_ground_items(conn_id, msg);
-        break;
+        return true;
     case mt::admin_remove_ground_item_request:
         handle_remove_ground_item(conn_id, msg);
-        break;
+        return true;
     case mt::admin_guild_action_request:
         handle_guild_action(conn_id, msg);
-        break;
+        return true;
     case mt::admin_message_player_request:
         handle_message_player(conn_id, msg);
-        break;
+        return true;
     case mt::admin_set_environment_request:
         handle_set_environment(conn_id, msg);
-        break;
+        return true;
     case mt::admin_shutdown_server_request:
         handle_shutdown_server(conn_id, msg);
-        break;
+        return true;
     case mt::admin_modify_skills_request:
         handle_modify_skills(conn_id, msg);
-        break;
+        return true;
     case mt::admin_modify_spells_request:
         handle_modify_spells(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_player_quests_request:
         handle_get_player_quests(conn_id, msg);
-        break;
+        return true;
     case mt::admin_quest_action_request:
         handle_quest_action(conn_id, msg);
-        break;
+        return true;
     case mt::admin_remove_effects_request:
         handle_remove_effects(conn_id, msg);
-        break;
+        return true;
     case mt::admin_create_account_request:
         handle_create_account(conn_id, msg);
-        break;
+        return true;
     case mt::admin_change_password_request:
         handle_change_password(conn_id, msg);
-        break;
+        return true;
     case mt::admin_set_admin_level_request:
         handle_set_admin_level(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_spawn_points_request:
         handle_list_spawn_points(conn_id, msg);
-        break;
+        return true;
     case mt::admin_list_spell_templates_request:
         handle_list_spell_templates(conn_id, msg);
-        break;
+        return true;
     case mt::admin_get_spell_template_request:
         handle_get_spell_template(conn_id, msg);
-        break;
+        return true;
     case mt::admin_set_maintenance_mode_request:
         handle_set_maintenance_mode(conn_id, msg);
-        break;
+        return true;
     case mt::admin_create_character_request_admin:
         handle_create_character_admin(conn_id, msg);
-        break;
+        return true;
     case mt::admin_delete_character_request_admin:
         handle_delete_character_admin(conn_id, msg);
-        break;
+        return true;
     case mt::admin_manage_ip_bans_request:
         handle_manage_ip_bans(conn_id, msg);
-        break;
+        return true;
     case mt::admin_item_log_request:
         handle_item_log(conn_id, msg);
-        break;
+        return true;
     case mt::admin_perf_stats_request:
         handle_perf_stats(conn_id, msg);
-        break;
+        return true;
     case mt::admin_start_war_request:
         handle_start_war(conn_id, msg);
-        break;
+        return true;
     case mt::admin_end_war_request:
         handle_end_war(conn_id, msg);
-        break;
+        return true;
     case mt::admin_war_history_request:
         handle_war_history(conn_id, msg);
-        break;
+        return true;
     case mt::admin_war_participants_request:
         handle_war_participants(conn_id, msg);
-        break;
+        return true;
     default:
-        send_error(conn_id, msg.seq, "unknown_admin_message", "Unknown admin message type");
-        break;
+        return false;
     }
 }
 

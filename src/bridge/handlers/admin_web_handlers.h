@@ -138,7 +138,8 @@ public:
                     perf::perf_stats_system* perf_stats = nullptr,
                     audit::item_audit_system* audit = nullptr);
 
-    void handle_message(connection_id conn_id, const network::json_message& msg);
+    // Returns true if this handler recognized and processed the message type.
+    bool handle_message(connection_id conn_id, const network::json_message& msg);
 
     void set_war_persistence(war::war_persistence* wp) { war_persistence_ = wp; }
 

@@ -76,41 +76,39 @@ void auth_handlers::initialize(network::websocket_server* ws_server,
         social_ != nullptr ? "yes" : "no");
 }
 
-void auth_handlers::handle_message(connection_id conn_id, const network::json_message& msg)
+bool auth_handlers::handle_message(connection_id conn_id, const network::json_message& msg)
 {
     switch (msg.type)
     {
     case network::json_message_type::login_request:
         handle_login(conn_id, msg);
-        break;
+        return true;
     case network::json_message_type::logout_request:
         handle_logout(conn_id, msg);
-        break;
+        return true;
     case network::json_message_type::create_account_request:
         handle_create_account(conn_id, msg);
-        break;
+        return true;
     case network::json_message_type::get_characters_request:
         handle_get_characters(conn_id, msg);
-        break;
+        return true;
     case network::json_message_type::create_character_request:
         handle_create_character(conn_id, msg);
-        break;
+        return true;
     case network::json_message_type::delete_character_request:
         handle_delete_character(conn_id, msg);
-        break;
+        return true;
     case network::json_message_type::enter_game_request:
         handle_enter_game(conn_id, msg);
-        break;
+        return true;
     case network::json_message_type::ping:
         handle_ping(conn_id, msg);
-        break;
+        return true;
     case network::json_message_type::enter_admin_mode_request:
         handle_enter_admin_mode(conn_id, msg);
-        break;
+        return true;
     default:
-        LOG_WARN(bridge, "Unhandled auth message type: {}", network::to_string(msg.type));
-        send_error(conn_id, msg.seq, "unknown_message_type", "Message type not recognized by auth handler");
-        break;
+        return false;
     }
 }
 

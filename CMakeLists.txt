@@ -221,6 +221,14 @@ set(BRIDGE_SOURCES
     src/bridge/handlers/wave5_handlers.cpp
     src/bridge/handlers/auth_handlers.cpp
     src/bridge/handlers/game_handlers.cpp
+    src/bridge/handlers/game_handlers_movement.cpp
+    src/bridge/handlers/game_handlers_combat.cpp
+    src/bridge/handlers/game_handlers_npc.cpp
+    src/bridge/handlers/game_handlers_shop.cpp
+    src/bridge/handlers/game_handlers_chat.cpp
+    src/bridge/handlers/game_handlers_social.cpp
+    src/bridge/handlers/game_handlers_equipment.cpp
+    src/bridge/handlers/game_handlers_crafting.cpp
     src/bridge/handlers/admin_web_handlers.cpp
     src/bridge/handlers/entity_builders.cpp
     src/bridge/handlers/broadcast_util.cpp

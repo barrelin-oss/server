@@ -11,6 +11,7 @@
 #include "social/chat.h"
 #include "social/friend.h"
 
+#include <concepts>
 #include <unordered_map>
 #include <unordered_set>
 #include <string_view>
@@ -226,7 +227,9 @@ public:
     [[nodiscard]] auto find_guild_by_name(std::string_view name) const -> guild_id;
     [[nodiscard]] auto guild_count() const -> size_t;
 
-    template<typename Func> void for_each_guild(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, guild_id, const guild&>
+    void for_each_guild(Func&& func) const
     {
         for (const auto& [id, g] : guilds_)
         {
@@ -260,7 +263,9 @@ public:
     void update_party_member_stats(player_id player, int32_t hp, int32_t max_hp, int32_t mp, int32_t max_mp);
     void update_party_member_map(player_id player, map_id map);
 
-    template<typename Func> void for_each_party(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, party_id, const party&>
+    void for_each_party(Func&& func) const
     {
         for (const auto& [id, p] : parties_)
         {

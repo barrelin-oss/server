@@ -17,6 +17,7 @@
 #include "npc/boss/boss_loader.h"
 #include "entity/entity_manager.h"
 
+#include <concepts>
 #include <unordered_map>
 #include <memory>
 #include <vector>
@@ -136,7 +137,9 @@ public:
     [[nodiscard]] auto has_pending_deaths() const -> bool { return !pending_npc_deaths_.empty(); }
 
     // Iteration
-    template<typename Func> void for_each_npc(Func&& func)
+    template<typename Func>
+        requires std::invocable<Func, entity::entity, npc&>
+    void for_each_npc(Func&& func)
     {
         for (auto& [id, npc_ptr] : npcs_)
         {
@@ -144,7 +147,9 @@ public:
         }
     }
 
-    template<typename Func> void for_each_spawn_point(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, const spawn_point&>
+    void for_each_spawn_point(Func&& func) const
     {
         for (const auto& sp : spawn_points_)
         {
@@ -152,7 +157,9 @@ public:
         }
     }
 
-    template<typename Func> void for_each_npc_on_map(map_id map, Func&& func)
+    template<typename Func>
+        requires std::invocable<Func, entity::entity, npc&>
+    void for_each_npc_on_map(map_id map, Func&& func)
     {
         for (auto& [id, npc_ptr] : npcs_)
         {

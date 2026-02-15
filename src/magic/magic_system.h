@@ -9,6 +9,7 @@
 #include "magic/spell.h"
 #include "combat/combat_events.h"
 
+#include <concepts>
 #include <unordered_map>
 #include <vector>
 #include <functional>
@@ -83,7 +84,9 @@ public:
     [[nodiscard]] auto get_spell(spell_id id) const -> const spell_template*;
 
     // Iteration
-    template<typename Func> void for_each_spell(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, spell_id, const spell_template&>
+    void for_each_spell(Func&& func) const
     {
         for (const auto& [id, spell] : spells_)
         {

@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <concepts>
 #include <functional>
 #include <optional>
 
@@ -188,7 +189,9 @@ public:
     void restore_hunger(player_id id, int8_t amount);
 
     // Iteration
-    template<typename Func> void for_each_player(Func&& func)
+    template<typename Func>
+        requires std::invocable<Func, player_id, player&>
+    void for_each_player(Func&& func)
     {
         for (auto& [id, player_ptr] : players_)
         {
@@ -196,7 +199,9 @@ public:
         }
     }
 
-    template<typename Func> void for_each_player(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, player_id, const player&>
+    void for_each_player(Func&& func) const
     {
         for (const auto& [id, player_ptr] : players_)
         {
@@ -205,7 +210,9 @@ public:
     }
 
     // Find players matching a predicate
-    template<typename Pred> [[nodiscard]] auto find_players_if(Pred&& pred) const -> std::vector<player_id>
+    template<typename Pred>
+        requires std::invocable<Pred, const player&>
+    [[nodiscard]] auto find_players_if(Pred&& pred) const -> std::vector<player_id>
     {
         std::vector<player_id> result;
         for (const auto& [id, player_ptr] : players_)

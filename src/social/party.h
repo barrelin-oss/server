@@ -233,10 +233,7 @@ struct party
     void cleanup_invites()
     {
         auto now = std::chrono::steady_clock::now();
-        pending_invites.erase(std::remove_if(pending_invites.begin(),
-                                             pending_invites.end(),
-                                             [now](const party_invite& inv) { return inv.expires_at <= now; }),
-                              pending_invites.end());
+        std::erase_if(pending_invites, [now](const party_invite& inv) { return inv.expires_at <= now; });
     }
 
     // Add an invite

@@ -5,6 +5,7 @@
 
 #include "core/types.h"
 
+#include <algorithm>
 #include <functional>
 #include <unordered_map>
 #include <vector>
@@ -71,9 +72,7 @@ public:
         }
 
         auto& handlers = handlers_it->second;
-        handlers.erase(
-            std::remove_if(handlers.begin(), handlers.end(), [id](const auto& wrapper) { return wrapper->id() == id; }),
-            handlers.end());
+        std::erase_if(handlers, [id](const auto& wrapper) { return wrapper->id() == id; });
     }
 
     // Publish an event to all subscribers

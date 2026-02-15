@@ -5,6 +5,7 @@
 
 #include "core/types.h"
 #include "world/position.h"
+#include <concepts>
 #include <vector>
 #include <unordered_set>
 #include <cstdint>
@@ -158,7 +159,9 @@ public:
     }
 
     // Iterate over entities in range (avoids allocation)
-    template<typename Func> void for_each_in_range(const position& center, int radius, Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, entity_id, const position&>
+    void for_each_in_range(const position& center, int radius, Func&& func) const
     {
         int radius_squared = radius * radius;
 

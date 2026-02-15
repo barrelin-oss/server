@@ -8,6 +8,7 @@
 #include "core/result.h"
 #include "session/session.h"
 
+#include <concepts>
 #include <unordered_map>
 #include <mutex>
 #include <chrono>
@@ -92,7 +93,9 @@ public:
     [[nodiscard]] auto count_in_game() const -> size_t;
 
     // Iteration
-    template<typename F> void for_each(F&& func)
+    template<typename F>
+        requires std::invocable<F, session&>
+    void for_each(F&& func)
     {
         std::lock_guard lock{mutex_};
         for (auto& [id, sess] : sessions_)
@@ -101,7 +104,9 @@ public:
         }
     }
 
-    template<typename F> void for_each(F&& func) const
+    template<typename F>
+        requires std::invocable<F, const session&>
+    void for_each(F&& func) const
     {
         std::lock_guard lock{mutex_};
         for (const auto& [id, sess] : sessions_)

@@ -9,6 +9,7 @@
 #include "core/result.h"
 
 #include <array>
+#include <concepts>
 #include <memory>
 #include <queue>
 #include <mutex>
@@ -124,7 +125,9 @@ public:
     [[nodiscard]] auto count() const -> size_t;
 
     // Iteration
-    template<typename F> void for_each(F&& func)
+    template<typename F>
+        requires std::invocable<F, connection&>
+    void for_each(F&& func)
     {
         std::lock_guard lock{mutex_};
         for (auto& [id, conn] : connections_)
@@ -133,7 +136,9 @@ public:
         }
     }
 
-    template<typename F> void for_each(F&& func) const
+    template<typename F>
+        requires std::invocable<F, const connection&>
+    void for_each(F&& func) const
     {
         std::lock_guard lock{mutex_};
         for (const auto& [id, conn] : connections_)

@@ -11,6 +11,7 @@
 #include "entity/entity.h"
 
 #include <chrono>
+#include <concepts>
 #include <memory>
 #include <tuple>
 #include <unordered_map>
@@ -103,7 +104,9 @@ public:
         std::chrono::steady_clock::time_point drop_time;
     };
 
-    template<typename Func> void for_each_ground_item_on_map(map_id map, Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, const position&, item_id, const std::chrono::steady_clock::time_point&>
+    void for_each_ground_item_on_map(map_id map, Func&& func) const
     {
         for (const auto& [key, entries] : ground_items_)
         {
@@ -120,7 +123,9 @@ public:
     auto remove_ground_item(map_id map, const position& pos, item_id item) -> bool;
 
     // Iterate over all maps
-    template<typename Func> void for_each_map(Func&& func)
+    template<typename Func>
+        requires std::invocable<Func, map_id, map&>
+    void for_each_map(Func&& func)
     {
         for (auto& [id, map_ptr] : maps_)
         {
@@ -128,7 +133,9 @@ public:
         }
     }
 
-    template<typename Func> void for_each_map(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, map_id, const map&>
+    void for_each_map(Func&& func) const
     {
         for (const auto& [id, map_ptr] : maps_)
         {

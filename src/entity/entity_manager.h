@@ -7,6 +7,7 @@
 #include "entity/entity.h"
 #include "entity/component_storage.h"
 
+#include <concepts>
 #include <vector>
 #include <queue>
 #include <unordered_map>
@@ -114,7 +115,9 @@ public:
     }
 
     // Iterate over entities with specific components
-    template<typename T, typename Func> void for_each(Func&& func)
+    template<typename T, typename Func>
+        requires std::invocable<Func, entity, T&>
+    void for_each(Func&& func)
     {
         auto* storage = get_storage<T>();
         if (storage)
@@ -124,7 +127,9 @@ public:
     }
 
     // Iterate over entities with multiple components (AND query)
-    template<typename T1, typename T2, typename Func> void for_each(Func&& func)
+    template<typename T1, typename T2, typename Func>
+        requires std::invocable<Func, entity, T1&, T2&>
+    void for_each(Func&& func)
     {
         auto* storage1 = get_storage<T1>();
         auto* storage2 = get_storage<T2>();

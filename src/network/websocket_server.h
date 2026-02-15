@@ -8,6 +8,7 @@
 #include "network/json_protocol.h"
 
 #include <ixwebsocket/IXWebSocketServer.h>
+#include <concepts>
 #include <string>
 #include <string_view>
 #include <functional>
@@ -242,7 +243,9 @@ public:
     void process_pending_disconnects();
 
     // Iteration
-    template<typename Func> void for_each_connection(Func&& func)
+    template<typename Func>
+        requires std::invocable<Func, ws_connection&>
+    void for_each_connection(Func&& func)
     {
         std::lock_guard lock{mutex_};
         for (auto& [id, conn] : connections_)

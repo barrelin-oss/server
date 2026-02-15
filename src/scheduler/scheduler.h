@@ -11,6 +11,7 @@
 
 #include "platform/clock.h"
 
+#include <concepts>
 #include <vector>
 #include <queue>
 #include <unordered_map>
@@ -75,7 +76,9 @@ public:
         bool repeating{false};
     };
 
-    template<typename Func> void for_each_task(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, const task_info&>
+    void for_each_task(Func&& func) const
     {
         // Copy metadata under lock, iterate outside
         std::vector<task_info> snapshot;
@@ -122,7 +125,9 @@ public:
 
     [[nodiscard]] auto is_task_running(std::string_view tag) const -> bool;
 
-    template<typename Func> void for_each_definition(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, const task_definition&, bool>
+    void for_each_definition(Func&& func) const
     {
         std::lock_guard lock(mutex_);
         for (const auto& [tag, def] : task_definitions_)

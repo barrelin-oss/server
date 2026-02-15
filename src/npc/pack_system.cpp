@@ -53,7 +53,7 @@ void pack_system::remove_member(entity::entity member)
         return;
 
     auto& members = pack_it->second.members;
-    members.erase(std::remove(members.begin(), members.end(), member), members.end());
+    std::erase(members, member);
 
     // If leader left, promote next member or disband
     if (pack_it->second.leader == member)

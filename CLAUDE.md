@@ -166,12 +166,10 @@ class CPlayerState {              // No C-prefix, use Allman braces
 ### Preferred Language Features
 
 ```cpp
-// Use concepts for generic constraints
-template<typename T>
-concept entity = requires(T t)
-{
-    { t.get_id() } -> std::convertible_to<uint32_t>;
-};
+// Use concepts to constrain callback templates
+template<typename Func>
+    requires std::invocable<Func, player_id, const player&>
+void for_each_player(Func&& func) const;
 
 // Use std::span instead of raw pointer + size
 void process_items(std::span<const item> items);
@@ -195,8 +193,8 @@ auto config = server_config
 // Use structured bindings
 auto [success, player] = player_manager.authenticate(credentials);
 
-// Use ranges for collection operations
-auto active = clients | std::views::filter(&client::is_active);
+// Use std::erase_if instead of erase-remove idiom
+std::erase_if(items, [](const auto& item) { return item.expired(); });
 
 // Use constexpr for compile-time computation
 inline constexpr auto max_inventory_slots = 50;

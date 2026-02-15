@@ -5,6 +5,7 @@
 
 #include "entity/entity.h"
 
+#include <concepts>
 #include <vector>
 #include <optional>
 #include <cassert>
@@ -175,7 +176,9 @@ public:
     [[nodiscard]] auto entity_at(size_t dense_idx) const -> entity { return dense_entities_[dense_idx]; }
 
     // Iterate with entity and component
-    template<typename Func> void for_each(Func&& func)
+    template<typename Func>
+        requires std::invocable<Func, entity, T&>
+    void for_each(Func&& func)
     {
         for (size_t i = 0; i < dense_data_.size(); ++i)
         {
@@ -183,7 +186,9 @@ public:
         }
     }
 
-    template<typename Func> void for_each(Func&& func) const
+    template<typename Func>
+        requires std::invocable<Func, entity, const T&>
+    void for_each(Func&& func) const
     {
         for (size_t i = 0; i < dense_data_.size(); ++i)
         {

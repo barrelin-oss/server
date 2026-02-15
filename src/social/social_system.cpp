@@ -1657,9 +1657,7 @@ void social_system::cleanup_expired_invites()
     // Clean up party invites
     for (auto& [player, invites] : pending_party_invites_)
     {
-        invites.erase(
-            std::remove_if(invites.begin(), invites.end(), [](const party_invite& inv) { return inv.is_expired(); }),
-            invites.end());
+        std::erase_if(invites, [](const party_invite& inv) { return inv.is_expired(); });
     }
 
     // Clean up invites in parties
@@ -1969,16 +1967,10 @@ auto social_system::accept_friend_request(player_id accepter_char_id, player_id 
 
     // Remove from request maps
     auto& incoming = incoming_requests_[accepter_char_id];
-    incoming.erase(std::remove_if(incoming.begin(),
-                                  incoming.end(),
-                                  [&](const friend_request& r) { return r.requester_char_id == requester_char_id; }),
-                   incoming.end());
+    std::erase_if(incoming, [&](const friend_request& r) { return r.requester_char_id == requester_char_id; });
 
     auto& outgoing = outgoing_requests_[requester_char_id];
-    outgoing.erase(std::remove_if(outgoing.begin(),
-                                  outgoing.end(),
-                                  [&](const friend_request& r) { return r.requestee_char_id == accepter_char_id; }),
-                   outgoing.end());
+    std::erase_if(outgoing, [&](const friend_request& r) { return r.requestee_char_id == accepter_char_id; });
 
     // Get names
     std::string requester_name;
@@ -2063,16 +2055,10 @@ auto social_system::decline_friend_request(player_id decliner_char_id, player_id
 
     // Remove from request maps
     auto& incoming = incoming_requests_[decliner_char_id];
-    incoming.erase(std::remove_if(incoming.begin(),
-                                  incoming.end(),
-                                  [&](const friend_request& r) { return r.requester_char_id == requester_char_id; }),
-                   incoming.end());
+    std::erase_if(incoming, [&](const friend_request& r) { return r.requester_char_id == requester_char_id; });
 
     auto& outgoing = outgoing_requests_[requester_char_id];
-    outgoing.erase(std::remove_if(outgoing.begin(),
-                                  outgoing.end(),
-                                  [&](const friend_request& r) { return r.requestee_char_id == decliner_char_id; }),
-                   outgoing.end());
+    std::erase_if(outgoing, [&](const friend_request& r) { return r.requestee_char_id == decliner_char_id; });
 
     LOG_DEBUG(
         general, "Friend request declined: char {} declined char {}", decliner_char_id.value, requester_char_id.value);
@@ -2093,16 +2079,10 @@ auto social_system::cancel_friend_request(player_id requester_char_id, player_id
     }
 
     auto& outgoing = outgoing_requests_[requester_char_id];
-    outgoing.erase(std::remove_if(outgoing.begin(),
-                                  outgoing.end(),
-                                  [&](const friend_request& r) { return r.requestee_char_id == target_char_id; }),
-                   outgoing.end());
+    std::erase_if(outgoing, [&](const friend_request& r) { return r.requestee_char_id == target_char_id; });
 
     auto& incoming = incoming_requests_[target_char_id];
-    incoming.erase(std::remove_if(incoming.begin(),
-                                  incoming.end(),
-                                  [&](const friend_request& r) { return r.requester_char_id == requester_char_id; }),
-                   incoming.end());
+    std::erase_if(incoming, [&](const friend_request& r) { return r.requester_char_id == requester_char_id; });
 
     LOG_DEBUG(general,
               "Friend request cancelled: char {} cancelled request to char {}",
@@ -2126,16 +2106,10 @@ auto social_system::remove_friend(player_id remover_char_id, player_id target_ch
 
     // Remove from both sides
     auto& remover_friends = character_friends_[remover_char_id];
-    remover_friends.erase(std::remove_if(remover_friends.begin(),
-                                         remover_friends.end(),
-                                         [&](const friend_entry& e) { return e.character_id == target_char_id; }),
-                          remover_friends.end());
+    std::erase_if(remover_friends, [&](const friend_entry& e) { return e.character_id == target_char_id; });
 
     auto& target_friends = character_friends_[target_char_id];
-    target_friends.erase(std::remove_if(target_friends.begin(),
-                                        target_friends.end(),
-                                        [&](const friend_entry& e) { return e.character_id == remover_char_id; }),
-                         target_friends.end());
+    std::erase_if(target_friends, [&](const friend_entry& e) { return e.character_id == remover_char_id; });
 
     LOG_DEBUG(general, "Friend removed: char {} removed char {}", remover_char_id.value, target_char_id.value);
     return friend_result::success;

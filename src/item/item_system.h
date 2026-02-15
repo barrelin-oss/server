@@ -9,6 +9,7 @@
 #include "item/item.h"
 #include "item/item_attribute.h"
 
+#include <concepts>
 #include <optional>
 #include <unordered_map>
 #include <memory>
@@ -80,7 +81,9 @@ public:
     void repair_item_full(item_id id);
 
     // Iteration
-    template<typename Func> void for_each_item(Func&& func)
+    template<typename Func>
+        requires std::invocable<Func, item_id, item&>
+    void for_each_item(Func&& func)
     {
         for (auto& [id, item_ptr] : items_)
         {
@@ -88,7 +91,9 @@ public:
         }
     }
 
-    template<typename Func> void for_each_item_owned_by(entity_id owner, Func&& func)
+    template<typename Func>
+        requires std::invocable<Func, item_id, item&>
+    void for_each_item_owned_by(entity_id owner, Func&& func)
     {
         for (auto& [id, item_ptr] : items_)
         {

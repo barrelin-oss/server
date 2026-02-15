@@ -1,3 +1,35 @@
+# YAML field names are historical misnomers from the legacy CFG→YAML conversion.
+# The positional mapping to legacy CItem fields is:
+#
+#   YAML field     → Legacy field              Notes
+#   ─────────────────────────────────────────────────────────────────────────
+#   id             → m_sIDnum
+#   name           → m_cName
+#   type           → m_cItemType
+#   equip_pos      → m_cEquipPos
+#   color_r1       → m_sItemEffectType         Consumable effect type
+#   color_g1       → m_sItemEffectValue1       Consumable effect values
+#   color_b1       → m_sItemEffectValue2
+#   color_r2       → m_sItemEffectValue3
+#   color_g2       → m_sItemEffectValue4
+#   color_b2       → m_sItemEffectValue5
+#   weight         → m_sItemEffectValue6
+#   durability     → m_wMaxLifeSpan
+#   equip_type     → m_sSpecialEffect
+#   sprite_id      → m_sSprite                 Ground item sprite category (1=swords, 3=shields, 6=misc, 15=axes)
+#   price          → m_sSpriteFrame            Ground item sprite frame within category
+#   attack_range   → m_wPrice                  Negative = not for sale (abs value used)
+#   skill_type     → m_wWeight
+#   attack_bonus   → m_cApprValue              Equipment appearance value
+#   hit_prob       → m_cSpeed
+#   dodge_prob     → m_sLevelLimit
+#   defense        → m_cGenderLimit
+#   level_limit    → m_sSpecialEffectValue1
+#   is_two_handed  → m_sSpecialEffectValue2
+#   unk1           → m_sRelatedSkill
+#   effect1        → m_cCategory
+#   effect2        → m_cItemColor
+#
 items:
   - { id: 1, name: Dagger, type: 1, equip_pos: 8, color_r1: 1, color_g1: 1, color_b1: 5, color_r2: 0, color_g2: 1, color_b2: 4, weight: 0, durability: 300, equip_type: 0, sprite_id: 1, price: 0, attack_range: 25, skill_type: 200, attack_bonus: 1, hit_prob: 0, dodge_prob: 0, defense: 0, level_limit: 0, is_two_handed: -10, unk1: 7, effect1: 1, effect2: 0 }
   - { id: 2, name: Dagger(S.C), type: 1, equip_pos: 8, color_r1: 1, color_g1: 1, color_b1: 5, color_r2: 0, color_g2: 1, color_b2: 4, weight: 0, durability: 800, equip_type: 0, sprite_id: 1, price: 0, attack_range: -55, skill_type: 200, attack_bonus: 1, hit_prob: 0, dodge_prob: 0, defense: 0, level_limit: 0, is_two_handed: -10, unk1: 7, effect1: 1, effect2: 0 }

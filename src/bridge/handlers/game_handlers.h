@@ -93,6 +93,7 @@ class build_recipe_registry;
 class craft_recipe_registry;
 class fishing_registry;
 class item_registry;
+class config_system;
 } // namespace hb
 
 namespace hb::crafting
@@ -173,7 +174,8 @@ public:
                     war::crusade_system* crusade = nullptr,
                     effect::effect_system* effects = nullptr,
                     item_registry* item_reg = nullptr,
-                    audit::item_audit_system* audit = nullptr);
+                    audit::item_audit_system* audit = nullptr,
+                    config_system* config = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -465,6 +467,7 @@ private:
     effect::effect_system* effects_{nullptr};
     item_registry* item_registry_{nullptr};
     audit::item_audit_system* audit_{nullptr};
+    config_system* config_{nullptr};
     save_player_callback save_callback_;
 };
 

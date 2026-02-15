@@ -1324,12 +1324,29 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                             if (!itm)
                                 continue;
 
+                            int16_t gi_sprite = 0;
+                            int16_t gi_frame = 0;
+                            int8_t gi_color = 0;
+                            std::string display_name = itm->name;
+                            if (item_registry_)
+                            {
+                                if (auto* tmpl = item_registry_->get(itm->template_id))
+                                {
+                                    display_name = network::get_display_name(tmpl->name, itm->attribute);
+                                    gi_sprite = tmpl->ground_sprite;
+                                    gi_frame = tmpl->ground_sprite_frame;
+                                    gi_color = tmpl->item_color;
+                                }
+                            }
                             network::ground_item_spawn_data spawn_data{.item_id = ground_item.value,
                                                                        .template_id = itm->template_id.value,
-                                                                       .item_name = itm->name,
+                                                                       .item_name = std::move(display_name),
                                                                        .count = itm->count,
                                                                        .x = tile_pos.x,
-                                                                       .y = tile_pos.y};
+                                                                       .y = tile_pos.y,
+                                                                       .ground_sprite = gi_sprite,
+                                                                       .ground_sprite_frame = gi_frame,
+                                                                       .item_color = gi_color};
 
                             conn->send(network::make_ground_item_spawn(spawn_data));
                         }

@@ -458,7 +458,8 @@ void application::initialize()
                                    subsystems().get<war::crusade_system>(),
                                    subsystems().get<effect::effect_system>(),
                                    subsystems().get<item_registry>(),
-                                   subsystems().get<audit::item_audit_system>());
+                                   subsystems().get<audit::item_audit_system>(),
+                                   subsystems().get<config_system>());
 
         // Wire crusade system broadcast callbacks
         if (auto* crusade = subsystems().get<war::crusade_system>())

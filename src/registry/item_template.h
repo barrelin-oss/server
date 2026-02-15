@@ -116,7 +116,9 @@ struct item_template
     consumable_effect use_effect;
 
     // Visual / classification
-    int16_t sprite_id{0}; // Legacy m_sItemEffectType: weapon sprite/animation type (2 = bow)
+    int16_t sprite_id{0};         // Legacy m_sItemEffectType: weapon sprite/animation type (2 = bow)
+    int16_t ground_sprite{0};     // Legacy m_sSprite: ground item sprite category (1=swords, 6=misc, etc.)
+    int16_t ground_sprite_frame{0}; // Legacy m_sSpriteFrame: frame within ground sprite category
 
     // Appearance data (from legacy color fields, used for equippable items)
     int8_t appr_value{0}; // Legacy m_cApprValue (from color_b1): selects equipment sprite variant

@@ -240,6 +240,13 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
             if (node["sprite_id"])
                 item.sprite_id = static_cast<int16_t>(node["sprite_id"].as<int>());
 
+            // YAML field names are historical misnomers from the legacy CFG→YAML conversion.
+            // 'sprite_id' (CFG position 14) is actually m_sSprite (ground sprite category).
+            // 'price' (CFG position 15) is actually m_sSpriteFrame (ground sprite frame).
+            // 'effect1'/'effect2' are m_cCategory/m_cItemColor, NOT sprite data.
+            item.ground_sprite = item.sprite_id;
+            item.ground_sprite_frame = static_cast<int16_t>(item.price);
+
             // Appearance data (from legacy color fields, used for equippable items)
             if (node["color_b1"])
                 item.appr_value = static_cast<int8_t>(node["color_b1"].as<int>());

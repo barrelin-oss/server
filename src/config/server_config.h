@@ -119,6 +119,9 @@ struct server_config
     // Logging configuration
     logging_config logging;
 
+    // Ground item expiry (seconds before ground items despawn)
+    uint32_t ground_item_expiry_seconds = 600; // 10 minutes
+
     // Enable legacy protocol (for backwards compatibility)
     bool enable_legacy_protocol = false;
     uint16_t legacy_port = 2849;

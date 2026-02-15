@@ -221,13 +221,19 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
     if (!itm)
         return;
 
-    // Build display name with upgrade suffix
+    // Build display name with upgrade suffix and get sprite data from template
     std::string display_name = itm->name;
+    int16_t ground_sprite = 0;
+    int16_t ground_sprite_frame = 0;
+    int8_t item_color = 0;
     if (item_registry_)
     {
         if (auto* tmpl = item_registry_->get(itm->template_id))
         {
             display_name = network::get_display_name(tmpl->name, itm->attribute);
+            ground_sprite = tmpl->ground_sprite;
+            ground_sprite_frame = tmpl->ground_sprite_frame;
+            item_color = tmpl->item_color;
         }
     }
 
@@ -237,6 +243,9 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
                                          .count = itm->count,
                                          .x = pos.x,
                                          .y = pos.y,
+                                         .ground_sprite = ground_sprite,
+                                         .ground_sprite_frame = ground_sprite_frame,
+                                         .item_color = item_color,
                                          .attribute = itm->attribute,
                                          .reason = "drop"};
 
@@ -420,11 +429,17 @@ void game_handlers::send_visible_ground_items(
                 continue;
 
             std::string display_name = itm->name;
+            int16_t gi_sprite = 0;
+            int16_t gi_frame = 0;
+            int8_t gi_color = 0;
             if (item_registry_)
             {
                 if (auto* tmpl = item_registry_->get(itm->template_id))
                 {
                     display_name = network::get_display_name(tmpl->name, itm->attribute);
+                    gi_sprite = tmpl->ground_sprite;
+                    gi_frame = tmpl->ground_sprite_frame;
+                    gi_color = tmpl->item_color;
                 }
             }
 
@@ -434,6 +449,9 @@ void game_handlers::send_visible_ground_items(
                                                  .count = itm->count,
                                                  .x = tile_pos.x,
                                                  .y = tile_pos.y,
+                                                 .ground_sprite = gi_sprite,
+                                                 .ground_sprite_frame = gi_frame,
+                                                 .item_color = gi_color,
                                                  .attribute = itm->attribute};
 
             conn->send(network::make_ground_item_spawn(data));

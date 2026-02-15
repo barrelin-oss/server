@@ -144,11 +144,17 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
             if (next_itm)
             {
                 std::string display_name = next_itm->name;
+                int16_t gi_sprite = 0;
+                int16_t gi_frame = 0;
+                int8_t gi_color = 0;
                 if (item_registry_)
                 {
                     if (auto* tmpl = item_registry_->get(next_itm->template_id))
                     {
                         display_name = network::get_display_name(tmpl->name, next_itm->attribute);
+                        gi_sprite = tmpl->ground_sprite;
+                        gi_frame = tmpl->ground_sprite_frame;
+                        gi_color = tmpl->item_color;
                     }
                 }
                 network::ground_item_spawn_data spawn_data{.item_id = next_id.value,
@@ -157,6 +163,9 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
                                                            .count = next_itm->count,
                                                            .x = player->pos.x,
                                                            .y = player->pos.y,
+                                                           .ground_sprite = gi_sprite,
+                                                           .ground_sprite_frame = gi_frame,
+                                                           .item_color = gi_color,
                                                            .attribute = next_itm->attribute,
                                                            .reason = "existing"};
                 auto spawn_msg = network::make_ground_item_spawn(spawn_data);

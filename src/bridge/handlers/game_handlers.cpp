@@ -342,7 +342,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
             });
 
         fishing_->set_engaged_callback(
-            [this](entity_id player_eid, const crafting::fish_type_config& config, int32_t initial_chance)
+            [this](entity_id player_eid, const crafting::fish_type_config& fish_cfg, int32_t initial_chance)
             {
                 auto* perf = subsystems().get<perf::perf_stats_system>();
                 PERF_TIMER(perf, perf::metric_category::broadcast);
@@ -355,7 +355,7 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                 if (!plr || plr->connection.value == 0)
                     return;
 
-                auto msg = network::make_fish_engaged(player_eid, config.name, config.visual_type, initial_chance);
+                auto msg = network::make_fish_engaged(player_eid, fish_cfg.name, fish_cfg.visual_type, initial_chance);
                 auto* conn = ws_server_->get_connection(plr->connection);
                 if (conn && conn->is_open())
                 {

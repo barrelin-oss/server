@@ -44,6 +44,7 @@ else()
         -Wconversion
         -Wsign-conversion
         -Wno-deprecated-declarations
+        -Wno-missing-field-initializers  # C++20 designated initializers value-initialize omitted fields
     )
 
     # Release optimizations

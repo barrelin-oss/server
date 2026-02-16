@@ -394,7 +394,11 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"item_upgrade_response", json_message_type::item_upgrade_response},
     {"activate_ability_request", json_message_type::activate_ability_request},
     {"activate_ability_response", json_message_type::activate_ability_response},
-    {"special_ability_status", json_message_type::special_ability_status}};
+    {"special_ability_status", json_message_type::special_ability_status},
+    {"inventory_reposition_request", json_message_type::inventory_reposition_request},
+    {"player_drop_item_request", json_message_type::player_drop_item_request},
+    {"player_drop_item_response", json_message_type::player_drop_item_response},
+    {"inventory_slot_update", json_message_type::inventory_slot_update}};
 
 } // namespace
 
@@ -1225,7 +1229,9 @@ auto inventory_item_msg::to_json() const -> nlohmann::json
                             {"sprite_frame", sprite_frame},
                             {"color", color},
                             {"weight", weight},
-                            {"level_limit", level_limit}};
+                            {"level_limit", level_limit},
+                            {"pos_x", pos_x},
+                            {"pos_y", pos_y}};
     if (!attribute.is_empty())
     {
         j["attribute"] = attribute.to_json();
@@ -2826,7 +2832,8 @@ auto stat_update_data::to_json() const -> nlohmann::json
                             {"magic_defense", magic_defense},
                             {"hit_rate", hit_rate},
                             {"dodge_rate", dodge_rate},
-                            {"critical_rate", critical_rate}};
+                            {"critical_rate", critical_rate},
+                            {"max_weight", max_weight}};
 
     if (hp)
         j["hp"] = *hp;
@@ -2870,6 +2877,69 @@ auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data
 auto make_stat_update(const stat_update_data& data) -> json_message
 {
     return json_message{.type = json_message_type::stat_update, .seq = 0, .data = data.to_json()};
+}
+
+// === Inventory Reposition ===
+
+auto inventory_reposition_request_data::from_json(const nlohmann::json& j) -> result<inventory_reposition_request_data, std::string>
+{
+    if (!j.contains("from_slot") || !j.contains("to_slot"))
+    {
+        return result<inventory_reposition_request_data, std::string>::err("Missing from_slot or to_slot");
+    }
+
+    inventory_reposition_request_data data;
+    data.from_slot = static_cast<int16_t>(j["from_slot"].get<int>());
+    data.to_slot = static_cast<int16_t>(j["to_slot"].get<int>());
+    if (j.contains("pos_x") && j["pos_x"].is_number())
+    {
+        data.pos_x = static_cast<int16_t>(j["pos_x"].get<int>());
+    }
+    if (j.contains("pos_y") && j["pos_y"].is_number())
+    {
+        data.pos_y = static_cast<int16_t>(j["pos_y"].get<int>());
+    }
+    return result<inventory_reposition_request_data, std::string>::ok(data);
+}
+
+// === Drop Item ===
+
+auto drop_item_request_data::from_json(const nlohmann::json& j) -> result<drop_item_request_data, std::string>
+{
+    if (!j.contains("slot"))
+    {
+        return result<drop_item_request_data, std::string>::err("Missing slot");
+    }
+
+    drop_item_request_data data;
+    data.slot = static_cast<int16_t>(j["slot"].get<int>());
+    return result<drop_item_request_data, std::string>::ok(data);
+}
+
+auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view error) -> json_message
+{
+    nlohmann::json j;
+    j["success"] = success;
+    if (!success && !error.empty())
+    {
+        j["error"] = std::string(error);
+    }
+    return json_message{.type = json_message_type::player_drop_item_response, .seq = seq, .data = j};
+}
+
+auto make_inventory_slot_update(int16_t slot, const inventory_item_msg* item) -> json_message
+{
+    nlohmann::json j;
+    j["slot"] = slot;
+    if (item)
+    {
+        j["item"] = item->to_json();
+    }
+    else
+    {
+        j["item"] = nullptr;
+    }
+    return json_message{.type = json_message_type::inventory_slot_update, .seq = 0, .data = j};
 }
 
 auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message

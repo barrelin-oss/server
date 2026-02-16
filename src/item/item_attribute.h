@@ -71,12 +71,6 @@ struct item_attribute
                !custom_made;
     }
 
-    // Convert to legacy 32-bit packed format
-    [[nodiscard]] auto to_legacy_dword() const -> uint32_t;
-
-    // Parse from legacy 32-bit packed format
-    static auto from_legacy_dword(uint32_t dw) -> item_attribute;
-
     // JSON serialization
     [[nodiscard]] auto to_json() const -> nlohmann::json;
     static auto from_json(const nlohmann::json& j) -> item_attribute;

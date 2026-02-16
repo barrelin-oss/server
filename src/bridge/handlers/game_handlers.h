@@ -296,6 +296,10 @@ private:
     // Special ability
     void handle_activate_ability(connection_id conn_id, const network::json_message& msg);
 
+    // Inventory management
+    void handle_inventory_reposition(connection_id conn_id, const network::json_message& msg);
+    void handle_player_drop_item(connection_id conn_id, const network::json_message& msg);
+
     // Death/Respawn
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
 

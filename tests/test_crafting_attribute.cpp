@@ -18,57 +18,27 @@ TEST(crafting_attribute_test, build_recipe_default_attribute_is_zero)
 
 TEST(crafting_attribute_test, recipe_attribute_decodes_main_enchantment)
 {
-    // Legacy: m_wAttribute gets shifted left 16 to form bits 16-31
-    // Bits 7-4 of the 16-bit value → bits 23-20 of dword → main_type
-    // Bits 3-0 of the 16-bit value → bits 19-16 of dword → main_value
-    // sharp = 7, value = 1 → 0x0071
-    uint16_t attr = 0x0071;
+    // Recipe result_attribute is a packed byte: upper nibble = main enchant type, lower = value
+    // sharp = 7, value = 1 → 0x71
+    uint8_t attr = 0x71;
 
-    auto decoded = item_attribute::from_legacy_dword(static_cast<uint32_t>(attr) << 16);
+    auto main_type = static_cast<enchantment_type>((attr >> 4) & 0xF);
+    auto main_value = static_cast<uint8_t>(attr & 0xF);
 
-    EXPECT_EQ(decoded.main_type, enchantment_type::sharp);
-    EXPECT_EQ(decoded.main_value, 1);
-    EXPECT_EQ(decoded.sub_type, sub_enchantment_type::none);
-    EXPECT_EQ(decoded.sub_value, 0);
+    EXPECT_EQ(main_type, enchantment_type::sharp);
+    EXPECT_EQ(main_value, 1);
 }
 
-TEST(crafting_attribute_test, recipe_attribute_decodes_sub_enchantment)
+TEST(crafting_attribute_test, recipe_attribute_decodes_fire_enchantment)
 {
-    // Bits 11-8 of 16-bit → bits 27-24 of dword → (not used in our mapping)
-    // Bits 15-12 of 16-bit → bits 31-28 of dword → upgrade_level (would be 0 for crafted)
-    // Actually looking at the bit layout:
-    // 16-bit recipe attribute << 16:
-    //   recipe bit 15-12 → dword bit 31-28 = upgrade level
-    //   recipe bit 11-8  → dword bit 27-24 = (unused)
-    //   recipe bit 7-4   → dword bit 23-20 = main enchant type
-    //   recipe bit 3-0   → dword bit 19-16 = main enchant value
-    // Sub enchantments are in bits 15-8 of the dword (NOT from recipe shift)
-    // So recipe attribute only sets main enchantment, not sub
-    uint16_t attr = 0x0071;
-    auto decoded = item_attribute::from_legacy_dword(static_cast<uint32_t>(attr) << 16);
+    // fire = 8, value = 3 → 0x83
+    uint8_t attr = 0x83;
 
-    // Main should be set
-    EXPECT_EQ(decoded.main_type, enchantment_type::sharp);
-    EXPECT_EQ(decoded.main_value, 1);
-}
+    auto main_type = static_cast<enchantment_type>((attr >> 4) & 0xF);
+    auto main_value = static_cast<uint8_t>(attr & 0xF);
 
-TEST(crafting_attribute_test, recipe_attribute_with_both_enchantments)
-{
-    // Create a full dword manually:
-    // main_type=fire(8), main_value=3, sub_type=hp_recovery(4), sub_value=5
-    item_attribute attr;
-    attr.main_type = enchantment_type::fire;
-    attr.main_value = 3;
-    attr.sub_type = sub_enchantment_type::hp_recovery;
-    attr.sub_value = 5;
-    auto dword = attr.to_legacy_dword();
-
-    // Verify round-trip
-    auto decoded = item_attribute::from_legacy_dword(dword);
-    EXPECT_EQ(decoded.main_type, enchantment_type::fire);
-    EXPECT_EQ(decoded.main_value, 3);
-    EXPECT_EQ(decoded.sub_type, sub_enchantment_type::hp_recovery);
-    EXPECT_EQ(decoded.sub_value, 5);
+    EXPECT_EQ(main_type, enchantment_type::fire);
+    EXPECT_EQ(main_value, 3);
 }
 
 // --- Custom-made item properties ---
@@ -110,23 +80,7 @@ TEST(crafting_attribute_test, craft_result_default)
     EXPECT_FALSE(result.created_item.is_valid());
 }
 
-// --- Legacy attribute persistence ---
-
-TEST(crafting_attribute_test, custom_made_survives_legacy_roundtrip)
-{
-    item_attribute attr;
-    attr.custom_made = true;
-    attr.custom_quality = 42;
-    attr.main_type = enchantment_type::poison;
-    attr.main_value = 3;
-
-    auto dword = attr.to_legacy_dword();
-    auto decoded = item_attribute::from_legacy_dword(dword);
-
-    EXPECT_TRUE(decoded.custom_made);
-    EXPECT_EQ(decoded.main_type, enchantment_type::poison);
-    EXPECT_EQ(decoded.main_value, 3);
-}
+// --- JSON persistence ---
 
 TEST(crafting_attribute_test, custom_made_survives_json_roundtrip)
 {

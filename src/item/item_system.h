@@ -56,7 +56,11 @@ public:
     // Item lifecycle
     auto create_item(const item_create_info& info) -> result<item_id, std::string>;
     auto create_from_template(item_id template_id, int16_t count = 1) -> result<item_id, std::string>;
+    auto restore_item(item_id explicit_id, const item_create_info& info) -> result<item_id, std::string>;
     void destroy_item(item_id id);
+
+    // ID management (for DB persistence)
+    void seed_next_id(uint32_t max_existing_id);
 
     // Item access
     [[nodiscard]] auto get_item(item_id id) -> item*;

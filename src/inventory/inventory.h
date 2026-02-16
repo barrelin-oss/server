@@ -21,6 +21,8 @@ struct inventory_slot
 {
     item_id item{};
     int16_t count{0};
+    int16_t pos_x{0}; // Free-form pixel X position (client layout)
+    int16_t pos_y{0}; // Free-form pixel Y position (client layout)
 
     [[nodiscard]] auto is_empty() const -> bool { return !item.is_valid() || count <= 0; }
 
@@ -28,6 +30,8 @@ struct inventory_slot
     {
         item = item_id{};
         count = 0;
+        pos_x = 0;
+        pos_y = 0;
     }
 
     void set(item_id id, int16_t cnt)

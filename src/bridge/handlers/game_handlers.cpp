@@ -720,6 +720,15 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         handle_activate_ability(conn_id, msg);
         return true;
 
+    // Inventory management
+    case network::json_message_type::inventory_reposition_request:
+        handle_inventory_reposition(conn_id, msg);
+        return true;
+
+    case network::json_message_type::player_drop_item_request:
+        handle_player_drop_item(conn_id, msg);
+        return true;
+
     // Death/Respawn
     case network::json_message_type::respawn_request:
         handle_respawn_request(conn_id, msg);
@@ -1136,7 +1145,8 @@ void game_handlers::send_stat_update(connection_id conn_id, const player::player
                                    .magic_defense = plr.computed.magic_defense,
                                    .hit_rate = plr.computed.hit_rate,
                                    .dodge_rate = plr.computed.dodge_rate,
-                                   .critical_rate = plr.computed.critical_rate};
+                                   .critical_rate = plr.computed.critical_rate,
+                                   .max_weight = plr.computed.strength * 500 + plr.experience.level * 500};
     conn->send(network::make_stat_update(data));
 }
 
@@ -1165,6 +1175,7 @@ void game_handlers::send_full_stat_update(connection_id conn_id, const player::p
                                    .hit_rate = plr.computed.hit_rate,
                                    .dodge_rate = plr.computed.dodge_rate,
                                    .critical_rate = plr.computed.critical_rate,
+                                   .max_weight = plr.computed.strength * 500 + plr.experience.level * 500,
                                    .hp = plr.hp,
                                    .mp = plr.mp,
                                    .sp = plr.sp,

@@ -445,6 +445,15 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-02-16: Inventory Protocol (Reposition, Drop, Max Weight)
+- Added `inventory_reposition_request` — move items between slots with free-form pixel positioning
+- Added `player_drop_item_request/response` — drop item from inventory to ground with ground_item_spawn broadcast
+- Added `inventory_slot_update` — lightweight single-slot change notification
+- Added `pos_x`/`pos_y` fields to `inventory_slot` and `inventory_item_msg` for client layout persistence
+- Added `max_weight` field to `stat_update_data` (STR * 500 + Level * 500)
+- Serialization/deserialization updated for pos_x/pos_y persistence via JSONB
+- 13 new tests, 2203 total
+
 ### 2026-02-14: Item Attribute System (m_dwAttribute)
 - Modernized legacy 32-bit `m_dwAttribute` bitfield into clean `item_attribute` struct
 - Per-instance upgrade level (0-15), main/sub enchantments, custom-made flag with quality

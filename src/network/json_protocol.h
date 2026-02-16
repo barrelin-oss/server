@@ -477,6 +477,12 @@ enum class json_message_type
     activate_ability_response, // S->C: Activation result
     special_ability_status,    // S->C: Ability status update (ready/active/cooldown/disabled)
 
+    // Inventory management
+    inventory_reposition_request, // C->S: Move item between slots (no response)
+    player_drop_item_request,     // C->S: Drop item from inventory
+    player_drop_item_response,    // S->C: Drop result
+    inventory_slot_update,        // S->C: Single slot changed
+
     // Unknown/invalid
     unknown
 };
@@ -1156,6 +1162,14 @@ enum class json_message_type
         return "activate_ability_response";
     case json_message_type::special_ability_status:
         return "special_ability_status";
+    case json_message_type::inventory_reposition_request:
+        return "inventory_reposition_request";
+    case json_message_type::player_drop_item_request:
+        return "player_drop_item_request";
+    case json_message_type::player_drop_item_response:
+        return "player_drop_item_response";
+    case json_message_type::inventory_slot_update:
+        return "inventory_slot_update";
     default:
         return "unknown";
     }
@@ -1452,11 +1466,15 @@ struct inventory_item_msg
     // Template-derived fields for client rendering
     uint8_t item_type{0};       // item_type enum as int
     uint8_t equip_pos{0};       // item_equip_pos enum as int
-    int16_t sprite{0};          // ground_sprite category
-    int16_t sprite_frame{0};    // ground_sprite_frame
-    int8_t color{0};            // item_color tint index
+    int16_t sprite{0};          // legacy m_sSprite: sprite ID
+    int16_t sprite_frame{0};    // legacy m_sSpriteFrame: subframe within sprite
+    int8_t color{0};            // legacy m_cItemColor: tint index
     int16_t weight{0};
     int16_t level_limit{0};
+
+    // Free-form pixel position (client layout)
+    int16_t pos_x{0};
+    int16_t pos_y{0};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -2159,6 +2177,7 @@ struct stat_update_data
     int32_t hit_rate{0};
     int32_t dodge_rate{0};
     int32_t critical_rate{0};
+    int32_t max_weight{0};
 
     // Optional current vitals — included on teleport/respawn so client can resync
     std::optional<int32_t> hp;
@@ -2183,6 +2202,30 @@ struct stat_update_data
 
 // Spell list update - sends full known spell list to client
 [[nodiscard]] auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message;
+
+// === Inventory Reposition ===
+
+struct inventory_reposition_request_data
+{
+    int16_t from_slot{0};
+    int16_t to_slot{0};
+    int16_t pos_x{0}; // Destination pixel X
+    int16_t pos_y{0}; // Destination pixel Y
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<inventory_reposition_request_data, std::string>;
+};
+
+// === Drop Item ===
+
+struct drop_item_request_data
+{
+    int16_t slot{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<drop_item_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view error = "") -> json_message;
+[[nodiscard]] auto make_inventory_slot_update(int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;
 
 // === NPC Interaction: Shop request/response data ===
 

@@ -847,6 +847,107 @@ TEST(inventory_item_msg_test, to_json)
     EXPECT_EQ(j["color"], 3);
     EXPECT_EQ(j["weight"], 10);
     EXPECT_EQ(j["level_limit"], 0);
+    EXPECT_EQ(j["pos_x"], 0);
+    EXPECT_EQ(j["pos_y"], 0);
+}
+
+TEST(inventory_item_msg_test, to_json_with_position)
+{
+    inventory_item_msg item;
+    item.slot = 3;
+    item.item_id = 200;
+    item.name = "Iron Sword";
+    item.count = 1;
+    item.pos_x = 150;
+    item.pos_y = 200;
+
+    auto j = item.to_json();
+
+    EXPECT_EQ(j["slot"], 3);
+    EXPECT_EQ(j["pos_x"], 150);
+    EXPECT_EQ(j["pos_y"], 200);
+}
+
+TEST(inventory_reposition_test, from_json_valid)
+{
+    auto j = nlohmann::json{{"from_slot", 2}, {"to_slot", 5}, {"pos_x", 100}, {"pos_y", 200}};
+    auto result = inventory_reposition_request_data::from_json(j);
+    ASSERT_TRUE(result.is_ok());
+    EXPECT_EQ(result.value().from_slot, 2);
+    EXPECT_EQ(result.value().to_slot, 5);
+    EXPECT_EQ(result.value().pos_x, 100);
+    EXPECT_EQ(result.value().pos_y, 200);
+}
+
+TEST(inventory_reposition_test, from_json_missing_fields)
+{
+    auto j = nlohmann::json{{"from_slot", 2}};
+    auto result = inventory_reposition_request_data::from_json(j);
+    ASSERT_TRUE(result.is_err());
+}
+
+TEST(drop_item_request_test, from_json_valid)
+{
+    auto j = nlohmann::json{{"slot", 3}};
+    auto result = drop_item_request_data::from_json(j);
+    ASSERT_TRUE(result.is_ok());
+    EXPECT_EQ(result.value().slot, 3);
+}
+
+TEST(drop_item_request_test, from_json_missing_slot)
+{
+    auto j = nlohmann::json::object();
+    auto result = drop_item_request_data::from_json(j);
+    ASSERT_TRUE(result.is_err());
+}
+
+TEST(drop_item_response_test, make_success)
+{
+    auto msg = make_player_drop_item_response(42, true);
+    EXPECT_EQ(msg.type, json_message_type::player_drop_item_response);
+    EXPECT_EQ(msg.seq, 42);
+    EXPECT_TRUE(msg.data["success"].get<bool>());
+    EXPECT_FALSE(msg.data.contains("error"));
+}
+
+TEST(drop_item_response_test, make_failure)
+{
+    auto msg = make_player_drop_item_response(42, false, "empty_slot");
+    EXPECT_FALSE(msg.data["success"].get<bool>());
+    EXPECT_EQ(msg.data["error"], "empty_slot");
+}
+
+TEST(inventory_slot_update_test, make_cleared)
+{
+    auto msg = make_inventory_slot_update(5);
+    EXPECT_EQ(msg.type, json_message_type::inventory_slot_update);
+    EXPECT_EQ(msg.data["slot"], 5);
+    EXPECT_TRUE(msg.data["item"].is_null());
+}
+
+TEST(inventory_slot_update_test, make_with_item)
+{
+    inventory_item_msg item;
+    item.slot = 3;
+    item.item_id = 100;
+    item.name = "Potion";
+    item.count = 5;
+
+    auto msg = make_inventory_slot_update(3, &item);
+    EXPECT_EQ(msg.type, json_message_type::inventory_slot_update);
+    EXPECT_EQ(msg.data["slot"], 3);
+    EXPECT_TRUE(msg.data["item"].is_object());
+    EXPECT_EQ(msg.data["item"]["item_id"], 100);
+}
+
+TEST(stat_update_test, max_weight_included)
+{
+    stat_update_data data;
+    data.max_hp = 100;
+    data.max_weight = 15000;
+
+    auto j = data.to_json();
+    EXPECT_EQ(j["max_weight"], 15000);
 }
 
 TEST(equipment_item_msg_test, to_json)

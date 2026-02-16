@@ -116,7 +116,7 @@ public:
     void clear_all_status(player_id id);
 
     // Equipment
-    void equip_item(player_id id, equip_slot slot, item_id item, uint16_t dur, uint16_t max_dur);
+    void equip_item(player_id id, equip_slot slot, item_id item, item_id tmpl_id, uint16_t dur, uint16_t max_dur);
     auto unequip_item(player_id id, equip_slot slot) -> equipped_item;
     void recalculate_equipment_modifiers(player_id id);
     void recalculate_appearance(player_id id);

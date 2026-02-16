@@ -9,6 +9,7 @@
 #include <string>
 #include <array>
 #include <cstdint>
+#include <optional>
 
 namespace hb::item
 {
@@ -157,8 +158,13 @@ struct item
     // Per-instance attribute (upgrade level, enchantments, custom-made)
     item_attribute attribute{};
 
+    // Per-instance visual
+    int8_t color{0}; // Initially from template item_color, modifiable (dye system)
+
+    // Binding — replaces legacy m_sTouchEffect* fields
+    std::optional<player_id> bound_to; // Character this item is bound to (nullopt = unbound)
+
     // Flags
-    bool bound{false};      // Soulbound
     bool tradeable{true};   // Can be traded
     bool droppable{true};   // Can be dropped
     bool two_handed{false}; // Two-handed weapon

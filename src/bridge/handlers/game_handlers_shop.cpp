@@ -91,39 +91,62 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
         return;
     }
 
-    // Get item details for response
-    std::string item_name = "Unknown";
-    int16_t quantity = 1;
+    // Find which slot the item landed in
+    auto* inv = inventory_->get_inventory(player_entity);
+    auto slot_opt = inv ? inv->find_item(picked_item_id) : std::nullopt;
+    int16_t slot_idx = slot_opt.value_or(0);
+
+    // Build full item details for the inventory slot update
+    std::string item_name;
     item::item_attribute attr{};
+    int16_t dur = 0, max_dur = 0, quantity = 1;
+    uint8_t tmpl_type = 0, tmpl_equip_pos = 0;
+    int16_t sprite = 0, sprite_frame = 0, weight = 0, level_limit = 0;
+    int8_t color = 0;
     if (item_)
     {
-        auto* itm = item_->get_item(picked_item_id);
-        if (itm)
+        if (auto* itm = item_->get_item(picked_item_id))
         {
-            item_name = itm->name;
-            quantity = itm->count;
             attr = itm->attribute;
+            quantity = itm->count;
+            dur = static_cast<int16_t>(itm->durability);
+            max_dur = static_cast<int16_t>(itm->max_durability);
             if (item_registry_)
             {
                 if (auto* tmpl = item_registry_->get(itm->template_id))
                 {
                     item_name = network::get_display_name(tmpl->name, attr);
+                    tmpl_type = static_cast<uint8_t>(tmpl->type);
+                    tmpl_equip_pos = static_cast<uint8_t>(tmpl->equip_pos);
+                    sprite = tmpl->ground_sprite;
+                    sprite_frame = tmpl->ground_sprite_frame;
+                    color = tmpl->item_color;
+                    weight = tmpl->weight;
+                    level_limit = tmpl->level_limit;
                 }
             }
         }
     }
 
-    // Success! Send response to player
-    network::pickup_result_msg result{
-        .success = true,
+    // Send inventory slot update with full item details
+    network::inventory_item_msg item_msg{
+        .slot = static_cast<uint8_t>(slot_idx),
         .item_id = picked_item_id.value,
-        .item_name = item_name,
-        .quantity = quantity,
-        .inventory_slot = 0, // TODO: Get actual slot from inventory system
+        .name = item_name,
+        .count = quantity,
+        .durability = dur,
+        .max_durability = max_dur,
         .attribute = attr,
+        .item_type = tmpl_type,
+        .equip_pos = tmpl_equip_pos,
+        .sprite = sprite,
+        .sprite_frame = sprite_frame,
+        .color = color,
+        .weight = weight,
+        .level_limit = level_limit,
     };
-
-    conn->send(network::make_player_pickup_response(msg.seq, true, &result, std::nullopt));
+    conn->send(network::make_player_pickup_response(msg.seq, true, nullptr, std::nullopt));
+    conn->send(network::make_inventory_slot_update(slot_idx, &item_msg));
 
     // Broadcast pickup animation to nearby players
     broadcast_player_action(
@@ -1314,6 +1337,189 @@ void game_handlers::handle_dialog_choice(connection_id conn_id, const network::j
         break;
     }
     }
+}
+
+// ========== Inventory Reposition ==========
+
+void game_handlers::handle_inventory_reposition(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    if (!inventory_)
+        return;
+
+    auto data_result = network::inventory_reposition_request_data::from_json(msg.data);
+    if (data_result.is_err())
+        return; // Silent fail — no response for reposition
+
+    auto& data = data_result.value();
+    auto pid = conn->player();
+    auto entity = entity_id{pid.value};
+
+    auto* inv = inventory_->get_inventory(entity);
+    if (!inv)
+        return;
+
+    // Validate slots
+    if (data.from_slot < 0 || data.from_slot >= inv->capacity() ||
+        data.to_slot < 0 || data.to_slot >= inv->capacity())
+    {
+        return;
+    }
+
+    // Move item (swaps if destination occupied)
+    inv->move_item(data.from_slot, data.to_slot);
+
+    // Update pixel position on the destination slot
+    auto* dest_slot = inv->get_slot(data.to_slot);
+    if (dest_slot && !dest_slot->is_empty())
+    {
+        dest_slot->pos_x = data.pos_x;
+        dest_slot->pos_y = data.pos_y;
+    }
+}
+
+// ========== Drop Item ==========
+
+void game_handlers::handle_player_drop_item(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    if (!players_ || !inventory_ || !world_)
+    {
+        send_error(conn_id, msg.seq, "internal_error", "Required subsystems unavailable");
+        return;
+    }
+
+    auto data_result = network::drop_item_request_data::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto pid = conn->player();
+    auto* player = players_->get_player(pid);
+    if (!player)
+    {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    if (player->is_dead())
+    {
+        send_error(conn_id, msg.seq, "dead", "Cannot drop items while dead");
+        return;
+    }
+
+    auto entity = entity_id{pid.value};
+    auto* inv = inventory_->get_inventory(entity);
+    if (!inv)
+    {
+        send_error(conn_id, msg.seq, "no_inventory", "No inventory found");
+        return;
+    }
+
+    auto* slot = inv->get_slot(data.slot);
+    if (!slot || slot->is_empty())
+    {
+        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        return;
+    }
+
+    // Capture item data before removing
+    auto dropped_item_id = slot->item;
+    std::string item_name = "Unknown";
+    int16_t count = 1;
+    uint32_t template_id = 0;
+    int16_t gi_sprite = 0;
+    int16_t gi_frame = 0;
+    int8_t gi_color = 0;
+    item::item_attribute attr{};
+    bool audited = false;
+
+    if (item_)
+    {
+        auto* itm = item_->get_item(dropped_item_id);
+        if (itm)
+        {
+            item_name = itm->name;
+            count = itm->count;
+            template_id = itm->template_id.value;
+            attr = itm->attribute;
+            audited = itm->audited;
+            if (item_registry_)
+            {
+                if (auto* tmpl = item_registry_->get(itm->template_id))
+                {
+                    item_name = network::get_display_name(tmpl->name, attr);
+                    gi_sprite = tmpl->ground_sprite;
+                    gi_frame = tmpl->ground_sprite_frame;
+                    gi_color = tmpl->item_color;
+                }
+            }
+        }
+    }
+
+    // Remove from inventory
+    inv->clear_slot(data.slot);
+
+    // Place on ground
+    world_->add_ground_item(player->current_map, player->pos, dropped_item_id);
+
+    // Send drop response
+    conn->send(network::make_player_drop_item_response(msg.seq, true));
+
+    // Send inventory slot update (cleared)
+    conn->send(network::make_inventory_slot_update(data.slot));
+
+    // Broadcast ground item spawn to visible players
+    network::ground_item_spawn_data spawn_data{
+        .item_id = dropped_item_id.value,
+        .template_id = template_id,
+        .item_name = item_name,
+        .count = count,
+        .x = player->pos.x,
+        .y = player->pos.y,
+        .ground_sprite = gi_sprite,
+        .ground_sprite_frame = gi_frame,
+        .item_color = gi_color,
+        .attribute = attr,
+        .reason = "drop"};
+    auto spawn_msg = network::make_ground_item_spawn(spawn_data);
+    broadcast_to_visible(players_, ws_server_, player->current_map, player->pos, spawn_msg);
+
+    // Audit item drop
+    if (audit_ && audited)
+    {
+        std::string map_name;
+        if (auto* map = world_->get_map(player->current_map))
+        {
+            map_name = map->name();
+        }
+        audit_->log_item(static_cast<int32_t>(player->character_id.value),
+                         item_name,
+                         static_cast<int32_t>(dropped_item_id.value),
+                         item_log_type::drop,
+                         count,
+                         0,
+                         map_name,
+                         player->pos.x,
+                         player->pos.y);
+    }
+
+    LOG_INFO(bridge,
+             "Player {} dropped item {} ({}) at ({}, {})",
+             pid.value,
+             dropped_item_id.value,
+             item_name,
+             player->pos.x,
+             player->pos.y);
 }
 
 } // namespace hb::bridge

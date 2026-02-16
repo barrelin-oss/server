@@ -406,6 +406,13 @@ void application::initialize()
             audit_sys->set_database(&db_sys);
         }
 
+        // Seed item_system ID counter from DB to prevent ID collisions with persisted items
+        auto max_item_id = auth_sys.get_max_item_id();
+        if (auto* item_sys = subsystems().get<item::item_system>())
+        {
+            item_sys->seed_next_id(max_item_id);
+        }
+
         // Create and configure WebSocket server
         ws_server_ = std::make_unique<network::websocket_server>();
         network::websocket_config ws_config{.bind_address = server_cfg.websocket.bind_address,

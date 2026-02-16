@@ -218,10 +218,35 @@ Sent to a player after equipment changes to reflect updated computed stats.
     "magic_defense": 15,
     "hit_rate": 120,
     "dodge_rate": 60,
-    "critical_rate": 15
+    "critical_rate": 15,
+    "max_weight": 15000
   }
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `max_hp` | int32 | Maximum HP |
+| `max_mp` | int32 | Maximum MP |
+| `max_sp` | int32 | Maximum SP |
+| `attack_power` | int32 | Physical attack power |
+| `magic_power` | int32 | Magic attack power |
+| `defense` | int32 | Physical defense |
+| `magic_defense` | int32 | Magic defense |
+| `hit_rate` | int32 | Hit rate |
+| `dodge_rate` | int32 | Dodge rate |
+| `critical_rate` | int32 | Critical hit rate |
+| `max_weight` | int32 | Maximum carrying capacity (STR * 500 + Level * 500) |
+| `hp` | int32? | Current HP (included on teleport/respawn) |
+| `mp` | int32? | Current MP (included on teleport/respawn) |
+| `sp` | int32? | Current SP (included on teleport/respawn) |
+| `experience` | int64? | Current experience (included on full updates) |
+| `gold` | int32? | Current gold (included on full updates) |
+| `level` | uint8? | Current level (included on full updates) |
+| `pk_count` | int32? | PK count (included on full updates) |
+| `hunger_level` | uint8? | Hunger level (included on full updates) |
+| `contribution` | int32? | Crusade contribution (included on full updates) |
+| `enemy_kill_count` | int32? | Enemy kills (included on full updates) |
 
 ---
 

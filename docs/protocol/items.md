@@ -448,3 +448,142 @@ Server push notification when special ability state changes.
 - Defense abilities (50+) remain active for their duration
 
 ---
+
+## Inventory Management Messages
+
+### `inventory_reposition_request`
+
+Move an item between inventory slots with free-form pixel positioning. No server response is sent.
+
+**Direction:** Client → Server (fire-and-forget)
+
+```json
+{
+  "type": "inventory_reposition_request",
+  "seq": 0,
+  "data": {
+    "from_slot": 2,
+    "to_slot": 5,
+    "pos_x": 150,
+    "pos_y": 200
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `from_slot` | int16 | Yes | Source inventory slot |
+| `to_slot` | int16 | Yes | Destination inventory slot |
+| `pos_x` | int16 | No | Pixel X position for client layout (default 0) |
+| `pos_y` | int16 | No | Pixel Y position for client layout (default 0) |
+
+**Notes:**
+- If the destination slot is occupied, the items swap positions
+- `pos_x`/`pos_y` are free-form pixel coordinates persisted with the slot for client layout
+- No response message is sent — the client applies the change optimistically
+
+---
+
+### `player_drop_item_request`
+
+Drop an item from inventory onto the ground at the player's current position.
+
+**Direction:** Client → Server
+
+```json
+{
+  "type": "player_drop_item_request",
+  "seq": 500,
+  "data": {
+    "slot": 3
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `slot` | int16 | Yes | Inventory slot index to drop from |
+
+---
+
+### `player_drop_item_response`
+
+Result of a drop item attempt.
+
+**Direction:** Server → Client
+
+**Success:**
+```json
+{
+  "type": "player_drop_item_response",
+  "seq": 500,
+  "data": {
+    "success": true
+  }
+}
+```
+
+**Failure:**
+```json
+{
+  "type": "player_drop_item_response",
+  "seq": 500,
+  "data": {
+    "success": false,
+    "error": "empty_slot"
+  }
+}
+```
+
+**Error codes:** `dead`, `empty_slot`, `no_inventory`, `invalid_player`, `internal_error`
+
+**Notes:**
+- On success, the server also sends `inventory_slot_update` (slot cleared) and broadcasts `ground_item_spawn` with `reason: "drop"` to visible players
+
+---
+
+### `inventory_slot_update`
+
+Lightweight single-slot change notification. Sent when a slot's contents change (item dropped, consumed, moved).
+
+**Direction:** Server → Client
+
+**Slot cleared:**
+```json
+{
+  "type": "inventory_slot_update",
+  "seq": 0,
+  "data": {
+    "slot": 3,
+    "item": null
+  }
+}
+```
+
+**Slot populated:**
+```json
+{
+  "type": "inventory_slot_update",
+  "seq": 0,
+  "data": {
+    "slot": 3,
+    "item": {
+      "slot": 3,
+      "item_id": 100,
+      "name": "Health Potion",
+      "count": 5,
+      "durability": 0,
+      "max_durability": 0,
+      "pos_x": 0,
+      "pos_y": 0
+    }
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `slot` | int16 | Inventory slot that changed |
+| `item` | object? | Full `inventory_item_msg` data, or `null` if slot was cleared |
+
+---

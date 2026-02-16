@@ -196,7 +196,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
 
     // Equip new item
     players_->equip_item(
-        pid, target_slot, itm->id, static_cast<uint16_t>(itm->durability), static_cast<uint16_t>(itm->max_durability));
+        pid, target_slot, itm->id, itm->template_id, static_cast<uint16_t>(itm->durability), static_cast<uint16_t>(itm->max_durability));
 
     // Recalculate stats
     players_->recalculate_equipment_modifiers(pid);
@@ -319,7 +319,7 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
     if (!inv_slot.has_value())
     {
         // Rollback - re-equip
-        players_->equip_item(pid, slot, equipped.id, equipped.durability, equipped.max_durability);
+        players_->equip_item(pid, slot, equipped.id, equipped.template_id, equipped.durability, equipped.max_durability);
         send_error(conn_id, msg.seq, "inventory_full", "Failed to find inventory slot");
         return;
     }

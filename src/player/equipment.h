@@ -69,6 +69,7 @@ inline constexpr size_t equip_slot_count = static_cast<size_t>(equip_slot::count
 struct equipped_item
 {
     item_id id{};
+    item_id template_id{};
     uint16_t durability{0};
     uint16_t max_durability{0};
 
@@ -81,6 +82,7 @@ struct equipped_item
     void clear()
     {
         id = item_id{};
+        template_id = item_id{};
         durability = 0;
         max_durability = 0;
     }
@@ -104,10 +106,11 @@ struct equipment_state
 
     [[nodiscard]] auto shield() const -> const equipped_item& { return get(equip_slot::shield); }
 
-    void equip(equip_slot slot, item_id id, uint16_t dur, uint16_t max_dur)
+    void equip(equip_slot slot, item_id id, item_id tmpl_id, uint16_t dur, uint16_t max_dur)
     {
         auto& item = slots[static_cast<size_t>(slot)];
         item.id = id;
+        item.template_id = tmpl_id;
         item.durability = dur;
         item.max_durability = max_dur;
     }

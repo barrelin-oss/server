@@ -384,13 +384,13 @@ void player_system::clear_all_status(player_id id)
     p->status = player_status::none;
 }
 
-void player_system::equip_item(player_id id, equip_slot slot, item_id item, uint16_t dur, uint16_t max_dur)
+void player_system::equip_item(player_id id, equip_slot slot, item_id item, item_id tmpl_id, uint16_t dur, uint16_t max_dur)
 {
     auto* p = get_player(id);
     if (!p)
         return;
 
-    p->equipment.equip(slot, item, dur, max_dur);
+    p->equipment.equip(slot, item, tmpl_id, dur, max_dur);
     recalculate_equipment_modifiers(id);
     recalculate_appearance(id);
 }

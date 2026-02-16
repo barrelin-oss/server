@@ -685,47 +685,95 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 }
             }
 
-            // Deserialize and apply equipment
-            if (!char_data.equipment_data.empty())
-            {
-                player->equipment = auth::deserialize_equipment(char_data.equipment_data);
-                LOG_DEBUG(bridge, "Loaded equipment for player {}", live_player_id.value);
-            }
-
-            // Create and populate inventory
+            // Create inventory and bank containers
             if (inventory_)
             {
                 auto entity = entity_id{live_player_id.value};
-
-                // Create inventory for this player
                 inventory_->create_inventory(entity);
-
-                // Deserialize inventory from DB
-                if (!char_data.inventory_data.empty())
-                {
-                    auto* inv = inventory_->get_inventory(entity);
-                    if (inv)
-                    {
-                        auth::deserialize_inventory(char_data.inventory_data, *inv);
-                        LOG_DEBUG(bridge,
-                                  "Loaded inventory for player {} ({} items)",
-                                  live_player_id.value,
-                                  inv->used_slots());
-                    }
-                }
-
-                // Create and populate bank
                 inventory_->create_bank(entity);
-                if (!char_data.bank_data.empty())
+
+                // Load items from DB and restore into item_system + containers
+                auto item_rows = auth_->load_items(char_data.id);
+                auto* inv = inventory_->get_inventory(entity);
+                auto* bank = inventory_->get_bank(entity);
+
+                for (const auto& row : item_rows)
                 {
-                    auto* bank = inventory_->get_bank(entity);
-                    if (bank)
+                    // Restore item in item_system with its persistent DB ID
+                    auto restore_result = item_->restore_item(
+                        item_id{row.id},
+                        {.template_id = item_id{row.template_id},
+                         .count = row.count,
+                         .owner = entity,
+                         .full_durability = false,
+                         .attribute = row.to_attribute()});
+
+                    if (!restore_result.is_ok())
                     {
-                        auth::deserialize_inventory(char_data.bank_data, *bank);
-                        LOG_DEBUG(
-                            bridge, "Loaded bank for player {} ({} items)", live_player_id.value, bank->used_slots());
+                        LOG_WARN(bridge, "Failed to restore item {} for player {}: {}",
+                                 row.id, live_player_id.value, restore_result.error());
+                        continue;
+                    }
+                    auto restored_id = restore_result.value();
+
+                    // Override per-instance fields from DB
+                    if (auto* itm = item_->get_item(restored_id))
+                    {
+                        itm->durability = row.durability;
+                        itm->max_durability = row.max_durability;
+                        itm->color = row.color;
+                        itm->bound_to = row.bound_to
+                            ? std::optional<player_id>(player_id{static_cast<uint32_t>(*row.bound_to)})
+                            : std::nullopt;
+                    }
+
+                    // Place into correct container
+                    switch (row.location)
+                    {
+                    case auth::item_location::inventory:
+                    {
+                        if (inv)
+                        {
+                            auto* slot = inv->get_slot(row.slot);
+                            if (slot)
+                            {
+                                slot->item = restored_id;
+                                slot->count = row.count;
+                                slot->pos_x = row.pos_x;
+                                slot->pos_y = row.pos_y;
+                            }
+                        }
+                        break;
+                    }
+                    case auth::item_location::equipment:
+                    {
+                        auto eq_slot = static_cast<player::equip_slot>(row.slot);
+                        player->equipment.equip(eq_slot, restored_id, item_id{row.template_id},
+                                                static_cast<uint16_t>(row.durability),
+                                                static_cast<uint16_t>(row.max_durability));
+                        break;
+                    }
+                    case auth::item_location::bank:
+                    {
+                        if (bank)
+                        {
+                            auto* slot = bank->get_slot(row.slot);
+                            if (slot)
+                            {
+                                slot->item = restored_id;
+                                slot->count = row.count;
+                                slot->pos_x = row.pos_x;
+                                slot->pos_y = row.pos_y;
+                            }
+                        }
+                        break;
+                    }
+                    case auth::item_location::mail:
+                        break; // Mail system handles separately
                     }
                 }
+
+                LOG_DEBUG(bridge, "Restored {} items for player {}", item_rows.size(), live_player_id.value);
 
                 // Set gold from character data
                 inventory_->add_gold(entity, char_data.gold);
@@ -1059,7 +1107,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                               .sprite_frame = sprite_frame,
                                               .color = color,
                                               .weight = weight,
-                                              .level_limit = level_limit});
+                                              .level_limit = level_limit,
+                                              .pos_x = slot->pos_x,
+                                              .pos_y = slot->pos_y});
                 }
             }
         }
@@ -1544,39 +1594,141 @@ void auth_handlers::save_player_state(player_id pid)
         }
     }
 
-    // Serialize skills and equipment
+    // Serialize skills
     auto skills_json = auth::serialize_skills(player->skills);
-    auto equipment_json = auth::serialize_equipment(player->equipment);
 
-    // Serialize inventory, bank, and get gold
-    // Initialize with valid empty JSON arrays (PostgreSQL JSONB requires valid JSON, not empty strings)
-    std::string inventory_json = "[]";
-    std::string bank_json = "[]";
+    // Collect items from inventory, equipment, bank into item_rows
+    std::vector<auth::item_row> item_rows;
     int32_t player_gold = 0;
 
     if (inventory_)
     {
         auto entity = entity_id{pid.value};
 
-        // Serialize inventory
+        // Gather inventory items
         auto* inv = inventory_->get_inventory(entity);
         if (inv)
         {
-            inventory_json = auth::serialize_inventory(*inv);
+            for (int16_t i = 0; i < inv->capacity(); ++i)
+            {
+                const auto* slot = inv->get_slot(i);
+                if (slot && !slot->is_empty())
+                {
+                    if (auto* itm = item_->get_item(slot->item))
+                    {
+                        item_rows.push_back({
+                            .id = itm->id.value,
+                            .character_id = static_cast<int32_t>(player->character_id.value),
+                            .template_id = itm->template_id.value,
+                            .name = itm->name,
+                            .location = auth::item_location::inventory,
+                            .slot = i,
+                            .count = slot->count,
+                            .durability = itm->durability,
+                            .max_durability = itm->max_durability,
+                            .color = itm->color,
+                            .bound_to = itm->bound_to
+                                ? std::optional<int32_t>(static_cast<int32_t>(itm->bound_to->value))
+                                : std::nullopt,
+                            .upgrade_level = itm->attribute.upgrade_level,
+                            .main_enchant_type = static_cast<uint8_t>(itm->attribute.main_type),
+                            .main_enchant_value = itm->attribute.main_value,
+                            .sub_enchant_type = static_cast<uint8_t>(itm->attribute.sub_type),
+                            .sub_enchant_value = itm->attribute.sub_value,
+                            .custom_made = itm->attribute.custom_made,
+                            .custom_quality = itm->attribute.custom_quality,
+                            .pos_x = slot->pos_x,
+                            .pos_y = slot->pos_y,
+                        });
+                    }
+                }
+            }
             LOG_DEBUG(bridge, "Saving inventory for player {} ({} items)", pid.value, inv->used_slots());
         }
 
-        // Serialize bank
+        // Gather equipment items
+        for (size_t i = 0; i < player::equip_slot_count; ++i)
+        {
+            const auto& eq = player->equipment.slots[i];
+            if (!eq.is_empty())
+            {
+                if (auto* itm = item_->get_item(eq.id))
+                {
+                    item_rows.push_back({
+                        .id = itm->id.value,
+                        .character_id = static_cast<int32_t>(player->character_id.value),
+                        .template_id = itm->template_id.value,
+                        .name = itm->name,
+                        .location = auth::item_location::equipment,
+                        .slot = static_cast<int16_t>(i),
+                        .count = 1,
+                        .durability = itm->durability,
+                        .max_durability = itm->max_durability,
+                        .color = itm->color,
+                        .bound_to = itm->bound_to
+                            ? std::optional<int32_t>(static_cast<int32_t>(itm->bound_to->value))
+                            : std::nullopt,
+                        .upgrade_level = itm->attribute.upgrade_level,
+                        .main_enchant_type = static_cast<uint8_t>(itm->attribute.main_type),
+                        .main_enchant_value = itm->attribute.main_value,
+                        .sub_enchant_type = static_cast<uint8_t>(itm->attribute.sub_type),
+                        .sub_enchant_value = itm->attribute.sub_value,
+                        .custom_made = itm->attribute.custom_made,
+                        .custom_quality = itm->attribute.custom_quality,
+                        .pos_x = 0,
+                        .pos_y = 0,
+                    });
+                }
+            }
+        }
+
+        // Gather bank items
         auto* bank = inventory_->get_bank(entity);
         if (bank)
         {
-            bank_json = auth::serialize_inventory(*bank);
+            for (int16_t i = 0; i < bank->capacity(); ++i)
+            {
+                const auto* slot = bank->get_slot(i);
+                if (slot && !slot->is_empty())
+                {
+                    if (auto* itm = item_->get_item(slot->item))
+                    {
+                        item_rows.push_back({
+                            .id = itm->id.value,
+                            .character_id = static_cast<int32_t>(player->character_id.value),
+                            .template_id = itm->template_id.value,
+                            .name = itm->name,
+                            .location = auth::item_location::bank,
+                            .slot = i,
+                            .count = slot->count,
+                            .durability = itm->durability,
+                            .max_durability = itm->max_durability,
+                            .color = itm->color,
+                            .bound_to = itm->bound_to
+                                ? std::optional<int32_t>(static_cast<int32_t>(itm->bound_to->value))
+                                : std::nullopt,
+                            .upgrade_level = itm->attribute.upgrade_level,
+                            .main_enchant_type = static_cast<uint8_t>(itm->attribute.main_type),
+                            .main_enchant_value = itm->attribute.main_value,
+                            .sub_enchant_type = static_cast<uint8_t>(itm->attribute.sub_type),
+                            .sub_enchant_value = itm->attribute.sub_value,
+                            .custom_made = itm->attribute.custom_made,
+                            .custom_quality = itm->attribute.custom_quality,
+                            .pos_x = slot->pos_x,
+                            .pos_y = slot->pos_y,
+                        });
+                    }
+                }
+            }
             LOG_DEBUG(bridge, "Saving bank for player {} ({} items)", pid.value, bank->used_slots());
         }
 
         // Get gold
         player_gold = static_cast<int32_t>(inventory_->get_gold(entity));
     }
+
+    // Save items to DB
+    auth_->save_items(player->character_id, item_rows);
 
     // Serialize magic (spell knowledge)
     std::string magic_json = "[]";
@@ -1652,9 +1804,6 @@ void auth_handlers::save_player_state(player_id pid)
                                    .reward_gold =
                                        0, // TODO: add reward_gold to player struct when bounty system is implemented
                                    .skills_data = skills_json,
-                                   .inventory_data = inventory_json,
-                                   .equipment_data = equipment_json,
-                                   .bank_data = bank_json,
                                    .magic_data = magic_json,
                                    .quest_data = quest_json};
 

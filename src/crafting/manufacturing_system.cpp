@@ -174,14 +174,13 @@ auto manufacturing_system::attempt_craft(entity_id player, int32_t recipe_index)
                     created_item->attribute.custom_quality = static_cast<int8_t>(std::clamp(quality, -100, 100));
 
                     // Apply recipe enchantment if specified
+                    // result_attribute is a packed byte: upper nibble = main enchant type, lower = value
                     if (recipe->result_attribute != 0)
                     {
-                        auto recipe_attr = item::item_attribute::from_legacy_dword(
-                            static_cast<uint32_t>(recipe->result_attribute) << 16);
-                        created_item->attribute.main_type = recipe_attr.main_type;
-                        created_item->attribute.main_value = recipe_attr.main_value;
-                        created_item->attribute.sub_type = recipe_attr.sub_type;
-                        created_item->attribute.sub_value = recipe_attr.sub_value;
+                        created_item->attribute.main_type =
+                            static_cast<item::enchantment_type>((recipe->result_attribute >> 4) & 0xF);
+                        created_item->attribute.main_value =
+                            static_cast<uint8_t>(recipe->result_attribute & 0xF);
                     }
                 }
 

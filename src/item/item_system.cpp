@@ -83,6 +83,58 @@ auto item_system::create_item(const item_create_info& info) -> result<item_id, s
     return result<item_id, std::string>::ok(id);
 }
 
+auto item_system::restore_item(item_id explicit_id, const item_create_info& info) -> result<item_id, std::string>
+{
+    if (items_.size() >= config_.max_items)
+    {
+        return result<item_id, std::string>::err("Maximum item count reached");
+    }
+
+    if (items_.contains(explicit_id))
+    {
+        return result<item_id, std::string>::err("Item ID already exists");
+    }
+
+    auto new_item = std::make_unique<item>();
+    new_item->id = explicit_id;
+    new_item->template_id = info.template_id;
+    new_item->count = info.count;
+    new_item->owner = info.owner;
+
+    populate_from_template(*new_item, info.template_id);
+
+    if (info.full_durability)
+    {
+        new_item->durability = new_item->max_durability;
+    }
+
+    if (info.attribute.has_value())
+    {
+        new_item->attribute = info.attribute.value();
+    }
+
+    // Advance next_id_ past this explicit ID to prevent collisions
+    if (explicit_id.value >= next_id_)
+    {
+        next_id_ = explicit_id.value + 1;
+    }
+
+    items_[explicit_id] = std::move(new_item);
+
+    LOG_DEBUG(general, "Restored item {} (template: {}, count: {})", explicit_id.value, info.template_id.value, info.count);
+
+    return result<item_id, std::string>::ok(explicit_id);
+}
+
+void item_system::seed_next_id(uint32_t max_existing_id)
+{
+    if (max_existing_id >= next_id_)
+    {
+        next_id_ = max_existing_id + 1;
+    }
+    LOG_INFO(general, "Item system next_id seeded to {}", next_id_);
+}
+
 auto item_system::create_from_template(item_id template_id, int16_t count) -> result<item_id, std::string>
 {
     item_create_info info;
@@ -382,6 +434,9 @@ void item_system::populate_from_template(item& itm, item_id template_id)
     // Stacking
     itm.max_stack = tmpl->max_stack;
     itm.stackable = tmpl->is_stackable;
+
+    // Per-instance visual
+    itm.color = tmpl->item_color;
 
     // Flags
     itm.tradeable = tmpl->is_tradeable;

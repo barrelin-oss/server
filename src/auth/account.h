@@ -4,6 +4,7 @@
 // Account and authentication data structures
 
 #include "core/types.h"
+#include "item/item_attribute.h"
 
 #include <string>
 #include <chrono>
@@ -12,6 +13,53 @@
 
 namespace hb::auth
 {
+
+// Where an item is stored
+enum class item_location : int16_t
+{
+    inventory = 0,
+    equipment = 1,
+    bank = 2,
+    mail = 3,
+};
+
+// Flat row representation for items DB table
+struct item_row
+{
+    uint32_t id{0};
+    int32_t character_id{0};
+    uint32_t template_id{0};
+    std::string name;
+    item_location location{item_location::inventory};
+    int16_t slot{0};
+    int16_t count{1};
+    int16_t durability{0};
+    int16_t max_durability{0};
+    int8_t color{0};
+    std::optional<int32_t> bound_to;
+    uint8_t upgrade_level{0};
+    uint8_t main_enchant_type{0};
+    uint8_t main_enchant_value{0};
+    uint8_t sub_enchant_type{0};
+    uint8_t sub_enchant_value{0};
+    bool custom_made{false};
+    int8_t custom_quality{0};
+    int16_t pos_x{0};
+    int16_t pos_y{0};
+
+    [[nodiscard]] auto to_attribute() const -> item::item_attribute
+    {
+        return item::item_attribute{
+            .upgrade_level = upgrade_level,
+            .main_type = static_cast<item::enchantment_type>(main_enchant_type),
+            .main_value = main_enchant_value,
+            .sub_type = static_cast<item::sub_enchantment_type>(sub_enchant_type),
+            .sub_value = sub_enchant_value,
+            .custom_made = custom_made,
+            .custom_quality = custom_quality,
+        };
+    }
+};
 
 // Admin levels
 enum class admin_level : uint8_t
@@ -131,9 +179,6 @@ struct character_full_data
 
     // Serialized data (JSON strings stored in JSONB columns)
     std::string skills_data;    // JSON: [{type, level, exp}, ...]
-    std::string inventory_data; // JSON: [{slot, item_id, count}, ...]
-    std::string equipment_data; // JSON: [{slot, item_id, durability, max_durability}, ...]
-    std::string bank_data;      // JSON: [{slot, item_id, count}, ...]
     std::string magic_data;     // JSON: [{spell_id, level, total_casts}, ...]
     std::string quest_data;     // JSON: {active: [...], completed: [...]}
 };

@@ -5,31 +5,6 @@
 namespace hb::item
 {
 
-auto item_attribute::to_legacy_dword() const -> uint32_t
-{
-    uint32_t dw = 0;
-    dw |= (static_cast<uint32_t>(std::min<uint8_t>(upgrade_level, 15)) & 0xF) << 28;
-    dw |= (static_cast<uint32_t>(main_type) & 0xF) << 20;
-    dw |= (static_cast<uint32_t>(std::min<uint8_t>(main_value, 15)) & 0xF) << 16;
-    dw |= (static_cast<uint32_t>(sub_type) & 0xF) << 12;
-    dw |= (static_cast<uint32_t>(std::min<uint8_t>(sub_value, 15)) & 0xF) << 8;
-    if (custom_made)
-        dw |= 1;
-    return dw;
-}
-
-auto item_attribute::from_legacy_dword(uint32_t dw) -> item_attribute
-{
-    item_attribute attr;
-    attr.upgrade_level = static_cast<uint8_t>((dw >> 28) & 0xF);
-    attr.main_type = static_cast<enchantment_type>((dw >> 20) & 0xF);
-    attr.main_value = static_cast<uint8_t>((dw >> 16) & 0xF);
-    attr.sub_type = static_cast<sub_enchantment_type>((dw >> 12) & 0xF);
-    attr.sub_value = static_cast<uint8_t>((dw >> 8) & 0xF);
-    attr.custom_made = (dw & 1) != 0;
-    return attr;
-}
-
 auto item_attribute::to_json() const -> nlohmann::json
 {
     nlohmann::json j = nlohmann::json::object();

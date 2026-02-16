@@ -128,7 +128,7 @@ TEST(equipment_state_test, equip_unequip)
 
     EXPECT_FALSE(equip.has_equipped(equip_slot::weapon));
 
-    equip.equip(equip_slot::weapon, item_id{100}, 50, 100);
+    equip.equip(equip_slot::weapon, item_id{100}, item_id{50}, 50, 100);
     EXPECT_TRUE(equip.has_equipped(equip_slot::weapon));
     EXPECT_EQ(equip.weapon().id.value, 100);
     EXPECT_EQ(equip.weapon().durability, 50);
@@ -567,7 +567,7 @@ TEST_F(player_system_test, equip_and_unequip_item)
     auto* p = system_.get_player(id);
     EXPECT_FALSE(p->equipment.has_equipped(equip_slot::weapon));
 
-    system_.equip_item(id, equip_slot::weapon, hb::item_id{42}, 80, 100);
+    system_.equip_item(id, equip_slot::weapon, hb::item_id{42}, hb::item_id{10}, 80, 100);
     EXPECT_TRUE(p->equipment.has_equipped(equip_slot::weapon));
     EXPECT_EQ(p->equipment.weapon().id.value, 42);
 

@@ -128,6 +128,11 @@ public:
                                            account_id owner) -> result<character_full_data, auth_error>;
     [[nodiscard]] auto save_character(const character_full_data& data) -> result<void, auth_error>;
 
+    // Item persistence (items table)
+    [[nodiscard]] auto load_items(player_id char_id) -> std::vector<item_row>;
+    void save_items(player_id char_id, const std::vector<item_row>& items);
+    [[nodiscard]] auto get_max_item_id() -> uint32_t;
+
     // Ban management
     [[nodiscard]] auto ban_account(account_id id,
                                    std::string_view reason,

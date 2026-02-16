@@ -928,7 +928,7 @@ auto auth_system::load_character_full(player_id char_id, account_id owner) -> re
                   COALESCE(hp_max, 100) as hp_max,
                   COALESCE(mp_max, 50) as mp_max,
                   COALESCE(sp_max, 50) as sp_max,
-                  skills_data, inventory_data, equipment_data, bank_data,
+                  skills_data,
                   magic_data, quest_data
            FROM characters WHERE id = $1)",
         static_cast<int>(char_id.value));
@@ -997,9 +997,6 @@ auto auth_system::load_character_full(player_id char_id, account_id owner) -> re
         .luck = static_cast<int16_t>(row["luck"].as<int>()),
         .reward_gold = row["reward_gold"].as<int>(),
         .skills_data = row["skills_data"].is_null() ? "" : row["skills_data"].as<std::string>(),
-        .inventory_data = row["inventory_data"].is_null() ? "" : row["inventory_data"].as<std::string>(),
-        .equipment_data = row["equipment_data"].is_null() ? "" : row["equipment_data"].as<std::string>(),
-        .bank_data = row["bank_data"].is_null() ? "" : row["bank_data"].as<std::string>(),
         .magic_data = row["magic_data"].is_null() ? "" : row["magic_data"].as<std::string>(),
         .quest_data = row["quest_data"].is_null() ? "" : row["quest_data"].as<std::string>()};
 
@@ -1017,9 +1014,6 @@ auto auth_system::save_character(const character_full_data& data) -> result<void
 
     // Ensure JSONB fields have valid JSON (PostgreSQL rejects empty strings for JSONB)
     auto skills_json = data.skills_data.empty() ? "[]" : data.skills_data;
-    auto inventory_json = data.inventory_data.empty() ? "[]" : data.inventory_data;
-    auto equipment_json = data.equipment_data.empty() ? "[]" : data.equipment_data;
-    auto bank_json = data.bank_data.empty() ? "[]" : data.bank_data;
     auto magic_json = data.magic_data.empty() ? "[]" : data.magic_data;
     auto quest_json = data.quest_data.empty() ? "[]" : data.quest_data;
 
@@ -1047,22 +1041,19 @@ auto auth_system::save_character(const character_full_data& data) -> result<void
                mp_max = $20,
                sp_max = $21,
                skills_data = $22,
-               inventory_data = $23,
-               equipment_data = $24,
-               bank_data = $25,
-               magic_data = $26,
-               quest_data = $27,
-               hair_style = $28,
-               hair_color = $29,
-               skin_color = $30,
-               underwear_color = $31,
-               enemy_kill_count = $32,
-               contribution = $33,
-               stat_points_available = $34,
-               luck = $35,
-               reward_gold = $36,
+               magic_data = $23,
+               quest_data = $24,
+               hair_style = $25,
+               hair_color = $26,
+               skin_color = $27,
+               underwear_color = $28,
+               enemy_kill_count = $29,
+               contribution = $30,
+               stat_points_available = $31,
+               luck = $32,
+               reward_gold = $33,
                last_played = NOW()
-           WHERE id = $37)",
+           WHERE id = $34)",
         data.map_name,
         static_cast<int>(data.pos_x),
         static_cast<int>(data.pos_y),
@@ -1085,9 +1076,6 @@ auto auth_system::save_character(const character_full_data& data) -> result<void
         data.max_mp,
         data.max_sp,
         skills_json,
-        inventory_json,
-        equipment_json,
-        bank_json,
         magic_json,
         quest_json,
         static_cast<int>(data.hair_style),
@@ -1110,6 +1098,152 @@ auto auth_system::save_character(const character_full_data& data) -> result<void
     LOG_DEBUG(auth, "Saved character '{}' (id: {})", data.name, data.id.value);
 
     return result<void, auth_error>::ok();
+}
+
+auto auth_system::load_items(player_id char_id) -> std::vector<item_row>
+{
+    if (!database_)
+    {
+        return {};
+    }
+
+    auto db_result = database_->execute_params(
+        R"(SELECT id, character_id, template_id, name, location, slot, count,
+                  durability, max_durability, color, bound_to,
+                  upgrade_level, main_enchant_type, main_enchant_value,
+                  sub_enchant_type, sub_enchant_value,
+                  custom_made, custom_quality, pos_x, pos_y
+           FROM items WHERE character_id = $1
+           ORDER BY location, slot)",
+        static_cast<int>(char_id.value));
+
+    if (db_result.is_err())
+    {
+        LOG_ERROR(auth, "Failed to load items for character {}: {}", char_id.value, db_result.error());
+        return {};
+    }
+
+    std::vector<item_row> rows;
+    rows.reserve(db_result.value().size());
+
+    for (const auto& row : db_result.value())
+    {
+        item_row ir;
+        ir.id = static_cast<uint32_t>(row["id"].as<int>());
+        ir.character_id = row["character_id"].as<int>();
+        ir.template_id = static_cast<uint32_t>(row["template_id"].as<int>());
+        ir.name = row["name"].as<std::string>();
+        ir.location = static_cast<item_location>(row["location"].as<int>());
+        ir.slot = static_cast<int16_t>(row["slot"].as<int>());
+        ir.count = static_cast<int16_t>(row["count"].as<int>());
+        ir.durability = static_cast<int16_t>(row["durability"].as<int>());
+        ir.max_durability = static_cast<int16_t>(row["max_durability"].as<int>());
+        ir.color = static_cast<int8_t>(row["color"].as<int>());
+        ir.bound_to = row["bound_to"].is_null() ? std::nullopt
+                                                 : std::optional<int32_t>(row["bound_to"].as<int>());
+        ir.upgrade_level = static_cast<uint8_t>(row["upgrade_level"].as<int>());
+        ir.main_enchant_type = static_cast<uint8_t>(row["main_enchant_type"].as<int>());
+        ir.main_enchant_value = static_cast<uint8_t>(row["main_enchant_value"].as<int>());
+        ir.sub_enchant_type = static_cast<uint8_t>(row["sub_enchant_type"].as<int>());
+        ir.sub_enchant_value = static_cast<uint8_t>(row["sub_enchant_value"].as<int>());
+        ir.custom_made = row["custom_made"].as<bool>();
+        ir.custom_quality = static_cast<int8_t>(row["custom_quality"].as<int>());
+        ir.pos_x = static_cast<int16_t>(row["pos_x"].as<int>());
+        ir.pos_y = static_cast<int16_t>(row["pos_y"].as<int>());
+
+        rows.push_back(std::move(ir));
+    }
+
+    LOG_DEBUG(auth, "Loaded {} items for character {}", rows.size(), char_id.value);
+    return rows;
+}
+
+void auth_system::save_items(player_id char_id, const std::vector<item_row>& items)
+{
+    if (!database_)
+    {
+        return;
+    }
+
+    // Delete all existing items for this character, then insert current items
+    auto del_result = database_->execute_params(
+        "DELETE FROM items WHERE character_id = $1",
+        static_cast<int>(char_id.value));
+
+    if (del_result.is_err())
+    {
+        LOG_ERROR(auth, "Failed to delete items for character {}: {}", char_id.value, del_result.error());
+        return;
+    }
+
+    if (items.empty())
+    {
+        LOG_DEBUG(auth, "Saved 0 items for character {}", char_id.value);
+        return;
+    }
+
+    // Batch insert all items
+    for (const auto& ir : items)
+    {
+        auto ins_result = database_->execute_params(
+            R"(INSERT INTO items (id, character_id, template_id, name, location, slot, count,
+                                  durability, max_durability, color, bound_to,
+                                  upgrade_level, main_enchant_type, main_enchant_value,
+                                  sub_enchant_type, sub_enchant_value,
+                                  custom_made, custom_quality, pos_x, pos_y)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                       $12, $13, $14, $15, $16, $17, $18, $19, $20))",
+            static_cast<int>(ir.id),
+            static_cast<int>(ir.character_id),
+            static_cast<int>(ir.template_id),
+            ir.name,
+            static_cast<int>(ir.location),
+            static_cast<int>(ir.slot),
+            static_cast<int>(ir.count),
+            static_cast<int>(ir.durability),
+            static_cast<int>(ir.max_durability),
+            static_cast<int>(ir.color),
+            ir.bound_to.has_value() ? std::optional<int>(*ir.bound_to) : std::optional<int>{},
+            static_cast<int>(ir.upgrade_level),
+            static_cast<int>(ir.main_enchant_type),
+            static_cast<int>(ir.main_enchant_value),
+            static_cast<int>(ir.sub_enchant_type),
+            static_cast<int>(ir.sub_enchant_value),
+            ir.custom_made,
+            static_cast<int>(ir.custom_quality),
+            static_cast<int>(ir.pos_x),
+            static_cast<int>(ir.pos_y));
+
+        if (ins_result.is_err())
+        {
+            LOG_ERROR(auth, "Failed to insert item {} for character {}: {}",
+                      ir.id, char_id.value, ins_result.error());
+        }
+    }
+
+    LOG_DEBUG(auth, "Saved {} items for character {}", items.size(), char_id.value);
+}
+
+auto auth_system::get_max_item_id() -> uint32_t
+{
+    if (!database_)
+    {
+        return 0;
+    }
+
+    auto db_result = database_->execute("SELECT COALESCE(MAX(id), 0) as max_id FROM items");
+    if (db_result.is_err())
+    {
+        LOG_ERROR(auth, "Failed to get max item ID: {}", db_result.error());
+        return 0;
+    }
+
+    if (db_result.value().empty())
+    {
+        return 0;
+    }
+
+    return static_cast<uint32_t>(db_result.value()[0]["max_id"].as<int>());
 }
 
 auto auth_system::ban_account(account_id id,

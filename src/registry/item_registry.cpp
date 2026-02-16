@@ -146,7 +146,7 @@ auto item_registry::load_from_file(const std::filesystem::path& path) -> result<
         // Check for duplicate ID
         if (id_index_.contains(item.id.value))
         {
-            LOG_WARN(item, "Line {}: Duplicate item ID {}", line_num, item.id.value);
+            LOG_ERROR(item, "Line {}: Duplicate item ID {} — skipping", line_num, item.id.value);
             ++errors;
             continue;
         }
@@ -209,7 +209,7 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
             // Check for duplicate
             if (id_index_.contains(item.id.value))
             {
-                LOG_WARN(item, "Duplicate item ID {}", item.id.value);
+                LOG_ERROR(item, "Duplicate item ID {} — skipping", item.id.value);
                 ++errors;
                 continue;
             }

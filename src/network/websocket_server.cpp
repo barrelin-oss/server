@@ -227,6 +227,16 @@ auto websocket_server::start() -> hb::result<void, std::string>
 
                     // LOG_DEBUG(network, "[RECV conn={}] {}", conn_id.value, msg->str);
 
+                    // Reject oversized messages to prevent memory exhaustion
+                    if (msg->str.size() > config_.max_message_size)
+                    {
+                        LOG_WARN(network, "Oversized message from {} ({} bytes, max {})",
+                                 conn_id.value, msg->str.size(), config_.max_message_size);
+                        auto error_msg = make_error_response(0, "message_too_large", "Message exceeds size limit");
+                        ws.send(error_msg.to_json().dump());
+                        break;
+                    }
+
                     // Parse JSON message
                     auto parse_result = json_message::parse(msg->str);
                     if (parse_result.is_err())

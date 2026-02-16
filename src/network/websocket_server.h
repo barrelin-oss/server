@@ -34,6 +34,7 @@ struct websocket_config
     bool enable_ping = true;
     int ping_interval_seconds = 30;
     bool enable_per_message_deflate = false; // Compression
+    size_t max_message_size = 65536;           // Max incoming message size in bytes
 };
 
 // WebSocket event types

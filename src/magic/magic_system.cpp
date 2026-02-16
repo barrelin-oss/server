@@ -13,6 +13,7 @@
 
 #include <chrono>
 #include <algorithm>
+#include <random>
 
 namespace hb::magic
 {
@@ -1013,11 +1014,13 @@ void magic_system::apply_debuff(hb::entity::entity caster, hb::entity::entity ta
     {
         if (auto* p = player_sys->get_player(player_id{target.id}))
         {
+            thread_local std::mt19937 rng{std::random_device{}()};
+            std::uniform_int_distribution<int> dist(0, 99);
+
             if (spell.spell_type == magic_type::poison && p->computed.poison_resist > 0)
             {
                 // Simple resist check: resist% chance to ignore
-                int roll = rand() % 100;
-                if (roll < p->computed.poison_resist)
+                if (dist(rng) < p->computed.poison_resist)
                 {
                     LOG_DEBUG(magic, "Entity {} resisted poison (resist={}%)", target.id, p->computed.poison_resist);
                     return;
@@ -1025,8 +1028,7 @@ void magic_system::apply_debuff(hb::entity::entity caster, hb::entity::entity ta
             }
             if (spell.spell_type == magic_type::hold_paralyze && p->computed.paralyze_resist > 0)
             {
-                int roll = rand() % 100;
-                if (roll < p->computed.paralyze_resist)
+                if (dist(rng) < p->computed.paralyze_resist)
                 {
                     LOG_DEBUG(
                         magic, "Entity {} resisted paralyze (resist={}%)", target.id, p->computed.paralyze_resist);

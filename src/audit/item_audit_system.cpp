@@ -145,6 +145,24 @@ void item_audit_system::flush_locked(std::vector<item_audit_entry>& entries)
     if (result.is_err())
     {
         LOG_ERROR(general, "Failed to flush {} item audit entries: {}", entries.size(), result.error());
+
+        // Re-add entries to buffer for retry on next flush
+        std::lock_guard<std::mutex> lock(buffer_mutex_);
+        auto available = max_buffer_size > buffer_.size() ? max_buffer_size - buffer_.size() : size_t{0};
+        if (available < entries.size())
+        {
+            LOG_WARN(general,
+                     "Audit buffer full ({}/{}), dropping {} entries",
+                     buffer_.size(),
+                     max_buffer_size,
+                     entries.size() - available);
+            entries.resize(available);
+        }
+        if (!entries.empty())
+        {
+            buffer_.insert(buffer_.begin(), std::make_move_iterator(entries.begin()),
+                           std::make_move_iterator(entries.end()));
+        }
     }
     else
     {

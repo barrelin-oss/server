@@ -28,8 +28,14 @@ template<typename T> auto yaml_get(const YAML::Node& node, const std::string& ke
         {
             return node[key].as<T>();
         }
+        catch (const std::exception& e)
+        {
+            LOG_WARN(general, "Config key '{}' parse error: {} — using default", key, e.what());
+            return default_value;
+        }
         catch (...)
         {
+            LOG_WARN(general, "Config key '{}' parse error (unknown) — using default", key);
             return default_value;
         }
     }
@@ -93,6 +99,33 @@ auto parse_ini_file(const std::filesystem::path& path)
     }
 
     return result<std::unordered_map<std::string, std::string>, std::string>::ok(std::move(config));
+}
+
+// Clamp dangerous config values to safe ranges and log warnings
+void validate_config(server_config& cfg)
+{
+    auto clamp_warn = [](auto& val, auto min_val, auto max_val, const char* name)
+    {
+        using T = std::remove_reference_t<decltype(val)>;
+        if (val < static_cast<T>(min_val))
+        {
+            LOG_WARN(config, "Config '{}' value {} below minimum {}, clamping", name, val, min_val);
+            val = static_cast<T>(min_val);
+        }
+        else if (val > static_cast<T>(max_val))
+        {
+            LOG_WARN(config, "Config '{}' value {} above maximum {}, clamping", name, val, max_val);
+            val = static_cast<T>(max_val);
+        }
+    };
+
+    clamp_warn(cfg.database.pool_size, 1, 100, "database.pool_size");
+    clamp_warn(cfg.websocket.max_connections, 1, 10000, "websocket.max_connections");
+    clamp_warn(cfg.websocket.ping_interval_seconds, 5, 300, "websocket.ping_interval_seconds");
+    clamp_warn(cfg.auth.max_characters_per_account, 1u, 10u, "auth.max_characters_per_account");
+    clamp_warn(cfg.tick_interval_ms, 5u, 1000u, "tick_interval_ms");
+    clamp_warn(cfg.auto_save.interval_seconds, 30u, 3600u, "auto_save.interval_seconds");
+    clamp_warn(cfg.ground_item_expiry_seconds, 10u, 7200u, "ground_item_expiry_seconds");
 }
 
 } // namespace
@@ -231,6 +264,7 @@ auto config_system::load_yaml_config(const std::filesystem::path& path) -> resul
         }
 
         server_config_path_ = path;
+        validate_config(server_config_);
 
         LOG_INFO(config,
                  "Server config loaded (YAML): name={}, port={}, self_contained={}",
@@ -393,6 +427,7 @@ auto config_system::load_ini_config(const std::filesystem::path& path) -> result
         }
 
         server_config_path_ = path;
+        validate_config(server_config_);
 
         LOG_INFO(config,
                  "Server config loaded (INI): name={}, port={}, self_contained={}",

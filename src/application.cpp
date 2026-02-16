@@ -820,6 +820,25 @@ void application::main_loop()
     // Stop the game timer
     game_timer_->stop();
 
+    // Resolve signal name on main thread (signal handler only sets atomics)
+    int sig = shutdown_signal_.load();
+    if (sig != 0 && shutdown_reason_.empty())
+    {
+        switch (sig)
+        {
+        case SIGINT:
+            shutdown_reason_ = "SIGINT";
+            break;
+        case SIGTERM:
+            shutdown_reason_ = "SIGTERM";
+            break;
+        default:
+            shutdown_reason_ = "signal";
+            break;
+        }
+        LOG_INFO(general, "Shutdown requested: {}", shutdown_reason_);
+    }
+
     LOG_INFO(general, "Main loop ended");
 }
 
@@ -1880,20 +1899,10 @@ void application::setup_signal_handlers()
 
 void application::signal_handler(int signal)
 {
-    const char* signal_name = "unknown";
-    switch (signal)
-    {
-    case SIGINT:
-        signal_name = "SIGINT";
-        break;
-    case SIGTERM:
-        signal_name = "SIGTERM";
-        break;
-    }
-
     if (g_app_instance)
     {
-        g_app_instance->request_shutdown(signal_name);
+        g_app_instance->shutdown_signal_.store(signal);
+        g_app_instance->shutdown_requested_.store(true);
     }
 }
 

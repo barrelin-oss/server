@@ -98,6 +98,7 @@ private:
 
     application_config config_;
     std::atomic<bool> shutdown_requested_{false};
+    std::atomic<int> shutdown_signal_{0};
     std::string shutdown_reason_;
 
     std::unique_ptr<platform::timer> game_timer_;

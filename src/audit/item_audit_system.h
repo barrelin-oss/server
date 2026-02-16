@@ -114,6 +114,7 @@ public:
 
 private:
     static constexpr size_t flush_threshold = 50;
+    static constexpr size_t max_buffer_size = 5000;
 
     database::database_system* db_{nullptr};
 

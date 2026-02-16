@@ -419,7 +419,8 @@ private:
     // Skill data sync
     void send_skills_data(connection_id conn_id, player_id pid);
 
-    // Hunger update helper
+    // Vitals/hunger update helpers
+    void send_vitals_update(player_id pid, int32_t hp, int32_t mp, int32_t sp);
     void send_hunger_update(player_id pid, int8_t level);
 
     // Environment (day/night + weather) helpers

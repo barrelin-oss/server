@@ -118,9 +118,11 @@ void game_handlers::initialize(network::websocket_server* ws_server,
         combat_->on_death([this](const combat::death_event& event) { on_entity_death(event); });
     }
 
-    // Register hunger change callback
+    // Register regen and hunger change callbacks
     if (players_)
     {
+        players_->on_regen([this](player_id pid, int32_t hp, int32_t mp, int32_t sp)
+                           { send_vitals_update(pid, hp, mp, sp); });
         players_->on_hunger_change([this](player_id pid, int8_t, int8_t new_level)
                                    { send_hunger_update(pid, new_level); });
     }
@@ -923,6 +925,33 @@ void game_handlers::handle_entity_info_request(connection_id conn_id, const netw
     // Entity not found
     conn->send(network::make_entity_info_response(msg.seq, false, nullptr, "entity_not_found"));
     LOG_DEBUG(bridge, "Player {} requested info about unknown entity {}", requester_pid.value, data.entity_id);
+}
+
+// ========== Vitals Update (regen) ==========
+
+void game_handlers::send_vitals_update(player_id pid, int32_t hp, int32_t mp, int32_t sp)
+{
+    if (!players_ || !ws_server_)
+        return;
+
+    auto* player = players_->get_player(pid);
+    if (!player || player->connection.value == 0)
+        return;
+
+    auto* conn = ws_server_->get_connection(player->connection);
+    if (!conn || !conn->is_open())
+        return;
+
+    network::stat_update_data data
+    {
+        .max_hp = player->computed.max_hp,
+        .max_mp = player->computed.max_mp,
+        .max_sp = player->computed.max_sp,
+        .hp = hp,
+        .mp = mp,
+        .sp = sp,
+    };
+    conn->send(network::make_stat_update(data));
 }
 
 // ========== Hunger Update ==========

@@ -665,9 +665,18 @@ void player_system::update_regeneration(float delta_time)
             p->regen_delay_accumulator = 0.0f; // Reset delay counter
         }
 
+        auto old_hp = p->hp;
+        auto old_mp = p->mp;
+        auto old_sp = p->sp;
+
         p->heal_hp(p->computed.hp_regen);
         p->heal_mp(p->computed.mp_regen);
         p->heal_sp(p->computed.sp_regen);
+
+        if (regen_callback_ && (p->hp != old_hp || p->mp != old_mp || p->sp != old_sp))
+        {
+            regen_callback_(id, p->hp, p->mp, p->sp);
+        }
     }
 }
 

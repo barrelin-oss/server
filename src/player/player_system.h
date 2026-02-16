@@ -183,6 +183,10 @@ public:
     void set_target(player_id id, entity::entity target);
     void clear_target(player_id id);
 
+    // Regeneration
+    using regen_callback = std::function<void(player_id, int32_t hp, int32_t mp, int32_t sp)>;
+    void on_regen(regen_callback callback) { regen_callback_ = std::move(callback); }
+
     // Hunger
     using hunger_change_callback = std::function<void(player_id, int8_t old_level, int8_t new_level)>;
     void on_hunger_change(hunger_change_callback callback) { hunger_callback_ = std::move(callback); }

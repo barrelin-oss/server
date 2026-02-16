@@ -9,6 +9,7 @@
 #include "world/position.h"
 #include "npc/ai_behavior.h"
 
+#include <random>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -135,13 +136,14 @@ struct npc
 
     void heal(int32_t amount) { hp = std::min(hp + amount, max_hp); }
 
-    // Roll attack damage
     [[nodiscard]] auto roll_damage() const -> int32_t
     {
-        // Simple dice roll: attack_dice d attack_sides + attack_bonus
-        // Would use actual random in real implementation
-        int32_t base = attack_dice * (attack_sides / 2 + 1);
-        return base + attack_bonus;
+        thread_local std::mt19937 rng{std::random_device{}()};
+        std::uniform_int_distribution<int32_t> dist(1, std::max<int32_t>(1, attack_sides));
+        int32_t total = 0;
+        for (int i = 0; i < attack_dice; ++i)
+            total += dist(rng);
+        return total + attack_bonus;
     }
 };
 

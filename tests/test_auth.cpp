@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include "auth/auth_system.h"
 #include "auth/password_hash.h"
 #include "auth/session_token.h"
 #include "auth/account.h"
@@ -328,4 +329,99 @@ TEST(AccountId, Comparison)
     EXPECT_TRUE(id1 < id2);
     EXPECT_TRUE(id1 == id3);
     EXPECT_TRUE(id1 != id2);
+}
+
+// Registration rate limiting tests
+// auth_system without a database will fail at the DB stage (internal_error),
+// but rate limiting happens before that, so we can verify the error changes
+// from internal_error to rate_limited after exceeding the limit.
+
+class RegistrationRateLimitTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        auth_.initialize();
+        auth::auth_config cfg;
+        cfg.max_registration_attempts = 3;
+        cfg.registration_cooldown = std::chrono::seconds{3600};
+        auth_.set_config(cfg);
+    }
+
+    auth_system auth_;
+};
+
+TEST_F(RegistrationRateLimitTest, under_limit_reaches_db_stage)
+{
+    // Without a DB, create_account fails at the DB call (username_exists returns false
+    // since no DB, then hash_password succeeds, then db_create_account fails).
+    // The important thing is it does NOT return rate_limited.
+    auto result = auth_.create_account("testuser1", "password123", "192.168.1.1");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_NE(result.error(), auth_error::rate_limited);
+}
+
+TEST_F(RegistrationRateLimitTest, over_limit_returns_rate_limited)
+{
+    // Use up 3 attempts
+    for (int i = 0; i < 3; ++i)
+    {
+        auto result = auth_.create_account(
+            std::string("user") + std::to_string(i), "password123", "192.168.1.1");
+        EXPECT_NE(result.error(), auth_error::rate_limited);
+    }
+
+    // 4th attempt should be rate limited
+    auto result = auth_.create_account("user_blocked", "password123", "192.168.1.1");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), auth_error::rate_limited);
+}
+
+TEST_F(RegistrationRateLimitTest, different_ips_are_independent)
+{
+    // Fill up IP1
+    for (int i = 0; i < 3; ++i)
+    {
+        (void)auth_.create_account(
+            std::string("user_a") + std::to_string(i), "password123", "10.0.0.1");
+    }
+
+    // IP1 should be rate limited
+    auto result1 = auth_.create_account("blocked_a", "password123", "10.0.0.1");
+    EXPECT_EQ(result1.error(), auth_error::rate_limited);
+
+    // IP2 should still work (not rate limited)
+    auto result2 = auth_.create_account("user_b0", "password123", "10.0.0.2");
+    EXPECT_NE(result2.error(), auth_error::rate_limited);
+}
+
+TEST_F(RegistrationRateLimitTest, no_ip_skips_rate_limiting)
+{
+    // Without IP, rate limiting is skipped entirely
+    for (int i = 0; i < 5; ++i)
+    {
+        auto result = auth_.create_account(
+            std::string("noip_user") + std::to_string(i), "password123");
+        EXPECT_NE(result.error(), auth_error::rate_limited);
+    }
+}
+
+TEST_F(RegistrationRateLimitTest, window_expiry_resets_counter)
+{
+    // Configure with a very short cooldown for this test
+    auth::auth_config cfg;
+    cfg.max_registration_attempts = 2;
+    cfg.registration_cooldown = std::chrono::seconds{0}; // Immediate expiry
+    auth_.set_config(cfg);
+
+    // Use up 2 attempts
+    for (int i = 0; i < 2; ++i)
+    {
+        (void)auth_.create_account(
+            std::string("exp_user") + std::to_string(i), "password123", "172.16.0.1");
+    }
+
+    // With 0-second cooldown, window has already expired — should NOT be rate limited
+    auto result = auth_.create_account("exp_user_after", "password123", "172.16.0.1");
+    EXPECT_NE(result.error(), auth_error::rate_limited);
 }

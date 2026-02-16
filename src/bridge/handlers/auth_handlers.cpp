@@ -342,8 +342,17 @@ void auth_handlers::handle_create_account(connection_id conn_id, const network::
 
     LOG_DEBUG(bridge, "Account creation request for '{}'", data.username);
 
-    // Attempt to create account
-    auto create_result = auth_->create_account(data.username, data.password);
+    // Check IP ban
+    if (admin_ && admin_->is_ip_banned(conn->remote_address()))
+    {
+        LOG_INFO(bridge, "Account creation blocked for '{}': IP {} is banned", data.username, conn->remote_address());
+        auto response = network::make_create_account_response(msg.seq, false, std::nullopt, "ip_banned");
+        conn->send(response);
+        return;
+    }
+
+    // Attempt to create account (with IP for rate limiting)
+    auto create_result = auth_->create_account(data.username, data.password, conn->remote_address());
 
     if (create_result.is_err())
     {

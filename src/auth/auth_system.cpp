@@ -44,6 +44,7 @@ void auth_system::shutdown()
     {
         std::lock_guard lock{attempts_mutex_};
         login_attempts_.clear();
+        registration_attempts_.clear();
     }
 
     set_initialized(false);
@@ -70,12 +71,21 @@ void auth_system::set_forum_config(const forum_auth_config& config)
     }
 }
 
-auto auth_system::create_account(std::string_view username, std::string_view password) -> result<account_id, auth_error>
+auto auth_system::create_account(std::string_view username,
+                                 std::string_view password,
+                                 std::optional<std::string_view> ip_address) -> result<account_id, auth_error>
 {
     if (!config_.allow_registration)
     {
         LOG_WARN(auth, "Account registration is disabled");
         return result<account_id, auth_error>::err(auth_error::internal_error);
+    }
+
+    // Check registration rate limit before doing anything expensive
+    if (ip_address && !check_registration_attempts(*ip_address))
+    {
+        LOG_WARN(auth, "Registration rate limited for IP: {}", *ip_address);
+        return result<account_id, auth_error>::err(auth_error::rate_limited);
     }
 
     // Validate username
@@ -92,6 +102,12 @@ auto auth_system::create_account(std::string_view username, std::string_view pas
     {
         LOG_DEBUG(auth, "Invalid password format: {}", password_result.error_message);
         return result<account_id, auth_error>::err(auth_error::invalid_password_format);
+    }
+
+    // Record registration attempt before the expensive hash operation
+    if (ip_address)
+    {
+        record_registration_attempt(*ip_address);
     }
 
     // Check if username already exists
@@ -1539,6 +1555,49 @@ auto auth_system::db_get_or_create_account_by_forum_id(uint64_t forum_member_id,
              acc.id.value);
 
     return result<account, auth_error>::ok(std::move(acc));
+}
+
+auto auth_system::check_registration_attempts(std::string_view ip_address) -> bool
+{
+    std::lock_guard lock{attempts_mutex_};
+
+    auto it = registration_attempts_.find(std::string(ip_address));
+    if (it == registration_attempts_.end())
+    {
+        return true;
+    }
+
+    auto& info = it->second;
+    auto now = std::chrono::steady_clock::now();
+
+    // Reset if window has expired
+    if (now - info.window_start >= config_.registration_cooldown)
+    {
+        info.attempts = 0;
+        info.window_start = now;
+        return true;
+    }
+
+    return info.attempts < config_.max_registration_attempts;
+}
+
+void auth_system::record_registration_attempt(std::string_view ip_address)
+{
+    std::lock_guard lock{attempts_mutex_};
+
+    auto& info = registration_attempts_[std::string(ip_address)];
+    auto now = std::chrono::steady_clock::now();
+
+    // Start new window if first attempt or window expired
+    if (info.attempts == 0 || now - info.window_start >= config_.registration_cooldown)
+    {
+        info.attempts = 1;
+        info.window_start = now;
+    }
+    else
+    {
+        ++info.attempts;
+    }
 }
 
 } // namespace hb::auth

@@ -37,6 +37,8 @@ struct auth_config
     bool allow_registration = true;
     uint32_t max_login_attempts = 5;
     std::chrono::seconds lockout_duration{300}; // 5 minutes
+    uint32_t max_registration_attempts = 3;
+    std::chrono::seconds registration_cooldown{3600}; // 1 hour
 };
 
 // Login attempt tracking
@@ -45,6 +47,13 @@ struct login_attempt_info
     uint32_t failed_attempts{0};
     std::chrono::system_clock::time_point last_attempt;
     std::chrono::system_clock::time_point lockout_until;
+};
+
+// Registration attempt tracking
+struct registration_attempt_info
+{
+    uint32_t attempts{0};
+    std::chrono::steady_clock::time_point window_start;
 };
 
 // Authentication system
@@ -69,7 +78,9 @@ public:
 
     // Account management
     [[nodiscard]] auto create_account(std::string_view username,
-                                      std::string_view password) -> result<account_id, auth_error>;
+                                      std::string_view password,
+                                      std::optional<std::string_view> ip_address = std::nullopt)
+        -> result<account_id, auth_error>;
 
     [[nodiscard]] auto
     authenticate(std::string_view username,
@@ -145,6 +156,10 @@ private:
     [[nodiscard]] auto check_login_attempts(std::string_view ip_address) -> bool;
     void record_login_attempt(std::string_view ip_address, bool success);
 
+    // Registration attempt tracking
+    [[nodiscard]] auto check_registration_attempts(std::string_view ip_address) -> bool;
+    void record_registration_attempt(std::string_view ip_address);
+
     // Database helpers
     [[nodiscard]] auto db_get_account_by_id(account_id id) -> result<account, auth_error>;
     [[nodiscard]] auto db_get_account_by_username(std::string_view username) -> result<account, auth_error>;
@@ -177,6 +192,7 @@ private:
 
     // Login attempt tracking (by IP)
     std::unordered_map<std::string, login_attempt_info> login_attempts_;
+    std::unordered_map<std::string, registration_attempt_info> registration_attempts_;
     mutable std::mutex attempts_mutex_;
 };
 

@@ -157,6 +157,7 @@ enum class auth_error
     session_not_found,
     account_already_in_game,
     forum_auth_failed,
+    rate_limited,
     internal_error
 };
 
@@ -197,6 +198,8 @@ enum class auth_error
         return "account_already_in_game";
     case auth_error::forum_auth_failed:
         return "forum_auth_failed";
+    case auth_error::rate_limited:
+        return "rate_limited";
     case auth_error::internal_error:
         return "internal_error";
     default:

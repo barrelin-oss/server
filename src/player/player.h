@@ -264,8 +264,15 @@ struct player
     // Fishing engagement state
     crafting::fishing_state fishing;
 
-    // Hunger-related regeneration delay accumulator
-    float regen_delay_accumulator{0.0f};
+    // Fractional regen accumulators (carry sub-integer amounts between ticks)
+    float hp_regen_fraction{0.0f};
+    float mp_regen_fraction{0.0f};
+    float sp_regen_fraction{0.0f};
+
+    // HP stock: food bonus spread over 3 regen ticks (legacy: m_iHPstock, consumed in 1 tick at 15s)
+    int32_t hp_stock{0};            // Remaining stock to deliver
+    int32_t hp_stock_per_tick{0};   // Fixed amount to deliver each tick
+    static constexpr int32_t max_hp_stock = 500;
 
     // Location
     map_id current_map{};

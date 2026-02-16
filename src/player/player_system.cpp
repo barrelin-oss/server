@@ -13,6 +13,8 @@
 #include "entity/components/transform.h"
 #include "perf/perf_stats.h"
 
+#include <random>
+
 namespace hb::player
 {
 
@@ -641,6 +643,14 @@ void player_system::update_regeneration(float delta_time)
 
     regen_accumulator_ -= static_cast<float>(config_.regen_tick_ms);
 
+    // Scaling factor: our_tick / legacy_interval (e.g. 5000/15000 = 0.333)
+    const float tick_ms = static_cast<float>(config_.regen_tick_ms);
+    const float hp_scale = tick_ms / static_cast<float>(config_.legacy_hp_interval_ms);
+    const float mp_scale = tick_ms / static_cast<float>(config_.legacy_mp_interval_ms);
+    const float sp_scale = tick_ms / static_cast<float>(config_.legacy_sp_interval_ms);
+
+    thread_local std::mt19937 rng{std::random_device{}()};
+
     for (auto& [id, p] : players_)
     {
         if (p->is_dead())
@@ -652,26 +662,129 @@ void player_system::update_regeneration(float delta_time)
         if (p->hunger.is_starving())
             continue;
 
-        // HUNGER: Apply delay penalty if hungry (hunger < 30)
+        // HUNGER: Delay regen when hungry (hunger < 30)
+        // Legacy adds (30 - hunger) * 1000 ms to each resource's interval.
+        // We approximate by skipping ticks proportionally.
         if (p->hunger.is_hungry())
         {
-            // Legacy formula: (30 - hunger) * 1000 ms extra delay
-            float delay_ms = static_cast<float>(30 - p->hunger.level) * 1000.0f;
-            p->regen_delay_accumulator += static_cast<float>(config_.regen_tick_ms);
-            if (p->regen_delay_accumulator < delay_ms)
+            float extra_delay_ms = static_cast<float>(30 - p->hunger.level) * 1000.0f;
+            // Probability of skipping this tick based on delay ratio
+            // e.g. hunger=20: extra 10s delay on a 15s base HP timer = skip ~40% of ticks
+            // We use HP timer (15s) as baseline since all resources share this tick
+            float skip_chance = extra_delay_ms / (15000.0f + extra_delay_ms);
+            std::uniform_real_distribution<float> skip_dist(0.0f, 1.0f);
+            if (skip_dist(rng) < skip_chance)
             {
-                continue; // Skip regeneration this tick
+                continue;
             }
-            p->regen_delay_accumulator = 0.0f; // Reset delay counter
         }
 
         auto old_hp = p->hp;
         auto old_mp = p->mp;
         auto old_sp = p->sp;
 
-        p->heal_hp(p->computed.hp_regen);
-        p->heal_mp(p->computed.mp_regen);
-        p->heal_sp(p->computed.sp_regen);
+        // === HP Regen ===
+        // Legacy: 1d(VIT), min VIT/2, + hp_stock (food), + m_iAddHP % bonus, every 15s
+        // hp_stock is spread across ticks proportionally (legacy consumed it all at once on a 15s tick)
+        if (p->hp < p->computed.max_hp || p->hp_stock > 0)
+        {
+            int32_t vit = std::max(1, static_cast<int>(p->computed.vitality));
+            std::uniform_int_distribution<int32_t> hp_dist(1, vit);
+            int32_t hp_roll = hp_dist(rng);
+            if (hp_roll < vit / 2)
+            {
+                hp_roll = vit / 2;
+            }
+
+            // Consume hp_stock at a fixed per-tick rate (set when food is eaten)
+            int32_t stock_portion = 0;
+            if (p->hp_stock > 0)
+            {
+                stock_portion = std::min(p->hp_stock, p->hp_stock_per_tick);
+                p->hp_stock -= stock_portion;
+                if (p->hp_stock <= 0)
+                {
+                    p->hp_stock_per_tick = 0;
+                }
+            }
+
+            int32_t hp_total = hp_roll + stock_portion;
+
+            // Equipment percentage bonus (legacy: m_iAddHP is a %)
+            if (p->computed.hp_regen != 0)
+            {
+                hp_total += static_cast<int32_t>(
+                    static_cast<double>(hp_total) * static_cast<double>(p->computed.hp_regen) / 100.0);
+            }
+
+            float hp_amount = static_cast<float>(hp_total) * hp_scale;
+            p->hp_regen_fraction += hp_amount;
+            int32_t hp_heal = static_cast<int32_t>(p->hp_regen_fraction);
+            if (hp_heal > 0)
+            {
+                p->hp_regen_fraction -= static_cast<float>(hp_heal);
+                p->heal_hp(hp_heal);
+            }
+        }
+
+        // === MP Regen ===
+        // Legacy: 1d(MAG) + m_iAddMP % bonus, every 20s
+        if (p->mp < p->computed.max_mp)
+        {
+            int32_t mag = std::max(1, static_cast<int>(p->computed.magic));
+            std::uniform_int_distribution<int32_t> mp_dist(1, mag);
+            int32_t mp_total = mp_dist(rng);
+
+            // Equipment percentage bonus
+            if (p->computed.mp_regen != 0)
+            {
+                mp_total += static_cast<int32_t>(
+                    static_cast<double>(mp_total) * static_cast<double>(p->computed.mp_regen) / 100.0);
+            }
+
+            float mp_amount = static_cast<float>(mp_total) * mp_scale;
+            p->mp_regen_fraction += mp_amount;
+            int32_t mp_heal = static_cast<int32_t>(p->mp_regen_fraction);
+            if (mp_heal > 0)
+            {
+                p->mp_regen_fraction -= static_cast<float>(mp_heal);
+                p->heal_mp(mp_heal);
+            }
+        }
+
+        // === SP Regen ===
+        // Legacy: 1d(VIT/3) + m_iAddSP % bonus + level bonus, every 10s
+        if (p->sp < p->computed.max_sp)
+        {
+            int32_t vit_third = std::max(1, static_cast<int>(p->computed.vitality / 3));
+            std::uniform_int_distribution<int32_t> sp_dist(1, vit_third);
+            int32_t sp_total = sp_dist(rng);
+
+            // Equipment percentage bonus
+            if (p->computed.sp_regen != 0)
+            {
+                sp_total += static_cast<int32_t>(
+                    static_cast<double>(sp_total) * static_cast<double>(p->computed.sp_regen) / 100.0);
+            }
+
+            // Level-based bonus (legacy: low-level players regen SP faster)
+            uint8_t level = p->experience.level;
+            if (level <= 20)
+                sp_total += 15;
+            else if (level <= 40)
+                sp_total += 10;
+            else if (level <= 60)
+                sp_total += 5;
+
+            float sp_amount = static_cast<float>(sp_total) * sp_scale;
+            p->sp_regen_fraction += sp_amount;
+            int32_t sp_heal = static_cast<int32_t>(p->sp_regen_fraction);
+            if (sp_heal > 0)
+            {
+                p->sp_regen_fraction -= static_cast<float>(sp_heal);
+                p->heal_sp(sp_heal);
+            }
+        }
 
         if (regen_callback_ && (p->hp != old_hp || p->mp != old_mp || p->sp != old_sp))
         {
@@ -716,6 +829,17 @@ void player_system::restore_hunger(player_id id, int8_t amount)
     {
         hunger_callback_(id, old_level, p->hunger.level);
     }
+}
+
+void player_system::add_hp_stock(player_id id, int32_t amount)
+{
+    auto* p = get_player(id);
+    if (!p || amount <= 0)
+        return;
+
+    p->hp_stock = std::clamp(p->hp_stock + amount, 0, player::max_hp_stock);
+    int32_t ticks = std::max(1, config_.legacy_hp_interval_ms / config_.regen_tick_ms);
+    p->hp_stock_per_tick = (p->hp_stock + ticks - 1) / ticks;
 }
 
 void player_system::update_pk_decay(float delta_time)

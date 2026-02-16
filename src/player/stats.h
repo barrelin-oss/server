@@ -225,9 +225,10 @@ struct computed_stats
         poison_resist = std::clamp<int32_t>(mods.poison_resist, 0, 100);
         paralyze_resist = std::clamp<int32_t>(mods.paralyze_resist, 0, 100);
 
-        hp_regen = 1 + vitality / 10 + mods.hp_regen;
-        mp_regen = 1 + magic / 10 + mods.mp_regen;
-        sp_regen = 1 + dexterity / 10 + mods.sp_regen;
+        // Equipment/buff regen bonuses only — base regen is dice-based at tick time
+        hp_regen = mods.hp_regen;
+        mp_regen = mods.mp_regen;
+        sp_regen = mods.sp_regen;
 
         physical_absorption = std::clamp<int32_t>(mods.physical_absorption, 0, 80);
         magic_absorption = std::clamp<int32_t>(mods.magic_absorption, 0, 80);

@@ -575,7 +575,9 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
             --slot->count;
         }
 
+        // Legacy: food adds to both hunger AND hp_stock (bonus HP spread over regen ticks)
         players_->restore_hunger(pid, static_cast<int8_t>(std::min(amount, static_cast<int32_t>(127))));
+        players_->add_hp_stock(pid, amount);
 
         conn->send(
             network::make_use_item_response(msg.seq, true, tmpl->name, "hunger", amount, plr->hunger.level, 100));

@@ -34,7 +34,17 @@ struct player_create_info
 struct player_system_config
 {
     uint32_t max_players{2000};
-    int32_t regen_tick_ms{1000};
+
+    // Regen tick interval — how often we process regen for all resources.
+    // Legacy had separate intervals: HP 15s, MP 20s, SP 10s.
+    // We tick all together and scale amounts proportionally.
+    int32_t regen_tick_ms{5000};
+
+    // Legacy regen intervals (used to scale amounts per tick)
+    int32_t legacy_hp_interval_ms{15000};
+    int32_t legacy_mp_interval_ms{20000};
+    int32_t legacy_sp_interval_ms{10000};
+
     int32_t hunger_decay_interval_ms{60000};
     int32_t pk_decay_interval_ms{300000};
     int32_t save_interval_ms{300000};
@@ -186,6 +196,7 @@ public:
     // Regeneration
     using regen_callback = std::function<void(player_id, int32_t hp, int32_t mp, int32_t sp)>;
     void on_regen(regen_callback callback) { regen_callback_ = std::move(callback); }
+    void add_hp_stock(player_id id, int32_t amount);
 
     // Hunger
     using hunger_change_callback = std::function<void(player_id, int8_t old_level, int8_t new_level)>;

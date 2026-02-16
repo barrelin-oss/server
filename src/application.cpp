@@ -74,6 +74,7 @@
 #include "auth/password_hash.h"
 #include "network/websocket_server.h"
 
+#include <algorithm>
 #include <csignal>
 #include <iostream>
 #include <thread>
@@ -776,9 +777,20 @@ void application::initialize()
     subsystems().event_bus().publish(
         events::server_starting_event{.version = "3.0.0", .timestamp = std::chrono::system_clock::now()});
 
-    // Create game timer
+    // Create game timer — prefer tick rate from server_config if loaded, else application_config default
+    auto tick_ms = server_cfg.tick_interval_ms > 0 ? server_cfg.tick_interval_ms : config_.tick_interval_ms;
     game_timer_ =
-        std::make_unique<platform::timer>(std::chrono::milliseconds{config_.tick_interval_ms}, [this]() { on_tick(); });
+        std::make_unique<platform::timer>(std::chrono::milliseconds{tick_ms}, [this]() { on_tick(); });
+    LOG_INFO(general, "Game tick interval: {}ms", tick_ms);
+
+    // Register config change callback for live tick rate adjustment
+    config_sys.on_config_changed([this]()
+    {
+        auto* cfg = subsystems().get<config_system>();
+        if (!cfg)
+            return;
+        set_tick_interval(cfg->server().tick_interval_ms);
+    });
 
     last_tick_time_ = platform::clock::now();
     initialized_ = true;
@@ -1807,9 +1819,11 @@ void application::on_tick()
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::tick_total);
 
-    // Process any pending WebSocket disconnects first (handles player cleanup)
+    // Process pending WebSocket events then disconnects on main thread
+    // Events before disconnects ensures messages are processed while connection still exists
     if (ws_server_)
     {
+        ws_server_->process_pending_events();
         ws_server_->process_pending_disconnects();
     }
 
@@ -1840,6 +1854,17 @@ auto application::shutdown_reason() const -> std::string_view
 auto application::config() const -> const application_config&
 {
     return config_;
+}
+
+void application::set_tick_interval(uint32_t ms)
+{
+    // Clamp to safe range
+    ms = std::clamp(ms, uint32_t{5}, uint32_t{1000});
+    if (game_timer_)
+    {
+        game_timer_->set_interval(std::chrono::milliseconds{ms});
+        LOG_INFO(general, "Game tick interval changed to {}ms", ms);
+    }
 }
 
 void application::setup_signal_handlers()

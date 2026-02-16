@@ -2741,6 +2741,9 @@ void admin_web_handlers::handle_reload_config(connection_id conn_id, const netwo
     hot_applied.push_back("auto_save.interval_seconds");
     hot_applied.push_back("auto_save.enabled");
 
+    // Hot-reload tick rate
+    hot_applied.push_back("tick_interval_ms");
+
     // These always require restart
     restart_required.push_back("database.*");
     restart_required.push_back("websocket.*");

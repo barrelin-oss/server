@@ -119,6 +119,9 @@ struct server_config
     // Logging configuration
     logging_config logging;
 
+    // Game tick interval (milliseconds)
+    uint32_t tick_interval_ms = 20; // 50 Hz default
+
     // Ground item expiry (seconds before ground items despawn)
     uint32_t ground_item_expiry_seconds = 600; // 10 minutes
 

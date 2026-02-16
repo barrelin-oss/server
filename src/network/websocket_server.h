@@ -239,6 +239,9 @@ public:
     [[nodiscard]] auto connection_count() const -> size_t;
     [[nodiscard]] auto authenticated_count() const -> size_t;
 
+    // Process pending events (connects + messages) - call from main thread
+    void process_pending_events();
+
     // Process pending disconnects - call from main thread periodically
     void process_pending_disconnects();
 
@@ -270,6 +273,19 @@ private:
     std::unordered_map<ix::ConnectionState*, connection_id> state_to_connection_;
     mutable std::mutex mutex_;
     std::atomic<uint32_t> next_id_{1};
+
+    // Pending events (thread-safe queue for main thread processing)
+    struct pending_event
+    {
+        enum class type : uint8_t { connect, message };
+        type event_type;
+        connection_id conn_id;
+        std::string remote_address; // connect events only
+        json_message msg;           // message events only
+    };
+    std::vector<pending_event> pending_events_;
+    std::vector<pending_event> event_drain_buffer_;
+    std::mutex event_mutex_;
 
     // Pending disconnects (thread-safe queue for main thread processing)
     struct pending_disconnect

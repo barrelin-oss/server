@@ -396,6 +396,7 @@ add_executable(hgserver_tests
     tests/test_special_ability.cpp
     tests/test_loot_attribute.cpp
     tests/test_item_audit.cpp
+    tests/test_websocket_queue.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

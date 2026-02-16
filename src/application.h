@@ -38,7 +38,7 @@ class war_persistence;
 struct application_config
 {
     std::string config_file = "server.yaml";
-    uint32_t tick_interval_ms = 100; // Game tick interval
+    uint32_t tick_interval_ms = 20; // Game tick interval (50 Hz)
 };
 
 // Main application class
@@ -62,6 +62,9 @@ public:
 
     // Get application config
     [[nodiscard]] auto config() const -> const application_config&;
+
+    // Set game tick interval (clamped to 5-1000ms)
+    void set_tick_interval(uint32_t ms);
 
 private:
     application();

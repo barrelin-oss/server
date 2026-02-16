@@ -200,6 +200,10 @@ auto config_system::load_yaml_config(const std::filesystem::path& path) -> resul
             server_config_.logging.max_files = yaml_get<uint32_t>(logging, "max_files", 3);
         }
 
+        // Tick interval
+        server_config_.tick_interval_ms =
+            yaml_get<uint32_t>(config, "tick_interval_ms", 20);
+
         // Ground item expiry
         server_config_.ground_item_expiry_seconds =
             yaml_get<uint32_t>(config, "ground_item_expiry_seconds", 600);
@@ -608,6 +612,8 @@ auto server_config::load_from_json(const std::filesystem::path& path) -> result<
             config.gate_server_addr = j["gate_server_addr"];
         if (j.contains("gate_server_port"))
             config.gate_server_port = j["gate_server_port"];
+        if (j.contains("tick_interval_ms"))
+            config.tick_interval_ms = j["tick_interval_ms"];
         if (j.contains("ground_item_expiry_seconds"))
             config.ground_item_expiry_seconds = j["ground_item_expiry_seconds"];
 
@@ -630,6 +636,7 @@ auto server_config::save_to_json(const std::filesystem::path& path) const -> res
     j["gate_server_addr"] = gate_server_addr;
     j["gate_server_port"] = gate_server_port;
     j["game_server_mode"] = game_server_mode;
+    j["tick_interval_ms"] = tick_interval_ms;
     j["ground_item_expiry_seconds"] = ground_item_expiry_seconds;
 
     std::ofstream file(path);
@@ -685,6 +692,7 @@ auto server_config::to_json() const -> nlohmann::json
                     {"max_file_size_mb", logging.max_file_size_mb},
                     {"max_files", logging.max_files}};
 
+    j["tick_interval_ms"] = tick_interval_ms;
     j["ground_item_expiry_seconds"] = ground_item_expiry_seconds;
 
     return j;
@@ -718,7 +726,12 @@ auto server_config::apply_dot_values(const nlohmann::json& values) -> result<std
         auto dot = key.find('.');
         if (dot == std::string::npos)
         {
-            if (key == "ground_item_expiry_seconds" && value.is_number())
+            if (key == "tick_interval_ms" && value.is_number())
+            {
+                tick_interval_ms = value;
+                applied.push_back(key);
+            }
+            else if (key == "ground_item_expiry_seconds" && value.is_number())
             {
                 ground_item_expiry_seconds = value;
                 applied.push_back(key);

@@ -172,9 +172,15 @@ auto websocket_server::start() -> hb::result<void, std::string>
 
                     LOG_INFO(network, "WebSocket connection {} from {}", new_id.value, connection_state->getRemoteIp());
 
-                    if (connect_handler_)
+                    // Queue connect event for main thread processing
                     {
-                        connect_handler_(new_id, connection_state->getRemoteIp());
+                        std::lock_guard lock{event_mutex_};
+                        pending_events_.push_back(pending_event{
+                            .event_type = pending_event::type::connect,
+                            .conn_id = new_id,
+                            .remote_address = connection_state->getRemoteIp(),
+                            .msg = {},
+                        });
                     }
                     break;
                 }
@@ -233,9 +239,15 @@ auto websocket_server::start() -> hb::result<void, std::string>
                         break;
                     }
 
-                    if (message_handler_)
+                    // Queue message event for main thread processing
                     {
-                        message_handler_(conn_id, parse_result.value());
+                        std::lock_guard lock{event_mutex_};
+                        pending_events_.push_back(pending_event{
+                            .event_type = pending_event::type::message,
+                            .conn_id = conn_id,
+                            .remote_address = {},
+                            .msg = std::move(parse_result.value()),
+                        });
                     }
                     break;
                 }
@@ -300,7 +312,8 @@ void websocket_server::stop()
         server_.reset();
     }
 
-    // Process any remaining pending disconnects
+    // Process any remaining pending events and disconnects
+    process_pending_events();
     process_pending_disconnects();
 
     {
@@ -309,6 +322,12 @@ void websocket_server::stop()
         account_to_connection_.clear();
         player_to_connection_.clear();
         state_to_connection_.clear();
+    }
+
+    {
+        std::lock_guard lock{event_mutex_};
+        pending_events_.clear();
+        event_drain_buffer_.clear();
     }
 
     {
@@ -546,6 +565,33 @@ auto websocket_server::next_connection_id() -> connection_id
         return connection_id{0};
     }
     return connection_id{next_id_++};
+}
+
+void websocket_server::process_pending_events()
+{
+    event_drain_buffer_.clear();
+    {
+        std::lock_guard lock{event_mutex_};
+        event_drain_buffer_.swap(pending_events_);
+    }
+    for (auto& event : event_drain_buffer_)
+    {
+        switch (event.event_type)
+        {
+        case pending_event::type::connect:
+            if (connect_handler_)
+            {
+                connect_handler_(event.conn_id, event.remote_address);
+            }
+            break;
+        case pending_event::type::message:
+            if (message_handler_)
+            {
+                message_handler_(event.conn_id, event.msg);
+            }
+            break;
+        }
+    }
 }
 
 void websocket_server::process_pending_disconnects()

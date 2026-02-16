@@ -36,9 +36,9 @@ auto attempt_upgrade(item& target_item) -> upgrade_result
     // Get base probability (out of 10000)
     int prob = upgrade_base_prob[current_level];
 
-    // Custom-made bonus: items with custom_made and quality > 100 get a boost
-    // Legacy: sItemSpecEffectValue2 maps to custom_quality
-    if (target_item.attribute.custom_made && target_item.attribute.custom_quality > 100)
+    // Custom-made bonus: positive quality crafted items get upgrade probability boost
+    // Legacy bug: original checked > 100 but sItemSpecEffectValue2 maxes at 100, so never triggered
+    if (target_item.attribute.custom_made && target_item.attribute.custom_quality > 0)
     {
         int quality = target_item.attribute.custom_quality;
         // Legacy tiered bonus based on current probability

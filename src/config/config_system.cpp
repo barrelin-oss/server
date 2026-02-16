@@ -262,147 +262,160 @@ auto config_system::load_ini_config(const std::filesystem::path& path) -> result
         return result<void, std::string>::err(parse_result.error());
     }
 
-    auto& config = parse_result.value();
+    try
+    {
+        auto& config = parse_result.value();
 
-    // Parse server configuration
-    if (auto it = config.find("game-server-name"); it != config.end())
-    {
-        server_config_.server_name = it->second;
-    }
-    if (auto it = config.find("game-server-port"); it != config.end())
-    {
-        server_config_.game_server_port = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("log-server-address"); it != config.end())
-    {
-        server_config_.log_server_addr = it->second;
-    }
-    if (auto it = config.find("log-server-port"); it != config.end())
-    {
-        server_config_.log_server_port = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("gate-server-address"); it != config.end())
-    {
-        server_config_.gate_server_addr = it->second;
-    }
-    if (auto it = config.find("gate-server-port"); it != config.end())
-    {
-        server_config_.gate_server_port = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("game-server-mode"); it != config.end())
-    {
-        server_config_.game_server_mode = std::stoi(it->second);
-    }
+        // Parse server configuration
+        if (auto it = config.find("game-server-name"); it != config.end())
+        {
+            server_config_.server_name = it->second;
+        }
+        if (auto it = config.find("game-server-port"); it != config.end())
+        {
+            server_config_.game_server_port = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("log-server-address"); it != config.end())
+        {
+            server_config_.log_server_addr = it->second;
+        }
+        if (auto it = config.find("log-server-port"); it != config.end())
+        {
+            server_config_.log_server_port = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("gate-server-address"); it != config.end())
+        {
+            server_config_.gate_server_addr = it->second;
+        }
+        if (auto it = config.find("gate-server-port"); it != config.end())
+        {
+            server_config_.gate_server_port = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("game-server-mode"); it != config.end())
+        {
+            server_config_.game_server_mode = std::stoi(it->second);
+        }
 
-    // Self-contained mode
-    if (auto it = config.find("self-contained"); it != config.end())
-    {
-        server_config_.self_contained = (it->second == "1" || it->second == "true");
-    }
+        // Self-contained mode
+        if (auto it = config.find("self-contained"); it != config.end())
+        {
+            server_config_.self_contained = (it->second == "1" || it->second == "true");
+        }
 
-    // Database configuration
-    if (auto it = config.find("db-host"); it != config.end())
-    {
-        server_config_.database.host = it->second;
-    }
-    if (auto it = config.find("db-port"); it != config.end())
-    {
-        server_config_.database.port = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("db-name"); it != config.end())
-    {
-        server_config_.database.database = it->second;
-    }
-    if (auto it = config.find("db-user"); it != config.end())
-    {
-        server_config_.database.username = it->second;
-    }
-    if (auto it = config.find("db-password"); it != config.end())
-    {
-        server_config_.database.password = it->second;
-    }
-    if (auto it = config.find("db-pool-size"); it != config.end())
-    {
-        server_config_.database.pool_size = static_cast<uint32_t>(std::stoi(it->second));
-    }
+        // Database configuration
+        if (auto it = config.find("db-host"); it != config.end())
+        {
+            server_config_.database.host = it->second;
+        }
+        if (auto it = config.find("db-port"); it != config.end())
+        {
+            server_config_.database.port = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("db-name"); it != config.end())
+        {
+            server_config_.database.database = it->second;
+        }
+        if (auto it = config.find("db-user"); it != config.end())
+        {
+            server_config_.database.username = it->second;
+        }
+        if (auto it = config.find("db-password"); it != config.end())
+        {
+            server_config_.database.password = it->second;
+        }
+        if (auto it = config.find("db-pool-size"); it != config.end())
+        {
+            server_config_.database.pool_size = static_cast<uint32_t>(std::stoi(it->second));
+        }
 
-    // WebSocket configuration
-    if (auto it = config.find("ws-bind"); it != config.end())
-    {
-        server_config_.websocket.bind_address = it->second;
-    }
-    if (auto it = config.find("ws-port"); it != config.end())
-    {
-        server_config_.websocket.port = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("ws-max-connections"); it != config.end())
-    {
-        server_config_.websocket.max_connections = std::stoi(it->second);
-    }
+        // WebSocket configuration
+        if (auto it = config.find("ws-bind"); it != config.end())
+        {
+            server_config_.websocket.bind_address = it->second;
+        }
+        if (auto it = config.find("ws-port"); it != config.end())
+        {
+            server_config_.websocket.port = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("ws-max-connections"); it != config.end())
+        {
+            server_config_.websocket.max_connections = std::stoi(it->second);
+        }
 
-    // Auth configuration
-    if (auto it = config.find("max-characters"); it != config.end())
-    {
-        server_config_.auth.max_characters_per_account = static_cast<uint32_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("allow-registration"); it != config.end())
-    {
-        server_config_.auth.allow_registration = (it->second == "1" || it->second == "true");
-    }
-    if (auto it = config.find("session-timeout"); it != config.end())
-    {
-        server_config_.auth.session_duration = std::chrono::seconds{std::stoi(it->second)};
-    }
+        // Auth configuration
+        if (auto it = config.find("max-characters"); it != config.end())
+        {
+            server_config_.auth.max_characters_per_account = static_cast<uint32_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("allow-registration"); it != config.end())
+        {
+            server_config_.auth.allow_registration = (it->second == "1" || it->second == "true");
+        }
+        if (auto it = config.find("session-timeout"); it != config.end())
+        {
+            server_config_.auth.session_duration = std::chrono::seconds{std::stoi(it->second)};
+        }
 
-    // Legacy protocol
-    if (auto it = config.find("enable-legacy-protocol"); it != config.end())
-    {
-        server_config_.enable_legacy_protocol = (it->second == "1" || it->second == "true");
-    }
-    if (auto it = config.find("legacy-port"); it != config.end())
-    {
-        server_config_.legacy_port = static_cast<uint16_t>(std::stoi(it->second));
-    }
+        // Legacy protocol
+        if (auto it = config.find("enable-legacy-protocol"); it != config.end())
+        {
+            server_config_.enable_legacy_protocol = (it->second == "1" || it->second == "true");
+        }
+        if (auto it = config.find("legacy-port"); it != config.end())
+        {
+            server_config_.legacy_port = static_cast<uint16_t>(std::stoi(it->second));
+        }
 
-    // Logging configuration
-    if (auto it = config.find("log-console-level"); it != config.end())
-    {
-        server_config_.logging.console_level = it->second;
-    }
-    if (auto it = config.find("log-file-level"); it != config.end())
-    {
-        server_config_.logging.file_level = it->second;
-    }
-    if (auto it = config.find("log-directory"); it != config.end())
-    {
-        server_config_.logging.log_directory = it->second;
-    }
-    if (auto it = config.find("log-file"); it != config.end())
-    {
-        server_config_.logging.log_file = it->second;
-    }
-    if (auto it = config.find("log-max-size-mb"); it != config.end())
-    {
-        server_config_.logging.max_file_size_mb = static_cast<uint32_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("log-max-files"); it != config.end())
-    {
-        server_config_.logging.max_files = static_cast<uint32_t>(std::stoi(it->second));
-    }
+        // Logging configuration
+        if (auto it = config.find("log-console-level"); it != config.end())
+        {
+            server_config_.logging.console_level = it->second;
+        }
+        if (auto it = config.find("log-file-level"); it != config.end())
+        {
+            server_config_.logging.file_level = it->second;
+        }
+        if (auto it = config.find("log-directory"); it != config.end())
+        {
+            server_config_.logging.log_directory = it->second;
+        }
+        if (auto it = config.find("log-file"); it != config.end())
+        {
+            server_config_.logging.log_file = it->second;
+        }
+        if (auto it = config.find("log-max-size-mb"); it != config.end())
+        {
+            server_config_.logging.max_file_size_mb = static_cast<uint32_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("log-max-files"); it != config.end())
+        {
+            server_config_.logging.max_files = static_cast<uint32_t>(std::stoi(it->second));
+        }
 
-    server_config_path_ = path;
+        server_config_path_ = path;
 
-    LOG_INFO(config,
-             "Server config loaded (INI): name={}, port={}, self_contained={}",
-             server_config_.server_name,
-             server_config_.game_server_port,
-             server_config_.self_contained);
+        LOG_INFO(config,
+                 "Server config loaded (INI): name={}, port={}, self_contained={}",
+                 server_config_.server_name,
+                 server_config_.game_server_port,
+                 server_config_.self_contained);
 
-    // Publish config loaded event
-    event_bus().publish(
-        events::config_loaded_event{.config_path = path.string(), .success = true, .error_message = ""});
+        // Publish config loaded event
+        event_bus().publish(
+            events::config_loaded_event{.config_path = path.string(), .success = true, .error_message = ""});
 
-    return result<void, std::string>::ok();
+        return result<void, std::string>::ok();
+    }
+    catch (const std::invalid_argument& e)
+    {
+        return result<void, std::string>::err(
+            "Invalid number in config file " + path.string() + ": " + e.what());
+    }
+    catch (const std::out_of_range& e)
+    {
+        return result<void, std::string>::err(
+            "Number out of range in config file " + path.string() + ": " + e.what());
+    }
 }
 
 auto config_system::load_game_config(const std::filesystem::path& path) -> result<void, std::string>
@@ -415,35 +428,48 @@ auto config_system::load_game_config(const std::filesystem::path& path) -> resul
         return result<void, std::string>::err(parse_result.error());
     }
 
-    auto& config = parse_result.value();
+    try
+    {
+        auto& config = parse_result.value();
 
-    // Parse game configuration
-    if (auto it = config.find("max-clients"); it != config.end())
-    {
-        game_config_.max_clients = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("max-level"); it != config.end())
-    {
-        game_config_.max_level = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("level-limit"); it != config.end())
-    {
-        game_config_.level_limit = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = config.find("admin-security"); it != config.end())
-    {
-        game_config_.admin_security = (it->second == "1" || it->second == "true");
-    }
-    if (auto it = config.find("log-chat"); it != config.end())
-    {
-        game_config_.log_chat = (it->second == "1" || it->second == "true");
-    }
+        // Parse game configuration
+        if (auto it = config.find("max-clients"); it != config.end())
+        {
+            game_config_.max_clients = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("max-level"); it != config.end())
+        {
+            game_config_.max_level = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("level-limit"); it != config.end())
+        {
+            game_config_.level_limit = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = config.find("admin-security"); it != config.end())
+        {
+            game_config_.admin_security = (it->second == "1" || it->second == "true");
+        }
+        if (auto it = config.find("log-chat"); it != config.end())
+        {
+            game_config_.log_chat = (it->second == "1" || it->second == "true");
+        }
 
-    game_config_path_ = path;
+        game_config_path_ = path;
 
-    LOG_INFO(config, "Game config loaded");
+        LOG_INFO(config, "Game config loaded");
 
-    return result<void, std::string>::ok();
+        return result<void, std::string>::ok();
+    }
+    catch (const std::invalid_argument& e)
+    {
+        return result<void, std::string>::err(
+            "Invalid number in config file " + path.string() + ": " + e.what());
+    }
+    catch (const std::out_of_range& e)
+    {
+        return result<void, std::string>::err(
+            "Number out of range in config file " + path.string() + ": " + e.what());
+    }
 }
 
 auto config_system::load_admin_config(const std::filesystem::path& path) -> result<void, std::string>
@@ -456,24 +482,37 @@ auto config_system::load_admin_config(const std::filesystem::path& path) -> resu
         return result<void, std::string>::err(parse_result.error());
     }
 
-    auto& config = parse_result.value();
-
-    // Parse admin levels
-    if (auto it = config.find("adminlevel-who"); it != config.end())
+    try
     {
-        admin_config_.level_who = std::stoi(it->second);
+        auto& config = parse_result.value();
+
+        // Parse admin levels
+        if (auto it = config.find("adminlevel-who"); it != config.end())
+        {
+            admin_config_.level_who = std::stoi(it->second);
+        }
+        if (auto it = config.find("adminlevel-kill"); it != config.end())
+        {
+            admin_config_.level_kill = std::stoi(it->second);
+        }
+        // ... parse more admin levels as needed
+
+        admin_config_path_ = path;
+
+        LOG_INFO(config, "Admin config loaded: {} admin level settings", admin_config_.admins.size());
+
+        return result<void, std::string>::ok();
     }
-    if (auto it = config.find("adminlevel-kill"); it != config.end())
+    catch (const std::invalid_argument& e)
     {
-        admin_config_.level_kill = std::stoi(it->second);
+        return result<void, std::string>::err(
+            "Invalid number in config file " + path.string() + ": " + e.what());
     }
-    // ... parse more admin levels as needed
-
-    admin_config_path_ = path;
-
-    LOG_INFO(config, "Admin config loaded: {} admin level settings", admin_config_.admins.size());
-
-    return result<void, std::string>::ok();
+    catch (const std::out_of_range& e)
+    {
+        return result<void, std::string>::err(
+            "Number out of range in config file " + path.string() + ": " + e.what());
+    }
 }
 
 auto config_system::reload() -> result<void, std::string>
@@ -551,39 +590,52 @@ auto server_config::load_from_file(const std::filesystem::path& path) -> result<
         return result<server_config, std::string>::err(parse_result.error());
     }
 
-    server_config config;
-    auto& map = parse_result.value();
+    try
+    {
+        server_config config;
+        auto& map = parse_result.value();
 
-    if (auto it = map.find("game-server-name"); it != map.end())
-    {
-        config.server_name = it->second;
-    }
-    if (auto it = map.find("game-server-port"); it != map.end())
-    {
-        config.game_server_port = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = map.find("log-server-address"); it != map.end())
-    {
-        config.log_server_addr = it->second;
-    }
-    if (auto it = map.find("log-server-port"); it != map.end())
-    {
-        config.log_server_port = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = map.find("gate-server-address"); it != map.end())
-    {
-        config.gate_server_addr = it->second;
-    }
-    if (auto it = map.find("gate-server-port"); it != map.end())
-    {
-        config.gate_server_port = static_cast<uint16_t>(std::stoi(it->second));
-    }
-    if (auto it = map.find("game-server-mode"); it != map.end())
-    {
-        config.game_server_mode = std::stoi(it->second);
-    }
+        if (auto it = map.find("game-server-name"); it != map.end())
+        {
+            config.server_name = it->second;
+        }
+        if (auto it = map.find("game-server-port"); it != map.end())
+        {
+            config.game_server_port = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = map.find("log-server-address"); it != map.end())
+        {
+            config.log_server_addr = it->second;
+        }
+        if (auto it = map.find("log-server-port"); it != map.end())
+        {
+            config.log_server_port = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = map.find("gate-server-address"); it != map.end())
+        {
+            config.gate_server_addr = it->second;
+        }
+        if (auto it = map.find("gate-server-port"); it != map.end())
+        {
+            config.gate_server_port = static_cast<uint16_t>(std::stoi(it->second));
+        }
+        if (auto it = map.find("game-server-mode"); it != map.end())
+        {
+            config.game_server_mode = std::stoi(it->second);
+        }
 
-    return result<server_config, std::string>::ok(std::move(config));
+        return result<server_config, std::string>::ok(std::move(config));
+    }
+    catch (const std::invalid_argument& e)
+    {
+        return result<server_config, std::string>::err(
+            "Invalid number in config file " + path.string() + ": " + e.what());
+    }
+    catch (const std::out_of_range& e)
+    {
+        return result<server_config, std::string>::err(
+            "Number out of range in config file " + path.string() + ": " + e.what());
+    }
 }
 
 auto server_config::load_from_json(const std::filesystem::path& path) -> result<server_config, std::string>

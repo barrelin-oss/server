@@ -212,3 +212,68 @@ TEST_F(config_test, ini_parse_empty_file)
     // Should use defaults
     EXPECT_EQ(result.value().server_name, "HGServer");
 }
+
+TEST_F(config_test, ini_parse_invalid_number)
+{
+    auto path = create_test_file("bad_number.cfg",
+                                 "game-server-port = abc\n");
+
+    auto result = server_config::load_from_file(path);
+    EXPECT_TRUE(result.is_err());
+    EXPECT_NE(result.error().find("Invalid number"), std::string::npos);
+}
+
+TEST_F(config_test, ini_parse_out_of_range)
+{
+    auto path = create_test_file("big_number.cfg",
+                                 "game-server-port = 99999999999999999999\n");
+
+    auto result = server_config::load_from_file(path);
+    EXPECT_TRUE(result.is_err());
+    EXPECT_NE(result.error().find("out of range"), std::string::npos);
+}
+
+TEST_F(config_test, ini_system_invalid_number)
+{
+    auto path = create_test_file("bad_sys.cfg",
+                                 "game-server-port = not_a_number\n");
+
+    config_system system;
+    system.initialize();
+
+    auto result = system.load_server_config(path);
+    EXPECT_TRUE(result.is_err());
+    EXPECT_NE(result.error().find("Invalid number"), std::string::npos);
+
+    system.shutdown();
+}
+
+TEST_F(config_test, ini_game_config_invalid_number)
+{
+    auto path = create_test_file("bad_game.cfg",
+                                 "max-clients = xyz\n");
+
+    config_system system;
+    system.initialize();
+
+    auto result = system.load_game_config(path);
+    EXPECT_TRUE(result.is_err());
+    EXPECT_NE(result.error().find("Invalid number"), std::string::npos);
+
+    system.shutdown();
+}
+
+TEST_F(config_test, ini_admin_config_invalid_number)
+{
+    auto path = create_test_file("bad_admin.cfg",
+                                 "adminlevel-who = xyz\n");
+
+    config_system system;
+    system.initialize();
+
+    auto result = system.load_admin_config(path);
+    EXPECT_TRUE(result.is_err());
+    EXPECT_NE(result.error().find("Invalid number"), std::string::npos);
+
+    system.shutdown();
+}

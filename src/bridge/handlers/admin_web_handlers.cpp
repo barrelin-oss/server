@@ -853,7 +853,7 @@ void admin_web_handlers::handle_ban_player(connection_id conn_id, const network:
         {
             expires = std::chrono::system_clock::now() + std::chrono::hours(req.duration_hours);
         }
-        auth_->ban_account(plr->account, req.reason, expires);
+        (void)auth_->ban_account(plr->account, req.reason, expires);
     }
 
     // Kick from game
@@ -965,32 +965,32 @@ void admin_web_handlers::handle_modify_player(connection_id conn_id, const netwo
     }
     if (mods.contains("str") && mods["str"].is_number())
     {
-        plr->base.strength = mods["str"].get<int16_t>();
+        plr->base.strength = std::clamp(mods["str"].get<int16_t>(), static_cast<int16_t>(1), static_cast<int16_t>(999));
         plr->recalculate_stats();
     }
     if (mods.contains("dex") && mods["dex"].is_number())
     {
-        plr->base.dexterity = mods["dex"].get<int16_t>();
+        plr->base.dexterity = std::clamp(mods["dex"].get<int16_t>(), static_cast<int16_t>(1), static_cast<int16_t>(999));
         plr->recalculate_stats();
     }
     if (mods.contains("vit") && mods["vit"].is_number())
     {
-        plr->base.vitality = mods["vit"].get<int16_t>();
+        plr->base.vitality = std::clamp(mods["vit"].get<int16_t>(), static_cast<int16_t>(1), static_cast<int16_t>(999));
         plr->recalculate_stats();
     }
     if (mods.contains("int") && mods["int"].is_number())
     {
-        plr->base.intelligence = mods["int"].get<int16_t>();
+        plr->base.intelligence = std::clamp(mods["int"].get<int16_t>(), static_cast<int16_t>(1), static_cast<int16_t>(999));
         plr->recalculate_stats();
     }
     if (mods.contains("mag") && mods["mag"].is_number())
     {
-        plr->base.magic = mods["mag"].get<int16_t>();
+        plr->base.magic = std::clamp(mods["mag"].get<int16_t>(), static_cast<int16_t>(1), static_cast<int16_t>(999));
         plr->recalculate_stats();
     }
     if (mods.contains("cha") && mods["cha"].is_number())
     {
-        plr->base.charisma = mods["cha"].get<int16_t>();
+        plr->base.charisma = std::clamp(mods["cha"].get<int16_t>(), static_cast<int16_t>(1), static_cast<int16_t>(999));
         plr->recalculate_stats();
     }
     if (mods.contains("gold") && mods["gold"].is_number() && inventory_)
@@ -1705,7 +1705,7 @@ void admin_web_handlers::handle_unban_player(connection_id conn_id, const networ
         return;
     }
 
-    auth_->unban_account(account_result.value().id);
+    (void)auth_->unban_account(account_result.value().id);
 
     LOG_INFO(admin, "Admin unbanned account '{}'", parse.value().player_name);
     audit_log(conn_id, "unban " + parse.value().player_name);
@@ -4023,8 +4023,23 @@ void admin_web_handlers::handle_remove_effects(connection_id conn_id, const netw
     }
     else if (req.mode == "group")
     {
-        effects_->remove_effects_by_group(plr->ecs_entity, static_cast<magic_type>(req.group));
-        removed = 1; // Can't easily count, report 1 for success
+        auto group_val = req.group;
+        switch (group_val)
+        {
+        case 1: case 2: case 3: case 4: case 6: case 8: case 9:
+        case 11: case 12: case 13: case 16: case 17: case 18:
+        case 20: case 23: case 28: case 29: case 32:
+            effects_->remove_effects_by_group(plr->ecs_entity, static_cast<magic_type>(group_val));
+            removed = 1;
+            break;
+        default:
+            ws_server_->send(conn_id,
+                             network::make_admin_response(network::json_message_type::admin_remove_effects_response,
+                                                          msg.seq,
+                                                          false,
+                                                          "Invalid magic type group"));
+            return;
+        }
     }
     else if (req.mode == "single")
     {
@@ -4094,7 +4109,7 @@ void admin_web_handlers::handle_create_account(connection_id conn_id, const netw
     // Set admin level if specified
     if (req.admin_level > 0)
     {
-        auth_->set_admin_level(acc_id, static_cast<auth::admin_level>(req.admin_level));
+        (void)auth_->set_admin_level(acc_id, static_cast<auth::admin_level>(req.admin_level));
     }
 
     LOG_INFO(admin, "Admin created account '{}' (id={}, admin_level={})", req.username, acc_id.value, req.admin_level);
@@ -4210,7 +4225,7 @@ void admin_web_handlers::handle_set_admin_level(connection_id conn_id, const net
     }
 
     auto new_level = static_cast<auth::admin_level>(req.admin_level);
-    auth_->set_admin_level(acc_result.value().id, new_level);
+    (void)auth_->set_admin_level(acc_result.value().id, new_level);
 
     // Note: runtime admin_system uses a different admin_level enum,
     // so we don't update it here. Player must re-login for changes to take effect.

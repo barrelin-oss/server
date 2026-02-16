@@ -129,14 +129,15 @@ public:
     [[nodiscard]] auto save_character(const character_full_data& data) -> result<void, auth_error>;
 
     // Ban management
-    void ban_account(account_id id,
-                     std::string_view reason,
-                     std::optional<std::chrono::system_clock::time_point> expires = std::nullopt);
-    void unban_account(account_id id);
+    [[nodiscard]] auto ban_account(account_id id,
+                                   std::string_view reason,
+                                   std::optional<std::chrono::system_clock::time_point> expires = std::nullopt)
+        -> result<void, std::string>;
+    [[nodiscard]] auto unban_account(account_id id) -> result<void, std::string>;
     [[nodiscard]] auto is_banned(account_id id) -> bool;
 
     // Admin level
-    void set_admin_level(account_id id, admin_level level);
+    [[nodiscard]] auto set_admin_level(account_id id, admin_level level) -> result<void, std::string>;
     [[nodiscard]] auto get_admin_level(account_id id) -> admin_level;
 
     // Maintenance mode

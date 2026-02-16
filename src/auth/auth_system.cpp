@@ -12,9 +12,33 @@
 
 #include <algorithm>
 #include <cctype>
+#include <iomanip>
+#include <sstream>
 
 namespace hb::auth
 {
+
+namespace
+{
+
+auto parse_pg_timestamp(const std::string& ts) -> std::optional<std::chrono::system_clock::time_point>
+{
+    std::tm tm_val{};
+    std::istringstream iss(ts);
+    iss >> std::get_time(&tm_val, "%Y-%m-%d %H:%M:%S");
+    if (iss.fail())
+    {
+        return std::nullopt;
+    }
+    auto time_t_val = timegm(&tm_val);
+    if (time_t_val == static_cast<time_t>(-1))
+    {
+        return std::nullopt;
+    }
+    return std::chrono::system_clock::from_time_t(time_t_val);
+}
+
+} // anonymous namespace
 
 auth_system::auth_system() = default;
 auth_system::~auth_system() = default;
@@ -159,7 +183,7 @@ auto auth_system::authenticate(std::string_view username,
         if (acc.ban_expires.has_value() && std::chrono::system_clock::now() >= *acc.ban_expires)
         {
             // Ban expired, unban the account
-            unban_account(acc.id);
+            (void)unban_account(acc.id); // best-effort expired ban cleanup
         }
         else
         {
@@ -289,7 +313,7 @@ auto auth_system::authenticate_forum(std::string_view username,
     {
         if (acc.ban_expires.has_value() && std::chrono::system_clock::now() >= *acc.ban_expires)
         {
-            unban_account(acc.id);
+            (void)unban_account(acc.id); // best-effort expired ban cleanup
         }
         else
         {
@@ -402,7 +426,7 @@ auto auth_system::authenticate_forum_token(std::string_view token, std::optional
     {
         if (acc.ban_expires.has_value() && std::chrono::system_clock::now() >= *acc.ban_expires)
         {
-            unban_account(acc.id);
+            (void)unban_account(acc.id); // best-effort expired ban cleanup
         }
         else
         {
@@ -1088,48 +1112,72 @@ auto auth_system::save_character(const character_full_data& data) -> result<void
     return result<void, auth_error>::ok();
 }
 
-void auth_system::ban_account(account_id id,
+auto auth_system::ban_account(account_id id,
                               std::string_view reason,
                               std::optional<std::chrono::system_clock::time_point> expires)
+    -> result<void, std::string>
 {
     if (!database_)
     {
-        return;
+        return result<void, std::string>::err("database not configured");
     }
 
     if (expires.has_value())
     {
-        // For simplicity, we're not handling the timestamp properly here
-        // In production, use proper timestamp formatting
-        (void)database_->execute_params("UPDATE accounts SET is_banned = true, ban_reason = $1 WHERE id = $2",
-                                        std::string(reason),
-                                        static_cast<int>(id.value));
+        auto time_t_val = std::chrono::system_clock::to_time_t(*expires);
+        std::tm tm_val{};
+        gmtime_r(&time_t_val, &tm_val);
+        std::ostringstream oss;
+        oss << std::put_time(&tm_val, "%Y-%m-%d %H:%M:%S+00");
+
+        auto db_res = database_->execute_params(
+            "UPDATE accounts SET is_banned = true, ban_reason = $1, ban_expires = $2 WHERE id = $3",
+            std::string(reason),
+            oss.str(),
+            static_cast<int>(id.value));
+        if (db_res.is_err())
+        {
+            LOG_ERROR(auth, "Failed to ban account {}: {}", id.value, db_res.error());
+            return result<void, std::string>::err(db_res.error());
+        }
     }
     else
     {
-        (void)database_->execute_params(
+        auto db_res = database_->execute_params(
             "UPDATE accounts SET is_banned = true, ban_reason = $1, ban_expires = NULL WHERE id = $2",
             std::string(reason),
             static_cast<int>(id.value));
+        if (db_res.is_err())
+        {
+            LOG_ERROR(auth, "Failed to ban account {}: {}", id.value, db_res.error());
+            return result<void, std::string>::err(db_res.error());
+        }
     }
 
     invalidate_all_sessions(id);
 
     LOG_INFO(auth, "Account {} banned: {}", id.value, reason);
+    return result<void, std::string>::ok();
 }
 
-void auth_system::unban_account(account_id id)
+auto auth_system::unban_account(account_id id) -> result<void, std::string>
 {
     if (!database_)
     {
-        return;
+        return result<void, std::string>::err("database not configured");
     }
 
-    (void)database_->execute_params(
+    auto db_res = database_->execute_params(
         "UPDATE accounts SET is_banned = false, ban_reason = NULL, ban_expires = NULL WHERE id = $1",
         static_cast<int>(id.value));
+    if (db_res.is_err())
+    {
+        LOG_ERROR(auth, "Failed to unban account {}: {}", id.value, db_res.error());
+        return result<void, std::string>::err(db_res.error());
+    }
 
     LOG_INFO(auth, "Account {} unbanned", id.value);
+    return result<void, std::string>::ok();
 }
 
 auto auth_system::is_banned(account_id id) -> bool
@@ -1142,17 +1190,23 @@ auto auth_system::is_banned(account_id id) -> bool
     return account_result.value().is_banned;
 }
 
-void auth_system::set_admin_level(account_id id, admin_level level)
+auto auth_system::set_admin_level(account_id id, admin_level level) -> result<void, std::string>
 {
     if (!database_)
     {
-        return;
+        return result<void, std::string>::err("database not configured");
     }
 
-    (void)database_->execute_params(
+    auto db_res = database_->execute_params(
         "UPDATE accounts SET admin_level = $1 WHERE id = $2", static_cast<int>(level), static_cast<int>(id.value));
+    if (db_res.is_err())
+    {
+        LOG_ERROR(auth, "Failed to set admin level for account {}: {}", id.value, db_res.error());
+        return result<void, std::string>::err(db_res.error());
+    }
 
     LOG_INFO(auth, "Account {} admin level set to {}", id.value, static_cast<int>(level));
+    return result<void, std::string>::ok();
 }
 
 auto auth_system::get_admin_level(account_id id) -> admin_level
@@ -1260,7 +1314,7 @@ auto auth_system::db_get_account_by_id(account_id id) -> result<account, auth_er
     }
 
     auto db_result = database_->execute_params(
-        R"(SELECT id, username, password_hash, admin_level, is_banned, ban_reason, created_at, last_login
+        R"(SELECT id, username, password_hash, admin_level, is_banned, ban_reason, ban_expires, created_at, last_login
            FROM accounts WHERE id = $1)",
         static_cast<int>(id.value));
 
@@ -1285,6 +1339,10 @@ auto auth_system::db_get_account_by_id(account_id id) -> result<account, auth_er
     {
         acc.ban_reason = row["ban_reason"].as<std::string>();
     }
+    if (!row["ban_expires"].is_null())
+    {
+        acc.ban_expires = parse_pg_timestamp(row["ban_expires"].as<std::string>());
+    }
 
     return result<account, auth_error>::ok(std::move(acc));
 }
@@ -1308,7 +1366,7 @@ auto auth_system::db_get_account_by_username(std::string_view username) -> resul
     LOG_DEBUG(auth, "db_get_account_by_username: looking up '{}'", lower_username);
 
     auto db_result = database_->execute_params(
-        R"(SELECT id, username, password_hash, admin_level, is_banned, ban_reason, created_at, last_login
+        R"(SELECT id, username, password_hash, admin_level, is_banned, ban_reason, ban_expires, created_at, last_login
            FROM accounts WHERE username = $1)",
         lower_username);
 
@@ -1334,6 +1392,10 @@ auto auth_system::db_get_account_by_username(std::string_view username) -> resul
     if (!row["ban_reason"].is_null())
     {
         acc.ban_reason = row["ban_reason"].as<std::string>();
+    }
+    if (!row["ban_expires"].is_null())
+    {
+        acc.ban_expires = parse_pg_timestamp(row["ban_expires"].as<std::string>());
     }
 
     return result<account, auth_error>::ok(std::move(acc));
@@ -1446,7 +1508,11 @@ void auth_system::db_delete_session(std::string_view token)
         return;
     }
 
-    (void)database_->execute_params("DELETE FROM sessions WHERE token = $1", std::string(token));
+    auto db_res = database_->execute_params("DELETE FROM sessions WHERE token = $1", std::string(token));
+    if (db_res.is_err())
+    {
+        LOG_WARN(auth, "Failed to delete session: {}", db_res.error());
+    }
 }
 
 void auth_system::db_delete_all_sessions(account_id id)
@@ -1456,7 +1522,11 @@ void auth_system::db_delete_all_sessions(account_id id)
         return;
     }
 
-    (void)database_->execute_params("DELETE FROM sessions WHERE account_id = $1", static_cast<int>(id.value));
+    auto db_res = database_->execute_params("DELETE FROM sessions WHERE account_id = $1", static_cast<int>(id.value));
+    if (db_res.is_err())
+    {
+        LOG_WARN(auth, "Failed to delete all sessions for account {}: {}", id.value, db_res.error());
+    }
 }
 
 void auth_system::db_record_login(account_id id,
@@ -1473,13 +1543,17 @@ void auth_system::db_record_login(account_id id,
         ? std::optional<std::string>(std::string(*ip_address))
         : std::nullopt;
 
-    (void)database_->execute_params(
+    auto db_res = database_->execute_params(
         R"(INSERT INTO login_history (account_id, ip_address, success, failure_reason)
            VALUES ($1, $2, $3, $4))",
         static_cast<int>(id.value),
         ip_str,
         success,
         std::string(failure_reason));
+    if (db_res.is_err())
+    {
+        LOG_WARN(auth, "Failed to record login for account {}: {}", id.value, db_res.error());
+    }
 }
 
 auto auth_system::db_get_or_create_account_by_forum_id(uint64_t forum_member_id,
@@ -1490,31 +1564,6 @@ auto auth_system::db_get_or_create_account_by_forum_id(uint64_t forum_member_id,
         return result<account, auth_error>::err(auth_error::database_error);
     }
 
-    // Try to find existing account by forum_member_id
-    auto db_result = database_->execute_params(
-        R"(SELECT id, username, password_hash, admin_level, is_banned, ban_reason, forum_member_id
-           FROM accounts WHERE forum_member_id = $1 LIMIT 1)",
-        static_cast<int64_t>(forum_member_id));
-
-    if (db_result.is_ok() && !db_result.value().empty())
-    {
-        const auto& row = db_result.value()[0];
-        account acc{.id = account_id{static_cast<uint32_t>(row["id"].as<int>())},
-                    .username = row["username"].as<std::string>(),
-                    .password_hash = row["password_hash"].is_null() ? "" : row["password_hash"].as<std::string>(),
-                    .admin = static_cast<admin_level>(row["admin_level"].as<int>()),
-                    .is_banned = row["is_banned"].as<bool>(),
-                    .forum_member_id = forum_member_id};
-
-        if (!row["ban_reason"].is_null())
-        {
-            acc.ban_reason = row["ban_reason"].as<std::string>();
-        }
-
-        return result<account, auth_error>::ok(std::move(acc));
-    }
-
-    // Account doesn't exist — create it
     std::string lower_username;
     lower_username.reserve(username.size());
     for (char c : username)
@@ -1522,37 +1571,76 @@ auto auth_system::db_get_or_create_account_by_forum_id(uint64_t forum_member_id,
         lower_username += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
 
-    auto create_result = database_->execute_params(
+    // Atomic upsert: INSERT or DO NOTHING on forum_member_id conflict
+    auto upsert_result = database_->execute_params(
         R"(INSERT INTO accounts (username, password_hash, forum_member_id)
            VALUES ($1, '', $2)
-           RETURNING id, username, admin_level, is_banned)",
+           ON CONFLICT (forum_member_id) WHERE forum_member_id IS NOT NULL
+           DO NOTHING
+           RETURNING id, username, password_hash, admin_level, is_banned, ban_reason, ban_expires)",
         lower_username,
         static_cast<int64_t>(forum_member_id));
 
-    if (create_result.is_err())
+    if (upsert_result.is_err())
     {
-        LOG_ERROR(auth, "Failed to create forum account: {}", create_result.error());
+        LOG_ERROR(auth, "Failed to upsert forum account: {}", upsert_result.error());
         return result<account, auth_error>::err(auth_error::database_error);
     }
 
-    if (create_result.value().empty())
+    if (!upsert_result.value().empty())
     {
+        // INSERT succeeded — new account was created
+        const auto& row = upsert_result.value()[0];
+        account acc{.id = account_id{static_cast<uint32_t>(row["id"].as<int>())},
+                    .username = row["username"].as<std::string>(),
+                    .password_hash = row["password_hash"].is_null() ? "" : row["password_hash"].as<std::string>(),
+                    .admin = static_cast<admin_level>(row["admin_level"].as<int>()),
+                    .is_banned = row["is_banned"].as<bool>(),
+                    .forum_member_id = forum_member_id};
+
+        LOG_INFO(auth,
+                 "Created account for forum member {} (username: '{}', id: {})",
+                 forum_member_id,
+                 lower_username,
+                 acc.id.value);
+
+        return result<account, auth_error>::ok(std::move(acc));
+    }
+
+    // Conflict — account already exists, fetch it
+    auto select_result = database_->execute_params(
+        R"(SELECT id, username, password_hash, admin_level, is_banned, ban_reason, ban_expires, forum_member_id
+           FROM accounts WHERE forum_member_id = $1 LIMIT 1)",
+        static_cast<int64_t>(forum_member_id));
+
+    if (select_result.is_err())
+    {
+        LOG_ERROR(auth, "Failed to fetch existing forum account: {}", select_result.error());
         return result<account, auth_error>::err(auth_error::database_error);
     }
 
-    const auto& row = create_result.value()[0];
+    if (select_result.value().empty())
+    {
+        LOG_ERROR(auth, "Forum account for member {} vanished between upsert and select", forum_member_id);
+        return result<account, auth_error>::err(auth_error::database_error);
+    }
+
+    const auto& row = select_result.value()[0];
     account acc{.id = account_id{static_cast<uint32_t>(row["id"].as<int>())},
                 .username = row["username"].as<std::string>(),
-                .password_hash = "",
+                .password_hash = row["password_hash"].is_null() ? "" : row["password_hash"].as<std::string>(),
                 .admin = static_cast<admin_level>(row["admin_level"].as<int>()),
                 .is_banned = row["is_banned"].as<bool>(),
                 .forum_member_id = forum_member_id};
 
-    LOG_INFO(auth,
-             "Created account for forum member {} (username: '{}', id: {})",
-             forum_member_id,
-             lower_username,
-             acc.id.value);
+    if (!row["ban_reason"].is_null())
+    {
+        acc.ban_reason = row["ban_reason"].as<std::string>();
+    }
+    if (!row["ban_expires"].is_null())
+    {
+        acc.ban_expires = parse_pg_timestamp(row["ban_expires"].as<std::string>());
+    }
 
     return result<account, auth_error>::ok(std::move(acc));
 }

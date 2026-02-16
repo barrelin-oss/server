@@ -53,6 +53,7 @@ enum class friend_result : uint8_t
     request_already_exists = 8,
     no_pending_request = 9,
     target_limit_reached = 10,
+    internal_error = 11,
 };
 
 [[nodiscard]] constexpr auto to_string_view(friend_result r) -> std::string_view
@@ -81,6 +82,8 @@ enum class friend_result : uint8_t
         return "no_pending_request";
     case friend_result::target_limit_reached:
         return "target_limit_reached";
+    case friend_result::internal_error:
+        return "internal_error";
     }
     return "unknown";
 }

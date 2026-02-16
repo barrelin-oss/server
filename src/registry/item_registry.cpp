@@ -216,7 +216,17 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
 
             // Optional fields with defaults
             if (node["type"])
-                item.type = static_cast<item_type>(node["type"].as<int>());
+            {
+                auto type_val = node["type"].as<int>();
+                if (type_val >= -1 && type_val <= 17)
+                {
+                    item.type = static_cast<item_type>(type_val);
+                }
+                else
+                {
+                    LOG_WARN(item, "Item {}: invalid type {}, defaulting to none", item.name, type_val);
+                }
+            }
             if (node["equip_pos"])
                 item.equip_pos = static_cast<item_equip_pos>(node["equip_pos"].as<int>());
             if (node["weight"])
@@ -336,7 +346,17 @@ auto item_registry::parse_item_line(std::string_view line, [[maybe_unused]] int 
     }
 
     // Parse type
-    item.type = static_cast<item_type>(parse_int(parts[2]));
+    {
+        auto type_val = parse_int(parts[2]);
+        if (type_val >= -1 && type_val <= 17)
+        {
+            item.type = static_cast<item_type>(type_val);
+        }
+        else
+        {
+            LOG_WARN(item, "Item {}: invalid type {}, defaulting to none", item.name, type_val);
+        }
+    }
 
     // Parse equip position
     item.equip_pos = static_cast<item_equip_pos>(parse_int(parts[3]));

@@ -106,7 +106,13 @@ auto handle_motion_command(const handler_context& ctx) -> handle_result
     }
 
     // Parse motion data
-    auto type = static_cast<motion_type>(reader.read_u8());
+    auto type_raw = reader.read_u8();
+    if (type_raw > 10)
+    {
+        LOG_WARN(proto_bridge, "Motion command: invalid type {} (conn={})", type_raw, ctx.connection.value);
+        return handle_result::not_handled;
+    }
+    auto type = static_cast<motion_type>(type_raw);
     auto x = reader.read_i16();
     auto y = reader.read_i16();
     auto dir = reader.read_i8();

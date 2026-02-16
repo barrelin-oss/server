@@ -433,7 +433,18 @@ auto npc_registry::parse_npc_line(std::string_view line, [[maybe_unused]] int li
     }
 
     // Parse type
-    npc.type = static_cast<npc_type>(parse_int(parts[2]));
+    {
+        auto type_val = parse_int(parts[2]);
+        if (type_val < 0 || type_val > 6)
+        {
+            LOG_WARN(npc, "NPC {}: invalid type {}, defaulting to monster", npc.name, type_val);
+            npc.type = npc_type::monster;
+        }
+        else
+        {
+            npc.type = static_cast<npc_type>(type_val);
+        }
+    }
 
     // Parse HP
     npc.hp = parse_int(parts[3]);

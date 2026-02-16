@@ -20,6 +20,34 @@ auto to_lower(std::string str) -> std::string
     return str;
 }
 
+auto is_valid_magic_type(int val) -> bool
+{
+    switch (val)
+    {
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 6:
+    case 8:
+    case 9:
+    case 11:
+    case 12:
+    case 13:
+    case 16:
+    case 17:
+    case 18:
+    case 20:
+    case 23:
+    case 28:
+    case 29:
+    case 32:
+        return true;
+    default:
+        return false;
+    }
+}
+
 } // namespace
 
 magic_registry::magic_registry() = default;
@@ -86,7 +114,16 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
         }
 
         spell.name = node["name"].as<std::string>();
-        spell.type = static_cast<magic_type>(node["type"].as<int>(1));
+        {
+            auto type_val = node["type"].as<int>(1);
+            if (!is_valid_magic_type(type_val))
+            {
+                LOG_WARN(magic, "Spell {}: invalid magic_type {}, skipping", spell.name, type_val);
+                ++errors;
+                continue;
+            }
+            spell.type = static_cast<magic_type>(type_val);
+        }
         spell.mana_cost = static_cast<int16_t>(node["mana_cost"].as<int>(0));
         spell.cast_time_ms = static_cast<int16_t>(node["delay"].as<int>(0));
         spell.int_req = static_cast<int16_t>(node["int_req"].as<int>(0));

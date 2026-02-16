@@ -1951,18 +1951,26 @@ auto social_system::accept_friend_request(player_id accepter_char_id, player_id 
         return friend_result::no_pending_request;
     }
 
-    // Delete request from DB
-    auto del_result = delete_friend_request_db(requester_char_id, accepter_char_id);
-    if (del_result.is_err())
+    // Atomically delete request and create friendship in a single transaction
+    if (database_)
     {
-        LOG_ERROR(general, "Failed to delete friend request: {}", del_result.error());
-    }
-
-    // Save friendship to DB
-    auto save_result = save_friend_relationship_db(requester_char_id, accepter_char_id);
-    if (save_result.is_err())
-    {
-        LOG_ERROR(general, "Failed to save friendship: {}", save_result.error());
+        auto [lower, higher] = std::minmax(requester_char_id.value, accepter_char_id.value);
+        auto tx_result = database_->execute_transaction([&](pqxx::work& txn) -> result<void, std::string>
+        {
+            txn.exec_params("DELETE FROM friend_requests WHERE requester_id = $1 AND requestee_id = $2",
+                            static_cast<int>(requester_char_id.value),
+                            static_cast<int>(accepter_char_id.value));
+            txn.exec_params("INSERT INTO friends (character_a, character_b) VALUES ($1, $2) "
+                            "ON CONFLICT (character_a, character_b) DO NOTHING",
+                            static_cast<int>(lower),
+                            static_cast<int>(higher));
+            return result<void, std::string>::ok();
+        });
+        if (tx_result.is_err())
+        {
+            LOG_ERROR(general, "Failed to accept friend request (transaction): {}", tx_result.error());
+            return friend_result::internal_error;
+        }
     }
 
     // Remove from request maps

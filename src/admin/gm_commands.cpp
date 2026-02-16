@@ -1225,8 +1225,84 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
             });
     }
 
+    // /sethunger [player] <level> - Set hunger level
+    {
+        command_info info;
+        info.name = "sethunger";
+        info.aliases = {"hunger"};
+        info.description = "Set a player's hunger level";
+        info.usage = "/sethunger [player_name] <level>";
+        info.required_level = admin_level::game_master;
+        info.arguments = {make_arg("player_or_level", arg_type::string, true, "", "Player name or hunger level"),
+                          make_arg("level", arg_type::integer, false, "", "Hunger level (0-100)")};
+
+        auto* players = ctx.players;
+
+        admin.register_command(info,
+                               [players](const command_context& cmd_ctx) -> command_result
+                               {
+                                   if (!players)
+                                   {
+                                       return command_result::error("Player system not available");
+                                   }
+
+                                   if (cmd_ctx.args.empty())
+                                   {
+                                       return command_result::error("Usage: /sethunger [player_name] <level>");
+                                   }
+
+                                   std::string target_name;
+                                   int64_t level;
+
+                                   if (cmd_ctx.args.size() == 1)
+                                   {
+                                       // /sethunger <level> — apply to self
+                                       auto parse = command_parser::parse_int(cmd_ctx.args[0].string_value);
+                                       if (parse.is_err())
+                                       {
+                                           return command_result::error("Usage: /sethunger [player_name] <level>");
+                                       }
+                                       level = parse.value();
+
+                                       auto* self = players->get_player(cmd_ctx.executor);
+                                       if (!self)
+                                       {
+                                           return command_result::error("Could not find your player");
+                                       }
+                                       target_name = self->name;
+                                   }
+                                   else
+                                   {
+                                       // /sethunger <player> <level>
+                                       target_name = cmd_ctx.args[0].string_value;
+                                       auto parse = command_parser::parse_int(cmd_ctx.args[1].string_value);
+                                       if (parse.is_err())
+                                       {
+                                           return command_result::error("Usage: /sethunger [player_name] <level>");
+                                       }
+                                       level = parse.value();
+                                   }
+
+                                   if (level < 0 || level > 100)
+                                   {
+                                       return command_result::error("Hunger level must be between 0 and 100");
+                                   }
+
+                                   auto* target = players->get_player_by_name(target_name);
+                                   if (!target)
+                                   {
+                                       return command_result::error("Player '" + target_name + "' not found");
+                                   }
+
+                                   target->hunger.level = static_cast<int8_t>(level);
+
+                                   return command_result::ok("Set " + target_name + "'s hunger to " +
+                                                             std::to_string(level));
+                               });
+    }
+
     LOG_INFO(admin, "Registered {} GM commands",
-             15); // Update this count when adding more commands
+             16); // Update this count when adding more commands
 }
 
 } // namespace hb::admin

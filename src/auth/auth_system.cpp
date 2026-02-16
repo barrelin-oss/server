@@ -148,7 +148,7 @@ auto auth_system::authenticate(std::string_view username,
         else
         {
             LOG_INFO(auth, "Login attempt for banned account: {}", username);
-            db_record_login(acc.id, ip_str, false, "account_banned");
+            db_record_login(acc.id, ip_address, false, "account_banned");
             return result<session_token, auth_error>::err(auth_error::account_banned);
         }
     }
@@ -157,7 +157,7 @@ auto auth_system::authenticate(std::string_view username,
     if (!verify_password(password, acc.password_hash))
     {
         record_login_attempt(ip_str, false);
-        db_record_login(acc.id, ip_str, false, "invalid_password");
+        db_record_login(acc.id, ip_address, false, "invalid_password");
         LOG_DEBUG(auth, "Invalid password for account: {}", username);
         return result<session_token, auth_error>::err(auth_error::invalid_credentials);
     }
@@ -189,7 +189,7 @@ auto auth_system::authenticate(std::string_view username,
 
     // Record successful login
     record_login_attempt(ip_str, true);
-    db_record_login(acc.id, ip_str, true, "");
+    db_record_login(acc.id, ip_address, true, "");
 
     LOG_INFO(auth, "User authenticated: {} from {}", username, ip_str);
 
@@ -278,7 +278,7 @@ auto auth_system::authenticate_forum(std::string_view username,
         else
         {
             LOG_INFO(auth, "Forum login for banned account: {} (forum_id: {})", username, forum_member_id);
-            db_record_login(acc.id, ip_str, false, "account_banned");
+            db_record_login(acc.id, ip_address, false, "account_banned");
             return result<forum_auth_result, auth_error>::err(auth_error::account_banned);
         }
     }
@@ -306,7 +306,7 @@ auto auth_system::authenticate_forum(std::string_view username,
     }
 
     record_login_attempt(ip_str, true);
-    db_record_login(acc.id, ip_str, true, "");
+    db_record_login(acc.id, ip_address, true, "");
 
     LOG_INFO(auth, "Forum user '{}' authenticated from {} (account {})", username, ip_str, acc.id.value);
 
@@ -390,7 +390,7 @@ auto auth_system::authenticate_forum_token(std::string_view token, std::optional
         }
         else
         {
-            db_record_login(acc.id, ip_str, false, "account_banned");
+            db_record_login(acc.id, ip_address, false, "account_banned");
             return result<forum_auth_result, auth_error>::err(auth_error::account_banned);
         }
     }
@@ -416,7 +416,7 @@ auto auth_system::authenticate_forum_token(std::string_view token, std::optional
     }
 
     record_login_attempt(ip_str, true);
-    db_record_login(acc.id, ip_str, true, "");
+    db_record_login(acc.id, ip_address, true, "");
 
     LOG_INFO(auth, "Forum token auth successful (forum_id: {}, account {})", forum_member_id, acc.id.value);
 
@@ -1374,7 +1374,7 @@ auto auth_system::db_store_session(const session_token& session) -> result<void,
            VALUES ($1, $2, NOW() + INTERVAL '1 hour', $3))",
         static_cast<int>(session.account.value),
         session.token,
-        session.ip_address.value_or(""));
+        session.ip_address);
 
     if (db_result.is_err())
     {
@@ -1444,7 +1444,7 @@ void auth_system::db_delete_all_sessions(account_id id)
 }
 
 void auth_system::db_record_login(account_id id,
-                                  std::string_view ip_address,
+                                  std::optional<std::string_view> ip_address,
                                   bool success,
                                   std::string_view failure_reason)
 {
@@ -1453,11 +1453,15 @@ void auth_system::db_record_login(account_id id,
         return;
     }
 
+    std::optional<std::string> ip_str = ip_address
+        ? std::optional<std::string>(std::string(*ip_address))
+        : std::nullopt;
+
     (void)database_->execute_params(
         R"(INSERT INTO login_history (account_id, ip_address, success, failure_reason)
            VALUES ($1, $2, $3, $4))",
         static_cast<int>(id.value),
-        std::string(ip_address),
+        ip_str,
         success,
         std::string(failure_reason));
 }

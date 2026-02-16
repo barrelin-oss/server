@@ -2983,7 +2983,7 @@ void admin_web_handlers::handle_run_query(connection_id conn_id, const network::
             query_str = "%" + req.params["query"].get<std::string>() + "%";
         }
         query_res = db_->execute_params(
-            "SELECT id, username, created_at, last_login, banned FROM accounts WHERE username ILIKE $1 LIMIT $2",
+            "SELECT id, username, created_at, last_login, is_banned FROM accounts WHERE username ILIKE $1 LIMIT $2",
             query_str,
             limit);
     }
@@ -3000,12 +3000,18 @@ void admin_web_handlers::handle_run_query(connection_id conn_id, const network::
     else if (req.query_name == "ban_list")
     {
         query_res =
-            db_->execute_params("SELECT id, username, ban_reason FROM accounts WHERE banned = true LIMIT $1", limit);
+            db_->execute_params("SELECT id, username, ban_reason FROM accounts WHERE is_banned = true LIMIT $1", limit);
     }
     else if (req.query_name == "guild_rankings")
     {
         query_res = db_->execute_params(
-            "SELECT id, name, tag, member_count FROM guilds ORDER BY member_count DESC LIMIT $1", limit);
+            R"(SELECT g.id, g.name, g.tag, COUNT(gm.guild_id) AS member_count
+               FROM guilds g
+               LEFT JOIN guild_members gm ON gm.guild_id = g.id
+               GROUP BY g.id
+               ORDER BY member_count DESC
+               LIMIT $1)",
+            limit);
     }
     else if (req.query_name == "faction_distribution")
     {

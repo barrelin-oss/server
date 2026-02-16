@@ -154,8 +154,10 @@ private:
     [[nodiscard]] auto db_get_session(std::string_view token) -> result<session_token, auth_error>;
     void db_delete_session(std::string_view token);
     void db_delete_all_sessions(account_id id);
-    void
-    db_record_login(account_id id, std::string_view ip_address, bool success, std::string_view failure_reason = "");
+    void db_record_login(account_id id,
+                         std::optional<std::string_view> ip_address,
+                         bool success,
+                         std::string_view failure_reason = "");
 
     // Forum auth helpers
     [[nodiscard]] auto db_get_or_create_account_by_forum_id(uint64_t forum_member_id,

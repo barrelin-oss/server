@@ -114,15 +114,18 @@ void game_handlers::handle_manufacture_request(connection_id conn_id, const netw
     // Audit crafted item
     if (result.success && audit_ && result.created_item.is_valid())
     {
-        if (auto* crafted = item_ ? item_->get_item(result.created_item) : nullptr)
+        if (auto* plr = players_->get_player(pid))
         {
-            if (crafted->audited)
+            if (auto* crafted = item_ ? item_->get_item(result.created_item) : nullptr)
             {
-                audit_->log_item(static_cast<int32_t>(players_->get_player(pid)->character_id.value),
-                                 item_name.empty() ? crafted->name : item_name,
-                                 static_cast<int32_t>(result.created_item.value),
-                                 item_log_type::make,
-                                 1);
+                if (crafted->audited)
+                {
+                    audit_->log_item(static_cast<int32_t>(plr->character_id.value),
+                                     item_name.empty() ? crafted->name : item_name,
+                                     static_cast<int32_t>(result.created_item.value),
+                                     item_log_type::make,
+                                     1);
+                }
             }
         }
     }
@@ -227,15 +230,18 @@ void game_handlers::handle_alchemy_request(connection_id conn_id, const network:
     // Audit crafted item
     if (result.success && audit_ && result.created_item.is_valid())
     {
-        if (auto* crafted = item_ ? item_->get_item(result.created_item) : nullptr)
+        if (auto* plr = players_->get_player(pid))
         {
-            if (crafted->audited)
+            if (auto* crafted = item_ ? item_->get_item(result.created_item) : nullptr)
             {
-                audit_->log_item(static_cast<int32_t>(players_->get_player(pid)->character_id.value),
-                                 item_name.empty() ? crafted->name : item_name,
-                                 static_cast<int32_t>(result.created_item.value),
-                                 item_log_type::make,
-                                 1);
+                if (crafted->audited)
+                {
+                    audit_->log_item(static_cast<int32_t>(plr->character_id.value),
+                                     item_name.empty() ? crafted->name : item_name,
+                                     static_cast<int32_t>(result.created_item.value),
+                                     item_log_type::make,
+                                     1);
+                }
             }
         }
     }

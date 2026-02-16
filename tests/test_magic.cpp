@@ -609,6 +609,16 @@ TEST(spell_knowledge_test, total_casts_tracking)
     EXPECT_EQ(knowledge.total_casts, 6);
 }
 
+TEST(spell_knowledge_test, cooldown_no_overflow_after_long_uptime)
+{
+    spell_knowledge knowledge;
+    knowledge.last_cast_time_ms = 100;
+    // ~25 days in ms, exceeds INT32_MAX
+    int64_t now = int64_t{25} * 24 * 60 * 60 * 1000;
+    EXPECT_EQ(knowledge.cooldown_remaining(now, 5000), 0);
+    EXPECT_FALSE(knowledge.is_on_cooldown(now, 5000));
+}
+
 // ============================================================================
 // Integration tests: AOE targeting and range validation with player_system
 // ============================================================================

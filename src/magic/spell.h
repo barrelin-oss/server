@@ -191,8 +191,8 @@ struct spell_knowledge
     [[nodiscard]] auto cooldown_remaining(int64_t current_time_ms, int32_t cooldown_ms) const -> int32_t
     {
         int64_t elapsed = current_time_ms - last_cast_time_ms;
-        int32_t remaining = cooldown_ms - static_cast<int32_t>(elapsed);
-        return std::max(0, remaining);
+        if (elapsed >= cooldown_ms) return 0;
+        return static_cast<int32_t>(cooldown_ms - elapsed);
     }
 
     [[nodiscard]] auto is_on_cooldown(int64_t current_time_ms, int32_t cooldown_ms) const -> bool

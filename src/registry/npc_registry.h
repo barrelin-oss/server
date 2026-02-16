@@ -6,6 +6,7 @@
 #include "core/subsystem.h"
 #include "core/result.h"
 #include "registry/npc_template.h"
+#include "npc/special_ability.h"
 
 #include <vector>
 #include <unordered_map>
@@ -58,6 +59,12 @@ public:
     // Iterate all NPCs
     [[nodiscard]] auto all() const -> const std::vector<npc_template>&;
 
+    // Load special ability pool config
+    auto load_sa_config(const std::filesystem::path& path) -> result<size_t, std::string>;
+
+    // Get loaded SA config
+    [[nodiscard]] auto sa_cfg() const -> const npc::sa_config& { return sa_config_; }
+
 private:
     // Parse a single NPC line from config
     auto parse_npc_line(std::string_view line, int line_num) -> result<npc_template, std::string>;
@@ -66,6 +73,9 @@ private:
     std::vector<npc_template> npcs_;
     std::unordered_map<uint16_t, size_t> id_index_;
     std::unordered_map<std::string, size_t> name_index_;
+
+    // Special ability pool config
+    npc::sa_config sa_config_;
 };
 
 } // namespace hb

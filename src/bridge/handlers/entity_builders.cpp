@@ -412,7 +412,7 @@ void send_visible_entity_spawns(network::ws_connection* conn,
                     .category = std::string(npc::npc_category_to_string(n.category)),
                     .hostility = std::string(npc::npc_hostility_for_player(
                         n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
-                    .attributes = npc::npc_attribute_strings(n.attribute)};
+                    .attributes = npc::npc_special_ability_strings(n.special_ability)};
                 conn->send(network::make_npc_spawn_message(data));
             });
 
@@ -441,7 +441,7 @@ void send_visible_entity_spawns(network::ws_connection* conn,
                     .category = std::string(npc::npc_category_to_string(n.category)),
                     .hostility = std::string(npc::npc_hostility_for_player(
                         n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
-                    .attributes = npc::npc_attribute_strings(n.attribute),
+                    .attributes = npc::npc_special_ability_strings(n.special_ability),
                     .is_dead = true};
                 conn->send(network::make_npc_spawn_message(data));
             });

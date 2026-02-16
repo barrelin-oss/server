@@ -250,7 +250,8 @@ private:
     float hunger_accumulator_{0.0f};
     float pk_decay_accumulator_{0.0f};
 
-    // Hunger change callback
+    // Callbacks
+    regen_callback regen_callback_;
     hunger_change_callback hunger_callback_;
 };
 

@@ -204,6 +204,35 @@ TEST(npc_test, categories)
     EXPECT_TRUE(n.is_pet());
 }
 
+TEST(npc_test, special_ability_defaults_to_zero)
+{
+    npc n;
+    EXPECT_EQ(n.special_ability, 0);
+}
+
+TEST(npc_special_ability_test, strings_returns_empty_for_zero)
+{
+    EXPECT_TRUE(npc_special_ability_strings(0).empty());
+}
+
+TEST(npc_special_ability_test, strings_returns_correct_names)
+{
+    EXPECT_EQ(npc_special_ability_strings(1), std::vector<std::string>{"Clairvoyant"});
+    EXPECT_EQ(npc_special_ability_strings(2), std::vector<std::string>{"Destructive Magic Protection"});
+    EXPECT_EQ(npc_special_ability_strings(3), std::vector<std::string>{"Anti-Physical"});
+    EXPECT_EQ(npc_special_ability_strings(4), std::vector<std::string>{"Anti-Magic"});
+    EXPECT_EQ(npc_special_ability_strings(5), std::vector<std::string>{"Poisonous"});
+    EXPECT_EQ(npc_special_ability_strings(6), std::vector<std::string>{"Critical Poisonous"});
+    EXPECT_EQ(npc_special_ability_strings(7), std::vector<std::string>{"Explosive"});
+    EXPECT_EQ(npc_special_ability_strings(8), std::vector<std::string>{"Hi-Explosive"});
+}
+
+TEST(npc_special_ability_test, strings_returns_empty_for_out_of_range)
+{
+    EXPECT_TRUE(npc_special_ability_strings(9).empty());
+    EXPECT_TRUE(npc_special_ability_strings(-1).empty());
+}
+
 TEST(npc_test, ownership)
 {
     npc n;

@@ -73,6 +73,10 @@ struct npc_template
     int16_t magic_hit_ratio{0}; // MagicR column - magic accuracy
     int16_t area{0};            // Area column - AoE attack range
 
+    // Special ability spawn config (from legacy MobGenerator table)
+    int16_t sa_prob{0}; // Probability % of getting a special ability at spawn (0-100)
+    int16_t sa_pool{0}; // Pool ID to draw from (references special_abilities.yaml pools)
+
     // Derived/computed stats (set by YAML loader from raw cfg fields)
     int32_t hp{0};    // Computed from hit_dice at load or spawn
     int32_t mp{0};    // From max_mana (MaxMana column)

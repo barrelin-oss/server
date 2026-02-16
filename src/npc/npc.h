@@ -74,6 +74,9 @@ struct npc
     int16_t magic_hit_ratio{0}; // Magic accuracy
     int16_t area{0};            // AoE attack range
 
+    // Special ability (rolled at spawn from pool, 0 = none)
+    int8_t special_ability{0};
+
     // Speed
     int16_t attack_speed{100};
     int16_t move_speed{100};
@@ -239,6 +242,37 @@ struct npc
 
     // Attribute is a single value (not bitmask) in legacy — only one can be active
     switch (attribute)
+    {
+    case 1:
+        return {"Clairvoyant"};
+    case 2:
+        return {"Destructive Magic Protection"};
+    case 3:
+        return {"Anti-Physical"};
+    case 4:
+        return {"Anti-Magic"};
+    case 5:
+        return {"Poisonous"};
+    case 6:
+        return {"Critical Poisonous"};
+    case 7:
+        return {"Explosive"};
+    case 8:
+        return {"Hi-Explosive"};
+    default:
+        return {};
+    }
+}
+
+// Convert NPC special ability (rolled at spawn) to display string list.
+// Uses the same names as npc_attribute_strings, but operates on the
+// randomly-rolled special_ability field rather than the static attribute.
+[[nodiscard]] inline auto npc_special_ability_strings(int8_t sa) -> std::vector<std::string>
+{
+    if (sa <= 0)
+        return {};
+
+    switch (sa)
     {
     case 1:
         return {"Clairvoyant"};

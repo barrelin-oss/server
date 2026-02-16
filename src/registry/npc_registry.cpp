@@ -244,6 +244,12 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path) -> result<s
         if (node["area"])
             npc.area = static_cast<int16_t>(node["area"].as<int>());
 
+        // Special ability spawn config
+        if (node["sa_prob"])
+            npc.sa_prob = static_cast<int16_t>(node["sa_prob"].as<int>());
+        if (node["sa_pool"])
+            npc.sa_pool = static_cast<int16_t>(node["sa_pool"].as<int>());
+
         // Parse detection_range -> sight_range
         if (node["detection_range"])
         {
@@ -548,6 +554,16 @@ auto npc_registry::exists(npc_id id) const -> bool
 auto npc_registry::all() const -> const std::vector<npc_template>&
 {
     return npcs_;
+}
+
+auto npc_registry::load_sa_config(const std::filesystem::path& path) -> result<size_t, std::string>
+{
+    auto res = npc::load_sa_config(path);
+    if (res.is_err())
+        return result<size_t, std::string>::err(res.error());
+
+    sa_config_ = std::move(res.value());
+    return result<size_t, std::string>::ok(sa_config_.pools.size());
 }
 
 } // namespace hb

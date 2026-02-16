@@ -2,6 +2,7 @@
 // NPC management subsystem implementation
 
 #include "npc/npc_system.h"
+#include "npc/special_ability.h"
 #include "core/logger.h"
 #include "core/subsystem.h"
 #include "player/player_system.h"
@@ -224,6 +225,23 @@ auto npc_system::spawn_npc(npc_id template_id,
         // Speed defaults (not in cfg)
         new_npc->attack_speed = 100;
         new_npc->move_speed = 100;
+
+        // Roll special ability from pool
+        if (tmpl->sa_prob > 0 && tmpl->sa_pool > 0)
+        {
+            std::uniform_int_distribution<int> prob_dist(1, 100);
+            if (prob_dist(rng) <= tmpl->sa_prob)
+            {
+                auto sa = roll_from_pool(registry->sa_cfg(), tmpl->sa_pool);
+                if (sa > 0)
+                    apply_special_ability(*new_npc, sa);
+            }
+        }
+        // Beholder always gets Clairvoyant even without sa_prob
+        if (new_npc->special_ability == 0 && new_npc->sprite_id == 53)
+        {
+            apply_special_ability(*new_npc, 1);
+        }
 
         // Determine category from template type
         switch (tmpl->type)

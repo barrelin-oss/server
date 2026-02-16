@@ -28,7 +28,7 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n)
 
     auto cat_str = std::string(npc::npc_category_to_string(n.category));
 
-    auto attr_strs = npc::npc_attribute_strings(n.attribute);
+    auto attr_strs = npc::npc_special_ability_strings(n.special_ability);
 
     // Send per-player (hostility is viewer-relative)
     for_each_visible_connection(

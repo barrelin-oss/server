@@ -126,6 +126,7 @@ set(NPC_SOURCES
     src/npc/bt/bt_loader.cpp
     src/npc/boss/boss_controller.cpp
     src/npc/boss/boss_loader.cpp
+    src/npc/special_ability.cpp
 )
 
 set(ITEM_SOURCES
@@ -396,6 +397,7 @@ add_executable(hgserver_tests
     tests/test_special_ability.cpp
     tests/test_loot_attribute.cpp
     tests/test_item_audit.cpp
+    tests/test_npc_special_ability.cpp
     tests/test_websocket_queue.cpp
 )
 

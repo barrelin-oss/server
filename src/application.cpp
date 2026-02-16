@@ -1192,6 +1192,21 @@ void application::load_game_configs()
         {
             LOG_WARN(general, "No NPC config found (npcs.yaml or NPC.cfg)");
         }
+
+        // Load special ability pool config
+        auto sa_yaml = config_dir / "special_abilities.yaml";
+        if (std::filesystem::exists(sa_yaml))
+        {
+            auto result = npcs->load_sa_config(sa_yaml);
+            if (result.is_ok())
+            {
+                LOG_INFO(general, "Loaded {} SA pools from special_abilities.yaml", result.value());
+            }
+            else
+            {
+                LOG_ERROR(general, "Failed to load special_abilities.yaml: {}", result.error());
+            }
+        }
     }
 
     // Load loot tables

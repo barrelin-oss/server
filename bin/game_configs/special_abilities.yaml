@@ -1,0 +1,24 @@
+# NPC Special Ability Configuration
+# Defines ability types and the pools that NPCs draw from at spawn time.
+# Each pool lists ability IDs with equal probability.
+
+abilities:
+  - { id: 1, name: "Clairvoyant" }
+  - { id: 2, name: "Destructive Magic Protection" }
+  - { id: 3, name: "Anti-Physical" }
+  - { id: 4, name: "Anti-Magic" }
+  - { id: 5, name: "Poisonous" }
+  - { id: 6, name: "Critical Poisonous" }
+  - { id: 7, name: "Explosive" }
+  - { id: 8, name: "Hi-Explosive" }
+
+pools:
+  - { id: 1, abilities: [3, 4] }
+  - { id: 2, abilities: [3, 4, 5] }
+  - { id: 3, abilities: [3, 4, 5, 6] }
+  - { id: 4, abilities: [3, 4, 7] }
+  - { id: 5, abilities: [3, 4, 7, 8] }
+  - { id: 6, abilities: [3, 4, 5] }
+  - { id: 7, abilities: [1, 2, 4] }
+  - { id: 8, abilities: [1, 2, 3, 4, 8] }
+  - { id: 9, abilities: [1, 2, 3, 4, 5, 6, 7, 8] }

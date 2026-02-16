@@ -1218,7 +1218,14 @@ auto inventory_item_msg::to_json() const -> nlohmann::json
                             {"name", name},
                             {"count", count},
                             {"durability", durability},
-                            {"max_durability", max_durability}};
+                            {"max_durability", max_durability},
+                            {"item_type", item_type},
+                            {"equip_pos", equip_pos},
+                            {"sprite", sprite},
+                            {"sprite_frame", sprite_frame},
+                            {"color", color},
+                            {"weight", weight},
+                            {"level_limit", level_limit}};
     if (!attribute.is_empty())
     {
         j["attribute"] = attribute.to_json();
@@ -1232,7 +1239,13 @@ auto equipment_item_msg::to_json() const -> nlohmann::json
                             {"item_id", item_id},
                             {"name", name},
                             {"durability", durability},
-                            {"max_durability", max_durability}};
+                            {"max_durability", max_durability},
+                            {"item_type", item_type},
+                            {"equip_pos", equip_pos},
+                            {"sprite", sprite},
+                            {"sprite_frame", sprite_frame},
+                            {"color", color},
+                            {"weight", weight}};
     if (!attribute.is_empty())
     {
         j["attribute"] = attribute.to_json();

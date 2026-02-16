@@ -1449,6 +1449,15 @@ struct inventory_item_msg
     int16_t max_durability;
     item::item_attribute attribute{}; // Per-instance attribute data
 
+    // Template-derived fields for client rendering
+    uint8_t item_type{0};       // item_type enum as int
+    uint8_t equip_pos{0};       // item_equip_pos enum as int
+    int16_t sprite{0};          // ground_sprite category
+    int16_t sprite_frame{0};    // ground_sprite_frame
+    int8_t color{0};            // item_color tint index
+    int16_t weight{0};
+    int16_t level_limit{0};
+
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -1461,6 +1470,14 @@ struct equipment_item_msg
     int16_t durability;
     int16_t max_durability;
     item::item_attribute attribute{}; // Per-instance attribute data
+
+    // Template-derived fields for client rendering
+    uint8_t item_type{0};
+    uint8_t equip_pos{0};
+    int16_t sprite{0};
+    int16_t sprite_frame{0};
+    int8_t color{0};
+    int16_t weight{0};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };

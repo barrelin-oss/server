@@ -826,6 +826,13 @@ TEST(inventory_item_msg_test, to_json)
     item.count = 10;
     item.durability = 0;
     item.max_durability = 0;
+    item.item_type = 16; // potion
+    item.equip_pos = 0;  // none
+    item.sprite = 6;     // misc category
+    item.sprite_frame = 3;
+    item.color = 3;
+    item.weight = 10;
+    item.level_limit = 0;
 
     auto j = item.to_json();
 
@@ -833,6 +840,13 @@ TEST(inventory_item_msg_test, to_json)
     EXPECT_EQ(j["item_id"], 100);
     EXPECT_EQ(j["name"], "Health Potion");
     EXPECT_EQ(j["count"], 10);
+    EXPECT_EQ(j["item_type"], 16);
+    EXPECT_EQ(j["equip_pos"], 0);
+    EXPECT_EQ(j["sprite"], 6);
+    EXPECT_EQ(j["sprite_frame"], 3);
+    EXPECT_EQ(j["color"], 3);
+    EXPECT_EQ(j["weight"], 10);
+    EXPECT_EQ(j["level_limit"], 0);
 }
 
 TEST(equipment_item_msg_test, to_json)
@@ -843,6 +857,12 @@ TEST(equipment_item_msg_test, to_json)
     item.name = "Iron Sword";
     item.durability = 80;
     item.max_durability = 100;
+    item.item_type = 13; // weapon
+    item.equip_pos = 8;  // right_hand
+    item.sprite = 1;     // swords category
+    item.sprite_frame = 5;
+    item.color = 0;
+    item.weight = 80;
 
     auto j = item.to_json();
 
@@ -850,6 +870,12 @@ TEST(equipment_item_msg_test, to_json)
     EXPECT_EQ(j["item_id"], 500);
     EXPECT_EQ(j["name"], "Iron Sword");
     EXPECT_EQ(j["durability"], 80);
+    EXPECT_EQ(j["item_type"], 13);
+    EXPECT_EQ(j["equip_pos"], 8);
+    EXPECT_EQ(j["sprite"], 1);
+    EXPECT_EQ(j["sprite_frame"], 5);
+    EXPECT_EQ(j["color"], 0);
+    EXPECT_EQ(j["weight"], 80);
 }
 
 // ========== Attack/Magic/Skill Result Tests ==========

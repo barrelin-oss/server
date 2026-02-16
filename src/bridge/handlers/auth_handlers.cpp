@@ -1016,6 +1016,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     std::string item_name;
                     item::item_attribute attr;
                     int16_t dur = 0, max_dur = 0;
+                    uint8_t tmpl_type = 0;
+                    uint8_t tmpl_equip_pos = 0;
+                    int16_t sprite = 0;
+                    int16_t sprite_frame = 0;
+                    int8_t color = 0;
+                    int16_t weight = 0;
+                    int16_t level_limit = 0;
                     if (item_)
                     {
                         if (auto* itm = item_->get_item(slot->item))
@@ -1028,6 +1035,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                 if (auto* tmpl = item_registry_->get(itm->template_id))
                                 {
                                     item_name = network::get_display_name(tmpl->name, attr);
+                                    tmpl_type = static_cast<uint8_t>(tmpl->type);
+                                    tmpl_equip_pos = static_cast<uint8_t>(tmpl->equip_pos);
+                                    sprite = tmpl->ground_sprite;
+                                    sprite_frame = tmpl->ground_sprite_frame;
+                                    color = tmpl->item_color;
+                                    weight = tmpl->weight;
+                                    level_limit = tmpl->level_limit;
                                 }
                             }
                         }
@@ -1038,7 +1052,14 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                               .count = slot->count,
                                               .durability = dur,
                                               .max_durability = max_dur,
-                                              .attribute = attr});
+                                              .attribute = attr,
+                                              .item_type = tmpl_type,
+                                              .equip_pos = tmpl_equip_pos,
+                                              .sprite = sprite,
+                                              .sprite_frame = sprite_frame,
+                                              .color = color,
+                                              .weight = weight,
+                                              .level_limit = level_limit});
                 }
             }
         }
@@ -1060,6 +1081,12 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     // Look up item instance for attribute and name
                     std::string item_name;
                     item::item_attribute attr;
+                    uint8_t tmpl_type = 0;
+                    uint8_t tmpl_equip_pos = 0;
+                    int16_t sprite = 0;
+                    int16_t sprite_frame = 0;
+                    int8_t color = 0;
+                    int16_t weight = 0;
                     if (item_)
                     {
                         if (auto* itm = item_->get_item(eq.id))
@@ -1070,6 +1097,12 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                 if (auto* tmpl = item_registry_->get(itm->template_id))
                                 {
                                     item_name = network::get_display_name(tmpl->name, attr);
+                                    tmpl_type = static_cast<uint8_t>(tmpl->type);
+                                    tmpl_equip_pos = static_cast<uint8_t>(tmpl->equip_pos);
+                                    sprite = tmpl->ground_sprite;
+                                    sprite_frame = tmpl->ground_sprite_frame;
+                                    color = tmpl->item_color;
+                                    weight = tmpl->weight;
                                 }
                             }
                         }
@@ -1079,7 +1112,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                               .name = std::move(item_name),
                                               .durability = static_cast<int16_t>(eq.durability),
                                               .max_durability = static_cast<int16_t>(eq.max_durability),
-                                              .attribute = attr});
+                                              .attribute = attr,
+                                              .item_type = tmpl_type,
+                                              .equip_pos = tmpl_equip_pos,
+                                              .sprite = sprite,
+                                              .sprite_frame = sprite_frame,
+                                              .color = color,
+                                              .weight = weight});
                 }
             }
         }

@@ -87,7 +87,7 @@ void database_system::set_config(const database_config& config)
 
 auto database_system::is_connected() const -> bool
 {
-    return pool_.is_initialized() && pool_.available_connections() > 0;
+    return pool_.is_initialized() && pool_.total_connections() > 0;
 }
 
 auto database_system::reconnect() -> result<void, std::string>

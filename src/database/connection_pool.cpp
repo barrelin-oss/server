@@ -131,7 +131,7 @@ auto connection_pool::initialize(const pool_config& config) -> result<void, std:
         if (conn_result.is_err())
         {
             // Clean up any created connections
-            all_connections_.clear();
+            active_count_ = 0;
             while (!available_.empty())
             {
                 available_.pop();
@@ -140,13 +140,12 @@ auto connection_pool::initialize(const pool_config& config) -> result<void, std:
                                                   conn_result.error());
         }
 
-        auto conn = std::move(conn_result).value();
-        all_connections_.push_back(conn);
-        available_.push(conn);
+        available_.push(std::move(conn_result).value());
+        ++active_count_;
     }
 
     initialized_ = true;
-    LOG_INFO(database, "Connection pool initialized with {} connections", all_connections_.size());
+    LOG_INFO(database, "Connection pool initialized with {} connections", active_count_);
 
     return result<void, std::string>::ok();
 }
@@ -165,15 +164,10 @@ void connection_pool::shutdown()
     shutdown_ = true;
     initialized_ = false;
 
-    // Clear the available queue
+    // Close and drain available connections
     while (!available_.empty())
     {
-        available_.pop();
-    }
-
-    // Close all connections
-    for (auto& conn : all_connections_)
-    {
+        auto& conn = available_.front();
         if (conn && conn->is_open())
         {
             try
@@ -185,9 +179,10 @@ void connection_pool::shutdown()
                 LOG_WARN(database, "Error closing connection: {}", e.what());
             }
         }
+        available_.pop();
     }
 
-    all_connections_.clear();
+    active_count_ = 0;
     cv_.notify_all();
 
     LOG_INFO(database, "Connection pool shut down");
@@ -238,11 +233,11 @@ auto connection_pool::acquire(std::chrono::milliseconds timeout) -> result<poole
     {
         LOG_WARN(database, "Acquired stale connection, attempting reconnect");
 
-        // Try to create a new connection
         auto new_conn_result = create_connection();
         if (new_conn_result.is_err())
         {
-            // Put a nullptr back to maintain pool size tracking
+            --active_count_;
+            LOG_ERROR(database, "Failed to replace dead connection, pool size now {}", active_count_);
             return result<pooled_connection, std::string>::err("Failed to reconnect: " + new_conn_result.error());
         }
 
@@ -272,8 +267,17 @@ auto connection_pool::try_acquire() -> std::optional<pooled_connection>
 
     if (!conn || !conn->is_open())
     {
-        // Don't try to reconnect in non-blocking mode, just return nothing
-        return std::nullopt;
+        LOG_WARN(database, "Popped stale connection in try_acquire, attempting replacement");
+
+        auto new_conn_result = create_connection();
+        if (new_conn_result.is_err())
+        {
+            --active_count_;
+            LOG_ERROR(database, "Failed to replace dead connection, pool size now {}", active_count_);
+            return std::nullopt;
+        }
+
+        conn = std::move(new_conn_result).value();
     }
 
     auto release_fn = [this](std::shared_ptr<pqxx::connection> c)
@@ -293,7 +297,7 @@ auto connection_pool::available_connections() const -> size_t
 auto connection_pool::total_connections() const -> size_t
 {
     std::lock_guard lock{mutex_};
-    return all_connections_.size();
+    return active_count_;
 }
 
 auto connection_pool::is_initialized() const -> bool
@@ -368,10 +372,19 @@ void connection_pool::return_connection(std::shared_ptr<pqxx::connection> conn)
     }
     else
     {
-        LOG_WARN(database, "Returned connection is closed, discarding");
-        // The connection is invalid, we should create a new one
-        // For simplicity, we'll let the pool size decrease
-        // A production system might want to replace it
+        LOG_WARN(database, "Returned connection is closed, attempting replacement");
+
+        auto new_conn_result = create_connection();
+        if (new_conn_result.is_ok())
+        {
+            available_.push(std::move(new_conn_result).value());
+            cv_.notify_one();
+        }
+        else
+        {
+            --active_count_;
+            LOG_ERROR(database, "Failed to replace dead connection, pool size now {}", active_count_);
+        }
     }
 }
 

@@ -120,7 +120,7 @@ private:
 
     pool_config config_;
     std::queue<std::shared_ptr<pqxx::connection>> available_;
-    std::vector<std::shared_ptr<pqxx::connection>> all_connections_;
+    uint32_t active_count_{0};
     mutable std::mutex mutex_;
     std::condition_variable cv_;
     bool initialized_{false};

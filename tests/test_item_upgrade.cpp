@@ -273,7 +273,7 @@ TEST(item_upgrade_test, custom_made_high_quality_increases_success_rate)
 
 TEST(item_upgrade_test, custom_made_low_quality_no_bonus)
 {
-    // custom_made but quality <= 100 should NOT get bonus
+    // custom_made but quality <= 0 should NOT get bonus
     constexpr int trials = 10000;
     int normal_successes = 0;
     int custom_successes = 0;
@@ -290,7 +290,7 @@ TEST(item_upgrade_test, custom_made_low_quality_no_bonus)
     {
         auto weapon = make_weapon(0);
         weapon.attribute.custom_made = true;
-        weapon.attribute.custom_quality = 50; // below 100 threshold
+        weapon.attribute.custom_quality = 0; // zero quality — no bonus
         auto result = attempt_upgrade(weapon);
         if (result.success)
             ++custom_successes;

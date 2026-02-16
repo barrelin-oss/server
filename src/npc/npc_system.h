@@ -117,7 +117,7 @@ public:
     // Callbacks must NOT store the reference or access it after returning.
     // Copy any needed data immediately at the start of the callback.
     using on_npc_spawn_callback = std::function<void(const npc&)>;
-    using on_npc_move_callback = std::function<void(const npc&)>;
+    using on_npc_move_callback = std::function<void(const npc&, const world::position& old_pos)>;
     using on_npc_death_callback = std::function<void(const npc&, entity::entity killer, int32_t killing_damage)>;
     using on_npc_attack_callback = std::function<void(const npc&, entity::entity target, int32_t damage)>;
     using on_npc_despawn_callback = std::function<void(const npc&)>;

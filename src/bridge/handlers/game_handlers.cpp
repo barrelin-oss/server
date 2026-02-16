@@ -184,9 +184,9 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                 broadcast_npc_spawn(n); // Copies data immediately
             });
         npc_->set_on_move_callback(
-            [this](const npc::npc& n)
+            [this](const npc::npc& n, const world::position& old_pos)
             {
-                broadcast_npc_move(n); // Copies data immediately
+                broadcast_npc_move(n, old_pos); // Copies data immediately
             });
         npc_->set_on_death_callback(
             [this](const npc::npc& n, entity::entity killer, int32_t killing_damage)

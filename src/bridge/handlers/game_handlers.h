@@ -400,7 +400,7 @@ private:
 
     // NPC broadcast helpers
     void broadcast_npc_spawn(const npc::npc& n);
-    void broadcast_npc_move(const npc::npc& n);
+    void broadcast_npc_move(const npc::npc& n, const world::position& old_pos);
     void broadcast_npc_attack(const npc::npc& n, entity::entity target, int32_t damage);
     void broadcast_npc_death(const npc::npc& n, entity::entity killer, int32_t killing_damage);
     void broadcast_npc_hp_update(const npc::npc& n);

@@ -76,7 +76,7 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n)
     }
 }
 
-void game_handlers::broadcast_npc_move(const npc::npc& n)
+void game_handlers::broadcast_npc_move(const npc::npc& n, const world::position& old_pos)
 {
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::broadcast);
@@ -84,16 +84,58 @@ void game_handlers::broadcast_npc_move(const npc::npc& n)
     if (!players_ || !ws_server_)
         return;
 
-    network::npc_move_data data{
+    auto cat_str = std::string(npc::npc_category_to_string(n.category));
+    auto attr_strs = npc::npc_special_ability_strings(n.special_ability);
+
+    network::npc_move_data move_data{
         .entity_id = n.entity_id.id, .x = n.pos.x, .y = n.pos.y, .direction = static_cast<uint8_t>(n.facing)};
 
-    auto msg = network::make_npc_move_message(data);
-    broadcast_to_visible(players_, ws_server_, n.current_map, n.pos, msg);
+    auto move_msg = network::make_npc_move_message(move_data);
 
-    // Forward to admin spectators
+    // For each player who can see the NPC's new position, check if they could also
+    // see the old position. If not, this NPC just entered their view — send a full
+    // npc_spawn instead of just a move.
+    for_each_visible_connection(
+        players_,
+        ws_server_,
+        n.current_map,
+        n.pos,
+        [&](player_id, player::player& p, network::ws_connection& conn)
+        {
+            bool could_see_old = p.sees_all
+                || (std::abs(old_pos.x - p.pos.x) <= p.visibility_radius_x
+                    && std::abs(old_pos.y - p.pos.y) <= p.visibility_radius_y);
+
+            if (could_see_old)
+            {
+                // Player already knows about this NPC — just send the move
+                conn.send(move_msg);
+            }
+            else
+            {
+                // NPC just entered this player's view — send full spawn
+                network::npc_spawn_data spawn{.entity_id = n.entity_id.id,
+                                              .template_id = n.template_id.value,
+                                              .sprite_id = n.sprite_id,
+                                              .name = n.name,
+                                              .x = n.pos.x,
+                                              .y = n.pos.y,
+                                              .direction = static_cast<uint8_t>(n.facing),
+                                              .hp = n.hp,
+                                              .max_hp = n.max_hp,
+                                              .level = n.level,
+                                              .category = cat_str,
+                                              .hostility = std::string(npc::npc_hostility_for_player(
+                                                  n, p.faction, p.pk.is_criminal(), p.pk.is_murderer())),
+                                              .attributes = attr_strs};
+                conn.send(network::make_npc_spawn_message(spawn));
+            }
+        });
+
+    // Forward move to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map))
     {
-        ws_server_->send(admin_conn, msg);
+        ws_server_->send(admin_conn, move_msg);
     }
 }
 

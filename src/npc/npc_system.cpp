@@ -1478,7 +1478,7 @@ void npc_system::try_move_npc(npc& npc_ref, hb::world::position new_pos)
     // Invoke move callback
     if (on_move_callback_)
     {
-        on_move_callback_(npc_ref);
+        on_move_callback_(npc_ref, old_pos);
     }
 }
 

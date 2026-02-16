@@ -347,6 +347,56 @@ void game_handlers::update_entity_visibility(player_id moved_player,
             }
         }
     }
+
+    // NPC visibility: spawn/despawn NPCs as the moving player walks into/out of range
+    if (npc_)
+    {
+        auto* my_conn = ws_server_->get_connection(player->connection);
+        if (my_conn && my_conn->is_open())
+        {
+            auto prx = player->visibility_radius_x;
+            auto pry = player->visibility_radius_y;
+
+            npc_->for_each_npc_on_map(
+                player->current_map,
+                [&](auto /*id*/, const hb::npc::npc& n)
+                {
+                    bool was_visible = player->sees_all
+                        || (std::abs(n.pos.x - old_pos.x) <= prx
+                            && std::abs(n.pos.y - old_pos.y) <= pry);
+                    bool is_visible = player->sees_all
+                        || (std::abs(n.pos.x - new_pos.x) <= prx
+                            && std::abs(n.pos.y - new_pos.y) <= pry);
+
+                    if (!was_visible && is_visible)
+                    {
+                        // NPC just entered view — send full npc_spawn
+                        network::npc_spawn_data spawn{
+                            .entity_id = n.entity_id.id,
+                            .template_id = n.template_id.value,
+                            .sprite_id = n.sprite_id,
+                            .name = n.name,
+                            .x = n.pos.x,
+                            .y = n.pos.y,
+                            .direction = static_cast<uint8_t>(n.facing),
+                            .hp = n.hp,
+                            .max_hp = n.max_hp,
+                            .level = n.level,
+                            .category = std::string(npc::npc_category_to_string(n.category)),
+                            .hostility = std::string(npc::npc_hostility_for_player(
+                                n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
+                            .attributes = npc::npc_special_ability_strings(n.special_ability),
+                            .is_dead = n.is_dead()};
+                        my_conn->send(network::make_npc_spawn_message(spawn));
+                    }
+                    else if (was_visible && !is_visible)
+                    {
+                        // NPC just left view — despawn
+                        my_conn->send(network::make_entity_despawn(0, n.entity_id.id));
+                    }
+                });
+        }
+    }
 }
 
 void game_handlers::handle_set_view_range(connection_id conn_id, const network::json_message& msg)

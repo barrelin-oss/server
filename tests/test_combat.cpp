@@ -245,8 +245,19 @@ TEST_F(combat_system_test, process_attack)
     attack.type = damage_type::physical;
     attack.base_damage = 100;
 
-    [[maybe_unused]] auto result = system_.process_attack(attack);
-    // Result depends on RNG, but should complete without error
+    auto result = system_.process_attack(attack);
+
+    // Structural invariants regardless of hit/miss
+    EXPECT_EQ(result.hit.type, damage_type::physical);
+    EXPECT_FALSE(result.target_killed);
+    EXPECT_EQ(result.exp_reward, 0);
+    EXPECT_EQ(result.gold_reward, 0);
+
+    if (result.hit.is_hit())
+    {
+        EXPECT_GT(result.hit.final_damage, 0);
+        EXPECT_GT(result.hit.raw_damage, 0);
+    }
 }
 
 TEST_F(combat_system_test, resolve_hit)
@@ -318,8 +329,19 @@ TEST_F(combat_system_test, process_attack_with_context)
     attack.type = damage_type::physical;
     attack.base_damage = 200;
 
-    [[maybe_unused]] auto result = system_.process_attack(attack);
-    // Should complete without error regardless of RNG
+    auto result = system_.process_attack(attack);
+
+    EXPECT_EQ(result.hit.type, damage_type::physical);
+    EXPECT_FALSE(result.target_killed);
+    EXPECT_EQ(result.exp_reward, 0);
+    EXPECT_EQ(result.gold_reward, 0);
+
+    if (result.hit.is_hit())
+    {
+        // base_damage=200, defense=0, 90% variance floor → raw >= 180
+        EXPECT_GE(result.hit.raw_damage, 100);
+        EXPECT_GT(result.hit.final_damage, 0);
+    }
 }
 
 TEST_F(combat_system_test, process_attack_magic_damage)
@@ -330,8 +352,16 @@ TEST_F(combat_system_test, process_attack_magic_damage)
     attack.type = damage_type::magic;
     attack.base_damage = 150;
 
-    [[maybe_unused]] auto result = system_.process_attack(attack);
-    // Magic damage should complete without error
+    auto result = system_.process_attack(attack);
+
+    EXPECT_EQ(result.hit.type, damage_type::magic);
+    EXPECT_FALSE(result.target_killed);
+
+    if (result.hit.is_hit())
+    {
+        EXPECT_GT(result.hit.final_damage, 0);
+        EXPECT_GT(result.hit.raw_damage, 0);
+    }
 }
 
 TEST_F(combat_system_test, resolve_hit_with_dodge)
@@ -344,9 +374,21 @@ TEST_F(combat_system_test, resolve_hit_with_dodge)
     ctx.dodge_rate = 95; // Very high dodge
     ctx.guaranteed_hit = false;
 
-    // With these stats, most hits should miss, but this is RNG
-    // Just verify it doesn't crash
-    [[maybe_unused]] auto result = system_.resolve_hit(ctx);
+    // calc_hit_chance(5, 95) = clamp(80 + (5-95)/2, 5, 95) = 35%
+    // So 65% of the time we should miss or dodge.
+    // Over 200 trials, expect at least 80 non-hits (very conservative).
+    int miss_or_dodge_count = 0;
+    constexpr int trials = 200;
+    for (int i = 0; i < trials; ++i)
+    {
+        auto result = system_.resolve_hit(ctx);
+        if (!result.is_hit())
+        {
+            ++miss_or_dodge_count;
+        }
+    }
+    EXPECT_GT(miss_or_dodge_count, 80);
+    EXPECT_LT(miss_or_dodge_count, 195);
 }
 
 TEST_F(combat_system_test, resolve_hit_blocked)

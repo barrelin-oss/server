@@ -65,6 +65,8 @@ struct fish_node
 
 class fishing_system : public subsystem
 {
+    friend class fishing_flow_test;
+
 public:
     fishing_system();
     ~fishing_system() override;

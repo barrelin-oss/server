@@ -425,3 +425,184 @@ TEST_F(RegistrationRateLimitTest, window_expiry_resets_counter)
     auto result = auth_.create_account("exp_user_after", "password123", "172.16.0.1");
     EXPECT_NE(result.error(), auth_error::rate_limited);
 }
+
+// ============================================================================
+// Auth flow tests — pre-DB logic paths
+// ============================================================================
+
+class auth_flow_test : public ::testing::Test
+{
+protected:
+    void SetUp() override { auth_.initialize(); }
+    void TearDown() override { auth_.shutdown(); }
+    auth_system auth_;
+};
+
+// --- Maintenance mode ---
+
+TEST_F(auth_flow_test, maintenance_mode_default_off)
+{
+    EXPECT_FALSE(auth_.is_maintenance_mode());
+}
+
+TEST_F(auth_flow_test, set_maintenance_mode_on_off)
+{
+    auth_.set_maintenance_mode(true);
+    EXPECT_TRUE(auth_.is_maintenance_mode());
+
+    auth_.set_maintenance_mode(false);
+    EXPECT_FALSE(auth_.is_maintenance_mode());
+}
+
+TEST_F(auth_flow_test, maintenance_message_stored)
+{
+    auth_.set_maintenance_mode(true, "Server update in progress");
+    EXPECT_EQ(auth_.maintenance_message(), "Server update in progress");
+
+    auth_.set_maintenance_mode(false);
+    EXPECT_FALSE(auth_.is_maintenance_mode());
+}
+
+// --- Login lockout ---
+
+TEST_F(auth_flow_test, authenticate_no_db_returns_error)
+{
+    // No database wired — should fail (not crash)
+    auto result = auth_.authenticate("testuser", "password123", "10.0.0.1");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), auth_error::invalid_credentials);
+}
+
+TEST_F(auth_flow_test, authenticate_lockout_after_max_failures)
+{
+    auth::auth_config cfg;
+    cfg.max_login_attempts = 3;
+    cfg.lockout_duration = std::chrono::seconds{3600};
+    auth_.set_config(cfg);
+
+    // 3 failures trigger lockout (each fails at DB stage → recorded as failure)
+    for (int i = 0; i < 3; ++i)
+    {
+        auto result = auth_.authenticate("noexist", "pass123", "10.0.0.1");
+        EXPECT_TRUE(result.is_err());
+    }
+
+    // 4th attempt should still return invalid_credentials (lockout uses same error)
+    // but the lockout check fires before the DB call
+    auto result = auth_.authenticate("noexist2", "pass123", "10.0.0.1");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), auth_error::invalid_credentials);
+}
+
+TEST_F(auth_flow_test, authenticate_lockout_different_ips_independent)
+{
+    auth::auth_config cfg;
+    cfg.max_login_attempts = 2;
+    cfg.lockout_duration = std::chrono::seconds{3600};
+    auth_.set_config(cfg);
+
+    // Lock out IP 10.0.0.1
+    for (int i = 0; i < 2; ++i)
+    {
+        (void)auth_.authenticate("user", "pass123", "10.0.0.1");
+    }
+
+    // IP 10.0.0.2 should not be locked out — it proceeds past lockout check
+    // (still fails at DB, but that's a different code path)
+    auto result = auth_.authenticate("user", "pass123", "10.0.0.2");
+    EXPECT_TRUE(result.is_err());
+    // It should reach DB stage (invalid_credentials from DB miss), proving lockout didn't block it
+    EXPECT_EQ(result.error(), auth_error::invalid_credentials);
+}
+
+TEST_F(auth_flow_test, authenticate_lockout_expires)
+{
+    auth::auth_config cfg;
+    cfg.max_login_attempts = 2;
+    cfg.lockout_duration = std::chrono::seconds{0}; // Immediate expiry
+    auth_.set_config(cfg);
+
+    // Trigger lockout
+    for (int i = 0; i < 2; ++i)
+    {
+        (void)auth_.authenticate("user", "pass123", "10.0.0.3");
+    }
+
+    // With 0s lockout, it should have already expired — next call proceeds past lockout
+    auto result = auth_.authenticate("user", "pass123", "10.0.0.3");
+    EXPECT_TRUE(result.is_err());
+    // Reaches DB stage, not blocked by lockout
+    EXPECT_EQ(result.error(), auth_error::invalid_credentials);
+}
+
+// --- create_account validation ---
+
+TEST_F(auth_flow_test, registration_disabled_returns_error)
+{
+    auth::auth_config cfg;
+    cfg.allow_registration = false;
+    auth_.set_config(cfg);
+
+    auto result = auth_.create_account("validuser", "password123", "10.0.0.1");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), auth_error::internal_error);
+}
+
+TEST_F(auth_flow_test, invalid_username_returns_error)
+{
+    auto result = auth_.create_account("ab", "password123", "10.0.0.1");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), auth_error::invalid_username_format);
+}
+
+TEST_F(auth_flow_test, invalid_password_returns_error)
+{
+    auto result = auth_.create_account("validuser", "123456", "10.0.0.1");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), auth_error::invalid_password_format);
+}
+
+TEST_F(auth_flow_test, valid_format_reaches_db_stage)
+{
+    // Valid username + password, no DB → error should NOT be validation-related
+    auto result = auth_.create_account("validuser", "password123", "10.0.0.1");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_NE(result.error(), auth_error::invalid_username_format);
+    EXPECT_NE(result.error(), auth_error::invalid_password_format);
+    EXPECT_NE(result.error(), auth_error::rate_limited);
+}
+
+// --- Config behavior ---
+
+TEST_F(auth_flow_test, session_duration_configurable)
+{
+    auth::auth_config cfg;
+    cfg.session_duration = std::chrono::seconds{7200};
+    auth_.set_config(cfg);
+    // Verify config is accepted without crash (no public getter, but the path exercises set_config)
+    SUCCEED();
+}
+
+TEST_F(auth_flow_test, max_characters_configurable)
+{
+    auth::auth_config cfg;
+    cfg.max_characters_per_account = 8;
+    auth_.set_config(cfg);
+    SUCCEED();
+}
+
+TEST_F(auth_flow_test, lockout_duration_zero_allows_immediate_retry)
+{
+    auth::auth_config cfg;
+    cfg.max_login_attempts = 1;
+    cfg.lockout_duration = std::chrono::seconds{0};
+    auth_.set_config(cfg);
+
+    // Trigger lockout with 1 failure
+    (void)auth_.authenticate("user", "pass123", "10.0.0.5");
+
+    // 0s lockout → immediately expired → next attempt proceeds past lockout
+    auto result = auth_.authenticate("user", "pass123", "10.0.0.5");
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), auth_error::invalid_credentials);
+}

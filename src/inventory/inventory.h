@@ -24,7 +24,12 @@ struct inventory_slot
     int16_t pos_x{0}; // Free-form pixel X position (client layout)
     int16_t pos_y{0}; // Free-form pixel Y position (client layout)
 
+    // Equipment flag: if set, this item is equipped in the given equip_slot
+    // (uint8_t maps to player::equip_slot to avoid header coupling)
+    std::optional<uint8_t> equipped_as{};
+
     [[nodiscard]] auto is_empty() const -> bool { return !item.is_valid() || count <= 0; }
+    [[nodiscard]] auto is_equipped() const -> bool { return equipped_as.has_value(); }
 
     void clear()
     {
@@ -32,6 +37,7 @@ struct inventory_slot
         count = 0;
         pos_x = 0;
         pos_y = 0;
+        equipped_as.reset();
     }
 
     void set(item_id id, int16_t cnt)
@@ -185,6 +191,33 @@ public:
     [[nodiscard]] auto is_full() const -> bool { return free_slots() == 0; }
 
     [[nodiscard]] auto is_empty() const -> bool { return used_slots() == 0; }
+
+    // Find the inventory slot index that is equipped in the given equip_slot
+    [[nodiscard]] auto find_equipped_slot(uint8_t equip_slot) const -> std::optional<int16_t>
+    {
+        for (int16_t i = 0; i < capacity_; ++i)
+        {
+            const auto& slot = slots_[static_cast<size_t>(i)];
+            if (!slot.is_empty() && slot.equipped_as.has_value() && *slot.equipped_as == equip_slot)
+            {
+                return i;
+            }
+        }
+        return std::nullopt;
+    }
+
+    // Find an empty slot that is not equipped
+    [[nodiscard]] auto find_empty_unequipped_slot() const -> std::optional<int16_t>
+    {
+        for (int16_t i = 0; i < capacity_; ++i)
+        {
+            if (slots_[static_cast<size_t>(i)].is_empty())
+            {
+                return i;
+            }
+        }
+        return std::nullopt;
+    }
 
     // Swap slots
     void swap_slots(int16_t a, int16_t b)

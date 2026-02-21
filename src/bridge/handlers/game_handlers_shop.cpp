@@ -97,56 +97,14 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     int16_t slot_idx = slot_opt.value_or(0);
 
     // Build full item details for the inventory slot update
-    std::string item_name;
-    item::item_attribute attr{};
-    int16_t dur = 0, max_dur = 0, quantity = 1;
-    uint8_t tmpl_type = 0, tmpl_equip_pos = 0;
-    int16_t sprite = 0, sprite_frame = 0, weight = 0, level_limit = 0;
-    int8_t color = 0;
-    if (item_)
-    {
-        if (auto* itm = item_->get_item(picked_item_id))
-        {
-            attr = itm->attribute;
-            quantity = itm->count;
-            dur = static_cast<int16_t>(itm->durability);
-            max_dur = static_cast<int16_t>(itm->max_durability);
-            if (item_registry_)
-            {
-                if (auto* tmpl = item_registry_->get(itm->template_id))
-                {
-                    item_name = network::get_display_name(tmpl->name, attr);
-                    tmpl_type = static_cast<uint8_t>(tmpl->type);
-                    tmpl_equip_pos = static_cast<uint8_t>(tmpl->equip_pos);
-                    sprite = tmpl->ground_sprite;
-                    sprite_frame = tmpl->ground_sprite_frame;
-                    color = tmpl->item_color;
-                    weight = tmpl->weight;
-                    level_limit = tmpl->level_limit;
-                }
-            }
-        }
-    }
+    auto item_msg = network::build_inventory_item_msg(slot_idx, picked_item_id, item_, item_registry_);
+    std::string item_name = item_msg ? item_msg->name : "Unknown";
 
-    // Send inventory slot update with full item details
-    network::inventory_item_msg item_msg{
-        .slot = static_cast<uint8_t>(slot_idx),
-        .item_id = picked_item_id.value,
-        .name = item_name,
-        .count = quantity,
-        .durability = dur,
-        .max_durability = max_dur,
-        .attribute = attr,
-        .item_type = tmpl_type,
-        .equip_pos = tmpl_equip_pos,
-        .sprite = sprite,
-        .sprite_frame = sprite_frame,
-        .color = color,
-        .weight = weight,
-        .level_limit = level_limit,
-    };
     conn->send(network::make_player_pickup_response(msg.seq, true, nullptr, std::nullopt));
-    conn->send(network::make_inventory_slot_update(slot_idx, &item_msg));
+    if (item_msg)
+    {
+        conn->send(network::make_inventory_slot_update(slot_idx, &*item_msg));
+    }
 
     // Broadcast pickup animation to nearby players
     broadcast_player_action(
@@ -577,6 +535,24 @@ void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_m
     {
         conn->send(network::make_shop_buy_response(
             msg.seq, true, tmpl->name, count, total_price, inventory_->get_gold(owner_id)));
+
+        // Send inventory_slot_update for the new item
+        auto* bought_inv = inventory_->get_inventory(owner_id);
+        if (bought_inv)
+        {
+            if (auto new_slot = bought_inv->find_item(new_item_id); new_slot)
+            {
+                auto item_msg = network::build_inventory_item_msg(*new_slot, new_item_id, item_, item_registry_);
+                if (item_msg)
+                    conn->send(network::make_inventory_slot_update(*new_slot, &*item_msg));
+            }
+        }
+
+        // Send gold_update
+        conn->send(network::make_gold_update({
+            .gold = static_cast<int64_t>(inventory_->get_gold(owner_id)),
+            .change = static_cast<int64_t>(-total_price),
+            .reason = "shop_buy"}));
     }
 
     // Audit shop buy
@@ -783,6 +759,15 @@ void game_handlers::handle_shop_sell_confirm(connection_id conn_id, const networ
     if (conn)
     {
         conn->send(network::make_shop_sell_confirm_response(msg.seq, true, sell_price, inventory_->get_gold(owner_id)));
+
+        // Send inventory_slot_update (slot cleared)
+        conn->send(network::make_inventory_slot_update(data.inventory_slot, nullptr));
+
+        // Send gold_update
+        conn->send(network::make_gold_update({
+            .gold = static_cast<int64_t>(inventory_->get_gold(owner_id)),
+            .change = static_cast<int64_t>(sell_price),
+            .reason = "shop_sell"}));
     }
 
     // Audit shop sell
@@ -957,6 +942,17 @@ void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const netw
     {
         conn->send(network::make_shop_repair_confirm_response(
             msg.seq, true, new_dur, repair_cost, inventory_->get_gold(owner_id)));
+
+        // Send inventory_slot_update (item has new durability)
+        auto repair_item_msg = network::build_inventory_item_msg(data.inventory_slot, slot->item, item_, item_registry_);
+        if (repair_item_msg)
+            conn->send(network::make_inventory_slot_update(data.inventory_slot, &*repair_item_msg));
+
+        // Send gold_update
+        conn->send(network::make_gold_update({
+            .gold = static_cast<int64_t>(inventory_->get_gold(owner_id)),
+            .change = static_cast<int64_t>(-repair_cost),
+            .reason = "shop_repair"}));
     }
 
     // Audit repair gold spend
@@ -1045,6 +1041,21 @@ void game_handlers::handle_bank_deposit(connection_id conn_id, const network::js
     if (conn)
     {
         conn->send(network::make_bank_deposit_response(msg.seq, true, item_name));
+
+        // Send inventory_slot_update (inventory slot cleared)
+        conn->send(network::make_inventory_slot_update(data.inventory_slot, nullptr));
+
+        // Send bank_slot_update (item now in bank)
+        auto* bank_after = inventory_->get_bank(owner_id);
+        if (bank_after)
+        {
+            if (auto bank_slot = bank_after->find_item(deposit_item_id); bank_slot)
+            {
+                auto bank_msg = network::build_inventory_item_msg(*bank_slot, deposit_item_id, item_, item_registry_);
+                if (bank_msg)
+                    conn->send(network::make_bank_slot_update(*bank_slot, &*bank_msg));
+            }
+        }
     }
 
     // Audit bank deposit
@@ -1128,6 +1139,21 @@ void game_handlers::handle_bank_withdraw(connection_id conn_id, const network::j
     if (conn)
     {
         conn->send(network::make_bank_withdraw_response(msg.seq, true, item_name));
+
+        // Send bank_slot_update (bank slot cleared)
+        conn->send(network::make_bank_slot_update(data.bank_slot, nullptr));
+
+        // Send inventory_slot_update (item now in inventory)
+        auto* inv_after = inventory_->get_inventory(owner_id);
+        if (inv_after)
+        {
+            if (auto inv_slot = inv_after->find_item(withdraw_item_id); inv_slot)
+            {
+                auto inv_msg = network::build_inventory_item_msg(*inv_slot, withdraw_item_id, item_, item_registry_);
+                if (inv_msg)
+                    conn->send(network::make_inventory_slot_update(*inv_slot, &*inv_msg));
+            }
+        }
     }
 
     // Audit bank withdraw

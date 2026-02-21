@@ -327,6 +327,18 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
         auto killer_entity = entity_id{killer.id};
         inventory_->add_gold(killer_entity, drop.gold);
 
+        // Send gold_update to killer
+        if (ws_server_)
+        {
+            if (auto* killer_conn = ws_server_->get_connection_by_player(player_id{killer.id}))
+            {
+                killer_conn->send(network::make_gold_update({
+                    .gold = static_cast<int64_t>(inventory_->get_gold(killer_entity)),
+                    .change = static_cast<int64_t>(drop.gold),
+                    .reason = "npc_loot"}));
+            }
+        }
+
         // Audit gold loot
         if (audit_)
         {

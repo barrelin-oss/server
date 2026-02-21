@@ -6,6 +6,7 @@
 #include "core/subsystem.h"
 #include "item/item_system.h"
 #include "item/item_effect.h"
+#include "inventory/inventory_system.h"
 #include "registry/item_registry.h"
 #include "effect/effect_system.h"
 #include "world/world_subsystem.h"
@@ -384,27 +385,111 @@ void player_system::clear_all_status(player_id id)
     p->status = player_status::none;
 }
 
-void player_system::equip_item(player_id id, equip_slot slot, item_id item, item_id tmpl_id, uint16_t dur, uint16_t max_dur)
+void player_system::equip_item(player_id id, int16_t inv_slot_index, equip_slot slot)
 {
     auto* p = get_player(id);
     if (!p)
         return;
 
-    p->equipment.equip(slot, item, tmpl_id, dur, max_dur);
+    // Set the equipped_as flag on the inventory slot
+    auto* inv_sys = subsystems().get<inventory::inventory_system>();
+    if (inv_sys)
+    {
+        auto* inv = inv_sys->get_inventory(entity_id{id.value});
+        if (inv)
+        {
+            auto* inv_slot = inv->get_slot(inv_slot_index);
+            if (inv_slot)
+            {
+                inv_slot->equipped_as = static_cast<uint8_t>(slot);
+            }
+        }
+    }
+
+    rebuild_equipment_cache(id);
     recalculate_equipment_modifiers(id);
     recalculate_appearance(id);
 }
 
-auto player_system::unequip_item(player_id id, equip_slot slot) -> equipped_item
+auto player_system::unequip_item(player_id id, equip_slot slot) -> item_id
 {
     auto* p = get_player(id);
     if (!p)
-        return equipped_item{};
+        return item_id{};
 
-    auto item = p->equipment.unequip(slot);
+    // Get the inv_index from the equipment cache
+    const auto& equipped = p->equipment.get(slot);
+    if (equipped.is_empty())
+        return item_id{};
+
+    auto result_id = equipped.id;
+    auto inv_idx = equipped.inv_index;
+
+    // Clear the equipped_as flag on the inventory slot
+    auto* inv_sys = subsystems().get<inventory::inventory_system>();
+    if (inv_sys && inv_idx >= 0)
+    {
+        auto* inv = inv_sys->get_inventory(entity_id{id.value});
+        if (inv)
+        {
+            auto* inv_slot = inv->get_slot(inv_idx);
+            if (inv_slot)
+            {
+                inv_slot->equipped_as.reset();
+            }
+        }
+    }
+
+    rebuild_equipment_cache(id);
     recalculate_equipment_modifiers(id);
     recalculate_appearance(id);
-    return item;
+    return result_id;
+}
+
+void player_system::rebuild_equipment_cache(player_id id)
+{
+    auto* p = get_player(id);
+    if (!p)
+        return;
+
+    // Clear existing cache
+    p->equipment.clear_all();
+
+    auto* inv_sys = subsystems().get<inventory::inventory_system>();
+    if (!inv_sys)
+        return;
+
+    auto* inv = inv_sys->get_inventory(entity_id{id.value});
+    if (!inv)
+        return;
+
+    auto* item_sys = subsystems().get<item::item_system>();
+
+    for (int16_t i = 0; i < inv->capacity(); ++i)
+    {
+        const auto* slot = inv->get_slot(i);
+        if (!slot || slot->is_empty() || !slot->equipped_as.has_value())
+            continue;
+
+        auto eq_slot = static_cast<equip_slot>(*slot->equipped_as);
+        if (static_cast<size_t>(eq_slot) >= equip_slot_count)
+            continue;
+
+        auto& eq = p->equipment.get(eq_slot);
+        eq.id = slot->item;
+        eq.inv_index = i;
+
+        // Look up template and durability from item_system
+        if (item_sys)
+        {
+            if (auto* itm = item_sys->get_item(slot->item))
+            {
+                eq.template_id = itm->template_id;
+                eq.durability = static_cast<uint16_t>(itm->durability);
+                eq.max_durability = static_cast<uint16_t>(itm->max_durability);
+            }
+        }
+    }
 }
 
 void player_system::recalculate_equipment_modifiers(player_id id)

@@ -24,26 +24,15 @@ Update full inventory state (e.g., after trade).
 
 ---
 
-### `equipment_data`
+### `equipment_data` *(deprecated)*
 
-Update full equipment state.
-
-**Server Message:**
-```json
-{
-  "type": "equipment_data",
-  "seq": 0,
-  "data": {
-    "equipment": [...]
-  }
-}
-```
+> **Deprecated:** Equipment is now unified with inventory. Equipped items are inventory items with an `equipped_slot` field set. This message type is no longer sent by the server. Clients should read `equipped_slot` from `inventory_data` items instead.
 
 ---
 
 ### `player_equip_request`
 
-Equip an item from inventory to an equipment slot.
+Equip an item from inventory to an equipment slot. The item stays in its inventory slot — equipping just sets the `equipped_slot` flag.
 
 **Client Request:**
 ```json
@@ -111,19 +100,22 @@ Result of an equip attempt.
 | `durability` | int16 | Current durability |
 | `max_durability` | int16 | Maximum durability |
 | `attribute` | object? | Item attributes (see [Item Attribute Object](items.md#item-attribute-object)) |
-| `swapped_item_id` | uint32? | Old item ID if slot was occupied |
-| `swapped_to_inv_slot` | uint8? | Inventory slot where old item went |
-| `unequipped_shield_id` | uint32? | Shield ID if 2H weapon forced removal |
-| `shield_to_inv_slot` | uint8? | Where shield went |
+| `swapped_item_id` | uint32? | Old item ID if equip slot was already occupied (item stays in its inventory slot, just unequipped) |
+| `unequipped_shield_id` | uint32? | Shield ID if 2H weapon forced shield removal |
 | `error` | string? | Error code on failure |
 
-**Error codes:** `not_equippable`, `item_broken`, `invalid_slot`, `requirements_not_met`, `inventory_full`, `two_handed_weapon_equipped`, `player_dead`, `player_busy`
+**Notes:**
+- Since equipment is unified with inventory, equipping an item does **not** move it between slots. The item stays in its inventory slot; only the `equipped_slot` flag changes.
+- When swapping (equip slot already occupied), the old item's `equipped_slot` flag is cleared — it remains in its original inventory slot.
+- 2H weapon + shield conflict: the shield's `equipped_slot` flag is cleared automatically. No free inventory slot is needed.
+
+**Error codes:** `not_equippable`, `item_broken`, `invalid_slot`, `requirements_not_met`, `two_handed_weapon_equipped`, `player_dead`, `player_busy`
 
 ---
 
 ### `player_unequip_request`
 
-Unequip an item from an equipment slot to inventory.
+Unequip an item from an equipment slot. The item stays in its inventory slot — unequipping just clears the `equipped_slot` flag. **This can never fail due to "inventory full"** since the item is already in inventory.
 
 **Client Request:**
 ```json
@@ -164,11 +156,11 @@ Result of an unequip attempt.
 | `slot` | uint8 | Equipment slot |
 | `item_id` | uint32 | Unequipped item ID |
 | `item_name` | string | Item display name (includes "+N" for upgraded items) |
-| `inventory_slot` | uint8 | Inventory slot where item was placed |
+| `inventory_slot` | uint8 | Inventory slot where item remains (unchanged — item was already there) |
 | `attribute` | object? | Item attributes (see [Item Attribute Object](items.md#item-attribute-object)) |
 | `error` | string? | Error code on failure |
 
-**Error codes:** `invalid_slot`, `slot_empty`, `inventory_full`, `player_dead`, `player_busy`
+**Error codes:** `invalid_slot`, `slot_empty`, `player_dead`, `player_busy`
 
 ---
 

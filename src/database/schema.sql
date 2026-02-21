@@ -270,7 +270,8 @@ CREATE TABLE IF NOT EXISTS items (
     custom_made BOOLEAN NOT NULL DEFAULT FALSE,
     custom_quality SMALLINT NOT NULL DEFAULT 0,
     pos_x SMALLINT NOT NULL DEFAULT 0,
-    pos_y SMALLINT NOT NULL DEFAULT 0
+    pos_y SMALLINT NOT NULL DEFAULT 0,
+    equip_slot SMALLINT DEFAULT NULL   -- If set, item is equipped in this slot (0-11)
 );
 CREATE INDEX IF NOT EXISTS idx_items_character ON items(character_id);
 CREATE INDEX IF NOT EXISTS idx_items_template ON items(template_id);

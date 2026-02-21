@@ -1112,7 +1112,7 @@ auto auth_system::load_items(player_id char_id) -> std::vector<item_row>
                   durability, max_durability, color, bound_to,
                   upgrade_level, main_enchant_type, main_enchant_value,
                   sub_enchant_type, sub_enchant_value,
-                  custom_made, custom_quality, pos_x, pos_y
+                  custom_made, custom_quality, pos_x, pos_y, equip_slot
            FROM items WHERE character_id = $1
            ORDER BY location, slot)",
         static_cast<int>(char_id.value));
@@ -1150,6 +1150,9 @@ auto auth_system::load_items(player_id char_id) -> std::vector<item_row>
         ir.custom_quality = static_cast<int8_t>(row["custom_quality"].as<int>());
         ir.pos_x = static_cast<int16_t>(row["pos_x"].as<int>());
         ir.pos_y = static_cast<int16_t>(row["pos_y"].as<int>());
+        ir.equip_slot = row["equip_slot"].is_null()
+            ? std::nullopt
+            : std::optional<int16_t>(static_cast<int16_t>(row["equip_slot"].as<int>()));
 
         rows.push_back(std::move(ir));
     }
@@ -1190,9 +1193,9 @@ void auth_system::save_items(player_id char_id, const std::vector<item_row>& ite
                                   durability, max_durability, color, bound_to,
                                   upgrade_level, main_enchant_type, main_enchant_value,
                                   sub_enchant_type, sub_enchant_value,
-                                  custom_made, custom_quality, pos_x, pos_y)
+                                  custom_made, custom_quality, pos_x, pos_y, equip_slot)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-                       $12, $13, $14, $15, $16, $17, $18, $19, $20))",
+                       $12, $13, $14, $15, $16, $17, $18, $19, $20, $21))",
             static_cast<int>(ir.id),
             static_cast<int>(ir.character_id),
             static_cast<int>(ir.template_id),
@@ -1212,7 +1215,8 @@ void auth_system::save_items(player_id char_id, const std::vector<item_row>& ite
             ir.custom_made,
             static_cast<int>(ir.custom_quality),
             static_cast<int>(ir.pos_x),
-            static_cast<int>(ir.pos_y));
+            static_cast<int>(ir.pos_y),
+            ir.equip_slot.has_value() ? std::optional<int>(*ir.equip_slot) : std::optional<int>{});
 
         if (ins_result.is_err())
         {

@@ -1,14 +1,50 @@
-# Items
+# Item System Wire Protocol
 
 [← Back to Protocol Index](../JSON_PROTOCOL.md)
 
-## Item Attribute Object
+This document describes **every** item-related message the server sends and receives, verified against the actual C++ source code. Each flow lists the exact JSON structure, field types, message ordering, and what broadcasts nearby players receive.
 
-Many item messages include an optional `attribute` object describing per-instance enchantments and upgrades. This is only present when the item has non-default attributes (upgraded, enchanted, or custom-made).
+**Message envelope:** All messages are wrapped as `{"type": "<type>", "seq": <n>, "data": {...}}`. Broadcasts use `seq: 0`. Request responses echo the client's `seq`.
+
+---
+
+## Table of Contents
+
+1. [Shared Data Objects](#shared-data-objects)
+2. [Enter Game — Initial Inventory](#enter-game--initial-inventory)
+3. [Item Pickup](#item-pickup)
+4. [Item Drop](#item-drop)
+5. [Equip Item](#equip-item)
+6. [Unequip Item](#unequip-item)
+7. [Use Item (Consumables)](#use-item-consumables)
+8. [Shop Buy](#shop-buy)
+9. [Shop Sell](#shop-sell)
+10. [Shop Repair](#shop-repair)
+11. [Bank Deposit](#bank-deposit)
+12. [Bank Withdraw](#bank-withdraw)
+13. [Inventory Reposition](#inventory-reposition)
+14. [Item Upgrade](#item-upgrade)
+15. [Special Ability](#special-ability)
+16. [Manufacturing (Crafting)](#manufacturing-crafting)
+17. [Alchemy](#alchemy)
+18. [NPC Loot Drops](#npc-loot-drops)
+19. [Admin Give/Remove Item](#admin-giveremove-item)
+20. [Inventory Slot Update](#inventory-slot-update)
+21. [Bank Slot Update](#bank-slot-update)
+22. [Gold Update](#gold-update)
+23. [Stat Update](#stat-update)
+
+---
+
+## Shared Data Objects
+
+### Item Attribute Object
+
+Per-instance enchantment data. **Only present when the item has non-default attributes** — items with no upgrades/enchantments omit the `attribute` key entirely.
 
 ```json
 {
-  "upgrade": 7,
+  "upgrade": 3,
   "main_type": 7,
   "main_value": 1,
   "sub_type": 1,
@@ -18,33 +54,146 @@ Many item messages include an optional `attribute` object describing per-instanc
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `upgrade` | uint8 | Upgrade level (0-15), shown as "+N" in item name |
-| `main_type` | uint8 | Main enchantment type (see enchantment types) |
-| `main_value` | uint8 | Main enchantment value (0-15) |
-| `sub_type` | uint8 | Sub enchantment type (see sub enchantment types) |
-| `sub_value` | uint8 | Sub enchantment value (0-15) |
-| `custom_made` | bool | Whether the item was player-crafted |
-| `custom_quality` | int8 | Crafting quality (-100 to +100) |
+| Key | Type | Condition | Description |
+|-----|------|-----------|-------------|
+| `upgrade` | uint8 | Only if > 0 | Upgrade level (0-15), shown as "+N" in display name |
+| `main_type` | uint8 | Only if main enchantment present | Main enchantment type enum value |
+| `main_value` | uint8 | Always with `main_type` | Main enchantment value (0-15) |
+| `sub_type` | uint8 | Only if sub enchantment present | Sub enchantment type enum value |
+| `sub_value` | uint8 | Always with `sub_type` | Sub enchantment value (0-15) |
+| `custom_made` | bool | Only if true | Custom-made (player-crafted) |
+| `custom_quality` | int8 | Only if `custom_made` true and quality != 0 | Crafting quality (-100 to +100) |
 
-**Main Enchantment Types:** 1=critical_bonus, 2=poison, 3=righteous, 4=spell_on_hit, 5=damage_reduction, 6=light, 7=sharp, 8=fire, 9=ancient, 10=magic_damage, 11=mana_conversion, 12=charge_critical
+**Main enchantment types (`main_type`):** 1=critical_bonus, 2=poison, 3=righteous, 4=spell_on_hit, 5=damage_reduction, 6=light, 7=sharp, 8=fire, 9=ancient, 10=magic_damage, 11=mana_conversion, 12=charge_critical
 
-**Sub Enchantment Types:** 1=physical_resist, 2=attack_rating, 3=defense_rating, 4=hp_recovery, 5=sp_recovery, 6=mp_recovery, 7=magic_resist, 8=physical_absorption, 9=magic_absorption, 10=critical_damage, 11=exp_bonus, 12=gold_bonus
+**Sub enchantment types (`sub_type`):** 1=physical_resist, 2=attack_rating, 3=defense_rating, 4=hp_recovery, 5=sp_recovery, 6=mp_recovery, 7=magic_resist, 8=physical_absorption, 9=magic_absorption, 10=critical_damage, 11=exp_bonus, 12=gold_bonus
 
-**Notes:**
-- Only non-empty attributes are serialized; items with default attributes have no `attribute` key
-- Display names include "+N" suffix for upgraded items (e.g., "Iron Sword +3")
+*Source: `item_attribute::to_json()` in `src/item/item_attribute.cpp`*
 
 ---
 
-## Item Pickup Messages
+### Inventory Item Object
 
-### `player_pickup_request`
+Used in `game_state_msg`, `inventory_slot_update`, and anywhere a full inventory slot is described.
 
-Request to pick up an item from the ground.
+```json
+{
+  "slot": 3,
+  "item_id": 1234,
+  "name": "Iron Sword +3",
+  "count": 1,
+  "durability": 80,
+  "max_durability": 100,
+  "item_type": 1,
+  "equip_pos": 1,
+  "sprite": 42,
+  "sprite_frame": 0,
+  "color": 0,
+  "weight": 25,
+  "level_limit": 20,
+  "pos_x": 150,
+  "pos_y": 200,
+  "equipped_slot": 1,
+  "attribute": {"upgrade": 3, "main_type": 7, "main_value": 1}
+}
+```
 
-**Request:**
+| Field | Type | Always | Description |
+|-------|------|--------|-------------|
+| `slot` | uint8 | Yes | Inventory slot index (0-49) |
+| `item_id` | uint32 | Yes | Unique item instance ID |
+| `name` | string | Yes | Display name (includes "+N" for upgraded items) |
+| `count` | int16 | Yes | Stack count |
+| `durability` | int16 | Yes | Current durability |
+| `max_durability` | int16 | Yes | Maximum durability |
+| `item_type` | uint8 | Yes | Item type enum (0=sword, 1=mace, 2=axe, etc.) |
+| `equip_pos` | uint8 | Yes | Where it can be equipped (0=none, 1=head, 2=body, etc.) |
+| `sprite` | int16 | Yes | Ground sprite category for rendering |
+| `sprite_frame` | int16 | Yes | Frame within sprite category |
+| `color` | int8 | Yes | Color tint index (0=none) |
+| `weight` | int16 | Yes | Item weight |
+| `level_limit` | int16 | Yes | Minimum level to equip |
+| `pos_x` | int16 | Yes | Client-side pixel X position for inventory UI layout |
+| `pos_y` | int16 | Yes | Client-side pixel Y position for inventory UI layout |
+| `equipped_slot` | uint8 | **Optional** | If present, item is equipped in this slot. Absent = not equipped. |
+| `attribute` | object | **Optional** | Item attributes (see above). Absent = no attributes. |
+
+**Equipment is unified with inventory.** There is no separate equipment container. Equipped items are normal inventory items with `equipped_slot` set.
+
+*Source: `inventory_item_msg::to_json()` in `src/network/json_protocol.cpp:1218`*
+
+---
+
+### Ground Item Object
+
+Used in `ground_item_spawn` broadcasts.
+
+```json
+{
+  "item_id": 456,
+  "template_id": 12,
+  "item_name": "Short Sword +3",
+  "count": 1,
+  "x": 100,
+  "y": 150,
+  "ground_sprite": 1,
+  "ground_sprite_frame": 0,
+  "item_color": 0,
+  "reason": "drop",
+  "attribute": {"upgrade": 3}
+}
+```
+
+| Field | Type | Always | Description |
+|-------|------|--------|-------------|
+| `item_id` | uint32 | Yes | Unique item instance ID |
+| `template_id` | uint32 | Yes | Item template ID (for client sprite lookup) |
+| `item_name` | string | Yes | Display name (includes "+N" for upgraded items) |
+| `count` | int16 | Yes | Stack count |
+| `x` | int16 | Yes | Map tile X coordinate |
+| `y` | int16 | Yes | Map tile Y coordinate |
+| `ground_sprite` | int16 | Yes | Ground sprite category (1=swords, 6=misc, etc.) |
+| `ground_sprite_frame` | int16 | Yes | Frame within sprite category |
+| `item_color` | int8 | Yes | Color tint index (0=none) |
+| `reason` | string | Yes | `"drop"` = new drop (play SFX), `"existing"` = already on ground (silent) |
+| `attribute` | object | **Optional** | Item attributes. Absent = no attributes. |
+
+*Source: `ground_item_spawn_data::to_json()` in `src/network/json_protocol.cpp:2167`*
+
+---
+
+## Enter Game — Initial Inventory
+
+When a player enters the game, the `enter_game_response` contains a `game_state_msg` with all inventory items (including equipped items).
+
+**Inventory section of `game_state_msg`:**
+```json
+{
+  "inventory": {
+    "items": [
+      { "slot": 0, "item_id": 100, "name": "Iron Sword +1", "equipped_slot": 1, ... },
+      { "slot": 1, "item_id": 101, "name": "Leather Armor", "equipped_slot": 3, ... },
+      { "slot": 5, "item_id": 102, "name": "RedPotion", "count": 10, ... }
+    ],
+    "gold": 5000
+  }
+}
+```
+
+- Each item is a full [Inventory Item Object](#inventory-item-object)
+- Equipped items have `equipped_slot` set; unequipped items do not
+- **No separate `equipment` array** — all items are in `inventory.items`
+- Bank items are NOT included (sent separately via `player_interact_response` when opening bank)
+
+*Source: `game_state_msg::to_json()` in `src/network/json_protocol.cpp:1475`*
+*Source: auth_handlers.cpp enter_game handler*
+
+---
+
+## Item Pickup
+
+### Request: `player_pickup_request`
+
 ```json
 {
   "type": "player_pickup_request",
@@ -60,50 +209,82 @@ Request to pick up an item from the ground.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `x` | int16 | Yes | Current position X (for validation) |
-| `y` | int16 | Yes | Current position Y (for validation) |
+| `x` | int16 | Yes | Player's current X position (for validation) |
+| `y` | int16 | Yes | Player's current Y position (for validation) |
 | `item_id` | uint32 | Yes | Ground item ID to pick up |
 | `timestamp` | uint64 | No | Client timestamp in milliseconds |
 
-**Notes:**
-- Player must be standing on or near the tile with the item
-- Item is only picked up if inventory has space
+### On Success — Messages sent to the **picker** (in order):
 
----
-
-### `player_pickup_response`
-
-Server confirms or rejects the pickup attempt.
-
-**Success Response:**
+**1. `player_pickup_response`** (direct, echoes seq)
 ```json
 {
   "type": "player_pickup_response",
   "seq": 200,
   "data": {
-    "success": true,
-    "result": {
-      "success": true,
-      "item_id": 456,
-      "item_name": "Gold Coin",
-      "quantity": 10,
-      "inventory_slot": 5,
-      "attribute": {"upgrade": 3, "main_type": 7, "main_value": 1}
-    }
+    "success": true
+  }
+}
+```
+Bare success — no item data in this message. The `result` field is always null/absent.
+
+**2. `inventory_slot_update`** (direct, seq=0)
+```json
+{
+  "type": "inventory_slot_update",
+  "seq": 0,
+  "data": {
+    "slot": 5,
+    "item": { /* full inventory_item_msg */ }
+  }
+}
+```
+Contains the full [Inventory Item Object](#inventory-item-object) with all template-derived fields populated.
+
+### On Success — Broadcasts to **nearby players** (in order):
+
+**3. `player_action_broadcast`** (broadcast, seq=0)
+```json
+{
+  "type": "player_action_broadcast",
+  "seq": 0,
+  "data": {
+    "entity_id": 1001,
+    "action": "pickup",
+    "direction": 0
   }
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | bool | Whether pickup succeeded |
-| `item_id` | uint32 | ID of item picked up |
-| `item_name` | string | Display name of item (includes "+N" for upgraded items) |
-| `quantity` | int16 | Stack count of item |
-| `inventory_slot` | uint8 | Slot where item was placed |
-| `attribute` | object? | Item attributes (see Item Attribute Object above) |
+**4. `ground_item_removed`** (broadcast, seq=0)
+```json
+{
+  "type": "ground_item_removed",
+  "seq": 0,
+  "data": {
+    "picker_id": 1001,
+    "picker_name": "Warrior1",
+    "item_id": 456,
+    "item_name": "Iron Sword +1",
+    "x": 100,
+    "y": 150
+  }
+}
+```
 
-**Failure Response:**
+**5. `ground_item_spawn`** (broadcast, seq=0, **CONDITIONAL**)
+
+Only sent if another item remains stacked on the same tile after the picked-up item is removed:
+```json
+{
+  "type": "ground_item_spawn",
+  "seq": 0,
+  "data": { /* ground_item_spawn_data with reason: "existing" */ }
+}
+```
+
+### On Failure — Single message to picker:
+
 ```json
 {
   "type": "player_pickup_response",
@@ -115,104 +296,286 @@ Server confirms or rejects the pickup attempt.
 }
 ```
 
-**Possible Errors:**
-
 | Error Code | Description |
 |------------|-------------|
+| `inventory_full` | No space in inventory |
 | `item_not_found` | No items on ground at position |
-| `inventory_full` | Cannot carry more items |
+| `dead` | Player is dead |
 | `invalid_player` | Player not found |
 | `internal_error` | Required subsystems unavailable |
 
+*Source: `handle_player_pickup()` in `src/bridge/handlers/game_handlers_shop.cpp:25-230`*
+
 ---
 
-### `ground_item_spawn`
+## Item Drop
 
-Broadcast to nearby players when an item appears on the ground (NPC loot drop, or sent on enter game / teleport for existing ground items).
+### Request: `player_drop_item_request`
 
-**Server Broadcast:**
+```json
+{
+  "type": "player_drop_item_request",
+  "seq": 500,
+  "data": {
+    "slot": 3
+  }
+}
+```
+
+### On Success — Messages sent to the **dropper** (in order):
+
+**1. `player_drop_item_response`** (direct, echoes seq)
+```json
+{
+  "type": "player_drop_item_response",
+  "seq": 500,
+  "data": {
+    "success": true
+  }
+}
+```
+
+**2. `inventory_slot_update`** (direct, seq=0) — slot cleared
+```json
+{
+  "type": "inventory_slot_update",
+  "seq": 0,
+  "data": {
+    "slot": 3,
+    "item": null
+  }
+}
+```
+
+### On Success — Broadcast to **nearby players**:
+
+**3. `ground_item_spawn`** (broadcast, seq=0)
 ```json
 {
   "type": "ground_item_spawn",
   "seq": 0,
   "data": {
-    "item_id": 456,
+    "item_id": 789,
     "template_id": 12,
-    "item_name": "Short Sword +3",
+    "item_name": "Iron Sword +1",
     "count": 1,
     "x": 100,
     "y": 150,
+    "ground_sprite": 1,
+    "ground_sprite_frame": 0,
+    "item_color": 0,
     "reason": "drop",
-    "attribute": {"upgrade": 3, "sub_type": 1, "sub_value": 5}
+    "attribute": {"upgrade": 1}
   }
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `item_id` | uint32 | Unique item instance ID |
-| `template_id` | uint32 | Item template ID (for sprite lookup) |
-| `item_name` | string | Display name of item (includes "+N" for upgraded items) |
-| `count` | int16 | Stack count |
-| `x` | int16 | X coordinate on map |
-| `y` | int16 | Y coordinate on map |
-| `reason` | string | Why the item appeared: `"drop"` (live loot drop, play SFX) or `"existing"` (already on ground, silent). Defaults to `"existing"`. |
-| `attribute` | object? | Item attributes (see Item Attribute Object above) |
+### On Failure:
 
-**Notes:**
-- Only the **top item per tile** is sent (FILO stacking — items underneath are hidden)
-- Sent to all players within visibility radius when an NPC drops loot (`reason: "drop"`)
-- Also sent individually to players on enter game and teleport for pre-existing ground items (`reason: "existing"`)
-- After a pickup, if another item remains on the same tile, the server sends a `ground_item_spawn` with `reason: "existing"` to reveal the next item
-- Items despawn automatically after 3 minutes (server sends `ground_item_removed` with `picker_id: 0`)
-
----
-
-### `ground_item_removed`
-
-Broadcast to nearby players when an item is removed from the ground (picked up or despawned).
-
-**Server Broadcast:**
 ```json
 {
-  "type": "ground_item_removed",
-  "seq": 0,
+  "type": "player_drop_item_response",
+  "seq": 500,
   "data": {
-    "picker_id": 1001,
-    "picker_name": "Warrior1",
-    "item_id": 456,
-    "item_name": "Gold Coin",
-    "x": 100,
-    "y": 150
+    "success": false,
+    "error": "empty_slot"
   }
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `picker_id` | uint32 | Player ID who picked up the item |
-| `picker_name` | string | Display name of picker |
-| `item_id` | uint32 | ID of item that was removed |
-| `item_name` | string | Display name of item |
-| `x` | int16 | X coordinate where item was |
-| `y` | int16 | Y coordinate where item was |
+| Error Code | Description |
+|------------|-------------|
+| `dead` | Player is dead |
+| `empty_slot` | Inventory slot is empty |
+| `no_inventory` | No inventory found |
+| `invalid_player` | Player not found |
+| `internal_error` | Required subsystems unavailable |
 
-**Notes:**
-- Sent to all players within visibility radius, **including the picker**
-- When `picker_id` is non-zero: a player picked up the item (the picker also receives `player_pickup_response`)
-- When `picker_id` is 0: the item despawned (3-minute ground lifetime expired)
-- Clients should remove the item from their ground item cache
-- If another item was stacked underneath, the server follows with a `ground_item_spawn` (`reason: "existing"`) for the revealed item
+*Source: `handle_player_drop_item()` in `src/bridge/handlers/game_handlers_shop.cpp:1386-1523`*
 
 ---
 
-## Item Usage Messages
+## Equip Item
 
-### `player_use_item_request`
+### Request: `player_equip_request`
 
-Use a consumable item from inventory (potions, food, recall scrolls).
+```json
+{
+  "type": "player_equip_request",
+  "seq": 100,
+  "data": {
+    "inventory_slot": 5,
+    "equip_slot": 1
+  }
+}
+```
 
-**Direction:** Client → Server
+### On Success — Messages sent to the **player** (in order):
+
+**1. `player_equip_response`** (direct, echoes seq)
+```json
+{
+  "type": "player_equip_response",
+  "seq": 100,
+  "data": {
+    "success": true,
+    "slot": 1,
+    "item_id": 1234,
+    "item_name": "Iron Sword +3",
+    "durability": 80,
+    "max_durability": 100,
+    "attribute": {"upgrade": 3, "main_type": 7, "main_value": 1},
+    "swapped_item_id": 999,
+    "swapped_to_inv_slot": 5,
+    "unequipped_shield_id": 888,
+    "shield_to_inv_slot": 7
+  }
+}
+```
+
+| Field | Type | Condition | Description |
+|-------|------|-----------|-------------|
+| `success` | bool | Always | Whether equip succeeded |
+| `slot` | uint8 | Always | Target equipment slot |
+| `item_id` | uint32 | Success | Item instance ID |
+| `item_name` | string | Success | Display name |
+| `durability` | int16 | Success | Current durability |
+| `max_durability` | int16 | Success | Max durability |
+| `attribute` | object | Success, if non-empty | Item attributes |
+| `swapped_item_id` | uint32 | If slot was occupied | Old item that was unequipped |
+| `swapped_to_inv_slot` | uint8 | With `swapped_item_id` | Inventory slot of old item |
+| `unequipped_shield_id` | uint32 | If 2H weapon unequipped shield | Shield that was auto-unequipped |
+| `shield_to_inv_slot` | uint8 | With `unequipped_shield_id` | Inventory slot of shield |
+
+**2. `stat_update`** (direct, seq=0) — see [Stat Update](#stat-update)
+
+### On Success — Broadcast to **nearby players**:
+
+**3. `equipment_change_broadcast`** (broadcast, seq=0)
+```json
+{
+  "type": "equipment_change_broadcast",
+  "seq": 0,
+  "data": {
+    "entity_id": 1001,
+    "slot": 1,
+    "item_id": 1234,
+    "template_id": 100
+  }
+}
+```
+
+### On Failure:
+
+```json
+{
+  "type": "player_equip_response",
+  "seq": 100,
+  "data": {
+    "success": false,
+    "slot": 1,
+    "error": "requirements_not_met"
+  }
+}
+```
+
+| Error Code | Description |
+|------------|-------------|
+| `player_dead` | Player is dead |
+| `player_busy` | Player is in a trade |
+| `invalid_slot` | Slot is empty or item can't go in target slot |
+| `not_equippable` | Item has `equip_position == none` |
+| `item_broken` | Item durability is 0 |
+| `requirements_not_met` | Level/stat requirements not met |
+| `two_handed_weapon_equipped` | Trying to equip shield while 2H weapon is in weapon slot |
+| `item_not_found` | Item instance not found |
+
+**No `inventory_slot_update` is sent.** Items stay in their inventory slots — the client infers state from the response fields.
+
+*Source: `handle_player_equip()` in `src/bridge/handlers/game_handlers_equipment.cpp`*
+
+---
+
+## Unequip Item
+
+### Request: `player_unequip_request`
+
+```json
+{
+  "type": "player_unequip_request",
+  "seq": 100,
+  "data": {
+    "equip_slot": 1
+  }
+}
+```
+
+### On Success — Messages sent to the **player** (in order):
+
+**1. `player_unequip_response`** (direct, echoes seq)
+```json
+{
+  "type": "player_unequip_response",
+  "seq": 100,
+  "data": {
+    "success": true,
+    "slot": 1,
+    "item_id": 1234,
+    "item_name": "Iron Sword +3",
+    "inventory_slot": 5,
+    "attribute": {"upgrade": 3}
+  }
+}
+```
+
+| Field | Type | Condition | Description |
+|-------|------|-----------|-------------|
+| `success` | bool | Always | Whether unequip succeeded |
+| `slot` | uint8 | Always | Equipment slot that was cleared |
+| `item_id` | uint32 | Success | Item instance ID |
+| `item_name` | string | Success | Display name |
+| `inventory_slot` | uint8 | Success | Inventory slot where item already resides |
+| `attribute` | object | Success, if non-empty | Item attributes |
+
+**2. `stat_update`** (direct, seq=0) — see [Stat Update](#stat-update)
+
+### On Success — Broadcast to **nearby players**:
+
+**3. `equipment_change_broadcast`** (broadcast, seq=0)
+```json
+{
+  "type": "equipment_change_broadcast",
+  "seq": 0,
+  "data": {
+    "entity_id": 1001,
+    "slot": 1,
+    "item_id": 0,
+    "template_id": 0
+  }
+}
+```
+`item_id: 0` and `template_id: 0` indicate the slot is now empty.
+
+### On Failure:
+
+| Error Code | Description |
+|------------|-------------|
+| `player_dead` | Player is dead |
+| `player_busy` | Player is in a trade |
+| `invalid_slot` | Equipment slot number out of range |
+| `slot_empty` | Nothing equipped in that slot |
+
+**Unequip can never fail with "inventory full"** — the item is already in its inventory slot and just has its `equipped_slot` flag cleared.
+
+**No `inventory_slot_update` is sent.**
+
+*Source: `handle_player_unequip()` in `src/bridge/handlers/game_handlers_equipment.cpp`*
+
+---
+
+## Use Item (Consumables)
+
+### Request: `player_use_item_request`
 
 ```json
 {
@@ -224,15 +587,7 @@ Use a consumable item from inventory (potions, food, recall scrolls).
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `slot` | int16 | Inventory slot index (0-49) |
-
-### `player_use_item_response`
-
-Result of using an item.
-
-**Direction:** Server → Client
+### Response: `player_use_item_response`
 
 **Success:**
 ```json
@@ -250,212 +605,295 @@ Result of using an item.
 }
 ```
 
-**Error:**
-```json
-{
-  "type": "player_use_item_response",
-  "seq": 1,
-  "data": {
-    "success": false,
-    "error": "potions_disabled"
-  }
-}
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | bool | Whether the item was used |
-| `item_name` | string | Name of the item used (success only) |
-| `effect` | string | Effect type: `"hp"`, `"mp"`, `"sp"`, `"hunger"`, `"none"` |
-| `amount` | int32 | Amount restored |
-| `current` | int32 | Current value after restoration |
-| `max` | int32 | Maximum value |
-| `error` | string | Error code (failure only) |
+| Field | Type | Condition | Description |
+|-------|------|-----------|-------------|
+| `success` | bool | Always | Whether the item was used |
+| `item_name` | string | Success | Display name of consumed item |
+| `effect` | string | Success | `"hp"`, `"mp"`, `"sp"`, `"hunger"`, `"none"` |
+| `amount` | int32 | Success | Amount restored (dice roll result) |
+| `current` | int32 | Success | Current value after restoration |
+| `max` | int32 | Success | Maximum value |
+| `error` | string | Failure | Error code |
 
 **Effect types:**
 - `"hp"` — HP potion restored health
 - `"mp"` — MP potion restored mana
 - `"sp"` — SP potion restored stamina (also cures poison)
-- `"hunger"` — Food restored hunger
-- `"none"` — Item consumed but no effect (speed hack detected)
+- `"hunger"` — Food item restored hunger level (0-100 scale)
+- `"none"` — Item consumed but no effect applied (potion speed hack detected)
 
 **Error codes:**
-- `"dead"` — Player is dead
-- `"empty_slot"` — Slot is empty
-- `"not_consumable"` — Item is not a consumable
-- `"unsupported_item_type"` — Consumable type not yet implemented
-- `"potions_disabled"` — Map does not allow potions
-- `"recall_impossible"` — Map does not allow recall scrolls
 
-**Notes:**
-- Recall scrolls do not send a `player_use_item_response`; they trigger `player_teleport` instead
-- Potion speed anti-cheat: rapid potion use (avg interval < 180ms) consumes the item but applies no effect
-- SP potions also cure the poison status effect (legacy behavior)
-- Item stack count decrements by 1; when count reaches 0, slot is cleared
+| Error Code | Item Consumed? | Description |
+|------------|:--------------:|-------------|
+| `dead` | No | Player is dead |
+| `empty_slot` | No | Inventory slot is empty |
+| `not_consumable` | No | Item is not a consumable type |
+| `unsupported_item_type` | No | Consumable effect type not implemented |
+| `potions_disabled` | **Yes** | Map has potions disabled flag |
+| `recall_impossible` | **Yes** | Map has recall disabled flag |
+
+**No `inventory_slot_update` is sent.** The client must decrement the stack count locally on success, or clear the slot if count was 1.
+
+**No `stat_update` is sent.** The response `current`/`max` fields provide the new vital values.
+
+**Recall scrolls** do not send `player_use_item_response` at all — they trigger `player_teleport` instead.
+
+*Source: `handle_player_use_item()` in `src/bridge/handlers/game_handlers_equipment.cpp:364-595`*
 
 ---
 
-## Item Upgrade Messages
+## Shop Buy
 
-### `item_upgrade_request`
-
-Upgrade an item using a Stone of Xelima (weapons) or Stone of Merien (armor).
-
-**Direction:** Client → Server
+### Request: `shop_buy_request`
 
 ```json
 {
-  "type": "item_upgrade_request",
-  "seq": 300,
+  "type": "shop_buy_request",
+  "seq": 600,
   "data": {
-    "item_slot": 5
+    "npc_entity_id": 5001,
+    "item_template_id": 100,
+    "count": 1
   }
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `item_slot` | int16 | Inventory slot of item to upgrade |
-
-**Notes:**
-- Player must have a matching upgrade stone in inventory (Xelima for weapons, Merien for armor)
-- Stone is consumed on both success and failure
-
----
-
-### `item_upgrade_response`
-
-Result of an upgrade attempt.
-
-**Direction:** Server → Client
+### Response: `shop_buy_response`
 
 **Success:**
 ```json
 {
-  "type": "item_upgrade_response",
-  "seq": 300,
+  "type": "shop_buy_response",
+  "seq": 600,
   "data": {
     "success": true,
-    "item_slot": 5,
-    "new_level": 4
+    "item_name": "Iron Sword",
+    "count": 1,
+    "price_paid": 500,
+    "gold_remaining": 4500
   }
 }
 ```
 
-**Failure:**
+| Field | Type | Condition | Description |
+|-------|------|-----------|-------------|
+| `success` | bool | Always | |
+| `item_name` | string | Success | Name of purchased item |
+| `count` | int16 | Success | Quantity purchased |
+| `price_paid` | int32 | Success | Total gold spent |
+| `gold_remaining` | int64 | Success | Player's gold after purchase |
+| `error` | string | Failure | Error code |
+
+**Error codes:** `not_a_shop`, `hostile_territory`, `item_not_in_shop`, `item_not_found`, `insufficient_gold`, `inventory_full`, `create_failed`, `add_failed`
+
+**No `inventory_slot_update` is sent.** Gold change is communicated only via `gold_remaining` in the response.
+
+*Source: `handle_shop_buy()` in `src/bridge/handlers/game_handlers_shop.cpp:465-601`*
+
+---
+
+## Shop Sell
+
+Two-step flow: quote, then confirm.
+
+### Step 1: Quote — `shop_sell_request` / `shop_sell_response`
+
+**Request:**
 ```json
 {
-  "type": "item_upgrade_response",
-  "seq": 300,
+  "type": "shop_sell_request",
+  "seq": 700,
   "data": {
-    "success": false,
-    "item_slot": 5,
-    "new_level": 3,
-    "error": "upgrade_failed"
+    "npc_entity_id": 5001,
+    "inventory_slot": 3
   }
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | bool | Whether upgrade succeeded |
-| `item_slot` | int16 | Inventory slot of item |
-| `new_level` | uint8 | Current upgrade level after attempt |
-| `error` | string? | Error code on failure |
-
-**Error codes:** `no_stone`, `not_equipment`, `max_level`, `wrong_stone_type`, `upgrade_failed`
-
-**Upgrade probability:** Decreases as level increases. Level 0→1 has ~30% chance, level 10+ has ~1% chance. Custom-made items with high quality get a small bonus.
-
----
-
-## Special Ability Messages
-
-### `activate_ability_request`
-
-Activate the special ability granted by an equipped weapon.
-
-**Direction:** Client → Server
-
+**Response:**
 ```json
 {
-  "type": "activate_ability_request",
-  "seq": 400,
-  "data": {}
-}
-```
-
----
-
-### `activate_ability_response`
-
-Result of an activation attempt.
-
-**Direction:** Server → Client
-
-```json
-{
-  "type": "activate_ability_response",
-  "seq": 400,
+  "type": "shop_sell_response",
+  "seq": 700,
   "data": {
     "success": true,
-    "ability_type": 1,
-    "cooldown_sec": 1200
+    "item_name": "Iron Sword",
+    "offered_price": 250,
+    "durability": 80
+  }
+}
+```
+
+No state changes — this is just a price quote.
+
+### Step 2: Confirm — `shop_sell_confirm_request` / `shop_sell_confirm_response`
+
+**Request:**
+```json
+{
+  "type": "shop_sell_confirm_request",
+  "seq": 701,
+  "data": {
+    "npc_entity_id": 5001,
+    "inventory_slot": 3
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "type": "shop_sell_confirm_response",
+  "seq": 701,
+  "data": {
+    "success": true,
+    "gold_received": 250,
+    "gold_total": 5250
   }
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `success` | bool | Whether activation succeeded |
-| `ability_type` | uint8 | Ability type (see special ability types) |
-| `cooldown_sec` | int32 | Cooldown duration in seconds (1200 = 20 minutes) |
-| `error` | string? | Error code on failure |
+| `gold_received` | int32 | Amount of gold gained |
+| `gold_total` | int64 | Player's gold after sale |
 
-**Error codes:** `no_ability`, `on_cooldown`, `already_active`, `not_ready`
+On confirm success: item is destroyed, gold is added. **No `inventory_slot_update` is sent.**
+
+**Error codes (both steps):** `not_a_shop`, `empty_slot`, `item_not_found`, `category_rejected`, `worthless`
+
+*Source: `handle_shop_sell()` / `handle_shop_sell_confirm()` in `src/bridge/handlers/game_handlers_shop.cpp:603-807`*
 
 ---
 
-### `special_ability_status`
+## Shop Repair
 
-Server push notification when special ability state changes.
+Two-step flow: quote, then confirm.
 
-**Direction:** Server → Client
+### Step 1: Quote — `shop_repair_request` / `shop_repair_response`
+
+**Response:**
+```json
+{
+  "type": "shop_repair_response",
+  "seq": 800,
+  "data": {
+    "success": true,
+    "item_name": "Iron Sword +3",
+    "repair_cost": 150,
+    "durability": 45
+  }
+}
+```
+
+**Error codes:** `not_repairable`, `cant_repair_type`, `already_repaired`, `not_a_shop`, `empty_slot`
+
+### Step 2: Confirm — `shop_repair_confirm_request` / `shop_repair_confirm_response`
+
+**Response:**
+```json
+{
+  "type": "shop_repair_confirm_response",
+  "seq": 801,
+  "data": {
+    "success": true,
+    "new_durability": 100,
+    "gold_spent": 150,
+    "gold_remaining": 4850
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `new_durability` | int16 | Durability after repair (= max_durability) |
+| `gold_spent` | int32 | Gold spent on repair |
+| `gold_remaining` | int64 | Player's gold after repair |
+
+On confirm success: item durability set to max, gold deducted. **No `inventory_slot_update` is sent.**
+
+**Error codes:** `already_repaired`, `insufficient_gold`
+
+*Source: `handle_shop_repair()` / `handle_shop_repair_confirm()` in `src/bridge/handlers/game_handlers_shop.cpp:809-980`*
+
+---
+
+## Bank Deposit
+
+### Request: `bank_deposit_request`
 
 ```json
 {
-  "type": "special_ability_status",
-  "seq": 0,
+  "type": "bank_deposit_request",
+  "seq": 900,
   "data": {
-    "status": "ready",
-    "ability_type": 1,
-    "cooldown_remaining_sec": 0
+    "npc_entity_id": 5001,
+    "inventory_slot": 3
   }
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `status` | string | `"disabled"`, `"ready"`, `"active"`, `"cooldown"` |
-| `ability_type` | uint8 | Ability type (0 when disabled) |
-| `cooldown_remaining_sec` | int32 | Remaining cooldown time |
+### Response: `bank_deposit_response`
 
-**Special Ability Types:** 1=hp_halve, 2=poison, 3=paralyze, 4=warrior_boost, 5=life_drain
+```json
+{
+  "type": "bank_deposit_response",
+  "seq": 900,
+  "data": {
+    "success": true,
+    "item_name": "Iron Sword +1"
+  }
+}
+```
 
-**Notes:**
-- Sent when equipping/unequipping SPECABLTY items, on activation, and when cooldown expires
-- Attack abilities (1-5) are consumed on the next successful melee hit, then enter 20-minute cooldown
-- Defense abilities (50+) remain active for their duration
+On success: item moves from inventory to bank. **No `inventory_slot_update` is sent.**
+
+**Error codes:** `not_a_bank`, `empty_slot`, `deposit_failed`, `too_far`, `npc_dead`, `npc_hostile`
+
+*Source: `handle_bank_deposit()` in `src/bridge/handlers/game_handlers_shop.cpp:982-1058`*
 
 ---
 
-## Inventory Management Messages
+## Bank Withdraw
 
-### `inventory_reposition_request`
+### Request: `bank_withdraw_request`
 
-Move an item between inventory slots with free-form pixel positioning. No server response is sent.
+```json
+{
+  "type": "bank_withdraw_request",
+  "seq": 910,
+  "data": {
+    "npc_entity_id": 5001,
+    "bank_slot": 3
+  }
+}
+```
 
-**Direction:** Client → Server (fire-and-forget)
+### Response: `bank_withdraw_response`
+
+```json
+{
+  "type": "bank_withdraw_response",
+  "seq": 910,
+  "data": {
+    "success": true,
+    "item_name": "Iron Sword +1"
+  }
+}
+```
+
+On success: item moves from bank to inventory. **No `inventory_slot_update` is sent.** Fails if inventory is full.
+
+**Error codes:** `not_a_bank`, `empty_slot`, `no_bank`, `withdraw_failed`, `inventory_full`
+
+*Source: `handle_bank_withdraw()` in `src/bridge/handlers/game_handlers_shop.cpp:1060-1141`*
+
+---
+
+## Inventory Reposition
+
+### Request: `inventory_reposition_request` (fire-and-forget)
 
 ```json
 {
@@ -470,83 +908,336 @@ Move an item between inventory slots with free-form pixel positioning. No server
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `from_slot` | int16 | Yes | Source inventory slot |
-| `to_slot` | int16 | Yes | Destination inventory slot |
-| `pos_x` | int16 | No | Pixel X position for client layout (default 0) |
-| `pos_y` | int16 | No | Pixel Y position for client layout (default 0) |
+| Field | Type | Description |
+|-------|------|-------------|
+| `from_slot` | int16 | Source inventory slot |
+| `to_slot` | int16 | Destination inventory slot |
+| `pos_x` | int16 | Pixel X position for client UI layout |
+| `pos_y` | int16 | Pixel Y position for client UI layout |
 
-**Notes:**
-- If the destination slot is occupied, the items swap positions
-- `pos_x`/`pos_y` are free-form pixel coordinates persisted with the slot for client layout
-- No response message is sent — the client applies the change optimistically
+**No response is sent.** The client applies the change optimistically. If the destination slot is occupied, items are swapped. Invalid requests are silently ignored.
+
+*Source: `handle_inventory_reposition()` in `src/bridge/handlers/game_handlers_shop.cpp:1344-1382`*
 
 ---
 
-### `player_drop_item_request`
+## Item Upgrade
 
-Drop an item from inventory onto the ground at the player's current position.
-
-**Direction:** Client → Server
+### Request: `item_upgrade_request`
 
 ```json
 {
-  "type": "player_drop_item_request",
-  "seq": 500,
+  "type": "item_upgrade_request",
+  "seq": 300,
   "data": {
-    "slot": 3
+    "item_slot": 5
   }
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `slot` | int16 | Yes | Inventory slot index to drop from |
-
----
-
-### `player_drop_item_response`
-
-Result of a drop item attempt.
-
-**Direction:** Server → Client
+### Response: `item_upgrade_response`
 
 **Success:**
 ```json
 {
-  "type": "player_drop_item_response",
-  "seq": 500,
+  "type": "item_upgrade_response",
+  "seq": 300,
   "data": {
-    "success": true
+    "success": true,
+    "item_slot": 5,
+    "new_level": 4
   }
 }
 ```
 
-**Failure:**
+**Failure (roll failed):**
 ```json
 {
-  "type": "player_drop_item_response",
-  "seq": 500,
+  "type": "item_upgrade_response",
+  "seq": 300,
   "data": {
     "success": false,
-    "error": "empty_slot"
+    "item_slot": 5,
+    "new_level": 3
   }
 }
 ```
 
-**Error codes:** `dead`, `empty_slot`, `no_inventory`, `invalid_player`, `internal_error`
+| Field | Type | Always | Description |
+|-------|------|--------|-------------|
+| `success` | bool | Yes | Whether upgrade succeeded |
+| `item_slot` | int16 | Yes | Inventory slot |
+| `new_level` | uint8 | Yes | Upgrade level after attempt |
+| `error` | string | Only validation errors | Error code |
 
-**Notes:**
-- On success, the server also sends `inventory_slot_update` (slot cleared) and broadcasts `ground_item_spawn` with `reason: "drop"` to visible players
+**Error codes:** `dead`, `empty_slot`, `invalid_item`, `not_equipment`, `max_level`, `no_stone`
+
+**Mechanics:**
+- Xelima stone upgrades weapons; Merien stone upgrades armor/accessories
+- Stone is **always consumed** (success and failure)
+- Item is **never destroyed** on failure
+- Max upgrade level: 15
+- On success: `stat_update` sent (equipment modifiers recalculated)
+- **No `inventory_slot_update` is sent** (stone is silently consumed)
+
+*Source: `handle_item_upgrade()` in `src/bridge/handlers/game_handlers_equipment.cpp:597-728`*
 
 ---
 
-### `inventory_slot_update`
+## Special Ability
 
-Lightweight single-slot change notification. Sent when a slot's contents change (item dropped, consumed, moved).
+### Request: `activate_ability_request`
 
-**Direction:** Server → Client
+```json
+{
+  "type": "activate_ability_request",
+  "seq": 400,
+  "data": {}
+}
+```
+
+### On Success — Messages sent to the **player** (in order):
+
+**1. `activate_ability_response`** (direct, echoes seq)
+```json
+{
+  "type": "activate_ability_response",
+  "seq": 400,
+  "data": {
+    "success": true,
+    "ability_type": 1,
+    "cooldown_sec": 1200
+  }
+}
+```
+
+**2. `special_ability_status`** (direct, seq=0)
+```json
+{
+  "type": "special_ability_status",
+  "seq": 0,
+  "data": {
+    "status": "active",
+    "ability_type": 1,
+    "cooldown_remaining_sec": 0
+  }
+}
+```
+
+| Status | Description |
+|--------|-------------|
+| `"disabled"` | No ability equipped |
+| `"ready"` | Ready to activate |
+| `"active"` | Activated, waiting to be consumed in combat |
+| `"cooldown"` | On cooldown (20 minutes) |
+
+**Error codes:** `dead`, `no_ability`, `on_cooldown`, `already_active`, `not_ready`
+
+**Ability types:** 1=hp_halve, 2=poison, 3=paralyze, 4=warrior_boost, 5=life_drain. Attack abilities are consumed on next successful melee hit, then enter 20-minute cooldown.
+
+*Source: `handle_activate_ability()` in `src/bridge/handlers/game_handlers_equipment.cpp:730-800`*
+
+---
+
+## Manufacturing (Crafting)
+
+### Request: `manufacture_request`
+
+```json
+{
+  "type": "manufacture_request",
+  "seq": 1000,
+  "data": {
+    "recipe_index": 3
+  }
+}
+```
+
+### Response: `manufacture_response`
+
+```json
+{
+  "type": "manufacture_response",
+  "seq": 1000,
+  "data": {
+    "success": true,
+    "item_name": "Iron Sword"
+  }
+}
+```
+
+| Field | Type | Condition | Description |
+|-------|------|-----------|-------------|
+| `success` | bool | Always | Whether crafting succeeded |
+| `item_name` | string | If non-empty | Name of created item (success) or attempted item (some failures) |
+| `error` | string | Failure | Error code |
+
+**Error codes:** `insufficient_skill`, `insufficient_materials`, `inventory_full`
+
+**Material consumption:**
+- `insufficient_skill` / `insufficient_materials` → materials NOT consumed
+- `inventory_full` → materials ARE consumed (crafting succeeded but item can't be placed)
+- Success → materials consumed
+- Roll failure → materials consumed (success=false, no error field)
+
+**No `inventory_slot_update` is sent** for the created item or consumed materials.
+
+*Source: `make_manufacture_response()` in `src/network/json_protocol.cpp:3010`*
+
+---
+
+## Alchemy
+
+### Request: `alchemy_request`
+
+```json
+{
+  "type": "alchemy_request",
+  "seq": 1100,
+  "data": {
+    "recipe_id": 5
+  }
+}
+```
+
+### Response: `alchemy_response`
+
+Same structure as manufacturing:
+```json
+{
+  "type": "alchemy_response",
+  "seq": 1100,
+  "data": {
+    "success": true,
+    "item_name": "Health Elixir"
+  }
+}
+```
+
+Same error codes and material consumption rules as [Manufacturing](#manufacturing-crafting).
+
+*Source: `make_alchemy_response()` in `src/network/json_protocol.cpp:3029`*
+
+---
+
+## NPC Loot Drops
+
+When an NPC dies and drops loot, these messages are sent in order:
+
+### 1. `entity_death` (broadcast)
+
+```json
+{
+  "type": "entity_death",
+  "seq": 0,
+  "data": {
+    "victim_id": 5001,
+    "killer_id": 1001,
+    "x": 100,
+    "y": 150,
+    "damage": 45
+  }
+}
+```
+
+| Field | Type | Always | Description |
+|-------|------|--------|-------------|
+| `victim_id` | uint32 | Yes | NPC's entity ID |
+| `killer_id` | uint32 | Yes | Killer's entity ID |
+| `x` | int16 | Yes | Death location X |
+| `y` | int16 | Yes | Death location Y |
+| `damage` | int32 | Only if > 0 | Killing blow damage |
+
+### 2. Gold award (NO message)
+
+Gold is added directly to the killer's inventory via `add_gold()`. **No message is sent to the player** for gold loot — the client must poll or receive a `stat_update` with `gold` field.
+
+### 3. `ground_item_spawn` (broadcast, one per dropped item)
+
+Each loot item that drops on the ground generates a [Ground Item Object](#ground-item-object) broadcast with `reason: "drop"`.
+
+### 4. Experience award (NO explicit message)
+
+Experience is added internally. If the player levels up, stat recalculation occurs and subsequent `stat_update` messages may include `level` and `experience`.
+
+*Source: `game_handlers_npc.cpp` death callback and `game_handlers_combat.cpp` kill reward logic*
+
+---
+
+## Admin Give/Remove Item
+
+### Admin Give: `admin_give_item_request` / `admin_give_item_response`
+
+**Request:**
+```json
+{
+  "type": "admin_give_item_request",
+  "seq": 2000,
+  "data": {
+    "player_name": "Warrior1",
+    "item_template_id": 100,
+    "count": 1,
+    "attribute": {"upgrade": 5}
+  }
+}
+```
+
+**Response (to admin only):**
+```json
+{
+  "type": "admin_give_item_response",
+  "seq": 2000,
+  "data": {
+    "success": true,
+    "player_name": "Warrior1",
+    "item_name": "Iron Sword +5",
+    "count": 1
+  }
+}
+```
+
+**The target player receives NO notification.** The item is silently added to their inventory. The player must open their inventory or relog to see it.
+
+### Admin Remove: `admin_remove_item_request` / `admin_remove_item_response`
+
+**Request:**
+```json
+{
+  "type": "admin_remove_item_request",
+  "seq": 2001,
+  "data": {
+    "player_name": "Warrior1",
+    "inventory_slot": 5,
+    "count": 0
+  }
+}
+```
+`count: 0` means remove entire stack.
+
+**Response (to admin only):**
+```json
+{
+  "type": "admin_remove_item_response",
+  "seq": 2001,
+  "data": {
+    "success": true,
+    "player_name": "Warrior1",
+    "item_name": "Iron Sword +5"
+  }
+}
+```
+
+**The target player receives NO notification.** The item is silently removed.
+
+*Source: admin_web_handlers.cpp `handle_give_item()` / `handle_remove_item()`*
+
+---
+
+## Inventory Slot Update
+
+Lightweight single-slot change notification. Sent by various handlers when a slot's contents change.
+
+**Type:** `inventory_slot_update`, **Seq:** 0 (always)
 
 **Slot cleared:**
 ```json
@@ -567,23 +1258,187 @@ Lightweight single-slot change notification. Sent when a slot's contents change 
   "seq": 0,
   "data": {
     "slot": 3,
-    "item": {
-      "slot": 3,
-      "item_id": 100,
-      "name": "Health Potion",
-      "count": 5,
-      "durability": 0,
-      "max_durability": 0,
-      "pos_x": 0,
-      "pos_y": 0
-    }
+    "item": { /* full inventory_item_msg */ }
+  }
+}
+```
+
+### Which handlers send `inventory_slot_update`:
+
+| Handler | Sends slot update? | Details |
+|---------|:-:|---------|
+| **Pickup** | Yes | Full item in assigned slot |
+| **Drop** | Yes | Null (slot cleared) |
+| **Equip** | Yes | 1-3 updates: unequipped shield, unequipped old item, newly equipped item |
+| **Unequip** | Yes | Item stays in slot, `equipped_slot` cleared |
+| **Use Item** | Yes | Updated count or null if fully consumed |
+| **Shop Buy** | Yes | Full item in assigned slot + `gold_update` |
+| **Shop Sell** | Yes | Null (slot cleared) + `gold_update` |
+| **Shop Repair** | Yes | Updated durability + `gold_update` |
+| **Bank Deposit** | Yes | Null for inventory slot + `bank_slot_update` for bank slot |
+| **Bank Withdraw** | Yes | `bank_slot_update` null for bank + update for inventory slot |
+| **Crafting** | Yes | Null for consumed material slots + update for result slot |
+| **Item Upgrade** | Yes | Stone slot (decremented/null) + target item (new attribute) |
+| **Admin Give** | Yes | Sent to target player via `get_connection_by_player()` |
+| **Admin Remove** | Yes | Sent to target player via `get_connection_by_player()` |
+| **NPC Gold Loot** | No | Only `gold_update` sent (no item change) |
+
+*Source: `make_inventory_slot_update()` in `src/network/json_protocol.cpp`*
+
+---
+
+## Bank Slot Update
+
+Mirrors `inventory_slot_update` but for the bank container. Sent during bank deposit and withdraw operations.
+
+**Type:** `bank_slot_update`, **Seq:** 0 (always)
+
+**Slot cleared:**
+```json
+{
+  "type": "bank_slot_update",
+  "seq": 0,
+  "data": {
+    "slot": 3,
+    "item": null
+  }
+}
+```
+
+**Slot populated:**
+```json
+{
+  "type": "bank_slot_update",
+  "seq": 0,
+  "data": {
+    "slot": 3,
+    "item": { /* full inventory_item_msg */ }
+  }
+}
+```
+
+| Handler | When |
+|---------|------|
+| **Bank Deposit** | Item placed in bank slot |
+| **Bank Withdraw** | Bank slot cleared |
+
+*Source: `make_bank_slot_update()` in `src/network/json_protocol.cpp`*
+
+---
+
+## Gold Update
+
+Dedicated notification sent whenever gold changes. Provides the new total, delta, and reason.
+
+**Type:** `gold_update`, **Seq:** 0 (always)
+
+```json
+{
+  "type": "gold_update",
+  "seq": 0,
+  "data": {
+    "gold": 5000,
+    "change": -500,
+    "reason": "shop_buy"
   }
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `slot` | int16 | Inventory slot that changed |
-| `item` | object? | Full `inventory_item_msg` data, or `null` if slot was cleared |
+| `gold` | int64 | New gold total after change |
+| `change` | int64 | Amount changed (positive = gained, negative = spent) |
+| `reason` | string | Why gold changed |
+
+**Reason values:**
+
+| Reason | Handler | Direction |
+|--------|---------|-----------|
+| `shop_buy` | Shop Buy | Negative |
+| `shop_sell` | Shop Sell Confirm | Positive |
+| `shop_repair` | Shop Repair Confirm | Negative |
+| `npc_loot` | NPC Kill Loot | Positive |
+| `admin` | Admin Gold Operations | Either |
+| `trade` | Trade Completion | Either |
+
+Existing `gold_remaining`/`gold_total` fields in shop responses are retained for backward compatibility.
+
+*Source: `make_gold_update()` in `src/network/json_protocol.cpp`*
 
 ---
+
+## Stat Update
+
+Sent after equip, unequip, upgrade, and other events that change computed stats.
+
+**Type:** `stat_update`, **Seq:** 0 (always)
+
+```json
+{
+  "type": "stat_update",
+  "seq": 0,
+  "data": {
+    "max_hp": 500,
+    "max_mp": 200,
+    "max_sp": 300,
+    "attack_power": 150,
+    "magic_power": 80,
+    "defense": 120,
+    "magic_defense": 60,
+    "hit_rate": 75,
+    "dodge_rate": 30,
+    "critical_rate": 10,
+    "max_weight": 25000
+  }
+}
+```
+
+**Always-present fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `max_hp` | int32 | Maximum HP |
+| `max_mp` | int32 | Maximum MP |
+| `max_sp` | int32 | Maximum SP |
+| `attack_power` | int32 | Physical attack power |
+| `magic_power` | int32 | Magic attack power |
+| `defense` | int32 | Physical defense |
+| `magic_defense` | int32 | Magic defense |
+| `hit_rate` | int32 | Hit rate |
+| `dodge_rate` | int32 | Dodge rate |
+| `critical_rate` | int32 | Critical hit rate |
+| `max_weight` | int32 | Max carry weight |
+
+**Optional fields** (only present when relevant, e.g., teleport/respawn):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hp` | int32 | Current HP |
+| `mp` | int32 | Current MP |
+| `sp` | int32 | Current SP |
+| `experience` | int64 | Current XP |
+| `gold` | int64 | Current gold |
+| `level` | int16 | Current level |
+| `pk_count` | int32 | Player kill count |
+| `hunger_level` | int32 | Hunger level (0-100) |
+| `contribution` | int32 | War contribution |
+| `enemy_kill_count` | int32 | Enemy kill count |
+
+*Source: `stat_update_data::to_json()` in `src/network/json_protocol.cpp:2821`*
+
+---
+
+## Summary: Client Responsibilities
+
+The server does NOT always send explicit inventory updates. The client is expected to:
+
+1. **On pickup success:** Wait for `inventory_slot_update` to get item data
+2. **On drop success:** Wait for `inventory_slot_update` (null) to confirm slot cleared
+3. **On equip/unequip success:** Apply changes from the response (no slot update sent)
+4. **On use item success:** Decrement stack count locally; clear slot if count was 1
+5. **On shop buy:** Add item to inventory locally; update gold from `gold_remaining`
+6. **On shop sell confirm:** Remove item locally; update gold from `gold_total`
+7. **On shop repair confirm:** Update durability locally; update gold from `gold_remaining`
+8. **On bank deposit/withdraw:** Update both inventory and bank views locally
+9. **On crafting:** Remove materials and add result locally on success
+10. **On upgrade:** Remove stone locally; update item level from `new_level`

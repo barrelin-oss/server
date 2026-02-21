@@ -940,6 +940,30 @@ TEST(inventory_slot_update_test, make_with_item)
     EXPECT_EQ(msg.data["item"]["item_id"], 100);
 }
 
+TEST(bank_slot_update_test, make_with_item)
+{
+    inventory_item_msg item;
+    item.slot = 3;
+    item.item_id = 42;
+    item.name = "Sword";
+    item.count = 1;
+    item.durability = 100;
+    item.max_durability = 100;
+
+    auto msg = make_bank_slot_update(3, &item);
+    EXPECT_EQ(msg.type, json_message_type::bank_slot_update);
+    EXPECT_EQ(msg.data["slot"], 3);
+    EXPECT_EQ(msg.data["item"]["item_id"], 42);
+}
+
+TEST(bank_slot_update_test, null_clears)
+{
+    auto msg = make_bank_slot_update(5, nullptr);
+    EXPECT_EQ(msg.type, json_message_type::bank_slot_update);
+    EXPECT_EQ(msg.data["slot"], 5);
+    EXPECT_TRUE(msg.data["item"].is_null());
+}
+
 TEST(stat_update_test, max_weight_included)
 {
     stat_update_data data;
@@ -948,6 +972,32 @@ TEST(stat_update_test, max_weight_included)
 
     auto j = data.to_json();
     EXPECT_EQ(j["max_weight"], 15000);
+}
+
+TEST(inventory_item_msg_test, equipped_slot_present_when_set)
+{
+    inventory_item_msg item;
+    item.slot = 3;
+    item.item_id = 100;
+    item.name = "Iron Sword";
+    item.count = 1;
+    item.equipped_slot = 5; // weapon
+
+    auto j = item.to_json();
+    EXPECT_TRUE(j.contains("equipped_slot"));
+    EXPECT_EQ(j["equipped_slot"], 5);
+}
+
+TEST(inventory_item_msg_test, equipped_slot_absent_when_not_set)
+{
+    inventory_item_msg item;
+    item.slot = 3;
+    item.item_id = 100;
+    item.name = "HP Potion";
+    item.count = 5;
+
+    auto j = item.to_json();
+    EXPECT_FALSE(j.contains("equipped_slot"));
 }
 
 TEST(equipment_item_msg_test, to_json)
@@ -1042,4 +1092,23 @@ TEST(pickup_result_msg_test, to_json)
     EXPECT_TRUE(j["success"]);
     EXPECT_EQ(j["item_name"], "Gold Coin");
     EXPECT_EQ(j["quantity"], 50);
+}
+
+TEST(json_protocol_test, gold_update_serialization)
+{
+    gold_update_data gdata{.gold = 5000, .change = -500, .reason = "shop_buy"};
+    auto msg = make_gold_update(gdata);
+    EXPECT_EQ(msg.type, json_message_type::gold_update);
+    EXPECT_EQ(msg.data["gold"], 5000);
+    EXPECT_EQ(msg.data["change"], -500);
+    EXPECT_EQ(msg.data["reason"], "shop_buy");
+}
+
+TEST(json_protocol_test, gold_update_positive_change)
+{
+    gold_update_data gdata{.gold = 10000, .change = 3000, .reason = "shop_sell"};
+    auto j = gdata.to_json();
+    EXPECT_EQ(j["gold"], 10000);
+    EXPECT_EQ(j["change"], 3000);
+    EXPECT_EQ(j["reason"], "shop_sell");
 }

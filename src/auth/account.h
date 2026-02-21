@@ -46,6 +46,7 @@ struct item_row
     int8_t custom_quality{0};
     int16_t pos_x{0};
     int16_t pos_y{0};
+    std::optional<int16_t> equip_slot{}; // If set, item is equipped in this slot
 
     [[nodiscard]] auto to_attribute() const -> item::item_attribute
     {

@@ -323,6 +323,17 @@ void application::initialize()
         auth_sys.set_forum_config(server_cfg.forum_auth);
     }
 
+    // Configure inventory system
+    {
+        auto* inv_sys = subsystems().get<inventory::inventory_system>();
+        if (inv_sys)
+        {
+            inventory::inventory_system_config inv_cfg;
+            inv_cfg.default_inventory_size = server_cfg.inventory_slots;
+            inv_sys->set_config(inv_cfg);
+        }
+    }
+
     // NOW initialize subsystems (database will use the configured settings)
     subsystems().initialize_all();
 

@@ -153,7 +153,7 @@ TEST(admin_give_item_attribute_test, parse_with_attribute)
     nlohmann::json j = {{"player_name", "TestPlayer"},
                         {"item_template_id", 100},
                         {"count", 1},
-                        {"attribute", {{"upgrade", 7}, {"mt", 7}, {"mv", 1}, {"st", 2}, {"sv", 5}, {"cm", true}}}};
+                        {"attribute", {{"upgrade", 7}, {"main_type", 7}, {"main_value", 1}, {"sub_type", 2}, {"sub_value", 5}, {"custom_made", true}}}};
 
     auto result = hb::network::admin_give_item_request_data::from_json(j);
     ASSERT_TRUE(result.is_ok());

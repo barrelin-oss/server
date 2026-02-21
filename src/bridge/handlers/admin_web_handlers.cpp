@@ -1460,6 +1460,21 @@ void admin_web_handlers::handle_give_item(connection_id conn_id, const network::
                          msg.seq,
                          true,
                          {{"player_name", req.player_name}, {"item_name", item_name}, {"count", req.count}}));
+
+    // Notify target player with inventory_slot_update
+    if (auto* target_conn = ws_server_->get_connection_by_player(plr->id))
+    {
+        auto* target_inv = inventory_->get_inventory(entity_id(plr->id.value));
+        if (target_inv)
+        {
+            if (auto slot = target_inv->find_item(new_item_id); slot)
+            {
+                auto item_msg = network::build_inventory_item_msg(*slot, new_item_id, item_, item_registry_);
+                if (item_msg)
+                    target_conn->send(network::make_inventory_slot_update(*slot, &*item_msg));
+            }
+        }
+    }
 }
 
 void admin_web_handlers::handle_remove_item(connection_id conn_id, const network::json_message& msg)
@@ -1541,6 +1556,21 @@ void admin_web_handlers::handle_remove_item(connection_id conn_id, const network
                                                   msg.seq,
                                                   true,
                                                   {{"player_name", req.player_name}, {"item_name", item_name}}));
+
+    // Notify target player with inventory_slot_update
+    if (auto* target_conn = ws_server_->get_connection_by_player(plr->id))
+    {
+        if (slot->is_empty())
+        {
+            target_conn->send(network::make_inventory_slot_update(req.inventory_slot, nullptr));
+        }
+        else
+        {
+            auto item_msg = network::build_inventory_item_msg(req.inventory_slot, slot->item, item_, item_registry_);
+            if (item_msg)
+                target_conn->send(network::make_inventory_slot_update(req.inventory_slot, &*item_msg));
+        }
+    }
 }
 
 // === Social ===

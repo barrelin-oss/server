@@ -125,6 +125,9 @@ struct server_config
     // Ground item expiry (seconds before ground items despawn)
     uint32_t ground_item_expiry_seconds = 600; // 10 minutes
 
+    // Max inventory slots per player (legacy: 50)
+    int16_t inventory_slots = 50;
+
     // Enable legacy protocol (for backwards compatibility)
     bool enable_legacy_protocol = false;
     uint16_t legacy_port = 2849;

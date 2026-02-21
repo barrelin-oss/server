@@ -65,13 +65,14 @@ inline constexpr size_t equip_slot_count = static_cast<size_t>(equip_slot::count
     }
 }
 
-// Equipped item reference
+// Equipped item reference (cache — populated from inventory)
 struct equipped_item
 {
     item_id id{};
     item_id template_id{};
     uint16_t durability{0};
     uint16_t max_durability{0};
+    int16_t inv_index{-1}; // Which inventory slot this item lives in
 
     [[nodiscard]] auto is_empty() const -> bool { return !id.is_valid(); }
     [[nodiscard]] auto durability_percent() const -> float
@@ -85,6 +86,7 @@ struct equipped_item
         template_id = item_id{};
         durability = 0;
         max_durability = 0;
+        inv_index = -1;
     }
 };
 

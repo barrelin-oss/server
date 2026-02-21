@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-14
+**Last Updated:** 2026-02-16
 
 ---
 
@@ -217,11 +217,11 @@ This document tracks implementation progress for the modernized Helbreath server
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Inventory slots | ✅ | 50 slots defined, serialized to JSONB |
+| Inventory slots | ✅ | Configurable (default 50), persisted to `items` table |
 | Add/remove items | ✅ | Full inventory management |
-| Move items | ✅ | Slot swap/move |
-| Equipment slots | ✅ | 12+ slots defined, serialized to JSONB |
-| Equip/unequip | ✅ | Full equip/unequip handlers with stat update and broadcast |
+| Move items | ✅ | Slot swap/move with pixel position persistence |
+| Equipment unified | ✅ | Equipped items live in inventory with `equipped_slot` flag (matches legacy behavior) |
+| Equip/unequip | ✅ | Toggle flag on inventory slot, equipment_state is read-only cache |
 | Bank system | ✅ | 200 slots, deposit/withdraw |
 | Gold management | ✅ | Loaded/saved with character |
 | Trading | ✅ | Trade window, item/gold offering, confirm/lock, completion |
@@ -346,9 +346,9 @@ This document tracks implementation progress for the modernized Helbreath server
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Periodic save | ✅ | Configurable auto-save interval, on-demand save methods |
-| Character save | ✅ | Full save on disconnect (stats, position, skills, equipment, inventory, spells, quests, appearance, PK points, EK, contribution, stat points) |
-| Inventory save | ✅ | JSON serialization to JSONB column |
-| Equipment save | ✅ | JSON serialization to JSONB column |
+| Character save | ✅ | Full save on disconnect (stats, position, skills, inventory+equipment, spells, quests, appearance, PK points, EK, contribution, stat points) |
+| Inventory save | ✅ | Per-item rows in `items` table with `equip_slot` column for equipped items |
+| Equipment save | ✅ | Unified with inventory — equipped items have `equip_slot` set in `items` table |
 | Skills save | ✅ | JSON serialization to JSONB column |
 | Bank save | ✅ | JSON serialization to JSONB column |
 | Gold save | ✅ | Stored in characters table |
@@ -444,6 +444,29 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-16: Item Protocol Reconciliation
+- Renamed item attribute JSON keys from compact (`mt`/`mv`/`st`/`sv`/`cm`/`cq`) to readable names (`main_type`/`main_value`/`sub_type`/`sub_value`/`custom_made`/`custom_quality`)
+- Added `inventory_slot_update` to all handlers that modify inventory: equip (1-3 updates), unequip, use item, shop buy/sell/repair, bank deposit/withdraw, manufacturing, alchemy, item upgrade, admin give/remove
+- Added `gold_update` protocol message (gold total + change + reason) for: shop buy/sell/repair, NPC gold loot
+- Added `bank_slot_update` protocol message mirroring `inventory_slot_update` for bank deposit/withdraw
+- Added `build_inventory_item_msg()` shared helper to eliminate ~30 lines of boilerplate per call site
+- Refactored pickup handler to use the shared helper
+- 4 new protocol tests (2281 total)
+
+### 2026-02-16: Unified Equipment into Inventory
+- Equipment is now unified with inventory, matching legacy Helbreath behavior (equipped items stay in their inventory slots with a flag)
+- Added `equipped_as` field (`std::optional<uint8_t>`) to `inventory_slot` — maps to equipment slot index
+- `equipment_state` is now a read-only cache rebuilt from inventory scans on equip/unequip
+- `equipped_item` gains `inv_index` to track which inventory slot the cached data came from
+- Equip/unequip no longer moves items between containers — just toggles the `equipped_as` flag
+- Unequip can never fail due to "inventory full" (item is already in inventory)
+- 2H weapon + shield conflict resolved without needing a free slot (just clears shield flag)
+- Configurable inventory size via `server_config.inventory_slots` (default 50, range 20-200)
+- DB migration: `equip_slot` column added to `items` table; existing equipment rows merged into inventory
+- Protocol: `inventory_item_msg` gains `equipped_slot` field; `game_state_msg` no longer has separate `equipment` array
+- Persistence updated: `item_row.equip_slot` saved/loaded, no separate equipment serialization loop
+- 6 new tests (2278 total)
 
 ### 2026-02-16: Inventory Protocol (Reposition, Drop, Max Weight)
 - Added `inventory_reposition_request` — move items between slots with free-form pixel positioning

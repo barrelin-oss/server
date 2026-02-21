@@ -81,21 +81,76 @@ void game_handlers::handle_manufacture_request(connection_id conn_id, const netw
 
     auto& data = parse.value();
     auto pid = conn->player();
+
+    // Snapshot inventory state before crafting (to detect consumed/created slots)
+    auto* inv = inventory_->get_inventory(entity_id{pid.value});
+    struct slot_snapshot { item_id item{}; int16_t count{}; };
+    std::vector<slot_snapshot> slots_before;
+    if (inv)
+    {
+        slots_before.resize(static_cast<size_t>(inv->capacity()));
+        for (int16_t i = 0; i < inv->capacity(); ++i)
+        {
+            auto* s = inv->get_slot(i);
+            if (s && !s->is_empty())
+            {
+                slots_before[static_cast<size_t>(i)] = {s->item, s->count};
+            }
+        }
+    }
+
+    // Helper to diff inventory and send slot updates for any changes
+    auto send_slot_updates = [&]()
+    {
+        if (!inv)
+            return;
+        for (int16_t i = 0; i < inv->capacity(); ++i)
+        {
+            auto* s = inv->get_slot(i);
+            bool was_occupied = slots_before[static_cast<size_t>(i)].item.is_valid();
+            bool is_occupied = s && !s->is_empty();
+
+            if (was_occupied && !is_occupied)
+            {
+                // Slot was cleared (consumed material)
+                conn->send(network::make_inventory_slot_update(i, nullptr));
+            }
+            else if (!was_occupied && is_occupied)
+            {
+                // Slot was filled (crafted result)
+                auto item_msg = network::build_inventory_item_msg(i, s->item, item_, item_registry_);
+                if (item_msg)
+                    conn->send(network::make_inventory_slot_update(i, &*item_msg));
+            }
+            else if (was_occupied && is_occupied
+                     && slots_before[static_cast<size_t>(i)].count != s->count)
+            {
+                // Count changed (partial stack consumed)
+                auto item_msg = network::build_inventory_item_msg(i, s->item, item_, item_registry_);
+                if (item_msg)
+                    conn->send(network::make_inventory_slot_update(i, &*item_msg));
+            }
+        }
+    };
+
     auto result = manufacturing_->attempt_craft(entity_id{pid.value}, data.recipe_index);
 
     if (result.reason == skill::skill_use_result::insufficient_skill)
     {
         conn->send(network::make_manufacture_response(msg.seq, false, "", "insufficient_skill"));
+        send_slot_updates();
         return;
     }
     if (result.reason == skill::skill_use_result::insufficient_materials)
     {
         conn->send(network::make_manufacture_response(msg.seq, false, "", "insufficient_materials"));
+        send_slot_updates();
         return;
     }
     if (!result.success && result.reason == skill::skill_use_result::failure)
     {
         conn->send(network::make_manufacture_response(msg.seq, false, "", "inventory_full"));
+        send_slot_updates();
         return;
     }
 
@@ -110,6 +165,7 @@ void game_handlers::handle_manufacture_request(connection_id conn_id, const netw
     }
 
     conn->send(network::make_manufacture_response(msg.seq, result.success, item_name));
+    send_slot_updates();
 
     // Audit crafted item
     if (result.success && audit_ && result.created_item.is_valid())
@@ -197,21 +253,76 @@ void game_handlers::handle_alchemy_request(connection_id conn_id, const network:
 
     auto& data = parse.value();
     auto pid = conn->player();
+
+    // Snapshot inventory state before crafting (to detect consumed/created slots)
+    auto* inv = inventory_->get_inventory(entity_id{pid.value});
+    struct slot_snapshot { item_id item{}; int16_t count{}; };
+    std::vector<slot_snapshot> slots_before;
+    if (inv)
+    {
+        slots_before.resize(static_cast<size_t>(inv->capacity()));
+        for (int16_t i = 0; i < inv->capacity(); ++i)
+        {
+            auto* s = inv->get_slot(i);
+            if (s && !s->is_empty())
+            {
+                slots_before[static_cast<size_t>(i)] = {s->item, s->count};
+            }
+        }
+    }
+
+    // Helper to diff inventory and send slot updates for any changes
+    auto send_slot_updates = [&]()
+    {
+        if (!inv)
+            return;
+        for (int16_t i = 0; i < inv->capacity(); ++i)
+        {
+            auto* s = inv->get_slot(i);
+            bool was_occupied = slots_before[static_cast<size_t>(i)].item.is_valid();
+            bool is_occupied = s && !s->is_empty();
+
+            if (was_occupied && !is_occupied)
+            {
+                // Slot was cleared (consumed material)
+                conn->send(network::make_inventory_slot_update(i, nullptr));
+            }
+            else if (!was_occupied && is_occupied)
+            {
+                // Slot was filled (crafted result)
+                auto item_msg = network::build_inventory_item_msg(i, s->item, item_, item_registry_);
+                if (item_msg)
+                    conn->send(network::make_inventory_slot_update(i, &*item_msg));
+            }
+            else if (was_occupied && is_occupied
+                     && slots_before[static_cast<size_t>(i)].count != s->count)
+            {
+                // Count changed (partial stack consumed)
+                auto item_msg = network::build_inventory_item_msg(i, s->item, item_, item_registry_);
+                if (item_msg)
+                    conn->send(network::make_inventory_slot_update(i, &*item_msg));
+            }
+        }
+    };
+
     auto result = alchemy_->attempt_craft(entity_id{pid.value}, data.recipe_id);
 
     if (result.reason == skill::skill_use_result::insufficient_skill)
     {
         conn->send(network::make_alchemy_response(msg.seq, false, "", "insufficient_skill"));
+        send_slot_updates();
         return;
     }
     if (result.reason == skill::skill_use_result::insufficient_materials)
     {
         conn->send(network::make_alchemy_response(msg.seq, false, "", "insufficient_materials"));
+        send_slot_updates();
         return;
     }
     if (!result.success && result.reason == skill::skill_use_result::failure)
     {
         conn->send(network::make_alchemy_response(msg.seq, false, "", "inventory_full"));
+        send_slot_updates();
         return;
     }
 
@@ -226,6 +337,7 @@ void game_handlers::handle_alchemy_request(connection_id conn_id, const network:
     }
 
     conn->send(network::make_alchemy_response(msg.seq, result.success, item_name));
+    send_slot_updates();
 
     // Audit crafted item
     if (result.success && audit_ && result.created_item.is_valid())

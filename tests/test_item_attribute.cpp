@@ -72,8 +72,8 @@ TEST(item_attribute_test, json_upgrade_only)
     attr.upgrade_level = 5;
     auto j = attr.to_json();
     EXPECT_EQ(j["upgrade"], 5);
-    EXPECT_FALSE(j.contains("mt"));
-    EXPECT_FALSE(j.contains("st"));
+    EXPECT_FALSE(j.contains("main_type"));
+    EXPECT_FALSE(j.contains("sub_type"));
     auto parsed = item_attribute::from_json(j);
     EXPECT_EQ(parsed.upgrade_level, 5);
 }
@@ -106,8 +106,8 @@ TEST(item_attribute_test, json_custom_made_without_quality)
     item_attribute attr;
     attr.custom_made = true;
     auto j = attr.to_json();
-    EXPECT_TRUE(j["cm"].get<bool>());
-    EXPECT_FALSE(j.contains("cq")); // quality 0 not serialized
+    EXPECT_TRUE(j["custom_made"].get<bool>());
+    EXPECT_FALSE(j.contains("custom_quality")); // quality 0 not serialized
 }
 
 TEST(item_attribute_test, json_clamps_upgrade_level)
@@ -119,7 +119,7 @@ TEST(item_attribute_test, json_clamps_upgrade_level)
 
 TEST(item_attribute_test, json_clamps_values)
 {
-    nlohmann::json j = {{"mt", 7}, {"mv", 20}, {"st", 1}, {"sv", 20}};
+    nlohmann::json j = {{"main_type", 7}, {"main_value", 20}, {"sub_type", 1}, {"sub_value", 20}};
     auto parsed = item_attribute::from_json(j);
     EXPECT_EQ(parsed.main_value, 15);
     EXPECT_EQ(parsed.sub_value, 15);

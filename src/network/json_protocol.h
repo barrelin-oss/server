@@ -16,6 +16,10 @@
 #include <chrono>
 #include <variant>
 
+// Forward declarations for build_inventory_item_msg
+namespace hb::item { class item_system; }
+namespace hb { class item_registry; }
+
 namespace hb::network
 {
 
@@ -482,6 +486,12 @@ enum class json_message_type
     player_drop_item_request,     // C->S: Drop item from inventory
     player_drop_item_response,    // S->C: Drop result
     inventory_slot_update,        // S->C: Single slot changed
+
+    // Gold notification
+    gold_update, // S->C: Gold amount changed
+
+    // Bank management
+    bank_slot_update, // S->C: Single bank slot changed
 
     // Unknown/invalid
     unknown
@@ -1170,6 +1180,10 @@ enum class json_message_type
         return "player_drop_item_response";
     case json_message_type::inventory_slot_update:
         return "inventory_slot_update";
+    case json_message_type::gold_update:
+        return "gold_update";
+    case json_message_type::bank_slot_update:
+        return "bank_slot_update";
     default:
         return "unknown";
     }
@@ -1476,6 +1490,9 @@ struct inventory_item_msg
     int16_t pos_x{0};
     int16_t pos_y{0};
 
+    // Equipment: if set, item is equipped in this slot (maps to equip_slot enum)
+    std::optional<uint8_t> equipped_slot{};
+
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -1762,7 +1779,6 @@ struct game_state_msg
 {
     character_data_msg character;
     std::vector<inventory_item_msg> inventory;
-    std::vector<equipment_item_msg> equipment;
     std::vector<skill_entry_msg> skills;
     std::vector<known_spell_msg> spells;
     std::vector<active_quest_msg> quests;
@@ -2226,6 +2242,19 @@ struct drop_item_request_data
 
 [[nodiscard]] auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view error = "") -> json_message;
 [[nodiscard]] auto make_inventory_slot_update(int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;
+[[nodiscard]] auto make_bank_slot_update(int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;
+
+// Gold update notification (server -> client)
+struct gold_update_data
+{
+    int64_t gold{};     // New gold total after change
+    int64_t change{};   // Amount changed (positive = gained, negative = spent)
+    std::string reason; // Why: shop_buy, shop_sell, shop_repair, npc_loot, admin, trade
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+[[nodiscard]] auto make_gold_update(const gold_update_data& data) -> json_message;
 
 // === NPC Interaction: Shop request/response data ===
 
@@ -3381,5 +3410,16 @@ struct item_upgrade_request_data
     }
     return std::string(base_name);
 }
+
+// === Inventory item builder ===
+
+// Build an inventory_item_msg for a given slot, looking up item and template data.
+// Returns nullopt if the item doesn't exist.
+[[nodiscard]] auto build_inventory_item_msg(
+    int16_t slot_index,
+    item_id iid,
+    const item::item_system* items,
+    const item_registry* registry,
+    std::optional<uint8_t> equipped_slot = std::nullopt) -> std::optional<inventory_item_msg>;
 
 } // namespace hb::network

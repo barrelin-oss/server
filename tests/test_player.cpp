@@ -8,6 +8,7 @@
 #include "player/equipment.h"
 #include "player/player.h"
 #include "player/player_system.h"
+#include "inventory/inventory.h"
 #include "world/position.h"
 
 using hb::item_id;
@@ -555,26 +556,21 @@ TEST_F(player_system_test, apply_heal_dead_player_noop)
     EXPECT_EQ(p->hp, 0); // Dead players can't be healed
 }
 
-// Equipment tests
+// Equipment cache tests (direct struct manipulation — no inventory wiring needed)
 
-TEST_F(player_system_test, equip_and_unequip_item)
+TEST(equipment_state_test, equip_and_unequip_cache)
 {
-    player_create_info info;
-    info.name = "EquipPlayer";
-    auto result = system_.create_player(info);
-    auto id = result.value();
+    equipment_state eq;
+    EXPECT_FALSE(eq.has_equipped(equip_slot::weapon));
 
-    auto* p = system_.get_player(id);
-    EXPECT_FALSE(p->equipment.has_equipped(equip_slot::weapon));
+    eq.equip(equip_slot::weapon, hb::item_id{42}, hb::item_id{10}, 80, 100);
+    EXPECT_TRUE(eq.has_equipped(equip_slot::weapon));
+    EXPECT_EQ(eq.weapon().id.value, 42);
+    EXPECT_EQ(eq.weapon().durability, 80);
 
-    system_.equip_item(id, equip_slot::weapon, hb::item_id{42}, hb::item_id{10}, 80, 100);
-    EXPECT_TRUE(p->equipment.has_equipped(equip_slot::weapon));
-    EXPECT_EQ(p->equipment.weapon().id.value, 42);
-
-    auto unequipped = system_.unequip_item(id, equip_slot::weapon);
-    EXPECT_EQ(unequipped.id.value, 42);
-    EXPECT_EQ(unequipped.durability, 80);
-    EXPECT_FALSE(p->equipment.has_equipped(equip_slot::weapon));
+    auto old = eq.unequip(equip_slot::weapon);
+    EXPECT_EQ(old.id.value, 42);
+    EXPECT_FALSE(eq.has_equipped(equip_slot::weapon));
 }
 
 TEST_F(player_system_test, unequip_empty_slot)
@@ -585,7 +581,85 @@ TEST_F(player_system_test, unequip_empty_slot)
     auto id = result.value();
 
     auto unequipped = system_.unequip_item(id, equip_slot::shield);
-    EXPECT_FALSE(unequipped.id.is_valid());
+    EXPECT_FALSE(unequipped.is_valid());
+}
+
+// Inventory-based equipment tests (unified model)
+
+TEST(inventory_slot_test, equipped_as_flag)
+{
+    hb::inventory::inventory_slot slot;
+    slot.set(item_id{100}, 1);
+
+    EXPECT_FALSE(slot.is_equipped());
+
+    slot.equipped_as = 5; // weapon slot
+    EXPECT_TRUE(slot.is_equipped());
+    EXPECT_EQ(*slot.equipped_as, 5);
+
+    slot.clear();
+    EXPECT_FALSE(slot.is_equipped());
+    EXPECT_FALSE(slot.equipped_as.has_value());
+}
+
+TEST(inventory_test, find_equipped_slot)
+{
+    hb::inventory::inventory inv(10);
+
+    auto* s0 = inv.get_slot(0);
+    s0->set(item_id{100}, 1);
+    s0->equipped_as = 5; // weapon
+
+    auto* s3 = inv.get_slot(3);
+    s3->set(item_id{200}, 1);
+    s3->equipped_as = 6; // shield
+
+    auto weapon_idx = inv.find_equipped_slot(5);
+    ASSERT_TRUE(weapon_idx.has_value());
+    EXPECT_EQ(*weapon_idx, 0);
+
+    auto shield_idx = inv.find_equipped_slot(6);
+    ASSERT_TRUE(shield_idx.has_value());
+    EXPECT_EQ(*shield_idx, 3);
+
+    auto head_idx = inv.find_equipped_slot(0);
+    EXPECT_FALSE(head_idx.has_value());
+}
+
+TEST(inventory_test, equipped_items_count_against_capacity)
+{
+    hb::inventory::inventory inv(5);
+
+    // Fill all 5 slots: 3 normal items + 2 equipped items
+    inv.get_slot(0)->set(item_id{1}, 1);
+    inv.get_slot(1)->set(item_id{2}, 1);
+    inv.get_slot(1)->equipped_as = 5; // weapon
+    inv.get_slot(2)->set(item_id{3}, 1);
+    inv.get_slot(3)->set(item_id{4}, 1);
+    inv.get_slot(3)->equipped_as = 6; // shield
+    inv.get_slot(4)->set(item_id{5}, 1);
+
+    EXPECT_EQ(inv.used_slots(), 5);
+    EXPECT_EQ(inv.free_slots(), 0);
+    EXPECT_TRUE(inv.is_full());
+}
+
+TEST(inventory_test, unequip_does_not_free_slot)
+{
+    hb::inventory::inventory inv(5);
+
+    auto* slot = inv.get_slot(0);
+    slot->set(item_id{100}, 1);
+    slot->equipped_as = 5; // weapon
+
+    EXPECT_EQ(inv.used_slots(), 1);
+
+    // "Unequip" by clearing the flag — item stays
+    slot->equipped_as.reset();
+
+    EXPECT_EQ(inv.used_slots(), 1); // Still 1 item in the slot
+    EXPECT_FALSE(slot->is_empty());
+    EXPECT_FALSE(slot->is_equipped());
 }
 
 // Binding tests

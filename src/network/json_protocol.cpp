@@ -3,6 +3,10 @@
 
 #include "network/json_protocol.h"
 #include "core/logger.h"
+#include "item/item_system.h"
+#include "item/item.h"
+#include "registry/item_registry.h"
+#include "registry/item_template.h"
 
 #include <unordered_map>
 
@@ -398,7 +402,9 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"inventory_reposition_request", json_message_type::inventory_reposition_request},
     {"player_drop_item_request", json_message_type::player_drop_item_request},
     {"player_drop_item_response", json_message_type::player_drop_item_response},
-    {"inventory_slot_update", json_message_type::inventory_slot_update}};
+    {"inventory_slot_update", json_message_type::inventory_slot_update},
+    {"gold_update", json_message_type::gold_update},
+    {"bank_slot_update", json_message_type::bank_slot_update}};
 
 } // namespace
 
@@ -1236,6 +1242,10 @@ auto inventory_item_msg::to_json() const -> nlohmann::json
     {
         j["attribute"] = attribute.to_json();
     }
+    if (equipped_slot.has_value())
+    {
+        j["equipped_slot"] = *equipped_slot;
+    }
     return j;
 }
 
@@ -1476,12 +1486,6 @@ auto game_state_msg::to_json() const -> nlohmann::json
         inv_json.push_back(item.to_json());
     }
 
-    nlohmann::json equip_json = nlohmann::json::array();
-    for (const auto& item : equipment)
-    {
-        equip_json.push_back(item.to_json());
-    }
-
     nlohmann::json skills_json = nlohmann::json::array();
     for (const auto& s : skills)
     {
@@ -1513,7 +1517,6 @@ auto game_state_msg::to_json() const -> nlohmann::json
     return nlohmann::json{
         {"character", character.to_json()},
         {"inventory", {{"items", std::move(inv_json)}, {"gold", gold}}},
-        {"equipment", std::move(equip_json)},
         {"skills", std::move(skills_json)},
         {"spells", std::move(spells_json)},
         {"quests", {{"active", std::move(quests_json)}, {"completed", std::move(completed_json)}}},
@@ -2940,6 +2943,78 @@ auto make_inventory_slot_update(int16_t slot, const inventory_item_msg* item) ->
         j["item"] = nullptr;
     }
     return json_message{.type = json_message_type::inventory_slot_update, .seq = 0, .data = j};
+}
+
+auto make_bank_slot_update(int16_t slot, const inventory_item_msg* item) -> json_message
+{
+    nlohmann::json j;
+    j["slot"] = slot;
+    if (item)
+    {
+        j["item"] = item->to_json();
+    }
+    else
+    {
+        j["item"] = nullptr;
+    }
+    return json_message{.type = json_message_type::bank_slot_update, .seq = 0, .data = j};
+}
+
+auto gold_update_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"gold", gold}, {"change", change}, {"reason", reason}};
+}
+
+auto make_gold_update(const gold_update_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::gold_update, .seq = 0, .data = data.to_json()};
+}
+
+auto build_inventory_item_msg(
+    int16_t slot_index,
+    item_id iid,
+    const item::item_system* items,
+    const item_registry* registry,
+    std::optional<uint8_t> equipped_slot) -> std::optional<inventory_item_msg>
+{
+    if (!items)
+    {
+        return std::nullopt;
+    }
+
+    auto* itm = items->get_item(iid);
+    if (!itm)
+    {
+        return std::nullopt;
+    }
+
+    inventory_item_msg msg{
+        .slot = static_cast<uint8_t>(slot_index),
+        .item_id = iid.value,
+        .name = itm->name,
+        .count = itm->count,
+        .durability = static_cast<int16_t>(itm->durability),
+        .max_durability = static_cast<int16_t>(itm->max_durability),
+        .attribute = itm->attribute,
+        .equipped_slot = equipped_slot,
+    };
+
+    if (registry)
+    {
+        if (auto* tmpl = registry->get(itm->template_id))
+        {
+            msg.name = get_display_name(tmpl->name, itm->attribute);
+            msg.item_type = static_cast<uint8_t>(tmpl->type);
+            msg.equip_pos = static_cast<uint8_t>(tmpl->equip_pos);
+            msg.sprite = tmpl->ground_sprite;
+            msg.sprite_frame = tmpl->ground_sprite_frame;
+            msg.color = tmpl->item_color;
+            msg.weight = tmpl->weight;
+            msg.level_limit = tmpl->level_limit;
+        }
+    }
+
+    return msg;
 }
 
 auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message

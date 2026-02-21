@@ -126,6 +126,7 @@ void validate_config(server_config& cfg)
     clamp_warn(cfg.tick_interval_ms, 5u, 1000u, "tick_interval_ms");
     clamp_warn(cfg.auto_save.interval_seconds, 30u, 3600u, "auto_save.interval_seconds");
     clamp_warn(cfg.ground_item_expiry_seconds, 10u, 7200u, "ground_item_expiry_seconds");
+    clamp_warn(cfg.inventory_slots, static_cast<int16_t>(20), static_cast<int16_t>(200), "inventory_slots");
 }
 
 } // namespace
@@ -240,6 +241,10 @@ auto config_system::load_yaml_config(const std::filesystem::path& path) -> resul
         // Ground item expiry
         server_config_.ground_item_expiry_seconds =
             yaml_get<uint32_t>(config, "ground_item_expiry_seconds", 600);
+
+        // Inventory slots
+        server_config_.inventory_slots =
+            yaml_get<int16_t>(config, "inventory_slots", 50);
 
         // Legacy protocol section
         if (auto legacy = config["legacy"])
@@ -703,6 +708,8 @@ auto server_config::load_from_json(const std::filesystem::path& path) -> result<
             config.tick_interval_ms = j["tick_interval_ms"];
         if (j.contains("ground_item_expiry_seconds"))
             config.ground_item_expiry_seconds = j["ground_item_expiry_seconds"];
+        if (j.contains("inventory_slots"))
+            config.inventory_slots = j["inventory_slots"];
 
         return result<server_config, std::string>::ok(std::move(config));
     }
@@ -725,6 +732,7 @@ auto server_config::save_to_json(const std::filesystem::path& path) const -> res
     j["game_server_mode"] = game_server_mode;
     j["tick_interval_ms"] = tick_interval_ms;
     j["ground_item_expiry_seconds"] = ground_item_expiry_seconds;
+    j["inventory_slots"] = inventory_slots;
 
     std::ofstream file(path);
     if (!file.is_open())
@@ -781,6 +789,7 @@ auto server_config::to_json() const -> nlohmann::json
 
     j["tick_interval_ms"] = tick_interval_ms;
     j["ground_item_expiry_seconds"] = ground_item_expiry_seconds;
+    j["inventory_slots"] = inventory_slots;
 
     return j;
 }
@@ -821,6 +830,11 @@ auto server_config::apply_dot_values(const nlohmann::json& values) -> result<std
             else if (key == "ground_item_expiry_seconds" && value.is_number())
             {
                 ground_item_expiry_seconds = value;
+                applied.push_back(key);
+            }
+            else if (key == "inventory_slots" && value.is_number())
+            {
+                inventory_slots = value;
                 applied.push_back(key);
             }
             continue;
@@ -954,7 +968,7 @@ auto server_config::apply_dot_values(const nlohmann::json& values) -> result<std
 auto server_config::requires_restart(std::string_view key) -> bool
 {
     return key.starts_with("database.") || key.starts_with("websocket.") || key == "enable_legacy_protocol" ||
-           key == "legacy_port";
+           key == "legacy_port" || key == "inventory_slots";
 }
 
 auto game_config::load_from_file(const std::filesystem::path& path) -> result<game_config, std::string>

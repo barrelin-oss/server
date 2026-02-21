@@ -139,6 +139,9 @@ private:
     // Save player state to database
     void save_player_state(player_id player_id);
 
+    // Destroy all item instances owned by a player (inventory + bank) from item_system
+    void destroy_player_items(entity_id owner);
+
     network::websocket_server* ws_server_{nullptr};
     auth::auth_system* auth_{nullptr};
     player::player_system* players_{nullptr};

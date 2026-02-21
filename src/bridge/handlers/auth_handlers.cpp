@@ -298,6 +298,9 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
             players_->remove_player(pid);
         }
 
+        // Destroy item instances before inventory (items_ map must be cleaned up)
+        destroy_player_items(entity_id{pid.value});
+
         // Clean up inventory
         if (inventory_)
         {
@@ -598,6 +601,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             // Remove the stale player
             players_->remove_player(existing_player_id);
 
+            // Destroy item instances before inventory
+            destroy_player_items(entity_id{existing_player_id.value});
+
             // Clean up inventory
             if (inventory_)
             {
@@ -731,6 +737,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     switch (row.location)
                     {
                     case auth::item_location::inventory:
+                    case auth::item_location::equipment: // Legacy: equipment items are now in inventory
                     {
                         if (inv)
                         {
@@ -741,16 +748,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                 slot->count = row.count;
                                 slot->pos_x = row.pos_x;
                                 slot->pos_y = row.pos_y;
+                                // Set equipped_as from DB equip_slot column
+                                if (row.equip_slot.has_value())
+                                {
+                                    slot->equipped_as = static_cast<uint8_t>(*row.equip_slot);
+                                }
                             }
                         }
-                        break;
-                    }
-                    case auth::item_location::equipment:
-                    {
-                        auto eq_slot = static_cast<player::equip_slot>(row.slot);
-                        player->equipment.equip(eq_slot, restored_id, item_id{row.template_id},
-                                                static_cast<uint16_t>(row.durability),
-                                                static_cast<uint16_t>(row.max_durability));
                         break;
                     }
                     case auth::item_location::bank:
@@ -778,6 +782,9 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 // Set gold from character data
                 inventory_->add_gold(entity, char_data.gold);
                 LOG_DEBUG(bridge, "Set gold for player {}: {}", live_player_id.value, char_data.gold);
+
+                // Rebuild equipment cache from inventory equipped_as flags
+                players_->rebuild_equipment_cache(live_player_id);
             }
 
             // Deserialize and apply magic (spell knowledge)
@@ -1109,70 +1116,15 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                               .weight = weight,
                                               .level_limit = level_limit,
                                               .pos_x = slot->pos_x,
-                                              .pos_y = slot->pos_y});
+                                              .pos_y = slot->pos_y,
+                                              .equipped_slot = slot->equipped_as});
                 }
             }
         }
         player_gold = static_cast<int32_t>(inventory_->get_gold(entity));
     }
 
-    // Build equipment data for network message
-    std::vector<network::equipment_item_msg> equipment_list;
-    if (players_)
-    {
-        auto* player = players_->get_player(live_player_id);
-        if (player)
-        {
-            for (size_t i = 0; i < player::equip_slot_count; ++i)
-            {
-                const auto& eq = player->equipment.slots[i];
-                if (!eq.is_empty())
-                {
-                    // Look up item instance for attribute and name
-                    std::string item_name;
-                    item::item_attribute attr;
-                    uint8_t tmpl_type = 0;
-                    uint8_t tmpl_equip_pos = 0;
-                    int16_t sprite = 0;
-                    int16_t sprite_frame = 0;
-                    int8_t color = 0;
-                    int16_t weight = 0;
-                    if (item_)
-                    {
-                        if (auto* itm = item_->get_item(eq.id))
-                        {
-                            attr = itm->attribute;
-                            if (item_registry_)
-                            {
-                                if (auto* tmpl = item_registry_->get(itm->template_id))
-                                {
-                                    item_name = network::get_display_name(tmpl->name, attr);
-                                    tmpl_type = static_cast<uint8_t>(tmpl->type);
-                                    tmpl_equip_pos = static_cast<uint8_t>(tmpl->equip_pos);
-                                    sprite = tmpl->ground_sprite;
-                                    sprite_frame = tmpl->ground_sprite_frame;
-                                    color = tmpl->item_color;
-                                    weight = tmpl->weight;
-                                }
-                            }
-                        }
-                    }
-                    equipment_list.push_back({.slot = static_cast<uint8_t>(i),
-                                              .item_id = eq.id.value,
-                                              .name = std::move(item_name),
-                                              .durability = static_cast<int16_t>(eq.durability),
-                                              .max_durability = static_cast<int16_t>(eq.max_durability),
-                                              .attribute = attr,
-                                              .item_type = tmpl_type,
-                                              .equip_pos = tmpl_equip_pos,
-                                              .sprite = sprite,
-                                              .sprite_frame = sprite_frame,
-                                              .color = color,
-                                              .weight = weight});
-                }
-            }
-        }
-    }
+    // Equipment data is now included in inventory items via equipped_slot field
 
     // Build skills data for network message
     std::vector<network::skill_entry_msg> skills_list;
@@ -1337,7 +1289,6 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                                                                 .guild_tag = enter_guild_tag,
                                                                                 .guild_rank = enter_guild_rank},
                                        .inventory = inventory_list,
-                                       .equipment = equipment_list,
                                        .skills = skills_list,
                                        .spells = spells_list,
                                        .quests = quests_list,
@@ -1639,6 +1590,9 @@ void auth_handlers::save_player_state(player_id pid)
                             .custom_quality = itm->attribute.custom_quality,
                             .pos_x = slot->pos_x,
                             .pos_y = slot->pos_y,
+                            .equip_slot = slot->equipped_as.has_value()
+                                ? std::optional<int16_t>(static_cast<int16_t>(*slot->equipped_as))
+                                : std::nullopt,
                         });
                     }
                 }
@@ -1646,41 +1600,8 @@ void auth_handlers::save_player_state(player_id pid)
             LOG_DEBUG(bridge, "Saving inventory for player {} ({} items)", pid.value, inv->used_slots());
         }
 
-        // Gather equipment items
-        for (size_t i = 0; i < player::equip_slot_count; ++i)
-        {
-            const auto& eq = player->equipment.slots[i];
-            if (!eq.is_empty())
-            {
-                if (auto* itm = item_->get_item(eq.id))
-                {
-                    item_rows.push_back({
-                        .id = itm->id.value,
-                        .character_id = static_cast<int32_t>(player->character_id.value),
-                        .template_id = itm->template_id.value,
-                        .name = itm->name,
-                        .location = auth::item_location::equipment,
-                        .slot = static_cast<int16_t>(i),
-                        .count = 1,
-                        .durability = itm->durability,
-                        .max_durability = itm->max_durability,
-                        .color = itm->color,
-                        .bound_to = itm->bound_to
-                            ? std::optional<int32_t>(static_cast<int32_t>(itm->bound_to->value))
-                            : std::nullopt,
-                        .upgrade_level = itm->attribute.upgrade_level,
-                        .main_enchant_type = static_cast<uint8_t>(itm->attribute.main_type),
-                        .main_enchant_value = itm->attribute.main_value,
-                        .sub_enchant_type = static_cast<uint8_t>(itm->attribute.sub_type),
-                        .sub_enchant_value = itm->attribute.sub_value,
-                        .custom_made = itm->attribute.custom_made,
-                        .custom_quality = itm->attribute.custom_quality,
-                        .pos_x = 0,
-                        .pos_y = 0,
-                    });
-                }
-            }
-        }
+        // Equipment items are now stored as inventory items with equip_slot set
+        // (no separate equipment loop needed)
 
         // Gather bank items
         auto* bank = inventory_->get_bank(entity);
@@ -1832,6 +1753,40 @@ void auth_handlers::save_player_state(player_id pid)
     }
 }
 
+void auth_handlers::destroy_player_items(entity_id owner)
+{
+    if (!inventory_ || !item_)
+        return;
+
+    // Collect item IDs from inventory
+    auto* inv = inventory_->get_inventory(owner);
+    if (inv)
+    {
+        for (int16_t i = 0; i < inv->capacity(); ++i)
+        {
+            const auto* slot = inv->get_slot(i);
+            if (slot && !slot->is_empty())
+            {
+                item_->destroy_item(slot->item);
+            }
+        }
+    }
+
+    // Collect item IDs from bank
+    auto* bank = inventory_->get_bank(owner);
+    if (bank)
+    {
+        for (int16_t i = 0; i < bank->capacity(); ++i)
+        {
+            const auto* slot = bank->get_slot(i);
+            if (slot && !slot->is_empty())
+            {
+                item_->destroy_item(slot->item);
+            }
+        }
+    }
+}
+
 void auth_handlers::handle_player_disconnect(connection_id conn_id)
 {
     if (!ws_server_)
@@ -1900,6 +1855,9 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id)
         // Remove player from system
         players_->remove_player(pid);
     }
+
+    // Destroy item instances before inventory
+    destroy_player_items(entity_id{pid.value});
 
     // Clean up inventory
     if (inventory_)

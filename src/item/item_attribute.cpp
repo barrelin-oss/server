@@ -12,19 +12,19 @@ auto item_attribute::to_json() const -> nlohmann::json
         j["upgrade"] = upgrade_level;
     if (main_type != enchantment_type::none)
     {
-        j["mt"] = static_cast<uint8_t>(main_type);
-        j["mv"] = main_value;
+        j["main_type"] = static_cast<uint8_t>(main_type);
+        j["main_value"] = main_value;
     }
     if (sub_type != sub_enchantment_type::none)
     {
-        j["st"] = static_cast<uint8_t>(sub_type);
-        j["sv"] = sub_value;
+        j["sub_type"] = static_cast<uint8_t>(sub_type);
+        j["sub_value"] = sub_value;
     }
     if (custom_made)
     {
-        j["cm"] = true;
+        j["custom_made"] = true;
         if (custom_quality != 0)
-            j["cq"] = custom_quality;
+            j["custom_quality"] = custom_quality;
     }
     return j;
 }
@@ -37,23 +37,23 @@ auto item_attribute::from_json(const nlohmann::json& j) -> item_attribute
 
     if (j.contains("upgrade"))
         attr.upgrade_level = std::min<uint8_t>(j["upgrade"].get<uint8_t>(), 15);
-    if (j.contains("mt"))
+    if (j.contains("main_type"))
     {
-        attr.main_type = static_cast<enchantment_type>(j["mt"].get<uint8_t>());
-        if (j.contains("mv"))
-            attr.main_value = std::min<uint8_t>(j["mv"].get<uint8_t>(), 15);
+        attr.main_type = static_cast<enchantment_type>(j["main_type"].get<uint8_t>());
+        if (j.contains("main_value"))
+            attr.main_value = std::min<uint8_t>(j["main_value"].get<uint8_t>(), 15);
     }
-    if (j.contains("st"))
+    if (j.contains("sub_type"))
     {
-        attr.sub_type = static_cast<sub_enchantment_type>(j["st"].get<uint8_t>());
-        if (j.contains("sv"))
-            attr.sub_value = std::min<uint8_t>(j["sv"].get<uint8_t>(), 15);
+        attr.sub_type = static_cast<sub_enchantment_type>(j["sub_type"].get<uint8_t>());
+        if (j.contains("sub_value"))
+            attr.sub_value = std::min<uint8_t>(j["sub_value"].get<uint8_t>(), 15);
     }
-    if (j.contains("cm"))
+    if (j.contains("custom_made"))
     {
-        attr.custom_made = j["cm"].get<bool>();
-        if (j.contains("cq"))
-            attr.custom_quality = std::clamp<int8_t>(j["cq"].get<int8_t>(), -100, 100);
+        attr.custom_made = j["custom_made"].get<bool>();
+        if (j.contains("custom_quality"))
+            attr.custom_quality = std::clamp<int8_t>(j["custom_quality"].get<int8_t>(), -100, 100);
     }
     return attr;
 }

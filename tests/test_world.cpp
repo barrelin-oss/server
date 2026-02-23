@@ -2,6 +2,7 @@
 // Unit tests for world subsystem
 
 #include <gtest/gtest.h>
+#include <thread>
 #include "world/position.h"
 #include "world/tile.h"
 #include "world/spatial_index.h"
@@ -672,6 +673,98 @@ TEST_F(world_subsystem_test, ground_items_invalid_map)
     EXPECT_TRUE(world_.get_ground_items(map_id{255}, {10, 10}).empty());
     auto removed = world_.remove_top_ground_item(map_id{255}, {10, 10});
     EXPECT_FALSE(removed.has_value());
+}
+
+TEST_F(world_subsystem_test, ground_item_custom_lifetime_expires)
+{
+    map_config config;
+    config.name = "custom_lifetime_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    ASSERT_TRUE(result.is_ok());
+    auto id = result.value();
+
+    position pos{10, 10};
+
+    // Add item with a very short custom lifetime (1ms)
+    world_.add_ground_item(id, pos, hb::item_id{100}, 1);
+    EXPECT_EQ(world_.ground_item_count(id, pos), 1);
+
+    // Wait long enough for the custom lifetime to elapse
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    // Use a long global max_age (10 seconds) -- item should still expire by its custom lifetime
+    auto expired = world_.remove_expired_ground_items(std::chrono::seconds(10));
+    EXPECT_EQ(expired.size(), 1);
+    EXPECT_EQ(std::get<2>(expired[0]).value, 100);
+    EXPECT_EQ(world_.ground_item_count(id, pos), 0);
+}
+
+TEST_F(world_subsystem_test, ground_item_default_lifetime_uses_global)
+{
+    map_config config;
+    config.name = "default_lifetime_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    ASSERT_TRUE(result.is_ok());
+    auto id = result.value();
+
+    position pos{10, 10};
+
+    // Add item with lifetime_ms = 0 (use global default)
+    world_.add_ground_item(id, pos, hb::item_id{200});
+    EXPECT_EQ(world_.ground_item_count(id, pos), 1);
+
+    // Wait a tiny bit
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    // With a global max_age of 10 seconds, item should NOT expire yet
+    auto expired = world_.remove_expired_ground_items(std::chrono::seconds(10));
+    EXPECT_TRUE(expired.empty());
+    EXPECT_EQ(world_.ground_item_count(id, pos), 1);
+
+    // With a global max_age of 0 seconds, item SHOULD expire
+    expired = world_.remove_expired_ground_items(std::chrono::seconds(0));
+    EXPECT_EQ(expired.size(), 1);
+    EXPECT_EQ(std::get<2>(expired[0]).value, 200);
+}
+
+TEST_F(world_subsystem_test, ground_item_mixed_lifetimes)
+{
+    map_config config;
+    config.name = "mixed_lifetime_map";
+    config.width = 50;
+    config.height = 50;
+
+    auto result = world_.create_map(config);
+    ASSERT_TRUE(result.is_ok());
+    auto id = result.value();
+
+    position pos{10, 10};
+
+    // Add one item with short custom lifetime, one with default
+    world_.add_ground_item(id, pos, hb::item_id{300}, 1);   // 1ms custom
+    world_.add_ground_item(id, pos, hb::item_id{400});       // global default
+
+    EXPECT_EQ(world_.ground_item_count(id, pos), 2);
+
+    // Wait for short-lived item to expire
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    // With a long global max_age, only the custom-lifetime item should expire
+    auto expired = world_.remove_expired_ground_items(std::chrono::seconds(10));
+    EXPECT_EQ(expired.size(), 1);
+    EXPECT_EQ(std::get<2>(expired[0]).value, 300);
+    EXPECT_EQ(world_.ground_item_count(id, pos), 1);
+
+    // The default-lifetime item remains
+    auto items = world_.get_ground_items(id, pos);
+    ASSERT_EQ(items.size(), 1);
+    EXPECT_EQ(items[0].value, 400);
 }
 
 // Map feature tests

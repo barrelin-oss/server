@@ -12,11 +12,9 @@ namespace hb::player
 {
 
 // Map an item's equip_pos to the corresponding player equip_slot.
-// For rings, preferred_ring selects which ring slot (defaults to ring_left).
-// For twohand weapons, maps to the weapon slot.
+// For twohand weapons, maps to the twohand slot.
 [[nodiscard]] inline auto
-equip_pos_to_slot(item::equip_pos pos,
-                  std::optional<equip_slot> preferred_ring = std::nullopt) -> std::optional<equip_slot>
+equip_pos_to_slot(item::equip_pos pos) -> std::optional<equip_slot>
 {
     switch (pos)
     {
@@ -35,18 +33,19 @@ equip_pos_to_slot(item::equip_pos pos,
     case item::equip_pos::shield:
         return equip_slot::shield;
     case item::equip_pos::twohand:
-        return equip_slot::weapon;
-    case item::equip_pos::ring:
-        if (preferred_ring.has_value() &&
-            (*preferred_ring == equip_slot::ring_left || *preferred_ring == equip_slot::ring_right))
-        {
-            return *preferred_ring;
-        }
+        return equip_slot::twohand;
+    case item::equip_pos::ring_left:
         return equip_slot::ring_left;
+    case item::equip_pos::ring_right:
+        return equip_slot::ring_right;
     case item::equip_pos::amulet:
         return equip_slot::amulet;
     case item::equip_pos::cape:
         return equip_slot::cape;
+    case item::equip_pos::angel:
+        return equip_slot::angel;
+    case item::equip_pos::fullbody:
+        return equip_slot::fullbody;
     default:
         return std::nullopt;
     }
@@ -72,13 +71,19 @@ equip_pos_to_slot(item::equip_pos pos,
     case item::equip_pos::shield:
         return slot == equip_slot::shield;
     case item::equip_pos::twohand:
-        return slot == equip_slot::weapon;
-    case item::equip_pos::ring:
-        return slot == equip_slot::ring_left || slot == equip_slot::ring_right;
+        return slot == equip_slot::twohand;
+    case item::equip_pos::ring_left:
+        return slot == equip_slot::ring_left;
+    case item::equip_pos::ring_right:
+        return slot == equip_slot::ring_right;
     case item::equip_pos::amulet:
         return slot == equip_slot::amulet;
     case item::equip_pos::cape:
         return slot == equip_slot::cape;
+    case item::equip_pos::angel:
+        return slot == equip_slot::angel;
+    case item::equip_pos::fullbody:
+        return slot == equip_slot::fullbody;
     default:
         return false;
     }

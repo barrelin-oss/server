@@ -228,24 +228,27 @@ void send_item_info(const handler_context& ctx, uint16_t item_id_val)
                   {
                       writer.write_u16(static_cast<uint16_t>(protocol::notify_type::event_msg_string));
 
-                      // Format item info string
+                      // Format item info string with raw template fields
                       std::string info = fmt::format("Item: {} (ID: {})\n"
-                                                     "Type: {} | Weight: {} | Price: {}\n"
-                                                     "Attack: {}d{}{:+d} | Defense: {}\n"
-                                                     "Requirements: STR {} | DEX {} | INT {} | MAG {}",
+                                                     "Type: {} | EquipPos: {} | Weight: {} | Price: {}\n"
+                                                     "EffectType: {} | EV1-6: {} {} {} {} {} {}\n"
+                                                     "Durability: {} | Level: {} | Special: {}",
                                                      item->name,
                                                      item->id.value,
                                                      static_cast<int>(item->type),
+                                                     static_cast<int>(item->equip_pos),
                                                      item->weight,
                                                      item->price,
-                                                     item->attack_dice,
-                                                     item->attack_sides,
-                                                     item->attack_bonus,
-                                                     item->defense,
-                                                     item->str_req,
-                                                     item->dex_req,
-                                                     item->int_req,
-                                                     item->mag_req);
+                                                     item->effect_type,
+                                                     item->effect_value1,
+                                                     item->effect_value2,
+                                                     item->effect_value3,
+                                                     item->effect_value4,
+                                                     item->effect_value5,
+                                                     item->effect_value6,
+                                                     item->durability,
+                                                     item->level_limit,
+                                                     item->special_effect);
                       writer.write_string_u16(info);
                   });
 }

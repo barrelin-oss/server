@@ -6,6 +6,8 @@
 #include "core/types.h"
 #include <array>
 #include <optional>
+#include <utility>
+#include <vector>
 
 namespace hb::player
 {
@@ -20,13 +22,15 @@ enum class equip_slot : uint8_t
     boots = 4,
     weapon = 5,
     shield = 6,
-    ring_left = 7,
-    ring_right = 8,
-    amulet = 9,
-    cape = 10,
-    held_item = 11, // Potion, scroll, etc in hand
+    twohand = 7,
+    ring_left = 8,
+    ring_right = 9,
+    amulet = 10,
+    cape = 11,
+    angel = 12,
+    fullbody = 13,
 
-    count = 12
+    count = 14
 };
 
 inline constexpr size_t equip_slot_count = static_cast<size_t>(equip_slot::count);
@@ -50,6 +54,8 @@ inline constexpr size_t equip_slot_count = static_cast<size_t>(equip_slot::count
         return "Weapon";
     case equip_slot::shield:
         return "Shield";
+    case equip_slot::twohand:
+        return "Two-Hand";
     case equip_slot::ring_left:
         return "Left Ring";
     case equip_slot::ring_right:
@@ -58,79 +64,75 @@ inline constexpr size_t equip_slot_count = static_cast<size_t>(equip_slot::count
         return "Amulet";
     case equip_slot::cape:
         return "Cape";
-    case equip_slot::held_item:
-        return "Held Item";
+    case equip_slot::angel:
+        return "Angel";
+    case equip_slot::fullbody:
+        return "Full Body";
     default:
         return "Unknown";
     }
 }
 
-// Equipped item reference (cache — populated from inventory)
-struct equipped_item
-{
-    item_id id{};
-    item_id template_id{};
-    uint16_t durability{0};
-    uint16_t max_durability{0};
-    int16_t inv_index{-1}; // Which inventory slot this item lives in
-
-    [[nodiscard]] auto is_empty() const -> bool { return !id.is_valid(); }
-    [[nodiscard]] auto durability_percent() const -> float
-    {
-        return max_durability > 0 ? static_cast<float>(durability) / max_durability : 0.0f;
-    }
-
-    void clear()
-    {
-        id = item_id{};
-        template_id = item_id{};
-        durability = 0;
-        max_durability = 0;
-        inv_index = -1;
-    }
-};
-
-// Player equipment state
+// Player equipment state — linked model.
+// Slots hold item_id references into the inventory/item_system.
+// Actual item data (durability, stats, etc.) is looked up from item_system when needed.
 struct equipment_state
 {
-    std::array<equipped_item, equip_slot_count> slots{};
+    void equip(equip_slot slot, item_id id)
+    {
+        slots_[static_cast<size_t>(slot)] = id;
+    }
 
-    [[nodiscard]] auto get(equip_slot slot) -> equipped_item& { return slots[static_cast<size_t>(slot)]; }
+    auto unequip(equip_slot slot) -> std::optional<item_id>
+    {
+        auto& s = slots_[static_cast<size_t>(slot)];
+        if (!s.is_valid())
+            return std::nullopt;
+        auto id = s;
+        s = item_id{};
+        return id;
+    }
 
-    [[nodiscard]] auto get(equip_slot slot) const -> const equipped_item& { return slots[static_cast<size_t>(slot)]; }
+    [[nodiscard]] auto get_equipped(equip_slot slot) const -> std::optional<item_id>
+    {
+        auto& s = slots_[static_cast<size_t>(slot)];
+        return s.is_valid() ? std::optional{s} : std::nullopt;
+    }
 
     [[nodiscard]] auto has_equipped(equip_slot slot) const -> bool
     {
-        return !slots[static_cast<size_t>(slot)].is_empty();
+        return slots_[static_cast<size_t>(slot)].is_valid();
     }
 
-    [[nodiscard]] auto weapon() const -> const equipped_item& { return get(equip_slot::weapon); }
-
-    [[nodiscard]] auto shield() const -> const equipped_item& { return get(equip_slot::shield); }
-
-    void equip(equip_slot slot, item_id id, item_id tmpl_id, uint16_t dur, uint16_t max_dur)
+    [[nodiscard]] auto find_slot_for(item_id id) const -> std::optional<equip_slot>
     {
-        auto& item = slots[static_cast<size_t>(slot)];
-        item.id = id;
-        item.template_id = tmpl_id;
-        item.durability = dur;
-        item.max_durability = max_dur;
+        for (size_t i = 0; i < equip_slot_count; ++i)
+        {
+            if (slots_[i] == id)
+                return static_cast<equip_slot>(i);
+        }
+        return std::nullopt;
     }
 
-    auto unequip(equip_slot slot) -> equipped_item
+    [[nodiscard]] auto all_equipped() const -> std::vector<std::pair<equip_slot, item_id>>
     {
-        auto item = slots[static_cast<size_t>(slot)];
-        slots[static_cast<size_t>(slot)].clear();
-        return item;
+        std::vector<std::pair<equip_slot, item_id>> result;
+        for (size_t i = 0; i < equip_slot_count; ++i)
+        {
+            if (slots_[i].is_valid())
+                result.emplace_back(static_cast<equip_slot>(i), slots_[i]);
+        }
+        return result;
     }
 
     void clear_all()
     {
-        for (auto& slot : slots)
-        {
-            slot.clear();
-        }
+        for (auto& s : slots_)
+            s = item_id{};
     }
+
+private:
+    std::array<item_id, equip_slot_count> slots_{};
 };
 
 } // namespace hb::player

@@ -24,6 +24,7 @@
 #include "audit/item_audit_system.h"
 #include "registry/mining_registry.h"
 #include "registry/fishing_registry.h"
+#include "registry/registry_validator.h"
 #include "platform/clock.h"
 #include "platform/platform.h"
 
@@ -353,6 +354,13 @@ void application::initialize()
 
     // Load game configuration files (items, NPCs, magic, etc.)
     load_game_configs();
+
+    // Cross-validate registry references (item IDs in loot tables, shops, etc.)
+    validate_registries(
+        subsystems().get<item_registry>(),
+        subsystems().get<loot_registry>(),
+        subsystems().get<shop_registry>()
+    );
 
     // Dump loot tables and exit if requested
     if (dump_loot_tables_requested_)

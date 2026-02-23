@@ -532,21 +532,24 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         handle_player_skill(conn_id, msg);
         return true;
     case network::json_message_type::player_pickup_request:
+    case network::json_message_type::pickup_request:
         handle_player_pickup(conn_id, msg);
         return true;
     case network::json_message_type::player_interact_request:
         handle_player_interact(conn_id, msg);
         return true;
 
-    // Equipment
+    // Equipment (v1 + v2)
     case network::json_message_type::player_equip_request:
+    case network::json_message_type::equip_request:
         handle_player_equip(conn_id, msg);
         return true;
     case network::json_message_type::player_unequip_request:
+    case network::json_message_type::unequip_request:
         handle_player_unequip(conn_id, msg);
         return true;
 
-    // NPC interaction - shops
+    // NPC interaction - shops (v1: quote/confirm cycle)
     case network::json_message_type::shop_buy_request:
         handle_shop_buy(conn_id, msg);
         return true;
@@ -563,12 +566,34 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         handle_shop_repair_confirm(conn_id, msg);
         return true;
 
-    // NPC interaction - banking
+    // NPC interaction - shops (v2: single-step via item_ops)
+    case network::json_message_type::shop_buy_request_v2:
+        handle_shop_buy_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::shop_sell_request_v2:
+        handle_shop_sell_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::shop_repair_request_v2:
+        handle_shop_repair_v2(conn_id, msg);
+        return true;
+
+    // NPC interaction - banking (v1)
     case network::json_message_type::bank_deposit_request:
         handle_bank_deposit(conn_id, msg);
         return true;
     case network::json_message_type::bank_withdraw_request:
         handle_bank_withdraw(conn_id, msg);
+        return true;
+
+    // NPC interaction - banking (v2)
+    case network::json_message_type::bank_deposit_request_v2:
+        handle_bank_deposit_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::bank_withdraw_request_v2:
+        handle_bank_withdraw_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::bank_reposition_request:
+        handle_bank_reposition(conn_id, msg);
         return true;
 
     // NPC interaction - dialog
@@ -700,8 +725,9 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         handle_guild_info(conn_id, msg);
         return true;
 
-    // Item usage
+    // Item usage (v1 + v2)
     case network::json_message_type::player_use_item_request:
+    case network::json_message_type::use_item_request:
         handle_player_use_item(conn_id, msg);
         return true;
 
@@ -710,13 +736,15 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         handle_combat_mode_change(conn_id, msg);
         return true;
 
-    // Item upgrade
+    // Item upgrade (v1 + v2)
     case network::json_message_type::item_upgrade_request:
+    case network::json_message_type::upgrade_request:
         handle_item_upgrade(conn_id, msg);
         return true;
 
-    // Special ability
+    // Special ability (v1 + v2)
     case network::json_message_type::activate_ability_request:
+    case network::json_message_type::activate_ability_request_v2:
         handle_activate_ability(conn_id, msg);
         return true;
 
@@ -726,12 +754,42 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         return true;
 
     case network::json_message_type::player_drop_item_request:
+    case network::json_message_type::drop_request:
         handle_player_drop_item(conn_id, msg);
         return true;
 
     // Death/Respawn
     case network::json_message_type::respawn_request:
         handle_respawn_request(conn_id, msg);
+        return true;
+
+    // Trading (v2: 3-phase offer -> lock -> confirm)
+    case network::json_message_type::trade_request:
+        handle_trade_request_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::trade_accept:
+        handle_trade_accept_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::trade_decline:
+        handle_trade_decline_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::trade_add_item:
+        handle_trade_add_item_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::trade_remove_item:
+        handle_trade_remove_item_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::trade_set_gold:
+        handle_trade_set_gold_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::trade_lock:
+        handle_trade_lock_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::trade_confirm:
+        handle_trade_confirm_v2(conn_id, msg);
+        return true;
+    case network::json_message_type::trade_cancel:
+        handle_trade_cancel_v2(conn_id, msg);
         return true;
 
     default:
@@ -1162,7 +1220,7 @@ void game_handlers::send_full_stat_update(connection_id conn_id, const player::p
     int32_t gold = 0;
     if (inventory_)
     {
-        gold = static_cast<int32_t>(inventory_->get_gold(entity_id(plr.ecs_entity.id)));
+        gold = static_cast<int32_t>(inventory_->get_gold(entity_id(plr.id.value)));
     }
 
     network::stat_update_data data{.max_hp = plr.computed.max_hp,

@@ -38,10 +38,13 @@ enum class equip_pos : uint8_t
     boots = 5,
     weapon = 6,
     shield = 7,
-    ring = 8,
-    amulet = 9,
-    cape = 10,
-    twohand = 11,
+    twohand = 8,
+    ring_left = 9,
+    ring_right = 10,
+    amulet = 11,
+    cape = 12,
+    angel = 13,
+    fullbody = 14,
 };
 
 // Weapon type
@@ -137,6 +140,8 @@ struct item
 
     // Combat stats
     int16_t attack_power{0};
+    int16_t damage_min{0};
+    int16_t damage_max{0};
     int16_t magic_power{0};
     int16_t defense{0};
     int16_t magic_defense{0};
@@ -159,7 +164,9 @@ struct item
     item_attribute attribute{};
 
     // Per-instance visual
-    int8_t color{0}; // Initially from template item_color, modifiable (dye system)
+    int8_t color{0};         // Initially from template item_color, modifiable (dye system)
+    int16_t sprite{0};       // Sprite sheet index (from template)
+    int16_t sprite_frame{0}; // Frame within sprite sheet (from template)
 
     // Binding — replaces legacy m_sTouchEffect* fields
     std::optional<player_id> bound_to; // Character this item is bound to (nullopt = unbound)

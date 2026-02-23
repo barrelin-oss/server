@@ -71,7 +71,8 @@ All messages follow a common envelope structure:
 | Player State | [protocol/player.md](protocol/player.md) | Game state objects, entity visibility, stat updates, view mode |
 | Movement | [protocol/movement.md](protocol/movement.md) | Movement, teleportation |
 | Combat | [protocol/combat.md](protocol/combat.md) | Attacks, damage, death, magic, skills, combat mode, action broadcasts |
-| Items | [protocol/items.md](protocol/items.md) | Pickup, ground items, item usage |
+| Items (v2) | [protocol/items-v2.md](protocol/items-v2.md) | Inventory, equipment, ground items, trade, shop, bank, loot |
+| Items (v1, deprecated) | [protocol/items.md](protocol/items.md) | Legacy item protocol (superseded by v2) |
 | NPCs | [protocol/npc.md](protocol/npc.md) | NPC spawn/movement/death, interaction, shops, banking, dialog |
 | Chat | [protocol/chat.md](protocol/chat.md) | Chat messages, commands |
 | Crafting | [protocol/crafting.md](protocol/crafting.md) | Manufacturing, alchemy, mining, fishing |
@@ -132,6 +133,19 @@ In Game                          |
 1. **Request Errors:** Responded with same `seq` and error field
 2. **Connection Errors:** Connection closed by server
 3. **Rate Limiting:** `error` message with `RATE_LIMITED` code
+
+## Item Protocol v2
+
+The item system has been redesigned with a new protocol. See [docs/protocol/items-v2.md](protocol/items-v2.md) for the complete v2 specification.
+
+Key changes from v1:
+- Universal item object shape used everywhere (inventory, ground, trade, bank, shop)
+- Action results are acknowledgments only; state changes flow through dedicated update channels
+- Three-phase trading protocol (offer → lock → confirm)
+- Paginated bank with page+slot addressing
+- Combined inventory_data message on login (items + equipment + gold + weight)
+
+---
 
 ## Best Practices for Clients
 

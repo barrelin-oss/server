@@ -55,10 +55,10 @@ xtreme-server
 JSON/Schemas/
 hbio-server/x64/
 /build/
+compile_commands.json
 .claude/
-tools/migrate/node_modules/
+node_modules
 tools/migrate/dist/
-tools/mcp-broker/node_modules/
 tools/mcp-broker/dist/
 
 /.claude
@@ -78,3 +78,4 @@ tools/mcp-broker/dist/
 /objects
 /refs
 /.profile
+/.cache

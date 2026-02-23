@@ -1,0 +1,5 @@
+-- up
+ALTER TABLE items ADD COLUMN z_order INTEGER NOT NULL DEFAULT 0;
+
+-- down
+ALTER TABLE items DROP COLUMN z_order;

@@ -10,6 +10,8 @@
 #include "registry/item_registry.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
+#include "item/item_ops.h"
+#include "item/item_serialization.h"
 #include "audit/item_audit_system.h"
 #include "core/subsystem.h"
 #include "core/logger.h"
@@ -277,8 +279,8 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
         if (auto* tmpl = item_registry_->get(itm->template_id))
         {
             display_name = network::get_display_name(tmpl->name, itm->attribute);
-            ground_sprite = tmpl->ground_sprite;
-            ground_sprite_frame = tmpl->ground_sprite_frame;
+            ground_sprite = tmpl->sprite;
+            ground_sprite_frame = tmpl->sprite_frame;
             item_color = tmpl->item_color;
         }
     }
@@ -297,6 +299,24 @@ void game_handlers::broadcast_ground_item_spawn(map_id map, const world::positio
 
     auto msg = network::make_ground_item_spawn(data);
     broadcast_to_visible(players_, ws_server_, map, pos, msg);
+
+    // Also send v2 ground_item_spawn with full serialized item data
+    std::string map_name;
+    if (world_)
+    {
+        if (auto* map_ptr = world_->get_map(map))
+        {
+            map_name = map_ptr->name();
+        }
+    }
+
+    auto v2_msg = network::make_ground_item_spawn_v2(*itm, map_name, pos.x, pos.y);
+    for_each_visible_connection(
+        players_, ws_server_, map, pos,
+        [&v2_msg](player_id, player::player&, network::ws_connection& c)
+        {
+            c.send_raw(v2_msg.dump());
+        });
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(map))
@@ -361,7 +381,7 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
         LOG_DEBUG(bridge, "NPC '{}' dropped {} gold to killer {}", npc_name, drop.gold, killer.id);
     }
 
-    // Place item drops on ground
+    // Place item drops on ground via item_ops
     for (const auto& loot_item : drop.items)
     {
         auto create_result = item_->create_from_template(loot_item.template_id, 1);
@@ -385,7 +405,10 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
             }
         }
 
-        world_->add_ground_item(npc_map, npc_pos, dropped_item_id);
+        // Use item_ops to clear owner and place on ground
+        item_ops::drop_loot(dropped_item_id, npc_map, npc_pos.x, npc_pos.y, item_, world_);
+
+        // Broadcast v1 + v2 ground item spawn to visible players
         broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item_id);
 
         LOG_DEBUG(bridge,
@@ -414,7 +437,13 @@ void game_handlers::handle_npc_despawn_drop(const npc::npc& n)
     // Generate on_despawn loot (body parts, rares, boss multi-drops)
     auto drop = npc::generate_despawn_loot(*loot_registry_, n.sprite_id);
 
-    // Place item drops on ground
+    if (drop.items.empty())
+        return;
+
+    // Create all item instances first
+    std::vector<item_id> created_ids;
+    created_ids.reserve(drop.items.size());
+
     for (const auto& loot_item : drop.items)
     {
         auto create_result = item_->create_from_template(loot_item.template_id, 1);
@@ -438,22 +467,32 @@ void game_handlers::handle_npc_despawn_drop(const npc::npc& n)
             }
         }
 
-        world_->add_ground_item(npc_map, npc_pos, dropped_item_id);
-        broadcast_ground_item_spawn(npc_map, npc_pos, dropped_item_id);
+        created_ids.push_back(dropped_item_id);
+    }
+
+    if (created_ids.empty())
+        return;
+
+    // Use drop_loot_multi for boss multi-drops (spreads items in 3x3 grid)
+    // For single items this still works fine (just places at center)
+    auto results = item_ops::drop_loot_multi(
+        created_ids, npc_map, npc_pos.x, npc_pos.y, item_, world_);
+
+    // Broadcast each dropped item to visible players
+    for (const auto& result : results)
+    {
+        world::position drop_pos{result.ground_x, result.ground_y};
+        broadcast_ground_item_spawn(npc_map, drop_pos, result.dropped);
 
         LOG_DEBUG(bridge,
-                  "NPC '{}' despawn dropped item {} (template {}) at ({}, {})",
+                  "NPC '{}' despawn dropped item {} at ({}, {})",
                   npc_name,
-                  dropped_item_id.value,
-                  loot_item.template_id.value,
-                  npc_pos.x,
-                  npc_pos.y);
+                  result.dropped.value,
+                  result.ground_x,
+                  result.ground_y);
     }
 
-    if (!drop.items.empty())
-    {
-        LOG_DEBUG(bridge, "NPC '{}' corpse despawned with {} item drops", npc_name, drop.items.size());
-    }
+    LOG_DEBUG(bridge, "NPC '{}' corpse despawned with {} item drops", npc_name, results.size());
 }
 
 } // namespace hb::bridge

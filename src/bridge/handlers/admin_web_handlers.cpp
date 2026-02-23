@@ -1304,27 +1304,29 @@ void admin_web_handlers::handle_get_inventory(connection_id conn_id, const netwo
     data["player_name"] = plr->name;
     data["gold"] = inventory_ ? inventory_->get_gold(owner_id) : 0;
 
-    // Inventory slots
+    // Inventory items
     nlohmann::json inv_arr = nlohmann::json::array();
     if (inventory_)
     {
         auto* inv = inventory_->get_inventory(owner_id);
         if (inv)
         {
-            for (int16_t i = 0; i < 50; ++i)
+            for (const auto& item_entry : inv->items())
             {
-                auto* slot = inv->get_slot(i);
-                if (slot && !slot->is_empty())
+                nlohmann::json entry = {{"item_id", item_entry.item.value},
+                                        {"count", item_entry.count},
+                                        {"pos_x", item_entry.pos_x},
+                                        {"pos_y", item_entry.pos_y},
+                                        {"z_order", item_entry.z_order}};
+                if (auto eq_slot = plr->equipment.find_slot_for(item_entry.item))
+                    entry["equipped_as"] = static_cast<uint8_t>(*eq_slot);
+                if (item_registry_)
                 {
-                    nlohmann::json entry = {{"slot", i}, {"item_id", slot->item.value}, {"count", slot->count}};
-                    if (item_registry_)
-                    {
-                        auto* tmpl = item_registry_->get(slot->item);
-                        if (tmpl)
-                            entry["name"] = tmpl->name;
-                    }
-                    inv_arr.push_back(entry);
+                    auto* tmpl = item_registry_->get(item_entry.item);
+                    if (tmpl)
+                        entry["name"] = tmpl->name;
                 }
+                inv_arr.push_back(entry);
             }
         }
     }
@@ -1335,16 +1337,24 @@ void admin_web_handlers::handle_get_inventory(connection_id conn_id, const netwo
     for (int s = 0; s < static_cast<int>(player::equip_slot::count); ++s)
     {
         auto slot = static_cast<player::equip_slot>(s);
-        auto equipped = plr->equipment.get(slot);
-        if (equipped.id.is_valid())
+        auto equipped = plr->equipment.get_equipped(slot);
+        if (equipped.has_value())
         {
             nlohmann::json entry = {{"slot", s},
-                                    {"item_id", equipped.id.value},
-                                    {"durability", equipped.durability},
-                                    {"max_durability", equipped.max_durability}};
+                                    {"item_id", equipped->value}};
+            // Look up durability and name from item_system
+            if (item_)
+            {
+                auto* itm = item_->get_item(*equipped);
+                if (itm)
+                {
+                    entry["durability"] = itm->durability;
+                    entry["max_durability"] = itm->max_durability;
+                }
+            }
             if (item_registry_)
             {
-                auto* tmpl = item_registry_->get(equipped.id);
+                auto* tmpl = item_registry_->get(*equipped);
                 if (tmpl)
                     entry["name"] = tmpl->name;
             }
@@ -1360,19 +1370,28 @@ void admin_web_handlers::handle_get_inventory(connection_id conn_id, const netwo
         auto* bank = inventory_->get_bank(owner_id);
         if (bank)
         {
-            for (int16_t i = 0; i < 200; ++i)
+            for (int16_t p = 0; p < bank->total_pages(); ++p)
             {
-                auto* slot = bank->get_slot(i);
-                if (slot && !slot->is_empty())
+                for (int16_t s = 0; s < bank->slots_per_page(); ++s)
                 {
-                    nlohmann::json entry = {{"slot", i}, {"item_id", slot->item.value}, {"count", slot->count}};
-                    if (item_registry_)
+                    auto slot_item = bank->get_slot(p, s);
+                    if (slot_item)
                     {
-                        auto* tmpl = item_registry_->get(slot->item);
-                        if (tmpl)
-                            entry["name"] = tmpl->name;
+                        nlohmann::json entry = {{"page", p}, {"slot", s}, {"item_id", slot_item->value}};
+                        if (item_)
+                        {
+                            auto* itm = item_->get_item(*slot_item);
+                            if (itm)
+                                entry["count"] = itm->count;
+                        }
+                        if (item_registry_)
+                        {
+                            auto* tmpl = item_registry_->get(*slot_item);
+                            if (tmpl)
+                                entry["name"] = tmpl->name;
+                        }
+                        bank_arr.push_back(entry);
                     }
-                    bank_arr.push_back(entry);
                 }
             }
         }
@@ -1461,17 +1480,17 @@ void admin_web_handlers::handle_give_item(connection_id conn_id, const network::
                          true,
                          {{"player_name", req.player_name}, {"item_name", item_name}, {"count", req.count}}));
 
-    // Notify target player with inventory_slot_update
+    // Notify target player with inventory_item_update
     if (auto* target_conn = ws_server_->get_connection_by_player(plr->id))
     {
         auto* target_inv = inventory_->get_inventory(entity_id(plr->id.value));
         if (target_inv)
         {
-            if (auto slot = target_inv->find_item(new_item_id); slot)
+            if (auto* entry = target_inv->get_item(new_item_id); entry)
             {
-                auto item_msg = network::build_inventory_item_msg(*slot, new_item_id, item_, item_registry_);
+                auto item_msg = network::build_inventory_item_msg(new_item_id, item_, item_registry_, entry);
                 if (item_msg)
-                    target_conn->send(network::make_inventory_slot_update(*slot, &*item_msg));
+                    target_conn->send(network::make_inventory_item_update(*item_msg));
             }
         }
     }
@@ -1511,44 +1530,45 @@ void admin_web_handlers::handle_remove_item(connection_id conn_id, const network
         return;
     }
 
-    auto* slot = inv->get_slot(req.inventory_slot);
-    if (!slot || slot->is_empty())
+    auto target_item = item_id(req.item_id);
+    auto* entry = inv->get_item(target_item);
+    if (!entry)
     {
         ws_server_->send(
             conn_id,
             network::make_admin_response(
-                network::json_message_type::admin_remove_item_response, msg.seq, false, {}, "Slot is empty"));
+                network::json_message_type::admin_remove_item_response, msg.seq, false, {}, "Item not found"));
         return;
     }
 
-    auto removed_item_id = slot->item;
-    std::string item_name = "Item#" + std::to_string(removed_item_id.value);
+    std::string item_name = "Item#" + std::to_string(target_item.value);
     if (item_registry_)
     {
-        auto* tmpl = item_registry_->get(removed_item_id);
+        auto* tmpl = item_registry_->get(target_item);
         if (tmpl)
             item_name = tmpl->name;
     }
 
-    int32_t removed_count = (req.count <= 0 || req.count >= slot->count) ? slot->count : req.count;
+    int32_t removed_count = (req.count <= 0 || req.count >= entry->count) ? entry->count : req.count;
+    bool fully_removed = (req.count <= 0 || req.count >= entry->count);
 
-    if (req.count <= 0 || req.count >= slot->count)
+    if (fully_removed)
     {
-        slot->clear();
+        inv->remove_item(target_item);
     }
     else
     {
-        slot->count -= req.count;
+        entry->count -= req.count;
     }
 
     // Audit admin remove (always log, ignore audit flag)
     if (audit_)
     {
         audit_->log_item(
-            static_cast<int32_t>(plr->character_id.value), item_name, static_cast<int32_t>(removed_item_id.value), item_log_type::admin_remove, removed_count);
+            static_cast<int32_t>(plr->character_id.value), item_name, static_cast<int32_t>(target_item.value), item_log_type::admin_remove, removed_count);
     }
 
-    LOG_INFO(admin, "Admin removed '{}' from '{}' slot {}", item_name, req.player_name, req.inventory_slot);
+    LOG_INFO(admin, "Admin removed '{}' x{} from '{}'", item_name, removed_count, req.player_name);
     audit_log(conn_id, "remove_item " + item_name + " from " + req.player_name);
 
     ws_server_->send(conn_id,
@@ -1557,18 +1577,18 @@ void admin_web_handlers::handle_remove_item(connection_id conn_id, const network
                                                   true,
                                                   {{"player_name", req.player_name}, {"item_name", item_name}}));
 
-    // Notify target player with inventory_slot_update
+    // Notify target player
     if (auto* target_conn = ws_server_->get_connection_by_player(plr->id))
     {
-        if (slot->is_empty())
+        if (fully_removed)
         {
-            target_conn->send(network::make_inventory_slot_update(req.inventory_slot, nullptr));
+            target_conn->send(network::make_inventory_item_removed(target_item.value));
         }
         else
         {
-            auto item_msg = network::build_inventory_item_msg(req.inventory_slot, slot->item, item_, item_registry_);
+            auto item_msg = network::build_inventory_item_msg(target_item, item_, item_registry_, entry);
             if (item_msg)
-                target_conn->send(network::make_inventory_slot_update(req.inventory_slot, &*item_msg));
+                target_conn->send(network::make_inventory_item_update(*item_msg));
         }
     }
 }
@@ -2170,38 +2190,24 @@ void admin_web_handlers::handle_get_item_template(connection_id conn_id, const n
     data["weight"] = tmpl->weight;
     data["price"] = tmpl->price;
     data["level_limit"] = tmpl->level_limit;
-    data["attack_dice"] = tmpl->attack_dice;
-    data["attack_sides"] = tmpl->attack_sides;
-    data["attack_bonus"] = tmpl->attack_bonus;
-    data["defense"] = tmpl->defense;
-    data["hit_prob_bonus"] = tmpl->hit_prob_bonus;
-    data["dodge_prob_bonus"] = tmpl->dodge_prob_bonus;
-    data["magic_power"] = tmpl->magic_power;
-    data["mana_cost"] = tmpl->mana_cost;
-    data["max_durability"] = tmpl->max_durability;
-    data["max_stack"] = tmpl->max_stack;
-    data["hp_bonus"] = tmpl->hp_bonus;
-    data["mp_bonus"] = tmpl->mp_bonus;
-    data["sp_bonus"] = tmpl->sp_bonus;
-    data["str_req"] = tmpl->str_req;
-    data["dex_req"] = tmpl->dex_req;
-    data["int_req"] = tmpl->int_req;
-    data["mag_req"] = tmpl->mag_req;
-    data["vit_req"] = tmpl->vit_req;
-    data["cha_req"] = tmpl->cha_req;
-    data["str_bonus"] = tmpl->str_bonus;
-    data["dex_bonus"] = tmpl->dex_bonus;
-    data["int_bonus"] = tmpl->int_bonus;
-    data["mag_bonus"] = tmpl->mag_bonus;
-    data["vit_bonus"] = tmpl->vit_bonus;
-    data["cha_bonus"] = tmpl->cha_bonus;
-    data["is_stackable"] = tmpl->is_stackable;
-    data["is_tradeable"] = tmpl->is_tradeable;
-    data["is_droppable"] = tmpl->is_droppable;
-    data["is_consumable"] = tmpl->is_consumable;
-    data["is_quest_item"] = tmpl->is_quest_item;
-    data["sprite_id"] = tmpl->sprite_id;
-    data["two_hand_modifier"] = tmpl->two_hand_modifier;
+    data["durability"] = tmpl->durability;
+    data["effect_type"] = tmpl->effect_type;
+    data["effect_value1"] = tmpl->effect_value1;
+    data["effect_value2"] = tmpl->effect_value2;
+    data["effect_value3"] = tmpl->effect_value3;
+    data["effect_value4"] = tmpl->effect_value4;
+    data["effect_value5"] = tmpl->effect_value5;
+    data["effect_value6"] = tmpl->effect_value6;
+    data["special_effect"] = tmpl->special_effect;
+    data["special_effect_value1"] = tmpl->special_effect_value1;
+    data["special_effect_value2"] = tmpl->special_effect_value2;
+    data["sprite"] = tmpl->sprite;
+    data["sprite_frame"] = tmpl->sprite_frame;
+    data["appr_value"] = tmpl->appr_value;
+    data["item_color"] = tmpl->item_color;
+    data["speed"] = tmpl->speed;
+    data["gender_limit"] = tmpl->gender_limit;
+    data["related_skill"] = tmpl->related_skill;
 
     ws_server_->send(conn_id,
                      network::make_admin_response(

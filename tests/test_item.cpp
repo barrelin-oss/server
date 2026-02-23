@@ -3,13 +3,18 @@
 
 #include <gtest/gtest.h>
 #include "core/types.h"
+#include "core/subsystem.h"
 #include "entity/entity.h"
 #include "item/item.h"
 #include "item/item_effect.h"
 #include "item/item_system.h"
+#include "registry/item_registry.h"
+#include "registry/item_template.h"
 
 using hb::entity_id;
 using hb::item_id;
+using hb::item_registry;
+using hb::item_template;
 using namespace hb::entity;
 using namespace hb::item;
 
@@ -192,17 +197,50 @@ TEST(requirement_check_test, meets_requirements)
 class item_system_test : public ::testing::Test
 {
 protected:
-    void SetUp() override { system_.initialize(); }
+    void SetUp() override
+    {
+        // Register item_registry with test templates so create_item can resolve them
+        auto& registry = hb::subsystems().create_subsystem<item_registry>();
 
-    void TearDown() override { system_.shutdown(); }
+        item_template tmpl{};
+        tmpl.id = item_id{100};
+        tmpl.name = "Test Item";
+        tmpl.type = hb::item_type::consume;
+        tmpl.weight = 1;
+        tmpl.price = 10;
+        tmpl.durability = 100;
+        registry.register_template(tmpl);
 
-    item_system system_;
+        for (uint32_t id : {1u, 2u, 200u})
+        {
+            item_template t{};
+            t.id = item_id{id};
+            t.name = "Test Item " + std::to_string(id);
+            t.type = hb::item_type::consume;
+            t.weight = 1;
+            t.price = 10;
+            t.durability = 100;
+            registry.register_template(t);
+        }
+
+        hb::subsystems().create_subsystem<item_system>();
+        hb::subsystems().initialize_all();
+
+        system_ = hb::subsystems().get<item_system>();
+    }
+
+    void TearDown() override
+    {
+        hb::subsystems().clear_all();
+    }
+
+    item_system* system_{nullptr};
 };
 
 TEST_F(item_system_test, lifecycle)
 {
-    EXPECT_TRUE(system_.is_initialized());
-    EXPECT_EQ(system_.name(), "item_system");
+    EXPECT_TRUE(system_->is_initialized());
+    EXPECT_EQ(system_->name(), "item_system");
 }
 
 TEST_F(item_system_test, create_item)
@@ -211,14 +249,14 @@ TEST_F(item_system_test, create_item)
     info.template_id = item_id{100};
     info.count = 5;
 
-    auto result = system_.create_item(info);
+    auto result = system_->create_item(info);
     ASSERT_TRUE(result.is_ok());
 
     auto id = result.value();
     EXPECT_TRUE(id.is_valid());
-    EXPECT_EQ(system_.item_count(), 1);
+    EXPECT_EQ(system_->item_count(), 1);
 
-    auto* itm = system_.get_item(id);
+    auto* itm = system_->get_item(id);
     ASSERT_NE(itm, nullptr);
     EXPECT_EQ(itm->count, 5);
 }
@@ -228,12 +266,12 @@ TEST_F(item_system_test, destroy_item)
     item_create_info info;
     info.template_id = item_id{100};
 
-    auto result = system_.create_item(info);
+    auto result = system_->create_item(info);
     auto id = result.value();
 
-    EXPECT_TRUE(system_.item_exists(id));
-    system_.destroy_item(id);
-    EXPECT_FALSE(system_.item_exists(id));
+    EXPECT_TRUE(system_->item_exists(id));
+    system_->destroy_item(id);
+    EXPECT_FALSE(system_->item_exists(id));
 }
 
 TEST_F(item_system_test, ownership)
@@ -242,16 +280,16 @@ TEST_F(item_system_test, ownership)
     info.template_id = item_id{100};
     info.owner = entity_id{42};
 
-    auto result = system_.create_item(info);
+    auto result = system_->create_item(info);
     auto id = result.value();
 
-    auto* itm = system_.get_item(id);
+    auto* itm = system_->get_item(id);
     EXPECT_EQ(itm->owner.value, 42);
 
-    auto owned = system_.get_items_owned_by(entity_id{42});
+    auto owned = system_->get_items_owned_by(entity_id{42});
     EXPECT_EQ(owned.size(), 1);
 
-    system_.clear_owner(id);
+    system_->clear_owner(id);
     EXPECT_FALSE(itm->owner.is_valid());
 }
 
@@ -265,14 +303,14 @@ TEST_F(item_system_test, stack_items)
     info2.template_id = item_id{100};
     info2.count = 30;
 
-    auto r1 = system_.create_item(info1);
-    auto r2 = system_.create_item(info2);
+    auto r1 = system_->create_item(info1);
+    auto r2 = system_->create_item(info2);
 
     auto id1 = r1.value();
     auto id2 = r2.value();
 
-    auto* itm1 = system_.get_item(id1);
-    auto* itm2 = system_.get_item(id2);
+    auto* itm1 = system_->get_item(id1);
+    auto* itm2 = system_->get_item(id2);
 
     // Make them stackable
     itm1->stackable = true;
@@ -280,9 +318,9 @@ TEST_F(item_system_test, stack_items)
     itm2->stackable = true;
     itm2->max_stack = 99;
 
-    EXPECT_TRUE(system_.try_stack(id1, id2));
-    EXPECT_EQ(system_.get_item(id1)->count, 80);
-    EXPECT_FALSE(system_.item_exists(id2)); // Destroyed after stacking
+    EXPECT_TRUE(system_->try_stack(id1, id2));
+    EXPECT_EQ(system_->get_item(id1)->count, 80);
+    EXPECT_FALSE(system_->item_exists(id2)); // Destroyed after stacking
 }
 
 TEST_F(item_system_test, split_item)
@@ -291,15 +329,15 @@ TEST_F(item_system_test, split_item)
     info.template_id = item_id{100};
     info.count = 50;
 
-    auto create_result = system_.create_item(info);
+    auto create_result = system_->create_item(info);
     auto id = create_result.value();
 
-    auto split_result = system_.split_item(id, 20);
+    auto split_result = system_->split_item(id, 20);
     ASSERT_TRUE(split_result.is_ok());
 
     auto new_id = split_result.value();
-    EXPECT_EQ(system_.get_item(id)->count, 30);
-    EXPECT_EQ(system_.get_item(new_id)->count, 20);
+    EXPECT_EQ(system_->get_item(id)->count, 30);
+    EXPECT_EQ(system_->get_item(new_id)->count, 20);
 }
 
 TEST_F(item_system_test, durability_operations)
@@ -307,19 +345,19 @@ TEST_F(item_system_test, durability_operations)
     item_create_info info;
     info.template_id = item_id{100};
 
-    auto result = system_.create_item(info);
+    auto result = system_->create_item(info);
     auto id = result.value();
 
-    auto* itm = system_.get_item(id);
+    auto* itm = system_->get_item(id);
     EXPECT_EQ(itm->durability, 100);
 
-    system_.damage_durability(id, 30);
+    system_->damage_durability(id, 30);
     EXPECT_EQ(itm->durability, 70);
 
-    system_.repair_item(id, 20);
+    system_->repair_item(id, 20);
     EXPECT_EQ(itm->durability, 90);
 
-    system_.repair_item_full(id);
+    system_->repair_item_full(id);
     EXPECT_EQ(itm->durability, 100);
 }
 
@@ -329,28 +367,28 @@ TEST_F(item_system_test, max_items_limit)
 {
     item_system_config config;
     config.max_items = 3;
-    system_.set_config(config);
+    system_->set_config(config);
 
     item_create_info info;
     info.template_id = item_id{1};
 
-    EXPECT_TRUE(system_.create_item(info).is_ok());
-    EXPECT_TRUE(system_.create_item(info).is_ok());
-    EXPECT_TRUE(system_.create_item(info).is_ok());
+    EXPECT_TRUE(system_->create_item(info).is_ok());
+    EXPECT_TRUE(system_->create_item(info).is_ok());
+    EXPECT_TRUE(system_->create_item(info).is_ok());
 
-    auto r4 = system_.create_item(info);
+    auto r4 = system_->create_item(info);
     EXPECT_TRUE(r4.is_err());
 }
 
 TEST_F(item_system_test, get_nonexistent_item)
 {
-    EXPECT_EQ(system_.get_item(item_id{999}), nullptr);
+    EXPECT_EQ(system_->get_item(item_id{999}), nullptr);
 }
 
 TEST_F(item_system_test, destroy_nonexistent_item)
 {
     // Should not crash
-    system_.destroy_item(item_id{999});
+    system_->destroy_item(item_id{999});
 }
 
 TEST_F(item_system_test, set_owner)
@@ -358,13 +396,13 @@ TEST_F(item_system_test, set_owner)
     item_create_info info;
     info.template_id = item_id{100};
 
-    auto result = system_.create_item(info);
+    auto result = system_->create_item(info);
     auto id = result.value();
 
-    system_.set_owner(id, entity_id{10});
-    EXPECT_EQ(system_.get_item(id)->owner.value, 10);
+    system_->set_owner(id, entity_id{10});
+    EXPECT_EQ(system_->get_item(id)->owner.value, 10);
 
-    auto owned = system_.get_items_owned_by(entity_id{10});
+    auto owned = system_->get_items_owned_by(entity_id{10});
     EXPECT_EQ(owned.size(), 1);
     EXPECT_EQ(owned[0].value, id.value);
 }
@@ -375,11 +413,11 @@ TEST_F(item_system_test, multiple_items_same_owner)
     info.template_id = item_id{1};
     info.owner = entity_id{42};
 
-    system_.create_item(info);
-    system_.create_item(info);
-    system_.create_item(info);
+    system_->create_item(info);
+    system_->create_item(info);
+    system_->create_item(info);
 
-    auto owned = system_.get_items_owned_by(entity_id{42});
+    auto owned = system_->get_items_owned_by(entity_id{42});
     EXPECT_EQ(owned.size(), 3);
 }
 
@@ -393,19 +431,19 @@ TEST_F(item_system_test, stack_different_templates_fails)
     info2.template_id = item_id{200}; // Different template
     info2.count = 5;
 
-    auto r1 = system_.create_item(info1);
-    auto r2 = system_.create_item(info2);
+    auto r1 = system_->create_item(info1);
+    auto r2 = system_->create_item(info2);
 
-    auto* itm1 = system_.get_item(r1.value());
-    auto* itm2 = system_.get_item(r2.value());
+    auto* itm1 = system_->get_item(r1.value());
+    auto* itm2 = system_->get_item(r2.value());
     itm1->stackable = true;
     itm1->max_stack = 99;
     itm2->stackable = true;
     itm2->max_stack = 99;
 
     // Different templates should not stack
-    EXPECT_FALSE(system_.try_stack(r1.value(), r2.value()));
-    EXPECT_TRUE(system_.item_exists(r2.value())); // Source still exists
+    EXPECT_FALSE(system_->try_stack(r1.value(), r2.value()));
+    EXPECT_TRUE(system_->item_exists(r2.value())); // Source still exists
 }
 
 TEST_F(item_system_test, split_item_count_one_fails)
@@ -414,11 +452,11 @@ TEST_F(item_system_test, split_item_count_one_fails)
     info.template_id = item_id{100};
     info.count = 1;
 
-    auto create_result = system_.create_item(info);
+    auto create_result = system_->create_item(info);
     auto id = create_result.value();
 
     // Can't split a single item
-    auto split_result = system_.split_item(id, 1);
+    auto split_result = system_->split_item(id, 1);
     // The split method on item limits to count-1, so splitting 1 from count=1 gives 0
     // This depends on implementation - let's just verify no crash
 }
@@ -428,11 +466,11 @@ TEST_F(item_system_test, for_each_item)
     item_create_info info;
     info.template_id = item_id{1};
 
-    system_.create_item(info);
-    system_.create_item(info);
+    system_->create_item(info);
+    system_->create_item(info);
 
     int count = 0;
-    system_.for_each_item([&](item_id, item&) { ++count; });
+    system_->for_each_item([&](item_id, item&) { ++count; });
     EXPECT_EQ(count, 2);
 }
 
@@ -446,12 +484,12 @@ TEST_F(item_system_test, for_each_item_owned_by)
     info2.template_id = item_id{2};
     info2.owner = entity_id{20};
 
-    system_.create_item(info1);
-    system_.create_item(info1);
-    system_.create_item(info2);
+    system_->create_item(info1);
+    system_->create_item(info1);
+    system_->create_item(info2);
 
     int count = 0;
-    system_.for_each_item_owned_by(entity_id{10}, [&](item_id, item&) { ++count; });
+    system_->for_each_item_owned_by(entity_id{10}, [&](item_id, item&) { ++count; });
     EXPECT_EQ(count, 2);
 }
 
@@ -460,12 +498,12 @@ TEST_F(item_system_test, durability_to_zero_breaks_item)
     item_create_info info;
     info.template_id = item_id{100};
 
-    auto result = system_.create_item(info);
+    auto result = system_->create_item(info);
     auto id = result.value();
 
-    system_.damage_durability(id, 200); // More than max
-    EXPECT_EQ(system_.get_item(id)->durability, 0);
-    EXPECT_TRUE(system_.get_item(id)->is_broken());
+    system_->damage_durability(id, 200); // More than max
+    EXPECT_EQ(system_->get_item(id)->durability, 0);
+    EXPECT_TRUE(system_->get_item(id)->is_broken());
 }
 
 // Item struct edge cases

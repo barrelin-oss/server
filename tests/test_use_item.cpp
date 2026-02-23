@@ -22,106 +22,86 @@ namespace
 using namespace hb;
 
 // ============================================================================
-// Item template / is_usable tests
+// Item template consumable type tests (raw effect_type field)
 // ============================================================================
 
-TEST(use_item_test, is_usable_eat_type)
+// Legacy effect_type values: 4=hp, 5=mp, 6=sp, 7=food, 11=magic_scroll
+TEST(use_item_test, consumable_type_eat_has_effect_type)
 {
     item_template tmpl;
     tmpl.type = item_type::eat;
-    EXPECT_TRUE(tmpl.is_usable());
+    // Consumability determined by type == eat or use_deplete
+    EXPECT_EQ(tmpl.type, item_type::eat);
 }
 
-TEST(use_item_test, is_usable_use_deplete_type)
+TEST(use_item_test, consumable_type_use_deplete)
 {
     item_template tmpl;
     tmpl.type = item_type::use_deplete;
-    EXPECT_TRUE(tmpl.is_usable());
+    EXPECT_EQ(tmpl.type, item_type::use_deplete);
 }
 
-TEST(use_item_test, is_usable_weapon_false)
+TEST(use_item_test, weapon_is_not_consumable_type)
 {
     item_template tmpl;
     tmpl.type = item_type::weapon;
-    EXPECT_FALSE(tmpl.is_usable());
+    EXPECT_NE(tmpl.type, item_type::eat);
+    EXPECT_NE(tmpl.type, item_type::use_deplete);
 }
 
-TEST(use_item_test, is_usable_armor_false)
+// ============================================================================
+// Raw effect_type field defaults
+// ============================================================================
+
+TEST(use_item_test, template_effect_defaults_to_zero)
 {
     item_template tmpl;
-    tmpl.type = item_type::armor;
-    EXPECT_FALSE(tmpl.is_usable());
-}
-
-TEST(use_item_test, is_usable_none_false)
-{
-    item_template tmpl;
-    tmpl.type = item_type::none;
-    EXPECT_FALSE(tmpl.is_usable());
-}
-
-// ============================================================================
-// Consumable effect struct defaults
-// ============================================================================
-
-TEST(use_item_test, consumable_effect_defaults)
-{
-    consumable_effect eff;
-    EXPECT_EQ(eff.type, consumable_effect_type::none);
-    EXPECT_EQ(eff.v1, 0);
-    EXPECT_EQ(eff.v2, 0);
-    EXPECT_EQ(eff.v3, 0);
-    EXPECT_EQ(eff.v4, 0);
-    EXPECT_EQ(eff.v5, 0);
-}
-
-TEST(use_item_test, consumable_effect_type_values)
-{
-    EXPECT_EQ(static_cast<uint8_t>(consumable_effect_type::none), 0);
-    EXPECT_EQ(static_cast<uint8_t>(consumable_effect_type::hp_restore), 4);
-    EXPECT_EQ(static_cast<uint8_t>(consumable_effect_type::mp_restore), 5);
-    EXPECT_EQ(static_cast<uint8_t>(consumable_effect_type::sp_restore), 6);
-    EXPECT_EQ(static_cast<uint8_t>(consumable_effect_type::food), 7);
-    EXPECT_EQ(static_cast<uint8_t>(consumable_effect_type::magic_scroll), 11);
+    EXPECT_EQ(tmpl.effect_type, 0);
+    EXPECT_EQ(tmpl.effect_value1, 0);
+    EXPECT_EQ(tmpl.effect_value2, 0);
+    EXPECT_EQ(tmpl.effect_value3, 0);
+    EXPECT_EQ(tmpl.effect_value4, 0);
+    EXPECT_EQ(tmpl.effect_value5, 0);
+    EXPECT_EQ(tmpl.effect_value6, 0);
 }
 
 // ============================================================================
-// Potion template fields simulation (verify struct wiring)
+// Potion template fields simulation (verify struct wiring with raw fields)
 // ============================================================================
 
-TEST(use_item_test, hp_potion_template_fields)
+TEST(use_item_test, hp_potion_template_raw_fields)
 {
-    // Simulate RedPotion: { id: 91, type: 7, color_r1: 4, color_g1: 2, color_b1: 12, color_r2: 10 }
+    // Simulate RedPotion with raw fields:
+    // effect_type=4 (hp_restore), effect_value1=2 (dice), effect_value2=12 (sides), effect_value3=10 (bonus)
     item_template tmpl;
     tmpl.id = item_id{91};
     tmpl.name = "RedPotion";
     tmpl.type = item_type::eat;
-    tmpl.use_effect.type = consumable_effect_type::hp_restore;
-    tmpl.use_effect.v1 = 2;  // dice count
-    tmpl.use_effect.v2 = 12; // dice sides
-    tmpl.use_effect.v3 = 10; // flat bonus
+    tmpl.effect_type = 4; // hp_restore
+    tmpl.effect_value1 = 2;  // dice count
+    tmpl.effect_value2 = 12; // dice sides
+    tmpl.effect_value3 = 10; // flat bonus
 
-    EXPECT_TRUE(tmpl.is_usable());
-    // is_consumable is set by YAML loader, not default — test that in registry test
-    EXPECT_EQ(tmpl.use_effect.type, consumable_effect_type::hp_restore);
-    EXPECT_EQ(tmpl.use_effect.v1, 2);
-    EXPECT_EQ(tmpl.use_effect.v2, 12);
-    EXPECT_EQ(tmpl.use_effect.v3, 10);
+    EXPECT_EQ(tmpl.type, item_type::eat);
+    EXPECT_EQ(tmpl.effect_type, 4);
+    EXPECT_EQ(tmpl.effect_value1, 2);
+    EXPECT_EQ(tmpl.effect_value2, 12);
+    EXPECT_EQ(tmpl.effect_value3, 10);
 }
 
-TEST(use_item_test, recall_scroll_template_fields)
+TEST(use_item_test, recall_scroll_template_raw_fields)
 {
-    // Simulate RecallScroll: { id: 114, type: 3, color_r1: 11, color_g1: 1 }
+    // Simulate RecallScroll: effect_type=11 (magic_scroll), effect_value1=1 (recall subtype)
     item_template tmpl;
     tmpl.id = item_id{114};
     tmpl.name = "RecallScroll";
     tmpl.type = item_type::use_deplete;
-    tmpl.use_effect.type = consumable_effect_type::magic_scroll;
-    tmpl.use_effect.v1 = 1; // scroll subtype: recall
+    tmpl.effect_type = 11; // magic_scroll
+    tmpl.effect_value1 = 1; // scroll subtype: recall
 
-    EXPECT_TRUE(tmpl.is_usable());
-    EXPECT_EQ(tmpl.use_effect.type, consumable_effect_type::magic_scroll);
-    EXPECT_EQ(tmpl.use_effect.v1, 1);
+    EXPECT_EQ(tmpl.type, item_type::use_deplete);
+    EXPECT_EQ(tmpl.effect_type, 11);
+    EXPECT_EQ(tmpl.effect_value1, 1);
 }
 
 // ============================================================================
@@ -262,13 +242,13 @@ TEST(dice_roll_test, one_die_one_side_returns_count_plus_bonus)
 
 TEST(use_item_protocol_test, request_from_json_valid)
 {
-    nlohmann::json j = {{"slot", 5}};
+    nlohmann::json j = {{"item_id", 5}};
     auto result = network::use_item_request_data::from_json(j);
     ASSERT_TRUE(result.is_ok());
-    EXPECT_EQ(result.value().slot, 5);
+    EXPECT_EQ(result.value().item_id, 5u);
 }
 
-TEST(use_item_protocol_test, request_from_json_missing_slot)
+TEST(use_item_protocol_test, request_from_json_missing_item_id)
 {
     nlohmann::json j = {};
     auto result = network::use_item_request_data::from_json(j);
@@ -409,57 +389,51 @@ TEST(use_item_map_test, recall_impossible_flag_settable)
 
 TEST(use_item_inventory_test, stack_decrements)
 {
-    inventory::inventory_slot slot;
-    slot.set(item_id{91}, 5);
-    EXPECT_FALSE(slot.is_empty());
+    inventory::inventory_entry entry{};
+    entry.item = item_id{91};
+    entry.count = 5;
 
-    --slot.count;
-    EXPECT_EQ(slot.count, 4);
-    EXPECT_FALSE(slot.is_empty());
+    --entry.count;
+    EXPECT_EQ(entry.count, 4);
+    EXPECT_TRUE(entry.item.is_valid());
 }
 
-TEST(use_item_inventory_test, last_item_cleared)
+TEST(use_item_inventory_test, last_item_consumed)
 {
-    inventory::inventory_slot slot;
-    slot.set(item_id{91}, 1);
+    inventory::inventory inv(50);
+    inv.add_item(item_id{91}, 1);
+    EXPECT_TRUE(inv.has_item(item_id{91}));
 
-    if (slot.count <= 1)
-    {
-        slot.clear();
-    }
-    else
-    {
-        --slot.count;
-    }
-
-    EXPECT_TRUE(slot.is_empty());
+    inv.remove_item(item_id{91});
+    EXPECT_FALSE(inv.has_item(item_id{91}));
 }
 
 TEST(use_item_inventory_test, stack_five_to_four)
 {
-    inventory::inventory_slot slot;
-    slot.set(item_id{91}, 5);
+    inventory::inventory_entry entry{};
+    entry.item = item_id{91};
+    entry.count = 5;
 
-    if (slot.count <= 1)
+    if (entry.count <= 1)
     {
-        slot.clear();
+        // would remove from inventory
     }
     else
     {
-        --slot.count;
+        --entry.count;
     }
 
-    EXPECT_EQ(slot.count, 4);
-    EXPECT_EQ(slot.item.value, 91u);
+    EXPECT_EQ(entry.count, 4);
+    EXPECT_EQ(entry.item.value, 91u);
 }
 
 // ============================================================================
 // YAML parsing test (item registry)
 // ============================================================================
 
-TEST(use_item_registry_test, parses_consumable_fields_from_yaml)
+TEST(use_item_registry_test, parses_raw_effect_fields_from_yaml)
 {
-    // Write a temp YAML file and parse it
+    // Write a temp YAML file with new field names and parse it
     auto temp_path = std::filesystem::temp_directory_path() / "test_use_item_items.yaml";
     {
         std::ofstream f(temp_path);
@@ -467,15 +441,15 @@ TEST(use_item_registry_test, parses_consumable_fields_from_yaml)
           << "  - id: 91\n"
           << "    name: RedPotion\n"
           << "    type: 7\n"
-          << "    color_r1: 4\n"
-          << "    color_g1: 2\n"
-          << "    color_b1: 12\n"
-          << "    color_r2: 10\n"
+          << "    effect_type: 4\n"
+          << "    effect_value1: 2\n"
+          << "    effect_value2: 12\n"
+          << "    effect_value3: 10\n"
           << "  - id: 114\n"
           << "    name: RecallScroll\n"
           << "    type: 3\n"
-          << "    color_r1: 11\n"
-          << "    color_g1: 1\n"
+          << "    effect_type: 11\n"
+          << "    effect_value1: 1\n"
           << "  - id: 200\n"
           << "    name: LongSword\n"
           << "    type: 13\n";
@@ -488,30 +462,27 @@ TEST(use_item_registry_test, parses_consumable_fields_from_yaml)
     ASSERT_TRUE(result.is_ok());
     EXPECT_EQ(result.value(), 3u);
 
-    // RedPotion
+    // RedPotion -- raw effect fields
     const auto* red_pot = registry.get(item_id{91});
     ASSERT_NE(red_pot, nullptr);
-    EXPECT_EQ(red_pot->use_effect.type, consumable_effect_type::hp_restore);
-    EXPECT_EQ(red_pot->use_effect.v1, 2);
-    EXPECT_EQ(red_pot->use_effect.v2, 12);
-    EXPECT_EQ(red_pot->use_effect.v3, 10);
-    EXPECT_TRUE(red_pot->is_usable());
-    EXPECT_TRUE(red_pot->is_consumable);
+    EXPECT_EQ(red_pot->effect_type, 4);       // hp_restore
+    EXPECT_EQ(red_pot->effect_value1, 2);      // dice count
+    EXPECT_EQ(red_pot->effect_value2, 12);     // dice sides
+    EXPECT_EQ(red_pot->effect_value3, 10);     // flat bonus
+    EXPECT_EQ(red_pot->type, item_type::eat);
 
-    // RecallScroll
+    // RecallScroll -- raw effect fields
     const auto* scroll = registry.get(item_id{114});
     ASSERT_NE(scroll, nullptr);
-    EXPECT_EQ(scroll->use_effect.type, consumable_effect_type::magic_scroll);
-    EXPECT_EQ(scroll->use_effect.v1, 1);
-    EXPECT_TRUE(scroll->is_usable());
-    EXPECT_TRUE(scroll->is_consumable);
+    EXPECT_EQ(scroll->effect_type, 11);        // magic_scroll
+    EXPECT_EQ(scroll->effect_value1, 1);       // recall subtype
+    EXPECT_EQ(scroll->type, item_type::use_deplete);
 
-    // LongSword — not usable
+    // LongSword -- no effect
     const auto* sword = registry.get(item_id{200});
     ASSERT_NE(sword, nullptr);
-    EXPECT_EQ(sword->use_effect.type, consumable_effect_type::none);
-    EXPECT_FALSE(sword->is_usable());
-    EXPECT_FALSE(sword->is_consumable);
+    EXPECT_EQ(sword->effect_type, 0);
+    EXPECT_EQ(sword->type, item_type::weapon);
 
     registry.shutdown();
     std::filesystem::remove(temp_path);

@@ -37,9 +37,9 @@ protected:
         return path;
     }
 
-    void load_items(const std::string& content)
+    void load_items(const std::string& yaml_content)
     {
-        auto path = write_file("items.cfg", content);
+        auto path = write_file("items.yaml", yaml_content);
         items_.load_from_file(path);
     }
 
@@ -69,7 +69,7 @@ mineral_types:
 
 TEST_F(mining_registry_test, parses_all_fields)
 {
-    load_items("42\tCoal\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n");
+    load_items("items:\n  - {id: 42, name: Coal, type: 13, equip_pos: 8, weight: 100, price: 500}\n");
 
     auto path = write_file("mining.yaml", R"(
 mineral_types:
@@ -99,7 +99,7 @@ mineral_types:
 
 TEST_F(mining_registry_test, resolves_item_name_to_template_id)
 {
-    load_items("99\tIronOre\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n");
+    load_items("items:\n  - {id: 99, name: IronOre, type: 13, equip_pos: 8, weight: 100, price: 500}\n");
 
     auto path = write_file("mining.yaml", R"(
 mineral_types:

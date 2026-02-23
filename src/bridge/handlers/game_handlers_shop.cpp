@@ -12,6 +12,8 @@
 #include "registry/item_registry.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
+#include "item/item_ops.h"
+#include "item/item_serialization.h"
 #include "crafting/manufacturing_system.h"
 #include "crafting/alchemy_system.h"
 #include "audit/item_audit_system.h"
@@ -22,27 +24,112 @@
 namespace hb::bridge
 {
 
+namespace
+{
+    // Compute total inventory weight and send update to client
+    void send_weight_update(
+        inventory::inventory_system* inv_sys,
+        player::player_system* players,
+        item_registry* item_reg,
+        entity_id entity,
+        player_id pid,
+        network::websocket_server* ws)
+    {
+        if (!inv_sys || !players || !item_reg)
+            return;
+
+        auto* inv = inv_sys->get_inventory(entity);
+        auto* player = players->get_player(pid);
+        if (!inv || !player)
+            return;
+
+        int32_t total = 0;
+        for (const auto& entry : inv->items())
+        {
+            auto* tmpl = item_reg->get(entry.item);
+            if (tmpl)
+                total += tmpl->weight * entry.count;
+        }
+
+        auto str = player->base.strength;
+        auto lvl = player->experience.level;
+        auto max_w = inventory::inventory::max_weight(str, lvl);
+        inv_sys->set_weight(entity, total, max_w);
+
+        if (auto* conn = ws->get_connection_by_player(pid))
+            conn->send(network::make_inventory_weight_update(total, max_w));
+    }
+
+    // Find the nearest friendly shop NPC within 3 tiles of the player.
+    // Used by v2 shop handlers which don't send an npc_entity_id.
+    struct shop_npc_lookup
+    {
+        npc::npc* target{nullptr};
+        const npc::shop_config* shop{nullptr};
+    };
+
+    auto find_nearest_shop_npc(
+        player::player* plr,
+        npc::npc_system* npc_sys,
+        shop_registry* shop_reg) -> shop_npc_lookup
+    {
+        if (!plr || !npc_sys || !shop_reg)
+            return {};
+
+        auto nearby = npc_sys->get_npcs_in_range(plr->current_map, plr->pos, 3);
+        for (const auto& ent : nearby)
+        {
+            auto* npc_ptr = npc_sys->get_npc(ent);
+            if (!npc_ptr || !npc_ptr->is_alive() || !npc_ptr->is_friendly())
+                continue;
+
+            auto* shop = shop_reg->get_shop(npc_ptr->name);
+            if (shop)
+            {
+                return shop_npc_lookup{.target = npc_ptr, .shop = shop};
+            }
+        }
+        return {};
+    }
+    // Find the nearest friendly bank NPC within 3 tiles of the player.
+    // Used by v2 bank handlers which don't send an npc_entity_id.
+    auto find_nearest_bank_npc(
+        player::player* plr,
+        npc::npc_system* npc_sys) -> npc::npc*
+    {
+        if (!plr || !npc_sys)
+            return nullptr;
+
+        auto nearby = npc_sys->get_npcs_in_range(plr->current_map, plr->pos, 3);
+        for (const auto& ent : nearby)
+        {
+            auto* npc_ptr = npc_sys->get_npc(ent);
+            if (!npc_ptr || !npc_ptr->is_alive() || !npc_ptr->is_friendly())
+                continue;
+
+            if (npc_ptr->category == npc::npc_category::banker ||
+                npc_ptr->category == npc::npc_category::warehouse)
+            {
+                return npc_ptr;
+            }
+        }
+        return nullptr;
+    }
+} // namespace
+
 void game_handlers::handle_player_pickup(connection_id conn_id, const network::json_message& msg)
 {
     auto* conn = require_in_game(conn_id, msg.seq);
     if (!conn)
         return;
 
-    if (!players_ || !world_ || !inventory_)
+    if (!players_ || !world_ || !inventory_ || !item_)
     {
         send_error(conn_id, msg.seq, "internal_error", "Required subsystems unavailable");
         return;
     }
 
-    auto data_result = network::player_pickup_request_data::from_json(msg.data);
-    if (data_result.is_err())
-    {
-        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
-        return;
-    }
-
     auto pid = conn->player();
-
     auto* player = players_->get_player(pid);
     if (!player)
     {
@@ -50,122 +137,149 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
         return;
     }
 
-    // Dead players cannot pick up items
     if (player->is_dead())
     {
         send_error(conn_id, msg.seq, "dead", "Cannot pick up items while dead");
         return;
     }
 
-    // No items on ground - silently ignore (no-op)
-    if (!world_->has_ground_items(player->current_map, player->pos))
+    LOG_DEBUG(bridge, "Pickup request from player {} (pid={})", player->name, pid.value);
+
+    // Resolve pickup position: v2 uses map/x/y from message, v1 uses player position
+    auto pickup_map = player->current_map;
+    auto pickup_pos = player->pos;
+
+    if (msg.type == network::json_message_type::pickup_request)
     {
+        auto data_result = network::pickup_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            conn->send_raw(network::make_pickup_result(false).dump());
+            return;
+        }
+        auto& data = data_result.value();
+        // v2 sends map name — resolve to map_id
+        auto* map_ptr = world_->get_map_by_name(data.map);
+        if (map_ptr)
+        {
+            pickup_map = map_ptr->id();
+            pickup_pos = world::position{static_cast<int16_t>(data.x), static_cast<int16_t>(data.y)};
+        }
+    }
+    else
+    {
+        // v1: parse but we only use player position
+        auto data_result = network::player_pickup_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+    }
+
+    LOG_DEBUG(bridge, "Pickup checking map={} pos=({},{})", pickup_map.value, pickup_pos.x, pickup_pos.y);
+
+    auto owner_eid = entity_id(player->id.value);
+
+    // Call item_ops
+    auto result = item_ops::pickup_item(owner_eid, pickup_map, pickup_pos, item_, inventory_, world_);
+
+    if (!result.success)
+    {
+        if (msg.type == network::json_message_type::pickup_request)
+        {
+            conn->send_raw(network::make_pickup_result(false).dump());
+        }
+        else
+        {
+            send_error(conn_id, msg.seq, "pickup_failed", result.error);
+        }
         return;
     }
 
-    // Check if inventory has space
-    auto player_entity = entity_id{pid.value};
-    if (inventory_->is_full(player_entity))
+    // Notify player if the pickup was blocked (too heavy, inventory full, etc.)
+    if (!result.error.empty())
     {
-        send_error(conn_id, msg.seq, "inventory_full", "Cannot carry more items");
-        return;
+        conn->send(network::make_chat_message_broadcast({
+            .channel = "system",
+            .sender_id = 0,
+            .sender_name = "",
+            .content = result.error,
+            .flags = {"system"},
+        }));
     }
 
-    // Remove top-most item from ground
-    auto item_id_opt = world_->remove_top_ground_item(player->current_map, player->pos);
-    if (!item_id_opt.has_value())
+    auto picked_item_id = result.picked_up;
+    auto* itm = item_->get_item(picked_item_id);
+    std::string item_name = itm ? itm->name : "Unknown";
+
+    // Send pickup ack
+    if (msg.type == network::json_message_type::pickup_request)
     {
-        send_error(conn_id, msg.seq, "item_not_found", "Item no longer available");
-        return;
+        conn->send_raw(network::make_pickup_result(true).dump());
+    }
+    else
+    {
+        conn->send(network::make_player_pickup_response(msg.seq, true, nullptr, std::nullopt));
     }
 
-    auto picked_item_id = item_id_opt.value();
-
-    // Add item to inventory
-    auto add_result = inventory_->add_item(player_entity, picked_item_id);
-    if (add_result != inventory::inventory_result::success)
+    // Send inventory item add (v2)
+    if (itm)
     {
-        // Failed to add - put item back on ground
-        world_->add_ground_item(player->current_map, player->pos, picked_item_id);
-        send_error(conn_id, msg.seq, "inventory_full", "Failed to add item to inventory");
-        return;
+        conn->send_raw(
+            network::make_inventory_item_add(*itm, result.pos_x, result.pos_y, result.z_order).dump());
     }
 
-    // Find which slot the item landed in
-    auto* inv = inventory_->get_inventory(player_entity);
-    auto slot_opt = inv ? inv->find_item(picked_item_id) : std::nullopt;
-    int16_t slot_idx = slot_opt.value_or(0);
-
-    // Build full item details for the inventory slot update
-    auto item_msg = network::build_inventory_item_msg(slot_idx, picked_item_id, item_, item_registry_);
-    std::string item_name = item_msg ? item_msg->name : "Unknown";
-
-    conn->send(network::make_player_pickup_response(msg.seq, true, nullptr, std::nullopt));
-    if (item_msg)
-    {
-        conn->send(network::make_inventory_slot_update(slot_idx, &*item_msg));
-    }
-
-    // Broadcast pickup animation to nearby players
+    // Broadcast pickup animation to nearby players (always — the action was confirmed)
     broadcast_player_action(
         *player,
         {.entity_id = player->ecs_entity.id, .action = "pickup", .direction = static_cast<int16_t>(player->facing)});
 
-    // Broadcast item removal to nearby players
-    broadcast_ground_item_removed(pid, player->current_map, player->pos, picked_item_id);
-
-    // If there's another item underneath, send the new top item to nearby players
-    if (world_->has_ground_items(player->current_map, player->pos))
+    if (itm)
     {
-        auto remaining = world_->get_ground_items(player->current_map, player->pos);
-        if (!remaining.empty() && item_)
+        // Send weight update (v2)
+        conn->send_raw(
+            network::make_inventory_weight_update_v2(result.new_weight, result.max_weight).dump());
+
+        // Broadcast item removal (v2) to visible players
+        std::string map_name;
+        if (auto* map_ptr = world_->get_map(pickup_map))
         {
-            auto next_id = remaining.back();
-            auto* next_itm = item_->get_item(next_id);
-            if (next_itm)
+            map_name = map_ptr->name();
+        }
+        auto remove_msg = network::make_ground_item_removed_v2(picked_item_id, map_name, pickup_pos.x, pickup_pos.y);
+        for_each_visible_connection(
+            players_, ws_server_, pickup_map, pickup_pos,
+            [&remove_msg](player_id, player::player&, network::ws_connection& c)
             {
-                std::string display_name = next_itm->name;
-                int16_t gi_sprite = 0;
-                int16_t gi_frame = 0;
-                int8_t gi_color = 0;
-                if (item_registry_)
+                c.send_raw(remove_msg.dump());
+            });
+
+        // If there's another item underneath, broadcast the new top item to nearby players
+        if (world_->has_ground_items(pickup_map, pickup_pos))
+        {
+            auto remaining = world_->get_ground_items(pickup_map, pickup_pos);
+            if (!remaining.empty() && item_)
+            {
+                auto next_id = remaining.back();
+                auto* next_itm = item_->get_item(next_id);
+                if (next_itm)
                 {
-                    if (auto* tmpl = item_registry_->get(next_itm->template_id))
-                    {
-                        display_name = network::get_display_name(tmpl->name, next_itm->attribute);
-                        gi_sprite = tmpl->ground_sprite;
-                        gi_frame = tmpl->ground_sprite_frame;
-                        gi_color = tmpl->item_color;
-                    }
+                    auto spawn_msg = network::make_ground_item_spawn_v2(
+                        *next_itm, map_name, pickup_pos.x, pickup_pos.y);
+                    for_each_visible_connection(
+                        players_, ws_server_, pickup_map, pickup_pos,
+                        [&spawn_msg](player_id, player::player&, network::ws_connection& c)
+                        {
+                            c.send_raw(spawn_msg.dump());
+                        });
                 }
-                network::ground_item_spawn_data spawn_data{.item_id = next_id.value,
-                                                           .template_id = next_itm->template_id.value,
-                                                           .item_name = std::move(display_name),
-                                                           .count = next_itm->count,
-                                                           .x = player->pos.x,
-                                                           .y = player->pos.y,
-                                                           .ground_sprite = gi_sprite,
-                                                           .ground_sprite_frame = gi_frame,
-                                                           .item_color = gi_color,
-                                                           .attribute = next_itm->attribute,
-                                                           .reason = "existing"};
-                auto spawn_msg = network::make_ground_item_spawn(spawn_data);
-                broadcast_to_visible(players_, ws_server_, player->current_map, player->pos, spawn_msg);
             }
         }
-    }
 
-    // Audit item pickup
-    if (audit_ && item_)
-    {
-        auto* itm = item_->get_item(picked_item_id);
-        if (itm && itm->audited)
+        // Audit item pickup
+        if (audit_ && itm->audited)
         {
-            std::string map_name;
-            if (auto* map = world_->get_map(player->current_map))
-            {
-                map_name = map->name();
-            }
             audit_->log_item(static_cast<int32_t>(player->character_id.value),
                              itm->name,
                              static_cast<int32_t>(picked_item_id.value),
@@ -173,18 +287,18 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
                              itm->count,
                              0,
                              map_name,
-                             player->pos.x,
-                             player->pos.y);
+                             pickup_pos.x,
+                             pickup_pos.y);
         }
-    }
 
-    LOG_INFO(bridge,
-             "Player {} picked up item {} ({}) at ({}, {})",
-             pid.value,
-             picked_item_id.value,
-             item_name,
-             player->pos.x,
-             player->pos.y);
+        LOG_INFO(bridge,
+                 "Player {} picked up item {} ({}) at ({}, {})",
+                 pid.value,
+                 picked_item_id.value,
+                 item_name,
+                 pickup_pos.x,
+                 pickup_pos.y);
+    }
 }
 
 void game_handlers::handle_player_interact(connection_id conn_id, const network::json_message& msg)
@@ -275,36 +389,77 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
     // 2. Check if NPC is a banker/warehouse
     if (target->category == npc::npc_category::banker || target->category == npc::npc_category::warehouse)
     {
-        // Send bank contents
+        auto owner_eid = entity_id(player->id.value);
+
+        // Build paginated bank data using serialize_item
+        std::vector<std::vector<nlohmann::json>> pages;
+        if (inventory_)
+        {
+            auto* bank = inventory_->get_bank(owner_eid);
+            if (bank)
+            {
+                for (int16_t p = 0; p < bank->total_pages(); ++p)
+                {
+                    std::vector<nlohmann::json> slots;
+                    for (int16_t s = 0; s < bank->slots_per_page(); ++s)
+                    {
+                        auto slot_item = bank->get_slot(p, s);
+                        if (slot_item.has_value() && item_)
+                        {
+                            auto* itm = item_->get_item(*slot_item);
+                            if (itm)
+                                slots.push_back(item::serialize_item(*itm));
+                            else
+                                slots.push_back(nlohmann::json{});
+                        }
+                        else
+                        {
+                            slots.push_back(nlohmann::json{});
+                        }
+                    }
+                    pages.push_back(std::move(slots));
+                }
+
+                // Send v2 bank_open message
+                auto bank_open_msg = network::make_bank_open_v2(pages, bank->total_pages());
+                conn->send_raw(bank_open_msg.dump());
+            }
+        }
+
+        // Also send v1 response for backward compatibility
         nlohmann::json bank_data;
         bank_data["npc_name"] = target->name;
 
         auto items_array = nlohmann::json::array();
         if (inventory_)
         {
-            auto* bank = inventory_->get_bank(entity_id(player->id.value));
+            auto* bank = inventory_->get_bank(owner_eid);
             if (bank)
             {
-                for (int16_t i = 0; i < bank->capacity(); ++i)
+                for (int16_t p = 0; p < bank->total_pages(); ++p)
                 {
-                    auto* slot = bank->get_slot(i);
-                    if (slot && !slot->is_empty())
+                    for (int16_t s = 0; s < bank->slots_per_page(); ++s)
                     {
-                        nlohmann::json slot_json;
-                        slot_json["slot"] = i;
-                        slot_json["item_id"] = slot->item.value;
-                        slot_json["count"] = slot->count;
-                        if (item_)
+                        auto slot_item = bank->get_slot(p, s);
+                        if (slot_item)
                         {
-                            auto* itm = item_->get_item(slot->item);
-                            if (itm)
+                            nlohmann::json slot_json;
+                            slot_json["page"] = p;
+                            slot_json["slot"] = s;
+                            slot_json["item_id"] = slot_item->value;
+                            if (item_)
                             {
-                                slot_json["name"] = itm->name;
-                                slot_json["durability"] = itm->durability;
-                                slot_json["max_durability"] = itm->max_durability;
+                                auto* itm = item_->get_item(*slot_item);
+                                if (itm)
+                                {
+                                    slot_json["name"] = itm->name;
+                                    slot_json["count"] = itm->count;
+                                    slot_json["durability"] = itm->durability;
+                                    slot_json["max_durability"] = itm->max_durability;
+                                }
                             }
+                            items_array.push_back(std::move(slot_json));
                         }
-                        items_array.push_back(std::move(slot_json));
                     }
                 }
             }
@@ -536,15 +691,16 @@ void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_m
         conn->send(network::make_shop_buy_response(
             msg.seq, true, tmpl->name, count, total_price, inventory_->get_gold(owner_id)));
 
-        // Send inventory_slot_update for the new item
+        // Send inventory item update for the new item
         auto* bought_inv = inventory_->get_inventory(owner_id);
         if (bought_inv)
         {
-            if (auto new_slot = bought_inv->find_item(new_item_id); new_slot)
+            auto* bought_entry = bought_inv->get_item(new_item_id);
+            if (bought_entry)
             {
-                auto item_msg = network::build_inventory_item_msg(*new_slot, new_item_id, item_, item_registry_);
+                auto item_msg = network::build_inventory_item_msg(new_item_id, item_, item_registry_, bought_entry);
                 if (item_msg)
-                    conn->send(network::make_inventory_slot_update(*new_slot, &*item_msg));
+                    conn->send(network::make_inventory_item_update(*item_msg));
             }
         }
 
@@ -553,6 +709,9 @@ void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_m
             .gold = static_cast<int64_t>(inventory_->get_gold(owner_id)),
             .change = static_cast<int64_t>(-total_price),
             .reason = "shop_buy"}));
+
+        // Update weight
+        send_weight_update(inventory_, players_, item_registry_, owner_id, check.plr->id, ws_server_);
     }
 
     // Audit shop buy
@@ -611,14 +770,14 @@ void game_handlers::handle_shop_sell(connection_id conn_id, const network::json_
         return;
     }
 
-    auto* slot = inv->get_slot(data.inventory_slot);
-    if (!slot || slot->is_empty())
+    auto* entry = inv->get_item(item_id{data.item_id});
+    if (!entry)
     {
-        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        send_error(conn_id, msg.seq, "item_not_found", "No item with that ID in inventory");
         return;
     }
 
-    auto* itm = item_->get_item(slot->item);
+    auto* itm = item_->get_item(entry->item);
     if (!itm)
     {
         send_error(conn_id, msg.seq, "item_not_found", "Item not found");
@@ -701,14 +860,14 @@ void game_handlers::handle_shop_sell_confirm(connection_id conn_id, const networ
         return;
     }
 
-    auto* slot = inv->get_slot(data.inventory_slot);
-    if (!slot || slot->is_empty())
+    auto* entry = inv->get_item(item_id{data.item_id});
+    if (!entry)
     {
-        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        send_error(conn_id, msg.seq, "item_not_found", "No item with that ID in inventory");
         return;
     }
 
-    auto sell_item_id = slot->item;
+    auto sell_item_id = entry->item;
     auto* itm = item_->get_item(sell_item_id);
     if (!itm)
     {
@@ -749,7 +908,7 @@ void game_handlers::handle_shop_sell_confirm(connection_id conn_id, const networ
     bool sold_audited = itm->audited;
 
     // Remove item from inventory
-    inv->clear_slot(data.inventory_slot);
+    inv->remove_item(sell_item_id);
     item_->destroy_item(sell_item_id);
 
     // Add gold
@@ -760,14 +919,17 @@ void game_handlers::handle_shop_sell_confirm(connection_id conn_id, const networ
     {
         conn->send(network::make_shop_sell_confirm_response(msg.seq, true, sell_price, inventory_->get_gold(owner_id)));
 
-        // Send inventory_slot_update (slot cleared)
-        conn->send(network::make_inventory_slot_update(data.inventory_slot, nullptr));
+        // Send inventory item removed
+        conn->send(network::make_inventory_item_removed(sell_item_id.value));
 
         // Send gold_update
         conn->send(network::make_gold_update({
             .gold = static_cast<int64_t>(inventory_->get_gold(owner_id)),
             .change = static_cast<int64_t>(sell_price),
             .reason = "shop_sell"}));
+
+        // Update weight
+        send_weight_update(inventory_, players_, item_registry_, owner_id, check.plr->id, ws_server_);
     }
 
     // Audit shop sell
@@ -826,14 +988,15 @@ void game_handlers::handle_shop_repair(connection_id conn_id, const network::jso
         return;
     }
 
-    auto* slot = inv->get_slot(data.inventory_slot);
-    if (!slot || slot->is_empty())
+    auto* entry = inv->get_item(item_id{data.item_id});
+    if (!entry)
     {
-        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        send_error(conn_id, msg.seq, "item_not_found", "No item with that ID in inventory");
         return;
     }
 
-    auto* itm = item_->get_item(slot->item);
+    auto repair_item_id = entry->item;
+    auto* itm = item_->get_item(repair_item_id);
     if (!itm)
     {
         send_error(conn_id, msg.seq, "item_not_found", "Item not found");
@@ -901,14 +1064,15 @@ void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const netw
         return;
     }
 
-    auto* slot = inv->get_slot(data.inventory_slot);
-    if (!slot || slot->is_empty())
+    auto* entry = inv->get_item(item_id{data.item_id});
+    if (!entry)
     {
-        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        send_error(conn_id, msg.seq, "item_not_found", "No item with that ID in inventory");
         return;
     }
 
-    auto* itm = item_->get_item(slot->item);
+    auto repair_item_id = entry->item;
+    auto* itm = item_->get_item(repair_item_id);
     if (!itm)
     {
         send_error(conn_id, msg.seq, "item_not_found", "Item not found");
@@ -930,11 +1094,11 @@ void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const netw
     }
 
     // Repair the item
-    item_->repair_item_full(slot->item);
+    item_->repair_item_full(repair_item_id);
     inventory_->remove_gold(owner_id, repair_cost);
 
     // Re-fetch for updated durability
-    itm = item_->get_item(slot->item);
+    itm = item_->get_item(repair_item_id);
     int16_t new_dur = itm ? itm->durability : 0;
 
     auto* conn = ws_server_->get_connection(conn_id);
@@ -943,10 +1107,10 @@ void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const netw
         conn->send(network::make_shop_repair_confirm_response(
             msg.seq, true, new_dur, repair_cost, inventory_->get_gold(owner_id)));
 
-        // Send inventory_slot_update (item has new durability)
-        auto repair_item_msg = network::build_inventory_item_msg(data.inventory_slot, slot->item, item_, item_registry_);
+        // Send inventory item update (item has new durability)
+        auto repair_item_msg = network::build_inventory_item_msg(repair_item_id, item_, item_registry_, entry);
         if (repair_item_msg)
-            conn->send(network::make_inventory_slot_update(data.inventory_slot, &*repair_item_msg));
+            conn->send(network::make_inventory_item_update(*repair_item_msg));
 
         // Send gold_update
         conn->send(network::make_gold_update({
@@ -960,7 +1124,7 @@ void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const netw
     {
         if (itm && itm->audited)
         {
-            audit_->log_item(static_cast<int32_t>(check.plr->character_id.value), itm->name, static_cast<int32_t>(slot->item.value), item_log_type::repair, 1);
+            audit_->log_item(static_cast<int32_t>(check.plr->character_id.value), itm->name, static_cast<int32_t>(repair_item_id.value), item_log_type::repair, 1);
         }
         audit_->log_gold(static_cast<int32_t>(check.plr->character_id.value),
                          item_log_type::gold_shop_spend,
@@ -973,6 +1137,374 @@ void game_handlers::handle_shop_repair_confirm(connection_id conn_id, const netw
     }
 
     LOG_DEBUG(bridge, "Player {} repaired item for {} gold", check.plr->id.value, repair_cost);
+}
+
+// ========== Shop v2 handlers (single-step via item_ops) ==========
+
+void game_handlers::handle_shop_buy_v2(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    auto data_result = network::shop_buy_request_data_v2::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        conn->send_raw(network::make_shop_buy_result(false).dump());
+        return;
+    }
+    auto& data = data_result.value();
+
+    if (!players_ || !npc_ || !shop_registry_ || !inventory_ || !item_)
+    {
+        conn->send_raw(network::make_shop_buy_result(false).dump());
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr || plr->is_dead())
+    {
+        conn->send_raw(network::make_shop_buy_result(false).dump());
+        return;
+    }
+
+    // Find nearest shop NPC
+    auto lookup = find_nearest_shop_npc(plr, npc_, shop_registry_);
+    if (!lookup.shop)
+    {
+        conn->send_raw(network::make_shop_buy_result(false).dump());
+        return;
+    }
+
+    // Territory check
+    if (world_)
+    {
+        auto* map = world_->get_map(plr->current_map);
+        if (map && !npc::can_buy_in_territory(plr->faction, map->location_name()))
+        {
+            conn->send_raw(network::make_shop_buy_result(false).dump());
+            return;
+        }
+    }
+
+    // Verify the item is in the shop
+    auto template_id = item_id{static_cast<uint32_t>(data.template_id)};
+    bool item_in_shop = false;
+    for (const auto& entry : lookup.shop->items)
+    {
+        if (entry.item == template_id)
+        {
+            item_in_shop = true;
+            break;
+        }
+    }
+    if (!item_in_shop)
+    {
+        conn->send_raw(network::make_shop_buy_result(false).dump());
+        return;
+    }
+
+    // Look up item template for price
+    auto* item_reg = subsystems().get<item_registry>();
+    if (!item_reg)
+    {
+        conn->send_raw(network::make_shop_buy_result(false).dump());
+        return;
+    }
+
+    auto* tmpl = item_reg->get(template_id);
+    if (!tmpl)
+    {
+        conn->send_raw(network::make_shop_buy_result(false).dump());
+        return;
+    }
+
+    int32_t buy_price = npc::calculate_buy_price(tmpl->price, 1, plr->base.charisma);
+    auto owner_eid = entity_id(plr->id.value);
+
+    // Call item_ops
+    auto result = item_ops::shop_buy(owner_eid, template_id, buy_price, item_, inventory_);
+
+    if (!result.success)
+    {
+        conn->send_raw(network::make_shop_buy_result(false).dump());
+        return;
+    }
+
+    // Send success ack
+    conn->send_raw(network::make_shop_buy_result(true).dump());
+
+    // Send inventory item add
+    auto* itm = item_->get_item(result.created);
+    if (itm)
+    {
+        conn->send_raw(
+            network::make_inventory_item_add(*itm, result.pos_x, result.pos_y, result.z_order).dump());
+    }
+
+    // Send gold update
+    conn->send_raw(network::make_inventory_gold_update(result.new_gold).dump());
+
+    // Send weight update
+    conn->send_raw(
+        network::make_inventory_weight_update_v2(result.new_weight, result.max_weight).dump());
+
+    // Audit shop buy
+    if (audit_)
+    {
+        if (itm && itm->audited)
+        {
+            audit_->log_item(
+                static_cast<int32_t>(plr->character_id.value),
+                tmpl->name,
+                static_cast<int32_t>(result.created.value),
+                item_log_type::buy,
+                1);
+        }
+        audit_->log_gold(
+            static_cast<int32_t>(plr->character_id.value),
+            item_log_type::gold_shop_spend,
+            -buy_price,
+            0,
+            {},
+            0,
+            0,
+            {{"item", tmpl->name}, {"count", 1}});
+    }
+
+    LOG_DEBUG(bridge, "Player {} bought '{}' for {} gold (v2)", plr->id.value, tmpl->name, buy_price);
+}
+
+void game_handlers::handle_shop_sell_v2(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    auto data_result = network::shop_sell_request_data_v2::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        conn->send_raw(network::make_shop_sell_result(false).dump());
+        return;
+    }
+    auto& data = data_result.value();
+
+    if (!players_ || !npc_ || !shop_registry_ || !inventory_ || !item_)
+    {
+        conn->send_raw(network::make_shop_sell_result(false).dump());
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr || plr->is_dead())
+    {
+        conn->send_raw(network::make_shop_sell_result(false).dump());
+        return;
+    }
+
+    // Find nearest shop NPC
+    auto lookup = find_nearest_shop_npc(plr, npc_, shop_registry_);
+    if (!lookup.shop)
+    {
+        conn->send_raw(network::make_shop_sell_result(false).dump());
+        return;
+    }
+
+    auto sell_item_id = item_id{static_cast<uint32_t>(data.item_id)};
+
+    // Check the shop accepts this item category
+    auto* item_reg = subsystems().get<item_registry>();
+    if (item_reg)
+    {
+        auto* itm = item_->get_item(sell_item_id);
+        if (itm)
+        {
+            auto* tmpl = item_reg->get(itm->template_id);
+            if (tmpl && !npc::is_category_accepted(*lookup.shop, static_cast<uint8_t>(tmpl->category)))
+            {
+                conn->send_raw(network::make_shop_sell_result(false).dump());
+                return;
+            }
+        }
+    }
+
+    // Save audit data before item_ops destroys the item
+    auto* pre_itm = item_->get_item(sell_item_id);
+    std::string sold_item_name = pre_itm ? pre_itm->name : "Unknown";
+    int16_t sold_count = pre_itm ? pre_itm->count : 1;
+    bool sold_audited = pre_itm ? pre_itm->audited : false;
+    int32_t sold_price = pre_itm ? pre_itm->price : 0;
+
+    auto owner_eid = entity_id(plr->id.value);
+
+    // Call item_ops
+    auto result = item_ops::shop_sell(owner_eid, sell_item_id, item_, inventory_, &plr->equipment);
+
+    if (!result.success)
+    {
+        conn->send_raw(network::make_shop_sell_result(false).dump());
+        return;
+    }
+
+    // Send success ack
+    conn->send_raw(network::make_shop_sell_result(true).dump());
+
+    // Send inventory item removed
+    conn->send_raw(network::make_inventory_item_removed_v2(sell_item_id).dump());
+
+    // Send gold update
+    conn->send_raw(network::make_inventory_gold_update(result.new_gold).dump());
+
+    // Send weight update
+    conn->send_raw(
+        network::make_inventory_weight_update_v2(result.new_weight, result.max_weight).dump());
+
+    // Audit shop sell
+    if (audit_)
+    {
+        if (sold_audited)
+        {
+            audit_->log_item(
+                static_cast<int32_t>(plr->character_id.value),
+                sold_item_name,
+                static_cast<int32_t>(sell_item_id.value),
+                item_log_type::sell,
+                sold_count);
+        }
+        // item_ops::shop_sell uses item price directly as sell_price
+        audit_->log_gold(
+            static_cast<int32_t>(plr->character_id.value),
+            item_log_type::gold_shop_earn,
+            sold_price,
+            0,
+            {},
+            0,
+            0,
+            {{"item", sold_item_name}});
+    }
+
+    LOG_DEBUG(bridge, "Player {} sold item for gold (v2)", plr->id.value);
+}
+
+void game_handlers::handle_shop_repair_v2(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    auto data_result = network::shop_repair_request_data_v2::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        conn->send_raw(network::make_shop_repair_result(false).dump());
+        return;
+    }
+    auto& data = data_result.value();
+
+    if (!players_ || !npc_ || !shop_registry_ || !inventory_ || !item_)
+    {
+        conn->send_raw(network::make_shop_repair_result(false).dump());
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr || plr->is_dead())
+    {
+        conn->send_raw(network::make_shop_repair_result(false).dump());
+        return;
+    }
+
+    // Find nearest shop NPC
+    auto lookup = find_nearest_shop_npc(plr, npc_, shop_registry_);
+    if (!lookup.shop)
+    {
+        conn->send_raw(network::make_shop_repair_result(false).dump());
+        return;
+    }
+
+    auto repair_item_id = item_id{static_cast<uint32_t>(data.item_id)};
+
+    // Check the shop can repair this item category
+    auto* item_reg = subsystems().get<item_registry>();
+    if (item_reg)
+    {
+        auto* itm = item_->get_item(repair_item_id);
+        if (itm)
+        {
+            auto* tmpl = item_reg->get(itm->template_id);
+            if (tmpl && !npc::is_category_repairable(*lookup.shop, static_cast<uint8_t>(tmpl->category)))
+            {
+                conn->send_raw(network::make_shop_repair_result(false).dump());
+                return;
+            }
+        }
+    }
+
+    auto owner_eid = entity_id(plr->id.value);
+
+    // Capture gold before repair for audit cost calculation
+    auto gold_before = inventory_->get_gold(owner_eid);
+
+    // Call item_ops
+    auto result = item_ops::shop_repair(owner_eid, repair_item_id, item_, inventory_);
+
+    if (!result.success)
+    {
+        conn->send_raw(network::make_shop_repair_result(false).dump());
+        return;
+    }
+
+    auto repair_cost = static_cast<int32_t>(gold_before - result.new_gold);
+
+    // Send success ack
+    conn->send_raw(network::make_shop_repair_result(true).dump());
+
+    // Send full item update (durability changed)
+    auto* itm = item_->get_item(repair_item_id);
+    if (itm)
+    {
+        auto* inv = inventory_->get_inventory(owner_eid);
+        if (inv)
+        {
+            auto* entry = inv->get_item(repair_item_id);
+            if (entry)
+            {
+                conn->send_raw(
+                    network::make_inventory_item_update_v2(
+                        *itm, entry->pos_x, entry->pos_y, entry->z_order).dump());
+            }
+        }
+    }
+
+    // Send gold update
+    conn->send_raw(network::make_inventory_gold_update(result.new_gold).dump());
+
+    // Audit repair
+    if (audit_)
+    {
+        if (itm && itm->audited)
+        {
+            audit_->log_item(
+                static_cast<int32_t>(plr->character_id.value),
+                itm->name,
+                static_cast<int32_t>(repair_item_id.value),
+                item_log_type::repair,
+                1);
+        }
+        audit_->log_gold(
+            static_cast<int32_t>(plr->character_id.value),
+            item_log_type::gold_shop_spend,
+            -repair_cost,
+            0,
+            {},
+            0,
+            0,
+            {{"action", "repair"}, {"item", itm ? itm->name : "unknown"}});
+    }
+
+    LOG_DEBUG(bridge, "Player {} repaired item for {} gold (v2)", plr->id.value, repair_cost);
 }
 
 void game_handlers::handle_bank_deposit(connection_id conn_id, const network::json_message& msg)
@@ -1012,15 +1544,15 @@ void game_handlers::handle_bank_deposit(connection_id conn_id, const network::js
         return;
     }
 
-    auto* slot = inv->get_slot(data.inventory_slot);
-    if (!slot || slot->is_empty())
+    auto* entry = inv->get_item(item_id{data.item_id});
+    if (!entry)
     {
-        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
+        send_error(conn_id, msg.seq, "item_not_found", "No item with that ID in inventory");
         return;
     }
 
     std::string item_name;
-    auto deposit_item_id = slot->item;
+    auto deposit_item_id = entry->item;
     bool deposit_audited = false;
     int16_t deposit_count = 1;
     if (auto* itm = item_->get_item(deposit_item_id))
@@ -1030,7 +1562,7 @@ void game_handlers::handle_bank_deposit(connection_id conn_id, const network::js
         deposit_count = itm->count;
     }
 
-    auto result = inventory_->deposit_item(owner_id, data.inventory_slot);
+    auto result = inventory_->deposit_item(owner_id, deposit_item_id);
     if (result != inventory::inventory_result::success)
     {
         send_error(conn_id, msg.seq, "deposit_failed", "Failed to deposit item");
@@ -1042,21 +1574,24 @@ void game_handlers::handle_bank_deposit(connection_id conn_id, const network::js
     {
         conn->send(network::make_bank_deposit_response(msg.seq, true, item_name));
 
-        // Send inventory_slot_update (inventory slot cleared)
-        conn->send(network::make_inventory_slot_update(data.inventory_slot, nullptr));
+        // Send inventory item removed (item left inventory)
+        conn->send(network::make_inventory_item_removed(deposit_item_id.value));
 
         // Send bank_slot_update (item now in bank)
         auto* bank_after = inventory_->get_bank(owner_id);
         if (bank_after)
         {
-            if (auto bank_slot = bank_after->find_item(deposit_item_id); bank_slot)
+            if (auto bank_loc = bank_after->find_item(deposit_item_id); bank_loc)
             {
-                auto bank_msg = network::build_inventory_item_msg(*bank_slot, deposit_item_id, item_, item_registry_);
+                auto bank_msg = network::build_inventory_item_msg(deposit_item_id, item_, item_registry_);
                 if (bank_msg)
-                    conn->send(network::make_bank_slot_update(*bank_slot, &*bank_msg));
+                    conn->send(network::make_bank_slot_update(bank_loc->page, bank_loc->slot, &*bank_msg));
             }
         }
     }
+
+    // Update weight (item left inventory)
+    send_weight_update(inventory_, players_, item_registry_, owner_id, check.plr->id, ws_server_);
 
     // Audit bank deposit
     if (audit_ && deposit_audited)
@@ -1105,15 +1640,15 @@ void game_handlers::handle_bank_withdraw(connection_id conn_id, const network::j
         return;
     }
 
-    auto* slot = bank->get_slot(data.bank_slot);
-    if (!slot || slot->is_empty())
+    auto slot_item = bank->get_slot(data.bank_page, data.bank_slot);
+    if (!slot_item)
     {
         send_error(conn_id, msg.seq, "empty_slot", "No item in that bank slot");
         return;
     }
 
     std::string item_name;
-    auto withdraw_item_id = slot->item;
+    auto withdraw_item_id = *slot_item;
     bool withdraw_audited = false;
     int16_t withdraw_count = 1;
     if (auto* itm = item_->get_item(withdraw_item_id))
@@ -1123,7 +1658,7 @@ void game_handlers::handle_bank_withdraw(connection_id conn_id, const network::j
         withdraw_count = itm->count;
     }
 
-    auto result = inventory_->withdraw_item(owner_id, data.bank_slot);
+    auto result = inventory_->withdraw_item(owner_id, data.bank_page, data.bank_slot);
     if (result != inventory::inventory_result::success)
     {
         std::string error_msg = "Failed to withdraw item";
@@ -1141,20 +1676,24 @@ void game_handlers::handle_bank_withdraw(connection_id conn_id, const network::j
         conn->send(network::make_bank_withdraw_response(msg.seq, true, item_name));
 
         // Send bank_slot_update (bank slot cleared)
-        conn->send(network::make_bank_slot_update(data.bank_slot, nullptr));
+        conn->send(network::make_bank_slot_update(data.bank_page, data.bank_slot, nullptr));
 
-        // Send inventory_slot_update (item now in inventory)
+        // Send inventory item update (item now in inventory)
         auto* inv_after = inventory_->get_inventory(owner_id);
         if (inv_after)
         {
-            if (auto inv_slot = inv_after->find_item(withdraw_item_id); inv_slot)
+            auto* inv_entry = inv_after->get_item(withdraw_item_id);
+            if (inv_entry)
             {
-                auto inv_msg = network::build_inventory_item_msg(*inv_slot, withdraw_item_id, item_, item_registry_);
+                auto inv_msg = network::build_inventory_item_msg(withdraw_item_id, item_, item_registry_, inv_entry);
                 if (inv_msg)
-                    conn->send(network::make_inventory_slot_update(*inv_slot, &*inv_msg));
+                    conn->send(network::make_inventory_item_update(*inv_msg));
             }
         }
     }
+
+    // Update weight (item entered inventory)
+    send_weight_update(inventory_, players_, item_registry_, owner_id, check.plr->id, ws_server_);
 
     // Audit bank withdraw
     if (audit_ && withdraw_audited)
@@ -1388,23 +1927,14 @@ void game_handlers::handle_inventory_reposition(connection_id conn_id, const net
     if (!inv)
         return;
 
-    // Validate slots
-    if (data.from_slot < 0 || data.from_slot >= inv->capacity() ||
-        data.to_slot < 0 || data.to_slot >= inv->capacity())
-    {
+    auto* entry = inv->get_item(item_id{data.item_id});
+    if (!entry)
         return;
-    }
 
-    // Move item (swaps if destination occupied)
-    inv->move_item(data.from_slot, data.to_slot);
-
-    // Update pixel position on the destination slot
-    auto* dest_slot = inv->get_slot(data.to_slot);
-    if (dest_slot && !dest_slot->is_empty())
-    {
-        dest_slot->pos_x = data.pos_x;
-        dest_slot->pos_y = data.pos_y;
-    }
+    // Update pixel position and z-order
+    entry->pos_x = data.pos_x;
+    entry->pos_y = data.pos_y;
+    entry->z_order = inv->next_z_order();
 }
 
 // ========== Drop Item ==========
@@ -1415,20 +1945,35 @@ void game_handlers::handle_player_drop_item(connection_id conn_id, const network
     if (!conn)
         return;
 
-    if (!players_ || !inventory_ || !world_)
+    if (!players_ || !inventory_ || !world_ || !item_)
     {
         send_error(conn_id, msg.seq, "internal_error", "Required subsystems unavailable");
         return;
     }
 
-    auto data_result = network::drop_item_request_data::from_json(msg.data);
-    if (data_result.is_err())
+    // Parse item_id from v1 or v2 format
+    item_id target_item_id{};
+    if (msg.type == network::json_message_type::drop_request)
     {
-        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
-        return;
+        auto data_result = network::drop_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            conn->send_raw(network::make_drop_result(false).dump());
+            return;
+        }
+        target_item_id = item_id{static_cast<uint32_t>(data_result.value().item_id)};
+    }
+    else
+    {
+        auto data_result = network::drop_item_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        target_item_id = item_id{data_result.value().item_id};
     }
 
-    auto& data = data_result.value();
     auto pid = conn->player();
     auto* player = players_->get_player(pid);
     if (!player)
@@ -1439,98 +1984,110 @@ void game_handlers::handle_player_drop_item(connection_id conn_id, const network
 
     if (player->is_dead())
     {
-        send_error(conn_id, msg.seq, "dead", "Cannot drop items while dead");
-        return;
-    }
-
-    auto entity = entity_id{pid.value};
-    auto* inv = inventory_->get_inventory(entity);
-    if (!inv)
-    {
-        send_error(conn_id, msg.seq, "no_inventory", "No inventory found");
-        return;
-    }
-
-    auto* slot = inv->get_slot(data.slot);
-    if (!slot || slot->is_empty())
-    {
-        send_error(conn_id, msg.seq, "empty_slot", "No item in that slot");
-        return;
-    }
-
-    // Capture item data before removing
-    auto dropped_item_id = slot->item;
-    std::string item_name = "Unknown";
-    int16_t count = 1;
-    uint32_t template_id = 0;
-    int16_t gi_sprite = 0;
-    int16_t gi_frame = 0;
-    int8_t gi_color = 0;
-    item::item_attribute attr{};
-    bool audited = false;
-
-    if (item_)
-    {
-        auto* itm = item_->get_item(dropped_item_id);
-        if (itm)
+        if (msg.type == network::json_message_type::drop_request)
         {
-            item_name = itm->name;
-            count = itm->count;
-            template_id = itm->template_id.value;
-            attr = itm->attribute;
-            audited = itm->audited;
-            if (item_registry_)
-            {
-                if (auto* tmpl = item_registry_->get(itm->template_id))
-                {
-                    item_name = network::get_display_name(tmpl->name, attr);
-                    gi_sprite = tmpl->ground_sprite;
-                    gi_frame = tmpl->ground_sprite_frame;
-                    gi_color = tmpl->item_color;
-                }
-            }
+            conn->send_raw(network::make_drop_result(false).dump());
         }
+        else
+        {
+            send_error(conn_id, msg.seq, "dead", "Cannot drop items while dead");
+        }
+        return;
     }
 
-    // Remove from inventory
-    inv->clear_slot(data.slot);
+    auto owner_eid = entity_id(player->id.value);
 
-    // Place on ground
-    world_->add_ground_item(player->current_map, player->pos, dropped_item_id);
+    // Capture item data before drop for audit logging
+    auto* itm = item_->get_item(target_item_id);
+    std::string item_name = itm ? itm->name : "Unknown";
+    int16_t count = itm ? itm->count : 1;
+    bool audited = itm ? itm->audited : false;
 
-    // Send drop response
-    conn->send(network::make_player_drop_item_response(msg.seq, true));
+    // Call item_ops
+    auto result = item_ops::drop_item(
+        owner_eid, target_item_id, player->current_map, player->pos,
+        item_, inventory_, world_, &player->equipment);
 
-    // Send inventory slot update (cleared)
-    conn->send(network::make_inventory_slot_update(data.slot));
+    if (!result.success)
+    {
+        if (msg.type == network::json_message_type::drop_request)
+        {
+            conn->send_raw(network::make_drop_result(false).dump());
+        }
+        else
+        {
+            send_error(conn_id, msg.seq, "drop_failed", result.error);
+        }
+        return;
+    }
 
-    // Broadcast ground item spawn to visible players
-    network::ground_item_spawn_data spawn_data{
-        .item_id = dropped_item_id.value,
-        .template_id = template_id,
-        .item_name = item_name,
-        .count = count,
-        .x = player->pos.x,
-        .y = player->pos.y,
-        .ground_sprite = gi_sprite,
-        .ground_sprite_frame = gi_frame,
-        .item_color = gi_color,
-        .attribute = attr,
-        .reason = "drop"};
-    auto spawn_msg = network::make_ground_item_spawn(spawn_data);
-    broadcast_to_visible(players_, ws_server_, player->current_map, player->pos, spawn_msg);
+    // Send drop ack
+    if (msg.type == network::json_message_type::drop_request)
+    {
+        conn->send_raw(network::make_drop_result(true).dump());
+    }
+    else
+    {
+        conn->send(network::make_player_drop_item_response(msg.seq, true));
+    }
+
+    // Send inventory item removed (v2)
+    conn->send_raw(network::make_inventory_item_removed_v2(target_item_id).dump());
+
+    // Send weight update (v2)
+    auto new_weight = inventory_->get_current_weight(owner_eid);
+    auto max_weight = inventory_->get_max_weight(owner_eid);
+    conn->send_raw(network::make_inventory_weight_update_v2(new_weight, max_weight).dump());
+
+    // If was equipped, send force_unequip + broadcast empty equipment slot
+    if (result.was_equipped && result.unequipped_slot.has_value())
+    {
+        auto slot = *result.unequipped_slot;
+        // Slot name lookup — same table as equipment handlers
+        constexpr const char* slot_names[] = {
+            "head", "body", "arms", "pants", "boots", "weapon", "shield",
+            "twohand", "ring_left", "ring_right", "amulet", "cape", "angel", "fullbody"};
+        auto slot_idx = static_cast<size_t>(slot);
+        std::string_view slot_name = slot_idx < std::size(slot_names)
+            ? slot_names[slot_idx] : "unknown";
+
+        conn->send_raw(network::make_force_unequip(slot_name, "dropped").dump());
+
+        // Recalculate stats after unequip
+        players_->recalculate_equipment_modifiers(pid);
+        players_->recalculate_appearance(pid);
+
+        // Broadcast empty equipment slot to nearby
+        broadcast_equipment_change(pid, slot, item_id{});
+    }
+
+    // Broadcast ground item spawn (v2) to visible players
+    // Re-fetch item pointer (item_ops cleared owner but item still exists)
+    itm = item_->get_item(target_item_id);
+    std::string map_name;
+    if (auto* map_ptr = world_->get_map(player->current_map))
+    {
+        map_name = map_ptr->name();
+    }
+
+    if (itm)
+    {
+        auto spawn_msg = network::make_ground_item_spawn_v2(
+            *itm, map_name, player->pos.x, player->pos.y);
+        for_each_visible_connection(
+            players_, ws_server_, player->current_map, player->pos,
+            [&spawn_msg](player_id, player::player&, network::ws_connection& c)
+            {
+                c.send_raw(spawn_msg.dump());
+            });
+    }
 
     // Audit item drop
     if (audit_ && audited)
     {
-        std::string map_name;
-        if (auto* map = world_->get_map(player->current_map))
-        {
-            map_name = map->name();
-        }
         audit_->log_item(static_cast<int32_t>(player->character_id.value),
                          item_name,
-                         static_cast<int32_t>(dropped_item_id.value),
+                         static_cast<int32_t>(target_item_id.value),
                          item_log_type::drop,
                          count,
                          0,
@@ -1542,10 +2099,320 @@ void game_handlers::handle_player_drop_item(connection_id conn_id, const network
     LOG_INFO(bridge,
              "Player {} dropped item {} ({}) at ({}, {})",
              pid.value,
-             dropped_item_id.value,
+             target_item_id.value,
              item_name,
              player->pos.x,
              player->pos.y);
+}
+
+// ========== Bank v2 handlers (proximity-based via item_ops) ==========
+
+void game_handlers::handle_bank_deposit_v2(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    auto data_result = network::bank_deposit_request_data_v2::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        conn->send_raw(network::make_bank_deposit_result(false).dump());
+        return;
+    }
+    auto& data = data_result.value();
+
+    if (!players_ || !npc_ || !inventory_ || !item_)
+    {
+        conn->send_raw(network::make_bank_deposit_result(false).dump());
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr || plr->is_dead())
+    {
+        conn->send_raw(network::make_bank_deposit_result(false).dump());
+        return;
+    }
+
+    // Check nearby bank NPC
+    auto* bank_npc = find_nearest_bank_npc(plr, npc_);
+    if (!bank_npc)
+    {
+        conn->send_raw(network::make_bank_deposit_result(false).dump());
+        return;
+    }
+
+    auto deposit_item_id = item_id{static_cast<uint32_t>(data.item_id)};
+    auto owner_eid = entity_id(plr->id.value);
+
+    // Capture audit data before deposit
+    auto* pre_itm = item_->get_item(deposit_item_id);
+    std::string item_name = pre_itm ? pre_itm->name : "Unknown";
+    int16_t deposit_count = pre_itm ? pre_itm->count : 1;
+    bool deposit_audited = pre_itm ? pre_itm->audited : false;
+
+    // Convert optional page/slot
+    std::optional<int16_t> target_page;
+    std::optional<int16_t> target_slot;
+    if (data.page.has_value())
+        target_page = static_cast<int16_t>(data.page.value());
+    if (data.slot.has_value())
+        target_slot = static_cast<int16_t>(data.slot.value());
+
+    // Call item_ops
+    auto result = item_ops::bank_deposit(
+        owner_eid, deposit_item_id, target_page, target_slot,
+        item_, inventory_, &plr->equipment);
+
+    if (!result.success)
+    {
+        conn->send_raw(network::make_bank_deposit_result(false).dump());
+        return;
+    }
+
+    // Send success ack
+    conn->send_raw(network::make_bank_deposit_result(true).dump());
+
+    // Send inventory item removed
+    conn->send_raw(network::make_inventory_item_removed_v2(deposit_item_id).dump());
+
+    // Send weight update
+    conn->send_raw(
+        network::make_inventory_weight_update_v2(result.new_weight, result.max_weight).dump());
+
+    // Send bank slot update with the deposited item
+    auto* itm = item_->get_item(deposit_item_id);
+    if (itm)
+    {
+        conn->send_raw(
+            network::make_bank_slot_update_v2(result.page, result.slot, *itm).dump());
+    }
+
+    // Audit bank deposit
+    if (audit_ && deposit_audited)
+    {
+        audit_->log_item(
+            static_cast<int32_t>(plr->character_id.value),
+            item_name,
+            static_cast<int32_t>(deposit_item_id.value),
+            item_log_type::deposit,
+            deposit_count);
+    }
+
+    LOG_DEBUG(bridge, "Player {} deposited '{}' to bank page {} slot {} (v2)",
+              plr->id.value, item_name, result.page, result.slot);
+}
+
+void game_handlers::handle_bank_withdraw_v2(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    auto data_result = network::bank_withdraw_request_data_v2::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        conn->send_raw(network::make_bank_withdraw_result(false).dump());
+        return;
+    }
+    auto& data = data_result.value();
+
+    if (!players_ || !npc_ || !inventory_ || !item_)
+    {
+        conn->send_raw(network::make_bank_withdraw_result(false).dump());
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr || plr->is_dead())
+    {
+        conn->send_raw(network::make_bank_withdraw_result(false).dump());
+        return;
+    }
+
+    // Check nearby bank NPC
+    auto* bank_npc = find_nearest_bank_npc(plr, npc_);
+    if (!bank_npc)
+    {
+        conn->send_raw(network::make_bank_withdraw_result(false).dump());
+        return;
+    }
+
+    auto owner_eid = entity_id(plr->id.value);
+    auto page = static_cast<int16_t>(data.page);
+    auto slot = static_cast<int16_t>(data.slot);
+
+    // Capture item info before withdraw for audit
+    std::string item_name;
+    int16_t withdraw_count = 1;
+    bool withdraw_audited = false;
+    item_id withdrawn_id{};
+
+    auto* bank = inventory_->get_bank(owner_eid);
+    if (bank)
+    {
+        auto slot_item = bank->get_slot(page, slot);
+        if (slot_item.has_value())
+        {
+            withdrawn_id = *slot_item;
+            auto* itm = item_->get_item(withdrawn_id);
+            if (itm)
+            {
+                item_name = itm->name;
+                withdraw_count = itm->count;
+                withdraw_audited = itm->audited;
+            }
+        }
+    }
+
+    // Call item_ops
+    auto result = item_ops::bank_withdraw(owner_eid, page, slot, item_, inventory_);
+
+    if (!result.success)
+    {
+        conn->send_raw(network::make_bank_withdraw_result(false).dump());
+        return;
+    }
+
+    // Send success ack
+    conn->send_raw(network::make_bank_withdraw_result(true).dump());
+
+    // Send bank slot cleared
+    conn->send_raw(network::make_bank_slot_cleared(page, slot).dump());
+
+    // Send inventory item add
+    auto* itm = item_->get_item(result.withdrawn);
+    if (itm)
+    {
+        conn->send_raw(
+            network::make_inventory_item_add(*itm, result.pos_x, result.pos_y, result.z_order).dump());
+    }
+
+    // Send weight update
+    conn->send_raw(
+        network::make_inventory_weight_update_v2(result.new_weight, result.max_weight).dump());
+
+    // Audit bank withdraw
+    if (audit_ && withdraw_audited)
+    {
+        audit_->log_item(
+            static_cast<int32_t>(plr->character_id.value),
+            item_name,
+            static_cast<int32_t>(withdrawn_id.value),
+            item_log_type::retrieve,
+            withdraw_count);
+    }
+
+    LOG_DEBUG(bridge, "Player {} withdrew '{}' from bank page {} slot {} (v2)",
+              plr->id.value, item_name, page, slot);
+}
+
+void game_handlers::handle_bank_reposition(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    auto data_result = network::bank_reposition_request_data::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        conn->send_raw(network::make_bank_reposition_result(false).dump());
+        return;
+    }
+    auto& data = data_result.value();
+
+    if (!players_ || !npc_ || !inventory_)
+    {
+        conn->send_raw(network::make_bank_reposition_result(false).dump());
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr || plr->is_dead())
+    {
+        conn->send_raw(network::make_bank_reposition_result(false).dump());
+        return;
+    }
+
+    // Check nearby bank NPC
+    auto* bank_npc = find_nearest_bank_npc(plr, npc_);
+    if (!bank_npc)
+    {
+        conn->send_raw(network::make_bank_reposition_result(false).dump());
+        return;
+    }
+
+    auto owner_eid = entity_id(plr->id.value);
+    auto from_page = static_cast<int16_t>(data.from_page);
+    auto from_slot = static_cast<int16_t>(data.from_slot);
+    auto to_page = static_cast<int16_t>(data.to_page);
+    auto to_slot = static_cast<int16_t>(data.to_slot);
+
+    // Check if destination was occupied before reposition (determines swap vs move)
+    bool was_swap = false;
+    auto* bank = inventory_->get_bank(owner_eid);
+    if (bank)
+    {
+        auto dest_item = bank->get_slot(to_page, to_slot);
+        was_swap = dest_item.has_value();
+    }
+
+    // Call item_ops
+    auto result = item_ops::bank_reposition(
+        owner_eid, from_page, from_slot, to_page, to_slot, inventory_);
+
+    if (!result.success)
+    {
+        conn->send_raw(network::make_bank_reposition_result(false).dump());
+        return;
+    }
+
+    // Send success ack
+    conn->send_raw(network::make_bank_reposition_result(true).dump());
+
+    // Send slot updates — re-read bank after reposition
+    bank = inventory_->get_bank(owner_eid);
+    if (bank && item_)
+    {
+        // Destination slot now has the moved item
+        auto dest_item_id = bank->get_slot(to_page, to_slot);
+        if (dest_item_id.has_value())
+        {
+            auto* dest_itm = item_->get_item(*dest_item_id);
+            if (dest_itm)
+            {
+                conn->send_raw(
+                    network::make_bank_slot_update_v2(to_page, to_slot, *dest_itm).dump());
+            }
+        }
+
+        if (was_swap)
+        {
+            // Source slot now has the swapped item
+            auto source_item_id = bank->get_slot(from_page, from_slot);
+            if (source_item_id.has_value())
+            {
+                auto* source_itm = item_->get_item(*source_item_id);
+                if (source_itm)
+                {
+                    conn->send_raw(
+                        network::make_bank_slot_update_v2(from_page, from_slot, *source_itm).dump());
+                }
+            }
+        }
+        else
+        {
+            // Source slot is now empty
+            conn->send_raw(network::make_bank_slot_cleared(from_page, from_slot).dump());
+        }
+    }
+
+    LOG_DEBUG(bridge, "Player {} repositioned bank item ({},{}) -> ({},{}) {}",
+              plr->id.value, from_page, from_slot, to_page, to_slot,
+              was_swap ? "(swap)" : "(move)");
 }
 
 } // namespace hb::bridge

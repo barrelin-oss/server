@@ -42,6 +42,7 @@ public:
 
     // Iteration
     [[nodiscard]] auto configs() const -> const std::unordered_map<int16_t, npc::npc_loot_config>& { return configs_; }
+    [[nodiscard]] auto pools() const -> const std::unordered_map<std::string, npc::item_pool>& { return pools_; }
 
 private:
     std::unordered_map<std::string, npc::item_pool> pools_;

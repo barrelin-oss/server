@@ -270,7 +270,8 @@ auto combat_system::build_combat_context(hb::entity::entity attacker,
             auto* item_sys = subsystems().get<item::item_system>();
             if (item_sys && p->equipment.has_equipped(player::equip_slot::weapon))
             {
-                auto* wpn = item_sys->get_item(p->equipment.weapon().id);
+                auto wpn_id = p->equipment.get_equipped(player::equip_slot::weapon);
+                auto* wpn = wpn_id ? item_sys->get_item(*wpn_id) : nullptr;
                 if (wpn)
                 {
                     ctx.weapon_enchantment = wpn->attribute.main_type;

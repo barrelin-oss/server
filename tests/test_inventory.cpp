@@ -11,17 +11,17 @@ using hb::item_id;
 using hb::player_id;
 using namespace hb::inventory;
 
-// Inventory slot tests
+// Container slot tests (for bank/trade)
 
-TEST(inventory_slot_test, default_empty)
+TEST(container_slot_test, default_empty)
 {
-    inventory_slot slot;
+    container_slot slot;
     EXPECT_TRUE(slot.is_empty());
 }
 
-TEST(inventory_slot_test, set_and_clear)
+TEST(container_slot_test, set_and_clear)
 {
-    inventory_slot slot;
+    container_slot slot;
 
     slot.set(item_id{100}, 5);
     EXPECT_FALSE(slot.is_empty());
@@ -32,58 +32,66 @@ TEST(inventory_slot_test, set_and_clear)
     EXPECT_TRUE(slot.is_empty());
 }
 
+// Inventory entry tests
+
+TEST(inventory_entry_test, default_state)
+{
+    inventory_entry entry{};
+    EXPECT_EQ(entry.count, 0);
+    EXPECT_EQ(entry.pos_x, 0);
+    EXPECT_EQ(entry.pos_y, 0);
+    EXPECT_EQ(entry.z_order, 0);
+}
+
 // Inventory container tests
 
 TEST(inventory_test, default_capacity)
 {
     inventory inv;
-    EXPECT_EQ(inv.capacity(), max_inventory_slots);
-    EXPECT_EQ(inv.used_slots(), 0);
-    EXPECT_EQ(inv.free_slots(), max_inventory_slots);
+    EXPECT_EQ(inv.max_items(), max_inventory_slots);
+    EXPECT_EQ(inv.count(), 0);
+    EXPECT_EQ(inv.max_items() - inv.count(), max_inventory_slots);
 }
 
 TEST(inventory_test, custom_capacity)
 {
     inventory inv(100);
-    EXPECT_EQ(inv.capacity(), 100);
+    EXPECT_EQ(inv.max_items(), 100);
 }
 
 TEST(inventory_test, add_item)
 {
     inventory inv;
 
-    EXPECT_TRUE(inv.add_item(item_id{100}, 5));
-    EXPECT_EQ(inv.used_slots(), 1);
+    EXPECT_NE(inv.add_item(item_id{100}, 5), nullptr);
+    EXPECT_EQ(inv.count(), 1);
     EXPECT_TRUE(inv.has_item(item_id{100}));
     EXPECT_EQ(inv.count_item(item_id{100}), 5);
 }
 
-TEST(inventory_test, find_item)
+TEST(inventory_test, get_item)
 {
     inventory inv;
 
-    auto found = inv.find_item(item_id{100});
-    EXPECT_FALSE(found.has_value());
+    auto* entry = inv.get_item(item_id{100});
+    EXPECT_EQ(entry, nullptr);
 
     inv.add_item(item_id{100}, 1);
-    found = inv.find_item(item_id{100});
-    EXPECT_TRUE(found.has_value());
-    EXPECT_EQ(*found, 0); // First slot
+    entry = inv.get_item(item_id{100});
+    ASSERT_NE(entry, nullptr);
+    EXPECT_EQ(entry->item.value, 100);
+    EXPECT_EQ(entry->count, 1);
 }
 
-TEST(inventory_test, find_empty_slot)
+TEST(inventory_test, add_item_when_full)
 {
     inventory inv(2);
 
-    auto slot = inv.find_empty_slot();
-    EXPECT_TRUE(slot.has_value());
-    EXPECT_EQ(*slot, 0);
+    EXPECT_NE(inv.add_item(item_id{1}, 1), nullptr);
+    EXPECT_NE(inv.add_item(item_id{2}, 1), nullptr);
 
-    inv.add_item(item_id{1}, 1);
-    inv.add_item(item_id{2}, 1);
-
-    slot = inv.find_empty_slot();
-    EXPECT_FALSE(slot.has_value());
+    // Full - add should fail
+    EXPECT_EQ(inv.add_item(item_id{3}, 1), nullptr);
 }
 
 TEST(inventory_test, remove_item)
@@ -93,7 +101,7 @@ TEST(inventory_test, remove_item)
     inv.add_item(item_id{100}, 5);
     EXPECT_TRUE(inv.remove_item(item_id{100}));
     EXPECT_FALSE(inv.has_item(item_id{100}));
-    EXPECT_EQ(inv.used_slots(), 0);
+    EXPECT_EQ(inv.count(), 0);
 }
 
 TEST(inventory_test, remove_item_count)
@@ -130,30 +138,6 @@ TEST(inventory_test, is_empty)
     EXPECT_FALSE(inv.is_empty());
 }
 
-TEST(inventory_test, swap_slots)
-{
-    inventory inv;
-
-    inv.add_item(item_id{100}, 5);
-    inv.add_item(item_id{200}, 10);
-
-    inv.swap_slots(0, 1);
-
-    EXPECT_EQ(inv.get_slot(0)->item.value, 200);
-    EXPECT_EQ(inv.get_slot(1)->item.value, 100);
-}
-
-TEST(inventory_test, move_item)
-{
-    inventory inv;
-
-    inv.add_item(item_id{100}, 5);
-
-    EXPECT_TRUE(inv.move_item(0, 5));
-    EXPECT_TRUE(inv.get_slot(0)->is_empty());
-    EXPECT_EQ(inv.get_slot(5)->item.value, 100);
-}
-
 TEST(inventory_test, clear_all)
 {
     inventory inv;
@@ -164,15 +148,17 @@ TEST(inventory_test, clear_all)
 
     inv.clear_all();
     EXPECT_TRUE(inv.is_empty());
-    EXPECT_EQ(inv.used_slots(), 0);
+    EXPECT_EQ(inv.count(), 0);
 }
 
 // Bank storage tests
 
-TEST(bank_storage_test, capacity)
+TEST(bank_storage_test, default_pages_and_slots)
 {
     bank_storage bank;
-    EXPECT_EQ(bank.capacity(), max_bank_slots);
+    EXPECT_EQ(bank.total_pages(), default_bank_pages);
+    EXPECT_EQ(bank.slots_per_page(), default_bank_slots_per_page);
+    EXPECT_EQ(bank.total_capacity(), default_bank_pages * default_bank_slots_per_page);
 }
 
 // Trade window tests
@@ -181,24 +167,98 @@ TEST(trade_window_test, default_state)
 {
     trade_window tw;
     EXPECT_TRUE(tw.is_empty());
-    EXPECT_FALSE(tw.confirmed);
-    EXPECT_FALSE(tw.locked);
+    EXPECT_FALSE(tw.is_confirmed());
+    EXPECT_FALSE(tw.is_locked());
+    EXPECT_EQ(tw.gold(), 0);
+    EXPECT_TRUE(tw.items().empty());
+}
+
+TEST(trade_window_test, add_and_remove_items)
+{
+    trade_window tw;
+    EXPECT_TRUE(tw.add_item(item_id{100}));
+    EXPECT_TRUE(tw.add_item(item_id{200}));
+    EXPECT_FALSE(tw.is_empty());
+    EXPECT_EQ(tw.items().size(), 2u);
+    EXPECT_TRUE(tw.has_item(item_id{100}));
+    EXPECT_TRUE(tw.has_item(item_id{200}));
+
+    // Duplicate rejected
+    EXPECT_FALSE(tw.add_item(item_id{100}));
+    EXPECT_EQ(tw.items().size(), 2u);
+
+    // Remove
+    EXPECT_TRUE(tw.remove_item(item_id{100}));
+    EXPECT_FALSE(tw.has_item(item_id{100}));
+    EXPECT_EQ(tw.items().size(), 1u);
+
+    // Remove non-existent
+    EXPECT_FALSE(tw.remove_item(item_id{999}));
+}
+
+TEST(trade_window_test, max_items_enforced)
+{
+    trade_window tw;
+    for (size_t i = 0; i < trade_window::max_trade_items; ++i)
+    {
+        EXPECT_TRUE(tw.add_item(item_id{static_cast<uint32_t>(i + 1)}));
+    }
+    // 13th item rejected
+    EXPECT_FALSE(tw.add_item(item_id{999}));
+    EXPECT_EQ(tw.items().size(), trade_window::max_trade_items);
+}
+
+TEST(trade_window_test, lock_prevents_modification)
+{
+    trade_window tw;
+    tw.add_item(item_id{100});
+    tw.set_gold(500);
+    tw.lock();
+
+    EXPECT_TRUE(tw.is_locked());
+    EXPECT_FALSE(tw.add_item(item_id{200}));
+    EXPECT_FALSE(tw.remove_item(item_id{100}));
+
+    // set_gold is no-op when locked
+    tw.set_gold(9999);
+    EXPECT_EQ(tw.gold(), 500);
+}
+
+TEST(trade_window_test, confirm)
+{
+    trade_window tw;
+    EXPECT_FALSE(tw.is_confirmed());
+    tw.confirm();
+    EXPECT_TRUE(tw.is_confirmed());
+}
+
+TEST(trade_window_test, gold)
+{
+    trade_window tw;
+    tw.set_gold(1000);
+    EXPECT_EQ(tw.gold(), 1000);
+    EXPECT_FALSE(tw.is_empty());
+
+    // Negative clamped to zero
+    tw.set_gold(-50);
+    EXPECT_EQ(tw.gold(), 0);
 }
 
 TEST(trade_window_test, reset)
 {
     trade_window tw;
-    tw.offered[0].set(item_id{100}, 1);
-    tw.gold_offered = 1000;
-    tw.confirmed = true;
-    tw.locked = true;
+    tw.add_item(item_id{100});
+    tw.set_gold(1000);
+    tw.lock();
+    tw.confirm();
 
     tw.reset();
 
     EXPECT_TRUE(tw.is_empty());
-    EXPECT_EQ(tw.gold_offered, 0);
-    EXPECT_FALSE(tw.confirmed);
-    EXPECT_FALSE(tw.locked);
+    EXPECT_EQ(tw.gold(), 0);
+    EXPECT_FALSE(tw.is_confirmed());
+    EXPECT_FALSE(tw.is_locked());
+    EXPECT_TRUE(tw.items().empty());
 }
 
 // Inventory system tests
@@ -267,21 +327,6 @@ TEST_F(inventory_system_test, remove_item)
     EXPECT_EQ(result, inventory_result::insufficient_count);
 }
 
-TEST_F(inventory_system_test, move_item)
-{
-    entity_id owner{1};
-    system_.create_inventory(owner);
-
-    system_.add_item(owner, item_id{100}, 5);
-
-    auto result = system_.move_item(owner, 0, 10);
-    EXPECT_EQ(result, inventory_result::success);
-
-    auto* inv = system_.get_inventory(owner);
-    EXPECT_TRUE(inv->get_slot(0)->is_empty());
-    EXPECT_EQ(inv->get_slot(10)->item.value, 100);
-}
-
 TEST_F(inventory_system_test, free_slots)
 {
     entity_id owner{1};
@@ -324,16 +369,20 @@ TEST_F(inventory_system_test, bank_operations)
 
     system_.add_item(owner, item_id{100}, 5);
 
-    auto result = system_.deposit_item(owner, 0);
+    auto result = system_.deposit_item(owner, item_id{100});
     EXPECT_EQ(result, inventory_result::success);
 
     auto* inv = system_.get_inventory(owner);
     auto* bank = system_.get_bank(owner);
 
-    EXPECT_TRUE(inv->get_slot(0)->is_empty());
+    EXPECT_FALSE(inv->has_item(item_id{100}));
     EXPECT_FALSE(bank->is_empty());
 
-    result = system_.withdraw_item(owner, 0);
+    // Find where the item was deposited (page 0, slot 0 for first deposit)
+    auto loc = bank->find_item(item_id{100});
+    ASSERT_TRUE(loc.has_value());
+
+    result = system_.withdraw_item(owner, loc->page, loc->slot);
     EXPECT_EQ(result, inventory_result::success);
 
     EXPECT_FALSE(inv->is_empty());
@@ -391,8 +440,8 @@ TEST_F(inventory_system_test, trade_gold)
     auto* window1 = system_.get_trade_window(player1);
     auto* window2 = system_.get_trade_window(player2);
 
-    EXPECT_EQ(window1->gold_offered, 500);
-    EXPECT_EQ(window2->gold_offered, 200);
+    EXPECT_EQ(window1->gold(), 500);
+    EXPECT_EQ(window2->gold(), 200);
 }
 
 TEST_F(inventory_system_test, complete_trade)

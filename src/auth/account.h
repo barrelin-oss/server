@@ -15,12 +15,13 @@ namespace hb::auth
 {
 
 // Where an item is stored
-enum class item_location : int16_t
+// Note: equipment = 1 was removed — equipment items are inventory items with
+// a reference in the character_equipment table.
+enum class item_location : uint8_t
 {
     inventory = 0,
-    equipment = 1,
-    bank = 2,
-    mail = 3,
+    bank = 2,      // Keep value 2 for DB compatibility
+    mail = 3,      // Keep value 3 for DB compatibility
 };
 
 // Flat row representation for items DB table
@@ -29,9 +30,8 @@ struct item_row
     uint32_t id{0};
     int32_t character_id{0};
     uint32_t template_id{0};
-    std::string name;
     item_location location{item_location::inventory};
-    int16_t slot{0};
+    int16_t slot{0};       // Legacy flat slot (deprecated for bank, kept for ordering)
     int16_t count{1};
     int16_t durability{0};
     int16_t max_durability{0};
@@ -46,7 +46,10 @@ struct item_row
     int8_t custom_quality{0};
     int16_t pos_x{0};
     int16_t pos_y{0};
-    std::optional<int16_t> equip_slot{}; // If set, item is equipped in this slot
+    int32_t z_order{0};
+    // Bank pagination (null for non-bank items)
+    std::optional<int16_t> bank_page;
+    std::optional<int16_t> bank_slot;
 
     [[nodiscard]] auto to_attribute() const -> item::item_attribute
     {
@@ -60,6 +63,14 @@ struct item_row
             .custom_quality = custom_quality,
         };
     }
+};
+
+// Row for character_equipment table — maps equip slot to item ID
+struct equipment_row
+{
+    int32_t character_id{0};
+    int16_t slot{0};       // equip_slot enum value
+    uint32_t item_id{0};
 };
 
 // Admin levels

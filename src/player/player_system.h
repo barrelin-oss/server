@@ -115,8 +115,8 @@ public:
     void remove_status(player_id id, player_status status);
     void clear_all_status(player_id id);
 
-    // Equipment (items live in inventory with equipped_as flag; equipment_state is a read-only cache)
-    void equip_item(player_id id, int16_t inv_slot_index, equip_slot slot);
+    // Equipment (equipment_state tracks which items are equipped; inventory has no equip flags)
+    void equip_item(player_id id, item_id item, equip_slot slot);
     auto unequip_item(player_id id, equip_slot slot) -> item_id;
     void rebuild_equipment_cache(player_id id);
     void recalculate_equipment_modifiers(player_id id);

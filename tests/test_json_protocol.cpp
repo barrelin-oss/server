@@ -820,7 +820,6 @@ TEST(character_data_msg_test, to_json)
 TEST(inventory_item_msg_test, to_json)
 {
     inventory_item_msg item;
-    item.slot = 5;
     item.item_id = 100;
     item.name = "Health Potion";
     item.count = 10;
@@ -836,7 +835,6 @@ TEST(inventory_item_msg_test, to_json)
 
     auto j = item.to_json();
 
-    EXPECT_EQ(j["slot"], 5);
     EXPECT_EQ(j["item_id"], 100);
     EXPECT_EQ(j["name"], "Health Potion");
     EXPECT_EQ(j["count"], 10);
@@ -849,52 +847,53 @@ TEST(inventory_item_msg_test, to_json)
     EXPECT_EQ(j["level_limit"], 0);
     EXPECT_EQ(j["pos_x"], 0);
     EXPECT_EQ(j["pos_y"], 0);
+    EXPECT_EQ(j["z_order"], 0);
 }
 
 TEST(inventory_item_msg_test, to_json_with_position)
 {
     inventory_item_msg item;
-    item.slot = 3;
     item.item_id = 200;
     item.name = "Iron Sword";
     item.count = 1;
     item.pos_x = 150;
     item.pos_y = 200;
+    item.z_order = 7;
 
     auto j = item.to_json();
 
-    EXPECT_EQ(j["slot"], 3);
+    EXPECT_EQ(j["item_id"], 200);
     EXPECT_EQ(j["pos_x"], 150);
     EXPECT_EQ(j["pos_y"], 200);
+    EXPECT_EQ(j["z_order"], 7);
 }
 
 TEST(inventory_reposition_test, from_json_valid)
 {
-    auto j = nlohmann::json{{"from_slot", 2}, {"to_slot", 5}, {"pos_x", 100}, {"pos_y", 200}};
+    auto j = nlohmann::json{{"item_id", 42}, {"pos_x", 100}, {"pos_y", 200}};
     auto result = inventory_reposition_request_data::from_json(j);
     ASSERT_TRUE(result.is_ok());
-    EXPECT_EQ(result.value().from_slot, 2);
-    EXPECT_EQ(result.value().to_slot, 5);
+    EXPECT_EQ(result.value().item_id, 42u);
     EXPECT_EQ(result.value().pos_x, 100);
     EXPECT_EQ(result.value().pos_y, 200);
 }
 
 TEST(inventory_reposition_test, from_json_missing_fields)
 {
-    auto j = nlohmann::json{{"from_slot", 2}};
+    auto j = nlohmann::json{{"pos_x", 100}};
     auto result = inventory_reposition_request_data::from_json(j);
     ASSERT_TRUE(result.is_err());
 }
 
 TEST(drop_item_request_test, from_json_valid)
 {
-    auto j = nlohmann::json{{"slot", 3}};
+    auto j = nlohmann::json{{"item_id", 42}};
     auto result = drop_item_request_data::from_json(j);
     ASSERT_TRUE(result.is_ok());
-    EXPECT_EQ(result.value().slot, 3);
+    EXPECT_EQ(result.value().item_id, 42u);
 }
 
-TEST(drop_item_request_test, from_json_missing_slot)
+TEST(drop_item_request_test, from_json_missing_item_id)
 {
     auto j = nlohmann::json::object();
     auto result = drop_item_request_data::from_json(j);
@@ -917,49 +916,56 @@ TEST(drop_item_response_test, make_failure)
     EXPECT_EQ(msg.data["error"], "empty_slot");
 }
 
-TEST(inventory_slot_update_test, make_cleared)
-{
-    auto msg = make_inventory_slot_update(5);
-    EXPECT_EQ(msg.type, json_message_type::inventory_slot_update);
-    EXPECT_EQ(msg.data["slot"], 5);
-    EXPECT_TRUE(msg.data["item"].is_null());
-}
-
-TEST(inventory_slot_update_test, make_with_item)
+TEST(inventory_item_update_test, make_with_item)
 {
     inventory_item_msg item;
-    item.slot = 3;
     item.item_id = 100;
     item.name = "Potion";
     item.count = 5;
 
-    auto msg = make_inventory_slot_update(3, &item);
-    EXPECT_EQ(msg.type, json_message_type::inventory_slot_update);
-    EXPECT_EQ(msg.data["slot"], 3);
-    EXPECT_TRUE(msg.data["item"].is_object());
-    EXPECT_EQ(msg.data["item"]["item_id"], 100);
+    auto msg = make_inventory_item_update(item);
+    EXPECT_EQ(msg.type, json_message_type::inventory_item_update);
+    EXPECT_EQ(msg.data["item_id"], 100);
+    EXPECT_EQ(msg.data["name"], "Potion");
+    EXPECT_EQ(msg.data["count"], 5);
+}
+
+TEST(inventory_item_removed_test, make_removed)
+{
+    auto msg = make_inventory_item_removed(42);
+    EXPECT_EQ(msg.type, json_message_type::inventory_item_removed);
+    EXPECT_EQ(msg.data["item_id"], 42);
+}
+
+TEST(inventory_weight_update_test, make_weight)
+{
+    auto msg = make_inventory_weight_update(100, 500);
+    EXPECT_EQ(msg.type, json_message_type::inventory_weight_update);
+    EXPECT_EQ(msg.data["current_weight"], 100);
+    EXPECT_EQ(msg.data["max_weight"], 500);
 }
 
 TEST(bank_slot_update_test, make_with_item)
 {
     inventory_item_msg item;
-    item.slot = 3;
     item.item_id = 42;
     item.name = "Sword";
     item.count = 1;
     item.durability = 100;
     item.max_durability = 100;
 
-    auto msg = make_bank_slot_update(3, &item);
+    auto msg = make_bank_slot_update(1, 3, &item);
     EXPECT_EQ(msg.type, json_message_type::bank_slot_update);
+    EXPECT_EQ(msg.data["page"], 1);
     EXPECT_EQ(msg.data["slot"], 3);
     EXPECT_EQ(msg.data["item"]["item_id"], 42);
 }
 
 TEST(bank_slot_update_test, null_clears)
 {
-    auto msg = make_bank_slot_update(5, nullptr);
+    auto msg = make_bank_slot_update(2, 5, nullptr);
     EXPECT_EQ(msg.type, json_message_type::bank_slot_update);
+    EXPECT_EQ(msg.data["page"], 2);
     EXPECT_EQ(msg.data["slot"], 5);
     EXPECT_TRUE(msg.data["item"].is_null());
 }
@@ -977,7 +983,6 @@ TEST(stat_update_test, max_weight_included)
 TEST(inventory_item_msg_test, equipped_slot_present_when_set)
 {
     inventory_item_msg item;
-    item.slot = 3;
     item.item_id = 100;
     item.name = "Iron Sword";
     item.count = 1;
@@ -991,42 +996,12 @@ TEST(inventory_item_msg_test, equipped_slot_present_when_set)
 TEST(inventory_item_msg_test, equipped_slot_absent_when_not_set)
 {
     inventory_item_msg item;
-    item.slot = 3;
     item.item_id = 100;
     item.name = "HP Potion";
     item.count = 5;
 
     auto j = item.to_json();
     EXPECT_FALSE(j.contains("equipped_slot"));
-}
-
-TEST(equipment_item_msg_test, to_json)
-{
-    equipment_item_msg item;
-    item.slot = 1; // Weapon slot
-    item.item_id = 500;
-    item.name = "Iron Sword";
-    item.durability = 80;
-    item.max_durability = 100;
-    item.item_type = 13; // weapon
-    item.equip_pos = 8;  // right_hand
-    item.sprite = 1;     // swords category
-    item.sprite_frame = 5;
-    item.color = 0;
-    item.weight = 80;
-
-    auto j = item.to_json();
-
-    EXPECT_EQ(j["slot"], 1);
-    EXPECT_EQ(j["item_id"], 500);
-    EXPECT_EQ(j["name"], "Iron Sword");
-    EXPECT_EQ(j["durability"], 80);
-    EXPECT_EQ(j["item_type"], 13);
-    EXPECT_EQ(j["equip_pos"], 8);
-    EXPECT_EQ(j["sprite"], 1);
-    EXPECT_EQ(j["sprite_frame"], 5);
-    EXPECT_EQ(j["color"], 0);
-    EXPECT_EQ(j["weight"], 80);
 }
 
 // ========== Attack/Magic/Skill Result Tests ==========
@@ -1085,7 +1060,6 @@ TEST(pickup_result_msg_test, to_json)
     result.item_id = 100;
     result.item_name = "Gold Coin";
     result.quantity = 50;
-    result.inventory_slot = 10;
 
     auto j = result.to_json();
 

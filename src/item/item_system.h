@@ -112,7 +112,7 @@ private:
     [[nodiscard]] auto next_item_id() -> item_id { return item_id{next_id_++}; }
 
     void update_durability_decay(float delta_time);
-    void populate_from_template(item& itm, item_id template_id);
+    [[nodiscard]] auto populate_from_template(item& itm, item_id template_id) -> bool;
 
     item_system_config config_;
     uint32_t next_id_{1};

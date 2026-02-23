@@ -1,728 +1,189 @@
 alchemy_recipes:
   - id: 1
-    result: RedPotion
+    result: HealthPotion
     skill_limit: 20
     difficulty: 10
     ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 192, count: 1 }
-      - { item_id: 191, count: 1 }
+      - item_id: 220
+        count: 1
+      - item_id: 192
+        count: 1
+      - item_id: 191
+        count: 1
   - id: 2
-    result: BluePotion
+    result: ManaPotion
     skill_limit: 20
     difficulty: 10
     ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 193, count: 1 }
-      - { item_id: 189, count: 1 }
+      - item_id: 220
+        count: 1
+      - item_id: 193
+        count: 1
+      - item_id: 189
+        count: 1
   - id: 3
-    result: GreenPotion
+    result: RevitalizingPotion
     skill_limit: 20
     difficulty: 10
     ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 215, count: 1 }
-      - { item_id: 188, count: 1 }
+      - item_id: 220
+        count: 1
+      - item_id: 215
+        count: 1
+      - item_id: 188
+        count: 1
   - id: 4
     result: DilutionPotion
     skill_limit: 30
     difficulty: 20
     ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 217, count: 1 }
-      - { item_id: 208, count: 1 }
-      - { item_id: 190, count: 2 }
+      - item_id: 220
+        count: 1
+      - item_id: 217
+        count: 1
+      - item_id: 208
+        count: 1
+      - item_id: 190
+        count: 2
   - id: 5
-    result: BigRedPotion
+    result: BigHealthPotion
     skill_limit: 40
     difficulty: 20
     ingredients:
-      - { item_id: 223, count: 1 }
-      - { item_id: 220, count: 3 }
-      - { item_id: 192, count: 1 }
-      - { item_id: 191, count: 1 }
+      - item_id: 223
+        count: 1
+      - item_id: 220
+        count: 3
+      - item_id: 192
+        count: 1
+      - item_id: 191
+        count: 1
   - id: 6
-    result: BigBluePotion
+    result: BigManaPotion
     skill_limit: 40
     difficulty: 20
     ingredients:
-      - { item_id: 220, count: 3 }
-      - { item_id: 197, count: 1 }
-      - { item_id: 193, count: 1 }
-      - { item_id: 189, count: 1 }
+      - item_id: 220
+        count: 3
+      - item_id: 197
+        count: 1
+      - item_id: 193
+        count: 1
+      - item_id: 189
+        count: 1
   - id: 7
-    result: BigGreenPotion
+    result: BigRevPotion
     skill_limit: 40
     difficulty: 20
     ingredients:
-      - { item_id: 220, count: 2 }
-      - { item_id: 215, count: 1 }
-      - { item_id: 189, count: 1 }
-      - { item_id: 188, count: 1 }
-      - { item_id: 188, count: 1 }
+      - item_id: 220
+        count: 2
+      - item_id: 215
+        count: 1
+      - item_id: 189
+        count: 1
+      - item_id: 188
+        count: 1
+      - item_id: 188
+        count: 1
   - id: 8
     result: InvisibilityPotion
     skill_limit: 50
     difficulty: 30
     ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 219, count: 1 }
-      - { item_id: 208, count: 1 }
-      - { item_id: 206, count: 1 }
+      - item_id: 220
+        count: 1
+      - item_id: 219
+        count: 1
+      - item_id: 208
+        count: 1
+      - item_id: 206
+        count: 1
   - id: 9
     result: HairColorPotion
     skill_limit: 60
     difficulty: 40
     ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 216, count: 1 }
-      - { item_id: 205, count: 1 }
-      - { item_id: 188, count: 1 }
+      - item_id: 220
+        count: 1
+      - item_id: 216
+        count: 1
+      - item_id: 205
+        count: 1
+      - item_id: 188
+        count: 1
   - id: 10
     result: HairStylePotion
     skill_limit: 70
     difficulty: 40
     ingredients:
-      - { item_id: 221, count: 1 }
-      - { item_id: 220, count: 1 }
-      - { item_id: 204, count: 1 }
-      - { item_id: 188, count: 1 }
+      - item_id: 221
+        count: 1
+      - item_id: 220
+        count: 1
+      - item_id: 204
+        count: 1
+      - item_id: 188
+        count: 1
   - id: 11
     result: SkinColorPotion
     skill_limit: 90
     difficulty: 60
     ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 205, count: 1 }
-      - { item_id: 201, count: 1 }
-      - { item_id: 190, count: 1 }
+      - item_id: 220
+        count: 1
+      - item_id: 205
+        count: 1
+      - item_id: 201
+        count: 1
+      - item_id: 190
+        count: 1
   - id: 12
     result: SexChangePotion
     skill_limit: 95
     difficulty: 70
     ingredients:
-      - { item_id: 225, count: 1 }
-      - { item_id: 220, count: 1 }
-      - { item_id: 219, count: 1 }
-      - { item_id: 210, count: 1 }
-      - { item_id: 205, count: 1 }
-      - { item_id: 194, count: 1 }
+      - item_id: 225
+        count: 1
+      - item_id: 220
+        count: 1
+      - item_id: 219
+        count: 1
+      - item_id: 210
+        count: 1
+      - item_id: 205
+        count: 1
+      - item_id: 194
+        count: 1
   - id: 13
     result: OgrePotion
     skill_limit: 100
     difficulty: 80
     ingredients:
-      - { item_id: 222, count: 1 }
-      - { item_id: 214, count: 1 }
-      - { item_id: 212, count: 1 }
-      - { item_id: 211, count: 1 }
-      - { item_id: 210, count: 1 }
-      - { item_id: 209, count: 1 }
+      - item_id: 222
+        count: 1
+      - item_id: 214
+        count: 1
+      - item_id: 212
+        count: 1
+      - item_id: 211
+        count: 1
+      - item_id: 210
+        count: 1
+      - item_id: 209
+        count: 1
   - id: 14
-    result: SPowerGreenPotion
+    result: PowerGreenPotion
     skill_limit: 95
     difficulty: 80
     ingredients:
-      - { item_id: 554, count: 1 }
-      - { item_id: 222, count: 1 }
-      - { item_id: 220, count: 1 }
-      - { item_id: 199, count: 1 }
-      - { item_id: 196, count: 1 }
-  - id: 15
-    result: UnderWearPotion
-    skill_limit: 60
-    difficulty: 50
-    ingredients:
-      - { item_id: 575, count: 1 }
-      - { item_id: 220, count: 1 }
-      - { item_id: 218, count: 1 }
-      - { item_id: 217, count: 1 }
-      - { item_id: 215, count: 1 }
-      - { item_id: 203, count: 1 }
-  - id: 16
-    result: UnfreezePotion
-    skill_limit: 90
-    difficulty: 60
-    ingredients:
-      - { item_id: 548, count: 1 }
-      - { item_id: 220, count: 1 }
-      - { item_id: 217, count: 1 }
-      - { item_id: 207, count: 1 }
-      - { item_id: 198, count: 1 }
-  - id: 17
-    result: SuperRedPotion
-    skill_limit: 75
-    difficulty: 50
-    ingredients:
-      - { item_id: 823, count: 1 }
-      - { item_id: 222, count: 1 }
-      - { item_id: 220, count: 1 }
-      - { item_id: 193, count: 1 }
-  - id: 18
-    result: SuperBluePotion
-    skill_limit: 75
-    difficulty: 50
-    ingredients:
-      - { item_id: 820, count: 1 }
-      - { item_id: 220, count: 1 }
-      - { item_id: 206, count: 1 }
-      - { item_id: 196, count: 1 }
-  - id: 19
-    result: SuperGreenPotion
-    skill_limit: 70
-    difficulty: 40
-    ingredients:
-      - { item_id: 821, count: 1 }
-      - { item_id: 220, count: 1 }
-      - { item_id: 199, count: 1 }
-      - { item_id: 192, count: 1 }
-  - id: 20
-    result: SpellManual85
-    skill_limit: 30
-    difficulty: 25
-    ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 144, count: 1 }
-      - { item_id: 143, count: 1 }
-      - { item_id: 142, count: 1 }
-      - { item_id: 93, count: 1 }
-  - id: 21
-    result: SpellManual86
-    skill_limit: 40
-    difficulty: 35
-    ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 147, count: 1 }
-      - { item_id: 146, count: 1 }
-      - { item_id: 145, count: 1 }
-      - { item_id: 93, count: 1 }
-  - id: 22
-    result: SpellManual92
-    skill_limit: 50
-    difficulty: 45
-    ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 150, count: 1 }
-      - { item_id: 149, count: 1 }
-      - { item_id: 148, count: 1 }
-      - { item_id: 93, count: 1 }
-  - id: 23
-    result: SpellManual93
-    skill_limit: 50
-    difficulty: 45
-    ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 153, count: 1 }
-      - { item_id: 152, count: 1 }
-      - { item_id: 151, count: 1 }
-      - { item_id: 93, count: 1 }
-  - id: 24
-    result: SpellManual97
-    skill_limit: 40
-    difficulty: 35
-    ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 156, count: 1 }
-      - { item_id: 155, count: 1 }
-      - { item_id: 154, count: 1 }
-      - { item_id: 93, count: 1 }
-  - id: 25
-    result: SpellManual78
-    skill_limit: 30
-    difficulty: 25
-    ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 166, count: 1 }
-      - { item_id: 165, count: 1 }
-      - { item_id: 164, count: 1 }
-      - { item_id: 93, count: 1 }
-  - id: 26
-    result: SpellManual87
-    skill_limit: 40
-    difficulty: 35
-    ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 169, count: 1 }
-      - { item_id: 168, count: 1 }
-      - { item_id: 167, count: 1 }
-      - { item_id: 93, count: 1 }
-  - id: 27
-    result: SpellManual98
-    skill_limit: 50
-    difficulty: 45
-    ingredients:
-      - { item_id: 220, count: 1 }
-      - { item_id: 172, count: 1 }
-      - { item_id: 171, count: 1 }
-      - { item_id: 170, count: 1 }
-      - { item_id: 93, count: 1 }
-  - id: 28
-    result: Parchment85A
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 144, count: 1 }
-  - id: 29
-    result: Parchment85B
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 142, count: 1 }
-  - id: 30
-    result: Parchment85C
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 143, count: 1 }
-  - id: 31
-    result: Parchment86A
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 147, count: 1 }
-  - id: 32
-    result: Parchment86B
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 145, count: 1 }
-  - id: 33
-    result: Parchment86C
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 146, count: 1 }
-  - id: 34
-    result: Parchment92A
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 150, count: 1 }
-  - id: 35
-    result: Parchment92B
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 148, count: 1 }
-  - id: 36
-    result: Parchment92C
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 149, count: 1 }
-  - id: 37
-    result: Parchment93A
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 153, count: 1 }
-  - id: 38
-    result: Parchment93B
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 151, count: 1 }
-  - id: 39
-    result: Parchment93C
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 152, count: 1 }
-  - id: 40
-    result: Parchment97A
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 156, count: 1 }
-  - id: 41
-    result: Parchment97B
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 154, count: 1 }
-  - id: 42
-    result: Parchment97C
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 155, count: 1 }
-  - id: 43
-    result: Parchment78A
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 166, count: 1 }
-  - id: 44
-    result: Parchment78B
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 164, count: 1 }
-  - id: 45
-    result: Parchment78C
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 165, count: 1 }
-  - id: 46
-    result: Parchment87A
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 169, count: 1 }
-  - id: 47
-    result: Parchment87B
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 167, count: 1 }
-  - id: 48
-    result: Parchment87C
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 168, count: 1 }
-  - id: 49
-    result: Parchment98A
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 172, count: 1 }
-  - id: 50
-    result: Parchment98B
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 170, count: 1 }
-  - id: 51
-    result: Parchment98C
-    skill_limit: 20
-    difficulty: 15
-    ingredients:
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 657, count: 1 }
-      - { item_id: 186, count: 1 }
-      - { item_id: 171, count: 1 }
-  - id: 52
-    result: annive
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 464, count: 1 }
-      - { item_id: 443, count: 1 }
-      - { item_id: 443, count: 1 }
-      - { item_id: 438, count: 1 }
-      - { item_id: 434, count: 1 }
-      - { item_id: 430, count: 1 }
-  - id: 53
-    result: rsary
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 467, count: 1 }
-      - { item_id: 448, count: 1 }
-      - { item_id: 447, count: 1 }
-      - { item_id: 447, count: 1 }
-      - { item_id: 430, count: 1 }
-  - id: 54
-    result: helbre
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 447, count: 1 }
-      - { item_id: 441, count: 1 }
-      - { item_id: 437, count: 1 }
-      - { item_id: 434, count: 1 }
-      - { item_id: 434, count: 1 }
-      - { item_id: 431, count: 1 }
-  - id: 55
-    result: athusa
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 463, count: 1 }
-      - { item_id: 449, count: 1 }
-      - { item_id: 448, count: 1 }
-      - { item_id: 437, count: 1 }
-      - { item_id: 430, count: 1 }
-      - { item_id: 430, count: 1 }
-  - id: 56
-    result: abadd
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 443, count: 1 }
-      - { item_id: 443, count: 1 }
-      - { item_id: 431, count: 1 }
-      - { item_id: 430, count: 1 }
-      - { item_id: 430, count: 1 }
-  - id: 57
-    result: on
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 444, count: 1 }
-      - { item_id: 443, count: 1 }
-  - id: 58
-    result: fire
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 447, count: 1 }
-      - { item_id: 438, count: 1 }
-      - { item_id: 435, count: 1 }
-      - { item_id: 434, count: 1 }
-  - id: 59
-    result: earth
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 449, count: 1 }
-      - { item_id: 447, count: 1 }
-      - { item_id: 437, count: 1 }
-      - { item_id: 434, count: 1 }
-      - { item_id: 430, count: 1 }
-  - id: 60
-    result: pixie
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 466, count: 1 }
-      - { item_id: 445, count: 1 }
-      - { item_id: 438, count: 1 }
-      - { item_id: 438, count: 1 }
-      - { item_id: 434, count: 1 }
-  - id: 61
-    result: celebr
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 447, count: 1 }
-      - { item_id: 441, count: 1 }
-      - { item_id: 434, count: 1 }
-      - { item_id: 434, count: 1 }
-      - { item_id: 432, count: 1 }
-      - { item_id: 431, count: 1 }
-  - id: 62
-    result: ation
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 449, count: 1 }
-      - { item_id: 444, count: 1 }
-      - { item_id: 443, count: 1 }
-      - { item_id: 438, count: 1 }
-      - { item_id: 430, count: 1 }
-  - id: 63
-    result: nine
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 443, count: 1 }
-      - { item_id: 443, count: 1 }
-      - { item_id: 438, count: 1 }
-      - { item_id: 434, count: 1 }
-  - id: 64
-    result: years9
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 670, count: 1 }
-      - { item_id: 467, count: 1 }
-      - { item_id: 448, count: 1 }
-      - { item_id: 447, count: 1 }
-      - { item_id: 434, count: 1 }
-      - { item_id: 430, count: 1 }
-  - id: 65
-    result: Dye(Brown)
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 532, count: 1 }
-      - { item_id: 531, count: 1 }
-  - id: 66
-    result: StalkerT
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 537, count: 1 }
-      - { item_id: 536, count: 1 }
-  - id: 67
-    result: Ring-Hellhound
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 535, count: 1 }
-      - { item_id: 533, count: 1 }
-  - id: 68
-    result: Ring-Werewolf
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 535, count: 1 }
-      - { item_id: 534, count: 1 }
-  - id: 69
-    result: StalkerRapier
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 975, count: 1 }
-      - { item_id: 34, count: 1 }
-  - id: 70
-    result: StalkerAxe
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 975, count: 1 }
-      - { item_id: 560, count: 1 }
-  - id: 71
-    result: StalkerBlade
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 975, count: 1 }
-      - { item_id: 615, count: 1 }
-  - id: 72
-    result: Armor-Sex-Change
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 528, count: 1 }
-      - { item_id: 527, count: 1 }
-  - id: 73
-    result: ResurWand(MS.10)
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 530, count: 1 }
-      - { item_id: 529, count: 1 }
-  - id: 74
-    result: MagicNecklace(DM+4)
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 539, count: 1 }
-      - { item_id: 538, count: 1 }
-      - { item_id: 305, count: 1 }
-  - id: 75
-    result: MagicNecklace(MS16)
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 539, count: 1 }
-      - { item_id: 538, count: 1 }
-      - { item_id: 308, count: 1 }
-  - id: 78
-    result: Dye(Crimson)
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 533, count: 1 }
-      - { item_id: 370, count: 1 }
-  - id: 79
-    result: Dye(Khaki)
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 534, count: 1 }
-      - { item_id: 370, count: 1 }
-  - id: 80
-    result: Dye(Pink)
-    skill_limit: 20
-    difficulty: 10
-    ingredients:
-      - { item_id: 535, count: 1 }
-      - { item_id: 370, count: 1 }
+      - item_id: 554
+        count: 1
+      - item_id: 222
+        count: 1
+      - item_id: 220
+        count: 1
+      - item_id: 199
+        count: 1
+      - item_id: 196
+        count: 1

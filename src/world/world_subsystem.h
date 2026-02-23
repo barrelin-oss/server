@@ -85,7 +85,7 @@ public:
     get_all_entities_in_range(map_id map, const position& center, int radius) const -> std::vector<entity_query_result>;
 
     // Ground item management
-    void add_ground_item(map_id map, const position& pos, item_id item);
+    void add_ground_item(map_id map, const position& pos, item_id item, int32_t lifetime_ms = 0);
     auto remove_top_ground_item(map_id map, const position& pos) -> std::optional<item_id>;
     [[nodiscard]] auto get_ground_items(map_id map, const position& pos) const -> std::vector<item_id>;
     [[nodiscard]] auto has_ground_items(map_id map, const position& pos) const -> bool;
@@ -157,6 +157,7 @@ private:
     {
         item_id item;
         std::chrono::steady_clock::time_point drop_time;
+        int32_t lifetime_ms{0}; // 0 = use global default
     };
 
     struct map_position_key

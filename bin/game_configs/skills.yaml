@@ -1,8 +1,3 @@
-# Skill definitions and leveling configuration
-# IDs match original Helbreath skill indices
-# type: 0=combat, 1=crafting/gathering, 2=special
-# value1/value2: legacy config values from original data
-
 defaults:
   max_level: 100
   tiers:
@@ -14,35 +9,27 @@ defaults:
     - { max_level: 200, multiplier: 125 }
 
 skills:
-  - { id: 0, name: Mining, type: 1, value1: 1, value2: 6 }
-  - { id: 1, name: Fishing, type: 1, value1: 2, value2: 6 }
-  - { id: 2, name: Farming, type: 1, value1: 3, value2: 6 }
-  - { id: 3, name: Magic-Resistance, type: 0 }
-  - { id: 4, name: Magic, type: 0 }
-  - { id: 5, name: Hand-Attack, type: 0 }
-  - { id: 6, name: Archery, type: 0 }
-  - { id: 7, name: Short-Sword, type: 0 }
-  - { id: 8, name: Long-Sword, type: 0 }
-  - { id: 9, name: Fencing, type: 0 }
-  - { id: 10, name: Axe-Attack, type: 0 }
-  - { id: 11, name: Shield, type: 0 }
-  - { id: 12, name: Alchemy, type: 1 }
-  - { id: 13, name: Manufacturing, type: 1, value1: 2 }
-  - { id: 14, name: Hammer, type: 0 }
-  - { id: 15, name: Crafting, type: 1 }
-  - { id: 16, name: "????", type: 1, value1: 1 }
-  - { id: 17, name: "????", type: 1 }
-  - { id: 18, name: "????", type: 1, value1: 1 }
-  - { id: 19, name: Pretend-Corpse, type: 2, value1: 1 }
-  - { id: 20, name: "????", type: 1, value1: 1 }
-  - { id: 21, name: Staff-Attack, type: 0 }
-  - { id: 22, name: "????", type: 1, value1: 2 }
-  - { id: 23, name: Poison-Resistance, type: 1 }
-
-# Per-skill tier overrides (optional)
-# Uncomment to customize leveling curves for specific skills:
-# skill_tiers:
-#   mining:
-#     tiers:
-#       - { max_level: 20, multiplier: 8 }
-#       - { max_level: 200, multiplier: 20 }
+  - {id: 0, name: Mining, type: 1, value1: 1, value2: 6, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 1, name: Fishing, type: 1, value1: 2, value2: 6, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 2, name: Farming, type: 1, value1: 3, value2: 6, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 3, name: Magic-Resistance, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 4, name: Magic, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 5, name: Hand-Attack, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 6, name: Archery, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 7, name: Short-Sword, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 8, name: Long-Sword, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 9, name: Fencing, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 10, name: Axe-Attack, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 11, name: Shield, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 12, name: Alchemy, type: 1, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 13, name: Manufacturing, type: 1, value1: 2, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 14, name: Hammer, type: 1, value1: 2, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 15, name: First-Aid, type: 1, value1: 1, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 16, name: Stealing, type: 1, value1: 1, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 17, name: Musicality, type: 1, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 18, name: Item-Appraisal, type: 1, value1: 1, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 19, name: Pretend-Corpse, type: 2, value1: 1, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 20, name: Taming, type: 1, value1: 1, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 21, name: Staff-Attack, type: 0, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 22, name: Armor-Crafting, type: 1, value1: 2, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}
+  - {id: 23, name: Poison-Resistance, type: 1, value1: 0, value2: 0, value3: 0, value4: 0, value5: 0, value6: 0}

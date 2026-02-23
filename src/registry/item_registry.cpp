@@ -16,64 +16,11 @@ namespace hb
 namespace
 {
 
-// Trim whitespace
-auto trim(std::string_view str) -> std::string
-{
-    auto start = str.find_first_not_of(" \t\n\r");
-    if (start == std::string_view::npos)
-        return "";
-    auto end = str.find_last_not_of(" \t\n\r");
-    return std::string(str.substr(start, end - start + 1));
-}
-
 // Convert string to lowercase
 auto to_lower(std::string str) -> std::string
 {
     std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
     return str;
-}
-
-// Parse integer with default
-auto parse_int(std::string_view str, int default_val = 0) -> int
-{
-    auto trimmed = trim(str);
-    if (trimmed.empty())
-        return default_val;
-    try
-    {
-        return std::stoi(std::string(trimmed));
-    }
-    catch (...)
-    {
-        return default_val;
-    }
-}
-
-// Split string by delimiter
-auto split(std::string_view str, char delim) -> std::vector<std::string>
-{
-    std::vector<std::string> result;
-    std::string current;
-
-    for (char c : str)
-    {
-        if (c == delim)
-        {
-            result.push_back(trim(current));
-            current.clear();
-        }
-        else
-        {
-            current += c;
-        }
-    }
-
-    if (!current.empty())
-    {
-        result.push_back(trim(current));
-    }
-
-    return result;
 }
 
 } // namespace
@@ -106,7 +53,7 @@ auto item_registry::load_from_file(const std::filesystem::path& path) -> result<
 
     LOG_INFO(item, "Loading items from: {}", path.string());
 
-    // Check if this is a YAML file
+    // Only YAML format is supported
     auto ext = path.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
 
@@ -115,53 +62,7 @@ auto item_registry::load_from_file(const std::filesystem::path& path) -> result<
         return load_from_yaml(path);
     }
 
-    // Legacy CFG format parsing
-    std::string line;
-    int line_num = 0;
-    size_t loaded = 0;
-    size_t errors = 0;
-
-    while (std::getline(file, line))
-    {
-        ++line_num;
-        line = trim(line);
-
-        // Skip empty lines and comments
-        if (line.empty() || line[0] == ';' || line[0] == '#' || line[0] == '/')
-        {
-            continue;
-        }
-
-        // Parse item line
-        auto result = parse_item_line(line, line_num);
-        if (result.is_err())
-        {
-            LOG_WARN(item, "Line {}: {}", line_num, result.error());
-            ++errors;
-            continue;
-        }
-
-        auto item = std::move(result.value());
-
-        // Check for duplicate ID
-        if (id_index_.contains(item.id.value))
-        {
-            LOG_ERROR(item, "Line {}: Duplicate item ID {} — skipping", line_num, item.id.value);
-            ++errors;
-            continue;
-        }
-
-        // Store item
-        auto index = items_.size();
-        id_index_[item.id.value] = index;
-        name_index_[to_lower(item.name)] = index;
-        items_.push_back(std::move(item));
-        ++loaded;
-    }
-
-    LOG_INFO(item, "Loaded {} items ({} errors)", loaded, errors);
-
-    return result<size_t, std::string>::ok(loaded);
+    return result<size_t, std::string>::err("Unsupported item config format (only YAML supported): " + path.string());
 }
 
 auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<size_t, std::string>
@@ -209,12 +110,12 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
             // Check for duplicate
             if (id_index_.contains(item.id.value))
             {
-                LOG_ERROR(item, "Duplicate item ID {} — skipping", item.id.value);
+                LOG_ERROR(item, "Duplicate item ID {} -- skipping", item.id.value);
                 ++errors;
                 continue;
             }
 
-            // Optional fields with defaults
+            // Classification
             if (node["type"])
             {
                 auto type_val = node["type"].as<int>();
@@ -229,71 +130,64 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
             }
             if (node["equip_pos"])
                 item.equip_pos = static_cast<item_equip_pos>(node["equip_pos"].as<int>());
+            if (node["category"])
+                item.category = static_cast<item_category>(node["category"].as<int>());
+
+            // Effect values
+            if (node["effect_type"])
+                item.effect_type = static_cast<int16_t>(node["effect_type"].as<int>());
+            if (node["effect_value1"])
+                item.effect_value1 = static_cast<int16_t>(node["effect_value1"].as<int>());
+            if (node["effect_value2"])
+                item.effect_value2 = static_cast<int16_t>(node["effect_value2"].as<int>());
+            if (node["effect_value3"])
+                item.effect_value3 = static_cast<int16_t>(node["effect_value3"].as<int>());
+            if (node["effect_value4"])
+                item.effect_value4 = static_cast<int16_t>(node["effect_value4"].as<int>());
+            if (node["effect_value5"])
+                item.effect_value5 = static_cast<int16_t>(node["effect_value5"].as<int>());
+            if (node["effect_value6"])
+                item.effect_value6 = static_cast<int16_t>(node["effect_value6"].as<int>());
+
+            // Basic properties
+            if (node["durability"])
+                item.durability = static_cast<int16_t>(node["durability"].as<int>());
             if (node["weight"])
                 item.weight = static_cast<int16_t>(node["weight"].as<int>());
-            if (node["durability"])
-                item.max_durability = static_cast<int16_t>(node["durability"].as<int>());
             if (node["price"])
                 item.price = node["price"].as<int>();
             if (node["level_limit"])
                 item.level_limit = static_cast<int16_t>(node["level_limit"].as<int>());
-            if (node["attack_bonus"])
-                item.attack_bonus = static_cast<int16_t>(node["attack_bonus"].as<int>());
-            if (node["defense"])
-                item.defense = static_cast<int16_t>(node["defense"].as<int>());
-            if (node["hit_prob"])
-                item.hit_prob_bonus = static_cast<int16_t>(node["hit_prob"].as<int>());
-            if (node["dodge_prob"])
-                item.dodge_prob_bonus = static_cast<int16_t>(node["dodge_prob"].as<int>());
-            if (node["is_two_handed"])
-                item.two_hand_modifier = static_cast<int16_t>(node["is_two_handed"].as<int>());
-            if (node["sprite_id"])
-                item.sprite_id = static_cast<int16_t>(node["sprite_id"].as<int>());
 
-            // YAML field names are historical misnomers from the legacy CFG→YAML conversion.
-            // 'sprite_id' (CFG position 14) is actually m_sSprite (ground sprite category).
-            // 'price' (CFG position 15) is actually m_sSpriteFrame (ground sprite frame).
-            // 'effect1'/'effect2' are m_cCategory/m_cItemColor, NOT sprite data.
-            item.ground_sprite = item.sprite_id;
-            item.ground_sprite_frame = static_cast<int16_t>(item.price);
+            // Special effect
+            if (node["special_effect"])
+                item.special_effect = static_cast<int16_t>(node["special_effect"].as<int>());
+            if (node["special_effect_value1"])
+                item.special_effect_value1 = static_cast<int16_t>(node["special_effect_value1"].as<int>());
+            if (node["special_effect_value2"])
+                item.special_effect_value2 = static_cast<int16_t>(node["special_effect_value2"].as<int>());
 
-            // Appearance data (from legacy color fields, used for equippable items)
-            if (node["color_b1"])
-                item.appr_value = static_cast<int8_t>(node["color_b1"].as<int>());
-            if (node["color_r2"])
-                item.item_color = static_cast<int8_t>(node["color_r2"].as<int>());
-            if (node["unk1"])
-                item.speed = static_cast<int8_t>(node["unk1"].as<int>());
+            // Visual
+            if (node["sprite"])
+                item.sprite = static_cast<int16_t>(node["sprite"].as<int>());
+            if (node["sprite_frame"])
+                item.sprite_frame = static_cast<int16_t>(node["sprite_frame"].as<int>());
+            if (node["appr_value"])
+                item.appr_value = static_cast<int8_t>(node["appr_value"].as<int>());
+            if (node["item_color"])
+                item.item_color = static_cast<int8_t>(node["item_color"].as<int>());
+            if (node["speed"])
+                item.speed = static_cast<int8_t>(node["speed"].as<int>());
 
-            // Consumable effect fields (legacy color_r1..color_b2)
-            if (node["color_r1"])
-            {
-                item.use_effect.type = static_cast<consumable_effect_type>(node["color_r1"].as<int>());
-                if (node["color_g1"])
-                    item.use_effect.v1 = static_cast<int16_t>(node["color_g1"].as<int>());
-                if (node["color_b1"])
-                    item.use_effect.v2 = static_cast<int16_t>(node["color_b1"].as<int>());
-                if (node["color_r2"])
-                    item.use_effect.v3 = static_cast<int16_t>(node["color_r2"].as<int>());
-                if (node["color_g2"])
-                    item.use_effect.v4 = static_cast<int16_t>(node["color_g2"].as<int>());
-                if (node["color_b2"])
-                    item.use_effect.v5 = static_cast<int16_t>(node["color_b2"].as<int>());
-            }
+            // Misc
+            if (node["gender_limit"])
+                item.gender_limit = static_cast<int8_t>(node["gender_limit"].as<int>());
+            if (node["related_skill"])
+                item.related_skill = static_cast<int16_t>(node["related_skill"].as<int>());
 
-            // Special ability type (SPECABLTY items)
-            if (node["special_ability"])
-                item.special_ability = static_cast<item::special_ability_type>(node["special_ability"].as<int>());
-
-            // Audit override (per-template)
-            if (node["audited"])
-                item.audit_override = node["audited"].as<bool>();
-
-            // Mark consumable types
-            if (item.type == item_type::eat || item.type == item_type::use_deplete)
-            {
-                item.is_consumable = true;
-            }
+            // Ground item lifetime override
+            if (node["ground_lifetime_ms"])
+                item.ground_lifetime_ms = node["ground_lifetime_ms"].as<int32_t>();
 
             // Store item
             auto index = items_.size();
@@ -310,90 +204,6 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
     {
         return result<size_t, std::string>::err(std::string("YAML parsing error: ") + e.what());
     }
-}
-
-auto item_registry::parse_item_line(std::string_view line, [[maybe_unused]] int line_num) -> result<item_template, std::string>
-{
-    // Expected format (tab or space separated):
-    // ID  Name  Type  EquipPos  Weight  Price  Attack  Defense  STR  DEX  INT  MAG  ...
-    // This is a simplified parser - real format may vary
-
-    auto parts = split(line, '\t');
-    if (parts.size() < 1)
-    {
-        parts = split(line, ' ');
-    }
-
-    if (parts.size() < 5)
-    {
-        return result<item_template, std::string>::err("Too few fields (need at least 5)");
-    }
-
-    item_template item;
-
-    // Parse ID
-    item.id = item_id{static_cast<uint32_t>(parse_int(parts[0]))};
-    if (!item.id.is_valid())
-    {
-        return result<item_template, std::string>::err("Invalid item ID");
-    }
-
-    // Parse name
-    item.name = parts[1];
-    if (item.name.empty())
-    {
-        return result<item_template, std::string>::err("Empty item name");
-    }
-
-    // Parse type
-    {
-        auto type_val = parse_int(parts[2]);
-        if (type_val >= -1 && type_val <= 17)
-        {
-            item.type = static_cast<item_type>(type_val);
-        }
-        else
-        {
-            LOG_WARN(item, "Item {}: invalid type {}, defaulting to none", item.name, type_val);
-        }
-    }
-
-    // Parse equip position
-    item.equip_pos = static_cast<item_equip_pos>(parse_int(parts[3]));
-
-    // Parse weight
-    item.weight = static_cast<int16_t>(parse_int(parts[4]));
-
-    // Optional fields (with defaults)
-    if (parts.size() > 5)
-        item.price = parse_int(parts[5]);
-    if (parts.size() > 6)
-        item.level_limit = static_cast<int16_t>(parse_int(parts[6]));
-
-    // Combat stats
-    if (parts.size() > 7)
-        item.attack_dice = static_cast<int16_t>(parse_int(parts[7]));
-    if (parts.size() > 8)
-        item.attack_sides = static_cast<int16_t>(parse_int(parts[8]));
-    if (parts.size() > 9)
-        item.attack_bonus = static_cast<int16_t>(parse_int(parts[9]));
-    if (parts.size() > 10)
-        item.defense = static_cast<int16_t>(parse_int(parts[10]));
-
-    // Requirements
-    if (parts.size() > 11)
-        item.str_req = static_cast<int16_t>(parse_int(parts[11]));
-    if (parts.size() > 12)
-        item.dex_req = static_cast<int16_t>(parse_int(parts[12]));
-    if (parts.size() > 13)
-        item.int_req = static_cast<int16_t>(parse_int(parts[13]));
-    if (parts.size() > 14)
-        item.mag_req = static_cast<int16_t>(parse_int(parts[14]));
-
-    // Set derived properties
-    item.is_stackable = (item.max_stack > 1);
-
-    return result<item_template, std::string>::ok(std::move(item));
 }
 
 auto item_registry::get(item_id id) const -> const item_template*
@@ -458,6 +268,28 @@ auto item_registry::by_equip_pos(item_equip_pos pos) const -> std::vector<const 
 auto item_registry::count() const -> size_t
 {
     return items_.size();
+}
+
+void item_registry::register_template(item_template tmpl)
+{
+    auto id = tmpl.id.value;
+    auto name_lower = to_lower(tmpl.name);
+
+    // Replace if already exists
+    if (id_index_.contains(id))
+    {
+        auto idx = id_index_[id];
+        items_[idx] = std::move(tmpl);
+        return;
+    }
+
+    auto idx = items_.size();
+    items_.push_back(std::move(tmpl));
+    id_index_[id] = idx;
+    if (!name_lower.empty())
+    {
+        name_index_[name_lower] = idx;
+    }
 }
 
 auto item_registry::exists(item_id id) const -> bool

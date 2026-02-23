@@ -45,7 +45,7 @@ static auto make_accessory(uint8_t upgrade_level = 0) -> item
     itm.template_id = item_id{80};
     itm.name = "Test Ring";
     itm.type = item_type::accessory;
-    itm.equip_position = equip_pos::ring;
+    itm.equip_position = equip_pos::ring_left;
     itm.attribute.upgrade_level = upgrade_level;
     return itm;
 }
@@ -325,13 +325,13 @@ TEST(item_upgrade_test, level_15_has_zero_probability)
 
 TEST(item_upgrade_test, request_from_json_valid)
 {
-    nlohmann::json j = {{"item_slot", 5}};
+    nlohmann::json j = {{"item_id", 5}};
     auto result = item_upgrade_request_data::from_json(j);
     ASSERT_TRUE(result.is_ok());
-    EXPECT_EQ(result.value().item_slot, 5);
+    EXPECT_EQ(result.value().item_id, 5u);
 }
 
-TEST(item_upgrade_test, request_from_json_missing_slot)
+TEST(item_upgrade_test, request_from_json_missing_item_id)
 {
     nlohmann::json j = {};
     auto result = item_upgrade_request_data::from_json(j);
@@ -345,8 +345,8 @@ TEST(item_upgrade_test, response_success)
     EXPECT_EQ(msg.seq, 42u);
     bool success = msg.data["success"];
     EXPECT_TRUE(success);
-    int slot = msg.data["item_slot"];
-    EXPECT_EQ(slot, 5);
+    uint32_t id = msg.data["item_id"];
+    EXPECT_EQ(id, 5u);
     int level = msg.data["new_level"];
     EXPECT_EQ(level, 3);
     EXPECT_FALSE(msg.data.contains("error"));

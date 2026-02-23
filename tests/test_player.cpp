@@ -129,24 +129,16 @@ TEST(equipment_state_test, equip_unequip)
 
     EXPECT_FALSE(equip.has_equipped(equip_slot::weapon));
 
-    equip.equip(equip_slot::weapon, item_id{100}, item_id{50}, 50, 100);
+    equip.equip(equip_slot::weapon, item_id{100});
     EXPECT_TRUE(equip.has_equipped(equip_slot::weapon));
-    EXPECT_EQ(equip.weapon().id.value, 100);
-    EXPECT_EQ(equip.weapon().durability, 50);
+    auto weapon = equip.get_equipped(equip_slot::weapon);
+    ASSERT_TRUE(weapon.has_value());
+    EXPECT_EQ(weapon->value, 100u);
 
-    auto item = equip.unequip(equip_slot::weapon);
+    auto unequipped = equip.unequip(equip_slot::weapon);
     EXPECT_FALSE(equip.has_equipped(equip_slot::weapon));
-    EXPECT_EQ(item.id.value, 100);
-}
-
-TEST(equipped_item_test, durability)
-{
-    equipped_item item;
-    item.id = item_id{1};
-    item.durability = 50;
-    item.max_durability = 100;
-
-    EXPECT_FLOAT_EQ(item.durability_percent(), 0.5f);
+    ASSERT_TRUE(unequipped.has_value());
+    EXPECT_EQ(unequipped->value, 100u);
 }
 
 // Player component tests
@@ -558,18 +550,20 @@ TEST_F(player_system_test, apply_heal_dead_player_noop)
 
 // Equipment cache tests (direct struct manipulation — no inventory wiring needed)
 
-TEST(equipment_state_test, equip_and_unequip_cache)
+TEST(equipment_state_test, equip_and_unequip_linked)
 {
     equipment_state eq;
     EXPECT_FALSE(eq.has_equipped(equip_slot::weapon));
 
-    eq.equip(equip_slot::weapon, hb::item_id{42}, hb::item_id{10}, 80, 100);
+    eq.equip(equip_slot::weapon, hb::item_id{42});
     EXPECT_TRUE(eq.has_equipped(equip_slot::weapon));
-    EXPECT_EQ(eq.weapon().id.value, 42);
-    EXPECT_EQ(eq.weapon().durability, 80);
+    auto wpn = eq.get_equipped(equip_slot::weapon);
+    ASSERT_TRUE(wpn.has_value());
+    EXPECT_EQ(wpn->value, 42u);
 
     auto old = eq.unequip(equip_slot::weapon);
-    EXPECT_EQ(old.id.value, 42);
+    ASSERT_TRUE(old.has_value());
+    EXPECT_EQ(old->value, 42u);
     EXPECT_FALSE(eq.has_equipped(equip_slot::weapon));
 }
 
@@ -584,82 +578,56 @@ TEST_F(player_system_test, unequip_empty_slot)
     EXPECT_FALSE(unequipped.is_valid());
 }
 
-// Inventory-based equipment tests (unified model)
+// Equipment state tests (equipment tracked separately from inventory)
 
-TEST(inventory_slot_test, equipped_as_flag)
-{
-    hb::inventory::inventory_slot slot;
-    slot.set(item_id{100}, 1);
-
-    EXPECT_FALSE(slot.is_equipped());
-
-    slot.equipped_as = 5; // weapon slot
-    EXPECT_TRUE(slot.is_equipped());
-    EXPECT_EQ(*slot.equipped_as, 5);
-
-    slot.clear();
-    EXPECT_FALSE(slot.is_equipped());
-    EXPECT_FALSE(slot.equipped_as.has_value());
-}
-
-TEST(inventory_test, find_equipped_slot)
-{
-    hb::inventory::inventory inv(10);
-
-    auto* s0 = inv.get_slot(0);
-    s0->set(item_id{100}, 1);
-    s0->equipped_as = 5; // weapon
-
-    auto* s3 = inv.get_slot(3);
-    s3->set(item_id{200}, 1);
-    s3->equipped_as = 6; // shield
-
-    auto weapon_idx = inv.find_equipped_slot(5);
-    ASSERT_TRUE(weapon_idx.has_value());
-    EXPECT_EQ(*weapon_idx, 0);
-
-    auto shield_idx = inv.find_equipped_slot(6);
-    ASSERT_TRUE(shield_idx.has_value());
-    EXPECT_EQ(*shield_idx, 3);
-
-    auto head_idx = inv.find_equipped_slot(0);
-    EXPECT_FALSE(head_idx.has_value());
-}
-
-TEST(inventory_test, equipped_items_count_against_capacity)
+TEST(inventory_test, all_items_count_against_capacity)
 {
     hb::inventory::inventory inv(5);
 
-    // Fill all 5 slots: 3 normal items + 2 equipped items
-    inv.get_slot(0)->set(item_id{1}, 1);
-    inv.get_slot(1)->set(item_id{2}, 1);
-    inv.get_slot(1)->equipped_as = 5; // weapon
-    inv.get_slot(2)->set(item_id{3}, 1);
-    inv.get_slot(3)->set(item_id{4}, 1);
-    inv.get_slot(3)->equipped_as = 6; // shield
-    inv.get_slot(4)->set(item_id{5}, 1);
+    // Fill all 5 slots
+    inv.add_item(item_id{1}, 1);
+    inv.add_item(item_id{2}, 1);
+    inv.add_item(item_id{3}, 1);
+    inv.add_item(item_id{4}, 1);
+    inv.add_item(item_id{5}, 1);
 
-    EXPECT_EQ(inv.used_slots(), 5);
-    EXPECT_EQ(inv.free_slots(), 0);
+    EXPECT_EQ(inv.count(), 5);
+    EXPECT_EQ(inv.max_items() - inv.count(), 0);
     EXPECT_TRUE(inv.is_full());
 }
 
-TEST(inventory_test, unequip_does_not_free_slot)
+TEST(equipment_state_test, equipment_decoupled_from_inventory)
 {
-    hb::inventory::inventory inv(5);
+    // Verify equipment_state works independently from inventory
+    hb::inventory::inventory inv(10);
+    hb::player::equipment_state equip;
 
-    auto* slot = inv.get_slot(0);
-    slot->set(item_id{100}, 1);
-    slot->equipped_as = 5; // weapon
+    // Add items to inventory
+    inv.add_item(item_id{100}, 1);
+    inv.add_item(item_id{200}, 1);
 
-    EXPECT_EQ(inv.used_slots(), 1);
+    // Equip via equipment_state — inventory entries are not modified
+    equip.equip(hb::player::equip_slot::weapon, item_id{100});
+    equip.equip(hb::player::equip_slot::shield, item_id{200});
 
-    // "Unequip" by clearing the flag — item stays
-    slot->equipped_as.reset();
+    // Equipment_state tracks what's equipped
+    EXPECT_TRUE(equip.has_equipped(hb::player::equip_slot::weapon));
+    EXPECT_TRUE(equip.has_equipped(hb::player::equip_slot::shield));
+    EXPECT_FALSE(equip.has_equipped(hb::player::equip_slot::head));
 
-    EXPECT_EQ(inv.used_slots(), 1); // Still 1 item in the slot
-    EXPECT_FALSE(slot->is_empty());
-    EXPECT_FALSE(slot->is_equipped());
+    // Inventory entries have no equip-related state
+    auto* entry = inv.get_item(item_id{100});
+    ASSERT_NE(entry, nullptr);
+    EXPECT_EQ(entry->count, 1);
+
+    // Unequip via equipment_state
+    auto unequipped = equip.unequip(hb::player::equip_slot::weapon);
+    ASSERT_TRUE(unequipped.has_value());
+    EXPECT_EQ(*unequipped, item_id{100});
+
+    // Item still in inventory
+    EXPECT_TRUE(inv.has_item(item_id{100}));
+    EXPECT_EQ(inv.count(), 2);
 }
 
 // Binding tests

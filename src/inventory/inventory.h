@@ -1,43 +1,188 @@
 #pragma once
 
 // inventory.h
-// Inventory container and slot management
+// Inventory container with item_id-keyed entries, z-order layering, and weight tracking
+// Bank storage with slot-indexed containers
 
 #include "core/types.h"
 
-#include <vector>
-#include <optional>
+#include <algorithm>
 #include <cstdint>
+#include <optional>
+#include <span>
+#include <vector>
 
 namespace hb::inventory
 {
 
 inline constexpr int16_t max_inventory_slots = 50;
-inline constexpr int16_t max_bank_slots = 200;
 inline constexpr int16_t max_trade_slots = 12;
 
-// Inventory slot
-struct inventory_slot
+// ─── Inventory entry (item_id-keyed, free-form positioned) ───
+
+struct inventory_entry
 {
     item_id item{};
     int16_t count{0};
-    int16_t pos_x{0}; // Free-form pixel X position (client layout)
-    int16_t pos_y{0}; // Free-form pixel Y position (client layout)
+    int16_t pos_x{0};
+    int16_t pos_y{0};
+    int32_t z_order{0};
+};
 
-    // Equipment flag: if set, this item is equipped in the given equip_slot
-    // (uint8_t maps to player::equip_slot to avoid header coupling)
-    std::optional<uint8_t> equipped_as{};
+// ─── Main inventory (item_id-keyed, entry-based) ───
+
+class inventory
+{
+public:
+    explicit inventory(int16_t max_items = max_inventory_slots) : max_items_(max_items) {}
+
+    // Lookup by item_id
+    [[nodiscard]] auto get_item(item_id id) -> inventory_entry*
+    {
+        for (auto& e : entries_)
+        {
+            if (e.item == id)
+                return &e;
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] auto get_item(item_id id) const -> const inventory_entry*
+    {
+        for (const auto& e : entries_)
+        {
+            if (e.item == id)
+                return &e;
+        }
+        return nullptr;
+    }
+
+    // Add item — returns entry pointer or nullptr if full
+    auto add_item(item_id id, int16_t cnt, int16_t px = 0, int16_t py = 0) -> inventory_entry*
+    {
+        if (static_cast<int16_t>(entries_.size()) >= max_items_)
+            return nullptr;
+
+        entries_.push_back(inventory_entry{
+            .item = id,
+            .count = cnt,
+            .pos_x = px,
+            .pos_y = py,
+            .z_order = next_z_order_++,
+        });
+        return &entries_.back();
+    }
+
+    // Remove item by id
+    auto remove_item(item_id id) -> bool
+    {
+        auto it = std::find_if(entries_.begin(), entries_.end(), [id](const auto& e) { return e.item == id; });
+        if (it == entries_.end())
+            return false;
+        entries_.erase(it);
+        return true;
+    }
+
+    // Remove count from an item (for stackable consumption)
+    auto remove_item_count(item_id id, int16_t amount) -> bool
+    {
+        if (!has_item(id, amount))
+            return false;
+
+        int16_t remaining = amount;
+        for (auto it = entries_.begin(); it != entries_.end();)
+        {
+            if (it->item == id && remaining > 0)
+            {
+                if (it->count <= remaining)
+                {
+                    remaining -= it->count;
+                    it = entries_.erase(it);
+                    continue;
+                }
+                else
+                {
+                    it->count -= remaining;
+                    remaining = 0;
+                }
+            }
+            ++it;
+        }
+        return remaining == 0;
+    }
+
+    // Iteration
+    [[nodiscard]] auto items() -> std::span<inventory_entry> { return entries_; }
+    [[nodiscard]] auto items() const -> std::span<const inventory_entry> { return entries_; }
+
+    // Queries
+    [[nodiscard]] auto count() const -> int16_t { return static_cast<int16_t>(entries_.size()); }
+    [[nodiscard]] auto max_items() const -> int16_t { return max_items_; }
+    [[nodiscard]] auto is_full() const -> bool { return count() >= max_items_; }
+    [[nodiscard]] auto is_empty() const -> bool { return entries_.empty(); }
+    [[nodiscard]] auto has_item(item_id id) const -> bool { return get_item(id) != nullptr; }
+
+    [[nodiscard]] auto count_item(item_id id) const -> int32_t
+    {
+        int32_t total = 0;
+        for (const auto& e : entries_)
+        {
+            if (e.item == id)
+                total += e.count;
+        }
+        return total;
+    }
+
+    [[nodiscard]] auto has_item(item_id id, int16_t amount) const -> bool { return count_item(id) >= amount; }
+
+    // Z-order management
+    [[nodiscard]] auto next_z_order() -> int32_t { return next_z_order_++; }
+
+    void set_next_z_order(int32_t val) { next_z_order_ = val; }
+
+    void compact_z_order()
+    {
+        std::sort(entries_.begin(), entries_.end(),
+                  [](const auto& a, const auto& b) { return a.z_order < b.z_order; });
+
+        for (int32_t i = 0; i < static_cast<int32_t>(entries_.size()); ++i)
+        {
+            entries_[static_cast<size_t>(i)].z_order = i;
+        }
+        next_z_order_ = static_cast<int32_t>(entries_.size());
+    }
+
+    // Weight (static formula)
+    [[nodiscard]] static auto max_weight(int32_t strength, int32_t level) -> int32_t
+    {
+        return strength * 500 + level * 500;
+    }
+
+    void clear_all()
+    {
+        entries_.clear();
+        next_z_order_ = 0;
+    }
+
+private:
+    int16_t max_items_;
+    int32_t next_z_order_{0};
+    std::vector<inventory_entry> entries_;
+};
+
+// ─── Container slot (simple, slot-indexed — for bank and trade) ───
+
+struct container_slot
+{
+    item_id item{};
+    int16_t count{0};
 
     [[nodiscard]] auto is_empty() const -> bool { return !item.is_valid() || count <= 0; }
-    [[nodiscard]] auto is_equipped() const -> bool { return equipped_as.has_value(); }
 
     void clear()
     {
         item = item_id{};
         count = 0;
-        pos_x = 0;
-        pos_y = 0;
-        equipped_as.reset();
     }
 
     void set(item_id id, int16_t cnt)
@@ -47,255 +192,183 @@ struct inventory_slot
     }
 };
 
-// Generic inventory container
-class inventory
+// ─── Bank storage (paginated, page+slot indexed) ───
+
+inline constexpr int16_t default_bank_pages = 4;
+inline constexpr int16_t default_bank_slots_per_page = 12;
+
+class bank_storage
 {
 public:
-    explicit inventory(int16_t capacity = max_inventory_slots) : capacity_(capacity)
+    struct bank_location
     {
-        slots_.resize(static_cast<size_t>(capacity));
+        int16_t page{0};
+        int16_t slot{0};
+    };
+
+    explicit bank_storage(int16_t pages = default_bank_pages, int16_t slots_per_page = default_bank_slots_per_page)
+        : pages_(pages), slots_per_page_(slots_per_page)
+    {
+        data_.resize(static_cast<size_t>(pages * slots_per_page));
     }
 
-    // Slot access
-    [[nodiscard]] auto get_slot(int16_t index) -> inventory_slot*
+    [[nodiscard]] auto get_slot(int16_t page, int16_t slot) const -> std::optional<item_id>
     {
-        if (index < 0 || index >= capacity_)
-            return nullptr;
-        return &slots_[static_cast<size_t>(index)];
+        auto idx = index(page, slot);
+        if (!idx.has_value() || !data_[*idx].is_valid())
+            return std::nullopt;
+        return data_[*idx];
     }
 
-    [[nodiscard]] auto get_slot(int16_t index) const -> const inventory_slot*
+    void set_slot(int16_t page, int16_t slot, item_id id)
     {
-        if (index < 0 || index >= capacity_)
-            return nullptr;
-        return &slots_[static_cast<size_t>(index)];
+        auto idx = index(page, slot);
+        if (idx.has_value())
+            data_[*idx] = id;
     }
 
-    // Item operations
-    [[nodiscard]] auto find_item(item_id item) const -> std::optional<int16_t>
+    void clear_slot(int16_t page, int16_t slot)
     {
-        for (int16_t i = 0; i < capacity_; ++i)
+        auto idx = index(page, slot);
+        if (idx.has_value())
+            data_[*idx] = item_id{};
+    }
+
+    [[nodiscard]] auto find_item(item_id id) const -> std::optional<bank_location>
+    {
+        for (int16_t p = 0; p < pages_; ++p)
         {
-            if (slots_[static_cast<size_t>(i)].item == item)
+            for (int16_t s = 0; s < slots_per_page_; ++s)
             {
-                return i;
+                auto idx = static_cast<size_t>(p * slots_per_page_ + s);
+                if (data_[idx] == id)
+                    return bank_location{p, s};
             }
         }
         return std::nullopt;
     }
 
-    [[nodiscard]] auto find_empty_slot() const -> std::optional<int16_t>
+    [[nodiscard]] auto find_empty_slot() const -> std::optional<bank_location>
     {
-        for (int16_t i = 0; i < capacity_; ++i)
+        for (int16_t p = 0; p < pages_; ++p)
         {
-            if (slots_[static_cast<size_t>(i)].is_empty())
+            for (int16_t s = 0; s < slots_per_page_; ++s)
             {
-                return i;
+                auto idx = static_cast<size_t>(p * slots_per_page_ + s);
+                if (!data_[idx].is_valid())
+                    return bank_location{p, s};
             }
         }
         return std::nullopt;
     }
 
-    [[nodiscard]] auto count_item(item_id item) const -> int32_t
-    {
-        int32_t total = 0;
-        for (const auto& slot : slots_)
-        {
-            if (slot.item == item)
-            {
-                total += slot.count;
-            }
-        }
-        return total;
-    }
-
-    [[nodiscard]] auto has_item(item_id item, int16_t count = 1) const -> bool { return count_item(item) >= count; }
-
-    auto add_item(item_id item, int16_t count) -> bool
-    {
-        auto slot_idx = find_empty_slot();
-        if (!slot_idx)
-            return false;
-
-        slots_[static_cast<size_t>(*slot_idx)].set(item, count);
-        return true;
-    }
-
-    auto remove_item(item_id item) -> bool
-    {
-        auto slot_idx = find_item(item);
-        if (!slot_idx)
-            return false;
-
-        slots_[static_cast<size_t>(*slot_idx)].clear();
-        return true;
-    }
-
-    auto remove_item_count(item_id item, int16_t count) -> bool
-    {
-        if (!has_item(item, count))
-            return false;
-
-        int16_t remaining = count;
-        for (auto& slot : slots_)
-        {
-            if (slot.item == item && remaining > 0)
-            {
-                if (slot.count <= remaining)
-                {
-                    remaining -= slot.count;
-                    slot.clear();
-                }
-                else
-                {
-                    slot.count -= remaining;
-                    remaining = 0;
-                }
-            }
-        }
-        return remaining == 0;
-    }
-
-    void clear_slot(int16_t index)
-    {
-        if (index >= 0 && index < capacity_)
-        {
-            slots_[static_cast<size_t>(index)].clear();
-        }
-    }
-
-    void clear_all()
-    {
-        for (auto& slot : slots_)
-        {
-            slot.clear();
-        }
-    }
-
-    // Queries
-    [[nodiscard]] auto capacity() const -> int16_t { return capacity_; }
+    [[nodiscard]] auto is_full() const -> bool { return !find_empty_slot().has_value(); }
+    [[nodiscard]] auto is_empty() const -> bool { return used_slots() == 0; }
+    [[nodiscard]] auto total_pages() const -> int16_t { return pages_; }
+    [[nodiscard]] auto slots_per_page() const -> int16_t { return slots_per_page_; }
+    [[nodiscard]] auto total_capacity() const -> int16_t { return static_cast<int16_t>(pages_ * slots_per_page_); }
 
     [[nodiscard]] auto used_slots() const -> int16_t
     {
-        int16_t count = 0;
-        for (const auto& slot : slots_)
+        int16_t n = 0;
+        for (const auto& id : data_)
         {
-            if (!slot.is_empty())
-                ++count;
+            if (id.is_valid())
+                ++n;
         }
-        return count;
+        return n;
     }
 
-    [[nodiscard]] auto free_slots() const -> int16_t { return capacity_ - used_slots(); }
+    [[nodiscard]] auto free_slots() const -> int16_t { return total_capacity() - used_slots(); }
 
-    [[nodiscard]] auto is_full() const -> bool { return free_slots() == 0; }
-
-    [[nodiscard]] auto is_empty() const -> bool { return used_slots() == 0; }
-
-    // Find the inventory slot index that is equipped in the given equip_slot
-    [[nodiscard]] auto find_equipped_slot(uint8_t equip_slot) const -> std::optional<int16_t>
+    void clear_all()
     {
-        for (int16_t i = 0; i < capacity_; ++i)
-        {
-            const auto& slot = slots_[static_cast<size_t>(i)];
-            if (!slot.is_empty() && slot.equipped_as.has_value() && *slot.equipped_as == equip_slot)
-            {
-                return i;
-            }
-        }
-        return std::nullopt;
+        for (auto& id : data_)
+            id = item_id{};
     }
 
-    // Find an empty slot that is not equipped
-    [[nodiscard]] auto find_empty_unequipped_slot() const -> std::optional<int16_t>
+    [[nodiscard]] auto has_item(item_id id) const -> bool
     {
-        for (int16_t i = 0; i < capacity_; ++i)
-        {
-            if (slots_[static_cast<size_t>(i)].is_empty())
-            {
-                return i;
-            }
-        }
-        return std::nullopt;
-    }
-
-    // Swap slots
-    void swap_slots(int16_t a, int16_t b)
-    {
-        if (a < 0 || a >= capacity_ || b < 0 || b >= capacity_)
-            return;
-        std::swap(slots_[static_cast<size_t>(a)], slots_[static_cast<size_t>(b)]);
-    }
-
-    // Move item between slots
-    auto move_item(int16_t from, int16_t to) -> bool
-    {
-        if (from < 0 || from >= capacity_ || to < 0 || to >= capacity_)
-            return false;
-
-        auto& from_slot = slots_[static_cast<size_t>(from)];
-        auto& to_slot = slots_[static_cast<size_t>(to)];
-
-        if (from_slot.is_empty())
-            return false;
-
-        if (to_slot.is_empty())
-        {
-            to_slot = from_slot;
-            from_slot.clear();
-            return true;
-        }
-
-        // If both have items, swap
-        std::swap(from_slot, to_slot);
-        return true;
+        return find_item(id).has_value();
     }
 
 private:
-    int16_t capacity_;
-    std::vector<inventory_slot> slots_;
+    [[nodiscard]] auto index(int16_t page, int16_t slot) const -> std::optional<size_t>
+    {
+        if (page < 0 || page >= pages_ || slot < 0 || slot >= slots_per_page_)
+            return std::nullopt;
+        return static_cast<size_t>(page * slots_per_page_ + slot);
+    }
+
+    int16_t pages_;
+    int16_t slots_per_page_;
+    std::vector<item_id> data_;
 };
 
-// Bank storage (larger capacity)
-class bank_storage : public inventory
-{
-public:
-    bank_storage() : inventory(max_bank_slots) {}
-};
+// ─── Trade window (3-phase: offer → lock → confirm) ───
 
-// Trade window
 class trade_window
 {
 public:
-    std::vector<inventory_slot> offered;
-    int32_t gold_offered{0};
-    bool confirmed{false};
-    bool locked{false};
+    auto add_item(item_id id) -> bool
+    {
+        if (locked_ || items_.size() >= max_trade_items)
+            return false;
+        if (has_item(id))
+            return false;
+        items_.push_back(id);
+        return true;
+    }
 
-    trade_window() { offered.resize(max_trade_slots); }
+    auto remove_item(item_id id) -> bool
+    {
+        if (locked_)
+            return false;
+        auto it = std::find(items_.begin(), items_.end(), id);
+        if (it == items_.end())
+            return false;
+        items_.erase(it);
+        return true;
+    }
+
+    void set_gold(int64_t amount)
+    {
+        if (!locked_)
+            gold_ = std::max<int64_t>(0, amount);
+    }
+
+    void lock() { locked_ = true; }
+    void confirm() { confirmed_ = true; }
 
     void reset()
     {
-        for (auto& slot : offered)
-        {
-            slot.clear();
-        }
-        gold_offered = 0;
-        confirmed = false;
-        locked = false;
+        items_.clear();
+        gold_ = 0;
+        locked_ = false;
+        confirmed_ = false;
+    }
+
+    [[nodiscard]] auto items() const -> std::span<const item_id> { return items_; }
+    [[nodiscard]] auto gold() const -> int64_t { return gold_; }
+    [[nodiscard]] auto is_locked() const -> bool { return locked_; }
+    [[nodiscard]] auto is_confirmed() const -> bool { return confirmed_; }
+    [[nodiscard]] auto has_item(item_id id) const -> bool
+    {
+        return std::find(items_.begin(), items_.end(), id) != items_.end();
     }
 
     [[nodiscard]] auto is_empty() const -> bool
     {
-        if (gold_offered > 0)
-            return false;
-        for (const auto& slot : offered)
-        {
-            if (!slot.is_empty())
-                return false;
-        }
-        return true;
+        return items_.empty() && gold_ == 0;
     }
+
+    static constexpr size_t max_trade_items = 12;
+
+private:
+    std::vector<item_id> items_;
+    int64_t gold_{0};
+    bool locked_{false};
+    bool confirmed_{false};
 };
 
 } // namespace hb::inventory

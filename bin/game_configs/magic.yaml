@@ -7,9 +7,18 @@ magic:
     mana_cost: 8
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 8, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 8
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 18
     cost: 100
     category: 1
@@ -22,9 +31,18 @@ magic:
     mana_cost: 15
     range1: 1
     range2: 1
-    effect1: { dice: 2, sides: 6, bonus: 10 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 6
+      bonus: 10
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 20
     cost: 100
     category: 0
@@ -37,12 +55,45 @@ magic:
     mana_cost: 18
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 18
     cost: 100
     category: 0
+    attribute: 0
+  - id: 3
+    name: Polymorph
+    type: 20
+    delay: 0
+    duration: 60
+    mana_cost: 20
+    range1: 1
+    range2: 1
+    effect1:
+      dice: 5
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 55
+    cost: -1
+    category: 1
     attribute: 0
   - id: 10
     name: Energy-Bolt
@@ -52,9 +103,18 @@ magic:
     mana_cost: 15
     range1: 2
     range2: 2
-    effect1: { dice: 2, sides: 4, bonus: 1 }
-    effect2: { dice: 2, sides: 4, bonus: 1 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 4
+      bonus: 1
+    effect2:
+      dice: 2
+      sides: 4
+      bonus: 1
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 24
     cost: 200
     category: 1
@@ -67,9 +127,18 @@ magic:
     mana_cost: 14
     range1: 3
     range2: 3
-    effect1: { dice: 4, sides: 6, bonus: 10 }
-    effect2: { dice: 2, sides: 6, bonus: 5 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 6
+      bonus: 10
+    effect2:
+      dice: 2
+      sides: 6
+      bonus: 5
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 22
     cost: 200
     category: 1
@@ -82,9 +151,18 @@ magic:
     mana_cost: 15
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 20
     cost: 120
     category: 0
@@ -97,28 +175,46 @@ magic:
     mana_cost: 19
     range1: 1
     range2: 1
-    effect1: { dice: 3, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 3
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 26
     cost: 200
     category: 2
     attribute: 0
   - id: 14
     name: Celebrating-Light
-    type: 2
+    type: 5
     delay: 0
     duration: 0
     mana_cost: 20
     range1: 1
     range2: 1
-    effect1: { dice: 0, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 25
     cost: 400
     category: 0
-    attribute: 2
+    attribute: 0
   - id: 20
     name: Fire-Ball
     type: 3
@@ -127,9 +223,18 @@ magic:
     mana_cost: 27
     range1: 2
     range2: 2
-    effect1: { dice: 2, sides: 6, bonus: 2 }
-    effect2: { dice: 2, sides: 6, bonus: 2 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 6
+      bonus: 2
+    effect2:
+      dice: 2
+      sides: 6
+      bonus: 2
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 26
     cost: 500
     category: 1
@@ -142,9 +247,18 @@ magic:
     mana_cost: 28
     range1: 1
     range2: 1
-    effect1: { dice: 4, sides: 10, bonus: 20 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 10
+      bonus: 20
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 28
     cost: 500
     category: 0
@@ -157,9 +271,18 @@ magic:
     mana_cost: 20
     range1: 3
     range2: 3
-    effect1: { dice: 4, sides: 8, bonus: 8 }
-    effect2: { dice: 2, sides: 6, bonus: 5 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 8
+      bonus: 8
+    effect2:
+      dice: 2
+      sides: 6
+      bonus: 5
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 20
     cost: 300
     category: 0
@@ -172,9 +295,18 @@ magic:
     mana_cost: 22
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 20
     cost: 300
     category: 2
@@ -187,9 +319,18 @@ magic:
     mana_cost: 24
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 26
     cost: 500
     category: 1
@@ -202,9 +343,18 @@ magic:
     mana_cost: 25
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 26
     cost: 500
     category: 1
@@ -217,9 +367,18 @@ magic:
     mana_cost: 28
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 15, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 15
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 29
     cost: 700
     category: 1
@@ -232,9 +391,18 @@ magic:
     mana_cost: 45
     range1: 3
     range2: 3
-    effect1: { dice: 4, sides: 16, bonus: 16 }
-    effect2: { dice: 2, sides: 12, bonus: 10 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 16
+      bonus: 16
+    effect2:
+      dice: 2
+      sides: 12
+      bonus: 10
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 30
     cost: 800
     category: 0
@@ -247,9 +415,18 @@ magic:
     mana_cost: 36
     range1: 2
     range2: 2
-    effect1: { dice: 2, sides: 8, bonus: 3 }
-    effect2: { dice: 2, sides: 8, bonus: 3 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 8
+      bonus: 3
+    effect2:
+      dice: 2
+      sides: 8
+      bonus: 3
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 34
     cost: 1000
     category: 1
@@ -262,9 +439,18 @@ magic:
     mana_cost: 35
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 1, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 1
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 38
     cost: 1000
     category: 1
@@ -277,9 +463,18 @@ magic:
     mana_cost: 31
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 30
     cost: 800
     category: 1
@@ -292,9 +487,18 @@ magic:
     mana_cost: 35
     range1: 1
     range2: 1
-    effect1: { dice: 2, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 32
     cost: 850
     category: 2
@@ -307,9 +511,18 @@ magic:
     mana_cost: 33
     range1: 1
     range2: 1
-    effect1: { dice: 2, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 30
     cost: 700
     category: 0
@@ -322,9 +535,18 @@ magic:
     mana_cost: 35
     range1: 1
     range2: 1
-    effect1: { dice: 2, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 36
     cost: 1000
     category: 1
@@ -337,9 +559,18 @@ magic:
     mana_cost: 32
     range1: 1
     range2: 1
-    effect1: { dice: 0, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 35
     cost: 700
     category: 0
@@ -352,9 +583,18 @@ magic:
     mana_cost: 32
     range1: 1
     range2: 1
-    effect1: { dice: 4, sides: 5, bonus: 10 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 5
+      bonus: 10
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 38
     cost: 1100
     category: 1
@@ -367,9 +607,18 @@ magic:
     mana_cost: 34
     range1: 2
     range2: 2
-    effect1: { dice: 3, sides: 4, bonus: 3 }
-    effect2: { dice: 3, sides: 4, bonus: 3 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 3
+      sides: 4
+      bonus: 3
+    effect2:
+      dice: 3
+      sides: 4
+      bonus: 3
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 33
     cost: 1000
     category: 1
@@ -382,9 +631,18 @@ magic:
     mana_cost: 42
     range1: 1
     range2: 1
-    effect1: { dice: 2, sides: 8, bonus: 0 }
-    effect2: { dice: 2, sides: 8, bonus: 0 }
-    effect3: { dice: 1, sides: 1, bonus: 2 }
+    effect1:
+      dice: 2
+      sides: 8
+      bonus: 0
+    effect2:
+      dice: 2
+      sides: 8
+      bonus: 0
+    effect3:
+      dice: 1
+      sides: 1
+      bonus: 2
     int_req: 45
     cost: 1200
     category: 1
@@ -397,9 +655,18 @@ magic:
     mana_cost: 48
     range1: 1
     range2: 1
-    effect1: { dice: 2, sides: 8, bonus: 0 }
-    effect2: { dice: 2, sides: 8, bonus: 0 }
-    effect3: { dice: 1, sides: 2, bonus: 1 }
+    effect1:
+      dice: 2
+      sides: 8
+      bonus: 0
+    effect2:
+      dice: 2
+      sides: 8
+      bonus: 0
+    effect3:
+      dice: 1
+      sides: 2
+      bonus: 1
     int_req: 48
     cost: 1400
     category: 1
@@ -412,9 +679,18 @@ magic:
     mana_cost: 40
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 42
     cost: 1300
     category: 1
@@ -427,9 +703,18 @@ magic:
     mana_cost: 44
     range1: 1
     range2: 1
-    effect1: { dice: 4, sides: 7, bonus: 12 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 7
+      bonus: 12
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 47
     cost: 1700
     category: 1
@@ -442,9 +727,18 @@ magic:
     mana_cost: 45
     range1: 1
     range2: 1
-    effect1: { dice: 4, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 46
     cost: 1500
     category: 2
@@ -457,9 +751,18 @@ magic:
     mana_cost: 48
     range1: 2
     range2: 2
-    effect1: { dice: 2, sides: 8, bonus: 3 }
-    effect2: { dice: 2, sides: 8, bonus: 3 }
-    effect3: { dice: 5, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 8
+      bonus: 3
+    effect2:
+      dice: 2
+      sides: 8
+      bonus: 3
+    effect3:
+      dice: 5
+      sides: 0
+      bonus: 0
     int_req: 50
     cost: 2000
     category: 1
@@ -470,11 +773,20 @@ magic:
     delay: 0
     duration: 30
     mana_cost: 48
-    range1: 1
-    range2: 1
-    effect1: { dice: 0, sides: 15, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 10, sides: 2, bonus: 1 }
+    range1: 3
+    range2: 3
+    effect1:
+      dice: 0
+      sides: 15
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 10
+      sides: 2
+      bonus: 1
     int_req: 49
     cost: 1800
     category: 1
@@ -487,13 +799,46 @@ magic:
     mana_cost: 40
     range1: 2
     range2: 2
-    effect1: { dice: 2, sides: 4, bonus: 2 }
-    effect2: { dice: 3, sides: 8, bonus: 3 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 4
+      bonus: 2
+    effect2:
+      dice: 3
+      sides: 8
+      bonus: 3
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 45
     cost: 1700
     category: 1
     attribute: 2
+  - id: 48
+    name: GM-Paralyze
+    type: 12
+    delay: 0
+    duration: 10000
+    mana_cost: 1
+    range1: 1
+    range2: 1
+    effect1:
+      dice: 2
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 2
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 10
+    cost: -1
+    category: 1
+    attribute: 0
   - id: 50
     name: Berserk
     type: 18
@@ -502,28 +847,70 @@ magic:
     mana_cost: 57
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 59
     cost: 2200
     category: 1
     attribute: 0
   - id: 51
     name: Lightning-Bolt
-    type: 3
+    type: 19
     delay: 0
     duration: 0
     mana_cost: 58
     range1: 2
     range2: 2
-    effect1: { dice: 4, sides: 5, bonus: 18 }
-    effect2: { dice: 4, sides: 2, bonus: 6 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 5
+      bonus: 18
+    effect2:
+      dice: 4
+      sides: 2
+      bonus: 6
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 58
     cost: 2500
     category: 1
     attribute: 2
+  - id: 52
+    name: Polymorph
+    type: 20
+    delay: 10
+    duration: 60
+    mana_cost: 55
+    range1: 1
+    range2: 1
+    effect1:
+      dice: 5
+      sides: 5
+      bonus: 5
+    effect2:
+      dice: 5
+      sides: 5
+      bonus: 5
+    effect3:
+      dice: 5
+      sides: 5
+      bonus: 5
+    int_req: 55
+    cost: -1
+    category: 1
+    attribute: 1
   - id: 53
     name: Mass-Poison
     type: 17
@@ -532,11 +919,20 @@ magic:
     mana_cost: 54
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 40, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 1
+      sides: 40
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 52
-    cost: 100
+    cost: 2100
     category: 1
     attribute: 1
   - id: 54
@@ -547,9 +943,18 @@ magic:
     mana_cost: 56
     range1: 1
     range2: 1
-    effect1: { dice: 2, sides: 8, bonus: 0 }
-    effect2: { dice: 2, sides: 8, bonus: 0 }
-    effect3: { dice: 9, sides: 2, bonus: 2 }
+    effect1:
+      dice: 2
+      sides: 8
+      bonus: 0
+    effect2:
+      dice: 2
+      sides: 8
+      bonus: 0
+    effect3:
+      dice: 9
+      sides: 2
+      bonus: 2
     int_req: 56
     cost: 2300
     category: 1
@@ -562,9 +967,18 @@ magic:
     mana_cost: 58
     range1: 1
     range2: 1
-    effect1: { dice: 4, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 8, sides: 1, bonus: 0 }
+    effect1:
+      dice: 4
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 8
+      sides: 1
+      bonus: 0
     int_req: 59
     cost: -1
     category: 1
@@ -577,9 +991,18 @@ magic:
     mana_cost: 55
     range1: 1
     range2: 1
-    effect1: { dice: 5, sides: 6, bonus: 20 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 5
+      sides: 6
+      bonus: 20
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 53
     cost: 3000
     category: 1
@@ -592,9 +1015,18 @@ magic:
     mana_cost: 59
     range1: 2
     range2: 2
-    effect1: { dice: 5, sides: 6, bonus: 12 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 4, sides: 0, bonus: 0 }
+    effect1:
+      dice: 5
+      sides: 6
+      bonus: 12
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 4
+      sides: 0
+      bonus: 0
     int_req: 60
     cost: 4200
     category: 1
@@ -607,9 +1039,18 @@ magic:
     mana_cost: 65
     range1: 2
     range2: 2
-    effect1: { dice: 0, sides: 0, bonus: 0 }
-    effect2: { dice: 7, sides: 6, bonus: 17 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 7
+      sides: 6
+      bonus: 17
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 67
     cost: 5000
     category: 1
@@ -622,13 +1063,22 @@ magic:
     mana_cost: 80
     range1: 2
     range2: 2
-    effect1: { dice: 5, sides: 2, bonus: 5 }
-    effect2: { dice: 7, sides: 6, bonus: 18 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 5
+      sides: 2
+      bonus: 5
+    effect2:
+      dice: 7
+      sides: 6
+      bonus: 18
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 85
     cost: -1
     category: 1
-    attribute: 3
+    attribute: 2
   - id: 62
     name: Confusion
     type: 16
@@ -637,9 +1087,18 @@ magic:
     mana_cost: 78
     range1: 2
     range2: 2
-    effect1: { dice: 2, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 75
     cost: 7500
     category: 1
@@ -652,9 +1111,18 @@ magic:
     mana_cost: 90
     range1: 2
     range2: 2
-    effect1: { dice: 3, sides: 8, bonus: 6 }
-    effect2: { dice: 3, sides: 8, bonus: 6 }
-    effect3: { dice: 10, sides: 0, bonus: 0 }
+    effect1:
+      dice: 3
+      sides: 8
+      bonus: 6
+    effect2:
+      dice: 3
+      sides: 8
+      bonus: 6
+    effect3:
+      dice: 10
+      sides: 0
+      bonus: 0
     int_req: 93
     cost: 9800
     category: 1
@@ -667,9 +1135,18 @@ magic:
     mana_cost: 80
     range1: 2
     range2: 2
-    effect1: { dice: 7, sides: 6, bonus: 17 }
-    effect2: { dice: 7, sides: 6, bonus: 17 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 7
+      sides: 6
+      bonus: 17
+    effect2:
+      dice: 7
+      sides: 6
+      bonus: 17
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 97
     cost: 12000
     category: 1
@@ -678,13 +1155,22 @@ magic:
     name: Absolute-Magic-Protect.
     type: 11
     delay: 0
-    duration: 60
+    duration: 90
     mana_cost: 90
     range1: 1
     range2: 1
-    effect1: { dice: 5, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 5
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 112
     cost: 13500
     category: 2
@@ -697,9 +1183,18 @@ magic:
     mana_cost: 90
     range1: 1
     range2: 1
-    effect1: { dice: 7, sides: 6, bonus: 17 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 15, sides: 0, bonus: 0 }
+    effect1:
+      dice: 7
+      sides: 6
+      bonus: 17
+    effect2:
+      dice: 7
+      sides: 6
+      bonus: 17
+    effect3:
+      dice: 15
+      sides: 0
+      bonus: 0
     int_req: 97
     cost: 20000
     category: 1
@@ -709,12 +1204,21 @@ magic:
     type: 19
     delay: 0
     duration: 0
-    mana_cost: 180
+    mana_cost: 120
     range1: 2
     range2: 2
-    effect1: { dice: 5, sides: 8, bonus: 20 }
-    effect2: { dice: 5, sides: 4, bonus: 9 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 8
+      sides: 8
+      bonus: 50
+    effect2:
+      dice: 8
+      sides: 4
+      bonus: 30
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 105
     cost: -1
     category: 1
@@ -727,9 +1231,18 @@ magic:
     mana_cost: 125
     range1: 2
     range2: 2
-    effect1: { dice: 2, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 2
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 130
     cost: 15000
     category: 1
@@ -742,9 +1255,18 @@ magic:
     mana_cost: 120
     range1: 2
     range2: 2
-    effect1: { dice: 7, sides: 6, bonus: 17 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 7, sides: 0, bonus: 0 }
+    effect1:
+      dice: 7
+      sides: 8
+      bonus: 25
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 7
+      sides: 0
+      bonus: 0
     int_req: 133
     cost: 21000
     category: 1
@@ -755,11 +1277,20 @@ magic:
     delay: 0
     duration: 30
     mana_cost: 130
-    range1: 1
-    range2: 1
-    effect1: { dice: 0, sides: 40, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 10, sides: 2, bonus: 2 }
+    range1: 5
+    range2: 5
+    effect1:
+      dice: 0
+      sides: 40
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 10
+      sides: 2
+      bonus: 2
     int_req: 120
     cost: 20000
     category: 1
@@ -772,43 +1303,70 @@ magic:
     mana_cost: 90
     range1: 2
     range2: 2
-    effect1: { dice: 0, sides: 0, bonus: 0 }
-    effect2: { dice: 7, sides: 7, bonus: 20 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 7
+      sides: 7
+      bonus: 20
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 123
     cost: 35000
     category: 1
     attribute: 2
   - id: 76
     name: Cancellation
-    type: 28
+    type: 21
     delay: 0
-    duration: 30
-    mana_cost: 120
-    range1: 1
-    range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
-    int_req: 135
-    cost: -200
-    category: 1
-    attribute: 0
-  - id: 77
-    name: Illusion-Movement
-    type: 16
-    delay: 0
-    duration: 30
-    mana_cost: 150
+    duration: 0
+    mana_cost: 90
     range1: 2
     range2: 2
-    effect1: { dice: 4, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
-    int_req: 160
-    cost: 28000
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 7
+      sides: 7
+      bonus: 20
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 123
+    cost: 35000
     category: 1
-    attribute: 0
+    attribute: 2
+  - id: 77
+    name: Illusion-Movement
+    type: 21
+    delay: 0
+    duration: 0
+    mana_cost: 90
+    range1: 2
+    range2: 2
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 7
+      sides: 7
+      bonus: 20
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 123
+    cost: 35000
+    category: 1
+    attribute: 2
   - id: 80
     name: Illusion
     type: 16
@@ -817,57 +1375,93 @@ magic:
     mana_cost: 143
     range1: 2
     range2: 2
-    effect1: { dice: 3, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 3
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 150
     cost: 27000
     category: 1
     attribute: 0
   - id: 81
     name: Meteor-Strike
-    type: 3
+    type: 21
     delay: 0
     duration: 0
-    mana_cost: 120
-    range1: 2
-    range2: 2
-    effect1: { dice: 5, sides: 2, bonus: 11 }
-    effect2: { dice: 7, sides: 8, bonus: 18 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    mana_cost: 1
+    range1: 10
+    range2: 10
+    effect1:
+      dice: 999
+      sides: 999
+      bonus: 999
+    effect2:
+      dice: 999
+      sides: 999
+      bonus: 999
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 169
     cost: 40000
     category: 1
-    attribute: 3
+    attribute: 2
   - id: 82
     name: Mass-Magic-Missile
-    type: 31
+    type: 21
     delay: 0
     duration: 0
-    mana_cost: 160
-    range1: 2
-    range2: 2
-    effect1: { dice: 5, sides: 2, bonus: 20 }
-    effect2: { dice: 7, sides: 7, bonus: 20 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
-    int_req: 185
-    cost: 42000
+    mana_cost: 1
+    range1: 3
+    range2: 3
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 7
+      sides: 7
+      bonus: 30
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 10
+    cost: -1
     category: 1
     attribute: 2
   - id: 83
     name: Inhibition-Casting
-    type: 29
+    type: 2
     delay: 0
-    duration: 40
-    mana_cost: 160
+    duration: 0
+    mana_cost: 100
     range1: 1
     range2: 1
-    effect1: { dice: 1, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
-    int_req: 172
-    cost: -200
-    category: 1
+    effect1:
+      dice: 8
+      sides: 20
+      bonus: 30
+    effect2:
+      dice: 4
+      sides: 10
+      bonus: 30
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 130
+    cost: 25000
+    category: 0
     attribute: 0
   - id: 90
     name: Mass-Illusion
@@ -877,9 +1471,18 @@ magic:
     mana_cost: 200
     range1: 3
     range2: 3
-    effect1: { dice: 3, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
+    effect1:
+      dice: 3
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
     int_req: 180
     cost: 35000
     category: 1
@@ -892,55 +1495,91 @@ magic:
     mana_cost: 170
     range1: 2
     range2: 2
-    effect1: { dice: 5, sides: 2, bonus: 16 }
-    effect2: { dice: 7, sides: 8, bonus: 16 }
-    effect3: { dice: 7, sides: 0, bonus: 0 }
+    effect1:
+      dice: 10
+      sides: 10
+      bonus: 16
+    effect2:
+      dice: 10
+      sides: 10
+      bonus: 16
+    effect3:
+      dice: 10
+      sides: 0
+      bonus: 0
     int_req: 195
     cost: 43000
     category: 1
     attribute: 4
-  - id: 94
-    name: Resurrection
-    type: 32
-    delay: 600
+  - id: 96
+    name: Earth-Shock-Wave
+    type: 23
+    delay: 0
     duration: 0
-    mana_cost: 200
-    range1: 1
-    range2: 1
-    effect1: { dice: 4, sides: 10, bonus: 20 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
-    int_req: 0
+    mana_cost: 1
+    range1: 5
+    range2: 5
+    effect1:
+      dice: 10
+      sides: 13
+      bonus: 20
+    effect2:
+      dice: 10
+      sides: 5
+      bonus: 10
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 10
     cost: -1
-    category: 0
+    category: 1
     attribute: 4
   - id: 95
     name: Mass-Illusion-Movement
-    type: 16
-    delay: 0
-    duration: 60
-    mana_cost: 200
-    range1: 3
-    range2: 3
-    effect1: { dice: 4, sides: 0, bonus: 0 }
-    effect2: { dice: 0, sides: 0, bonus: 0 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
-    int_req: 200
-    cost: 38000
-    category: 1
-    attribute: 0
-  - id: 96
-    name: Earth-Shock-Wave
-    type: 30
+    type: 21
     delay: 0
     duration: 0
-    mana_cost: 180
+    mana_cost: 90
     range1: 2
     range2: 2
-    effect1: { dice: 5, sides: 1, bonus: 20 }
-    effect2: { dice: 7, sides: 8, bonus: 16 }
-    effect3: { dice: 0, sides: 0, bonus: 0 }
-    int_req: 200
-    cost: -200
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 7
+      sides: 7
+      bonus: 20
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 123
+    cost: 35000
     category: 1
-    attribute: 1
+    attribute: 2
+  - id: 94
+    name: Resurrection
+    type: 21
+    delay: 0
+    duration: 0
+    mana_cost: 90
+    range1: 2
+    range2: 2
+    effect1:
+      dice: 0
+      sides: 0
+      bonus: 0
+    effect2:
+      dice: 7
+      sides: 7
+      bonus: 20
+    effect3:
+      dice: 0
+      sides: 0
+      bonus: 0
+    int_req: 123
+    cost: 35000
+    category: 1
+    attribute: 2

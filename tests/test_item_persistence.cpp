@@ -15,10 +15,10 @@ using namespace hb::player;
 
 TEST(item_persistence_test, item_location_values)
 {
-    EXPECT_EQ(static_cast<int16_t>(item_location::inventory), 0);
-    EXPECT_EQ(static_cast<int16_t>(item_location::equipment), 1);
-    EXPECT_EQ(static_cast<int16_t>(item_location::bank), 2);
-    EXPECT_EQ(static_cast<int16_t>(item_location::mail), 3);
+    EXPECT_EQ(static_cast<uint8_t>(item_location::inventory), 0);
+    // equipment = 1 was removed (equipment is tracked in character_equipment table)
+    EXPECT_EQ(static_cast<uint8_t>(item_location::bank), 2);
+    EXPECT_EQ(static_cast<uint8_t>(item_location::mail), 3);
 }
 
 // --- item_row defaults ---
@@ -29,7 +29,6 @@ TEST(item_persistence_test, item_row_defaults)
     EXPECT_EQ(row.id, 0u);
     EXPECT_EQ(row.character_id, 0);
     EXPECT_EQ(row.template_id, 0u);
-    EXPECT_TRUE(row.name.empty());
     EXPECT_EQ(row.location, item_location::inventory);
     EXPECT_EQ(row.slot, 0);
     EXPECT_EQ(row.count, 1);
@@ -46,6 +45,8 @@ TEST(item_persistence_test, item_row_defaults)
     EXPECT_EQ(row.custom_quality, 0);
     EXPECT_EQ(row.pos_x, 0);
     EXPECT_EQ(row.pos_y, 0);
+    EXPECT_FALSE(row.bank_page.has_value());
+    EXPECT_FALSE(row.bank_slot.has_value());
 }
 
 // --- item_row to_attribute ---
@@ -87,41 +88,37 @@ TEST(item_persistence_test, item_row_to_attribute_full)
     EXPECT_EQ(attr.custom_quality, -30);
 }
 
-// --- Equipment with template_id ---
+// --- Equipment linked model ---
 
-TEST(item_persistence_test, equip_preserves_template_id)
+TEST(item_persistence_test, equip_stores_item_id)
 {
     equipment_state equip;
-    equip.equip(equip_slot::weapon, item_id{100}, item_id{50}, 80, 100);
+    equip.equip(equip_slot::weapon, item_id{100});
 
     EXPECT_TRUE(equip.has_equipped(equip_slot::weapon));
-    EXPECT_EQ(equip.weapon().id.value, 100u);
-    EXPECT_EQ(equip.weapon().template_id.value, 50u);
-    EXPECT_EQ(equip.weapon().durability, 80);
-    EXPECT_EQ(equip.weapon().max_durability, 100);
+    auto id = equip.get_equipped(equip_slot::weapon);
+    ASSERT_TRUE(id.has_value());
+    EXPECT_EQ(id->value, 100u);
 }
 
-TEST(item_persistence_test, unequip_returns_template_id)
+TEST(item_persistence_test, unequip_returns_item_id)
 {
     equipment_state equip;
-    equip.equip(equip_slot::body, item_id{200}, item_id{75}, 90, 100);
+    equip.equip(equip_slot::body, item_id{200});
 
-    auto item = equip.unequip(equip_slot::body);
-    EXPECT_EQ(item.id.value, 200u);
-    EXPECT_EQ(item.template_id.value, 75u);
-    EXPECT_EQ(item.durability, 90);
+    auto id = equip.unequip(equip_slot::body);
+    ASSERT_TRUE(id.has_value());
+    EXPECT_EQ(id->value, 200u);
+    EXPECT_FALSE(equip.has_equipped(equip_slot::body));
 }
 
-TEST(item_persistence_test, clear_resets_template_id)
+TEST(item_persistence_test, clear_all_resets_equipment)
 {
     equipment_state equip;
-    equip.equip(equip_slot::shield, item_id{300}, item_id{80}, 50, 100);
+    equip.equip(equip_slot::shield, item_id{300});
 
-    auto& slot = equip.get(equip_slot::shield);
-    slot.clear();
-
-    EXPECT_TRUE(slot.is_empty());
-    EXPECT_EQ(slot.template_id.value, 0u);
+    equip.clear_all();
+    EXPECT_FALSE(equip.has_equipped(equip_slot::shield));
 }
 
 // --- item_create_info with attribute ---
@@ -144,7 +141,6 @@ TEST(item_persistence_test, item_row_inventory_location)
     row.id = 1001;
     row.character_id = 42;
     row.template_id = 50;
-    row.name = "Sword";
     row.location = item_location::inventory;
     row.slot = 5;
     row.count = 1;
@@ -155,17 +151,40 @@ TEST(item_persistence_test, item_row_inventory_location)
     EXPECT_EQ(row.slot, 5);
 }
 
-TEST(item_persistence_test, item_row_equipment_location)
+TEST(item_persistence_test, equipment_row_defaults)
+{
+    equipment_row row;
+    EXPECT_EQ(row.character_id, 0);
+    EXPECT_EQ(row.slot, 0);
+    EXPECT_EQ(row.item_id, 0u);
+}
+
+TEST(item_persistence_test, equipment_row_stores_slot_and_item)
+{
+    equipment_row row;
+    row.character_id = 42;
+    row.slot = static_cast<int16_t>(equip_slot::body);
+    row.item_id = 1002;
+
+    EXPECT_EQ(row.character_id, 42);
+    EXPECT_EQ(row.slot, static_cast<int16_t>(equip_slot::body));
+    EXPECT_EQ(row.item_id, 1002u);
+}
+
+TEST(item_persistence_test, item_row_bank_with_page_slot)
 {
     item_row row;
-    row.id = 1002;
-    row.template_id = 60;
-    row.name = "Plate Mail";
-    row.location = item_location::equipment;
-    row.slot = static_cast<int16_t>(equip_slot::body);
+    row.location = item_location::bank;
+    row.slot = 25; // flat slot for legacy
+    row.bank_page = 2;
+    row.bank_slot = 5;
+    row.count = 10;
 
-    EXPECT_EQ(row.location, item_location::equipment);
-    EXPECT_EQ(row.slot, static_cast<int16_t>(equip_slot::body));
+    EXPECT_EQ(row.location, item_location::bank);
+    EXPECT_TRUE(row.bank_page.has_value());
+    EXPECT_EQ(*row.bank_page, 2);
+    EXPECT_TRUE(row.bank_slot.has_value());
+    EXPECT_EQ(*row.bank_slot, 5);
 }
 
 TEST(item_persistence_test, item_row_bank_location)

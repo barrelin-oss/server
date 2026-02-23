@@ -63,7 +63,10 @@ auto item_system::create_item(const item_create_info& info) -> result<item_id, s
     new_item->owner = info.owner;
 
     // Populate from template
-    populate_from_template(*new_item, info.template_id);
+    if (!populate_from_template(*new_item, info.template_id))
+    {
+        return result<item_id, std::string>::err("Invalid template ID");
+    }
 
     if (info.full_durability)
     {
@@ -101,7 +104,10 @@ auto item_system::restore_item(item_id explicit_id, const item_create_info& info
     new_item->count = info.count;
     new_item->owner = info.owner;
 
-    populate_from_template(*new_item, info.template_id);
+    if (!populate_from_template(*new_item, info.template_id))
+    {
+        return result<item_id, std::string>::err("Invalid template ID");
+    }
 
     if (info.full_durability)
     {
@@ -284,36 +290,20 @@ void item_system::update_durability_decay(float delta_time)
     // This is just a placeholder for time-based decay
 }
 
-void item_system::populate_from_template(item& itm, item_id template_id)
+auto item_system::populate_from_template(item& itm, item_id template_id) -> bool
 {
     auto* registry = subsystems().get<item_registry>();
     if (!registry)
     {
-        LOG_WARN(general, "Item registry not available, using defaults for item {}", template_id.value);
-        itm.name = "Unknown Item";
-        itm.type = item_type::consumable;
-        itm.max_stack = 99;
-        itm.stackable = true;
-        itm.weight = 1;
-        itm.price = 10;
-        itm.max_durability = 100;
-        itm.durability = 100;
-        return;
+        LOG_ERROR(general, "Item registry not available -- cannot create item with template {}", template_id.value);
+        return false;
     }
 
     auto* tmpl = registry->get(template_id);
     if (!tmpl)
     {
-        LOG_WARN(general, "Item template {} not found, using defaults", template_id.value);
-        itm.name = "Unknown Item";
-        itm.type = item_type::consumable;
-        itm.max_stack = 99;
-        itm.stackable = true;
-        itm.weight = 1;
-        itm.price = 10;
-        itm.max_durability = 100;
-        itm.durability = 100;
-        return;
+        LOG_ERROR(general, "Item template {} not found -- refusing to create invalid item", template_id.value);
+        return false;
     }
 
     // Copy template data to item instance
@@ -383,10 +373,13 @@ void item_system::populate_from_template(item& itm, item_id template_id)
     {
         itm.equip_position = equip_pos::twohand;
     }
-    else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::ring_left) ||
-             equip_val == static_cast<uint8_t>(hb::item_equip_pos::ring_right))
+    else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::ring_left))
     {
-        itm.equip_position = equip_pos::ring;
+        itm.equip_position = equip_pos::ring_left;
+    }
+    else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::ring_right))
+    {
+        itm.equip_position = equip_pos::ring_right;
     }
     else if (equip_val == static_cast<uint8_t>(hb::item_equip_pos::neck))
     {
@@ -401,82 +394,143 @@ void item_system::populate_from_template(item& itm, item_id template_id)
         itm.equip_position = equip_pos::none;
     }
 
-    // Basic properties
+    // Direct-mapped fields
     itm.weight = tmpl->weight;
     itm.price = tmpl->price;
     itm.level_requirement = tmpl->level_limit;
-
-    // Combat stats - calculate attack power from dice roll average
-    if (tmpl->attack_sides > 0)
-    {
-        itm.attack_power =
-            static_cast<int16_t>(tmpl->attack_dice * ((tmpl->attack_sides + 1) / 2) + tmpl->attack_bonus);
-    }
-    else
-    {
-        itm.attack_power = tmpl->attack_bonus;
-    }
-    itm.magic_power = tmpl->magic_power;
-    itm.defense = tmpl->defense;
-    itm.magic_defense = 0; // Template doesn't have this, default to 0
-
-    // Requirements
-    itm.str_requirement = tmpl->str_req;
-    itm.dex_requirement = tmpl->dex_req;
-    itm.int_requirement = tmpl->int_req;
-    itm.mag_requirement = tmpl->mag_req;
-
-    // Durability
-    itm.max_durability = tmpl->max_durability;
-    itm.durability = tmpl->max_durability;
-    itm.indestructible = (tmpl->max_durability <= 0);
-
-    // Stacking
-    itm.max_stack = tmpl->max_stack;
-    itm.stackable = tmpl->is_stackable;
-
-    // Per-instance visual
+    itm.max_durability = tmpl->durability;
+    itm.durability = tmpl->durability;
+    itm.indestructible = (tmpl->durability <= 0);
     itm.color = tmpl->item_color;
+    itm.sprite = tmpl->sprite;
+    itm.sprite_frame = tmpl->sprite_frame;
+
+    // Interpret effect_type + effect_value1-6 based on legacy Item.cfg format.
+    // See docs/legacy/06_item_system.md for field documentation.
+    //
+    // Legacy effect_type constants:
+    //   1  = ATTACK (melee weapons): v1-v3 = dice/sides/bonus (S/M), v4-v6 = (L)
+    //   2  = DEFENSE (armor/shields): v1 = primary defense, v2 = secondary defense
+    //   3  = ATTACK_ARROW (bows): same layout as ATTACK
+    //   14 = ADDEFFECT (rings/necklaces): v1 = effect subtype, v2 = magnitude
+    //   24 = ATTACK_SPECABLTY (special ability weapons): same as ATTACK
+    //   4-7, 9, 11 = consumable types (interpreted at use-time, not here)
+
+    switch (tmpl->effect_type)
+    {
+    case 1:  // ATTACK — melee weapons
+    case 3:  // ATTACK_ARROW — bows
+    case 13: // ATTACK_MANASAVE — attack + mana save
+    case 19: // Blood weapons (life drain) — same dice layout + special_effect
+    case 20: // Wand MShield — same dice layout
+    case 24: // ATTACK_SPECABLTY — special ability weapons
+    {
+        // Small/Medium target damage: iDice(v1, v2) + v3
+        auto dice = tmpl->effect_value1;
+        auto sides = tmpl->effect_value2;
+        auto bonus = tmpl->effect_value3;
+
+        if (sides > 0)
+        {
+            itm.damage_min = static_cast<int16_t>(dice + bonus);
+            itm.damage_max = static_cast<int16_t>(dice * sides + bonus);
+            itm.attack_power = static_cast<int16_t>(dice * ((sides + 1) / 2) + bonus);
+        }
+        else
+        {
+            itm.damage_min = bonus;
+            itm.damage_max = bonus;
+            itm.attack_power = bonus;
+        }
+        break;
+    }
+    case 2:  // DEFENSE — armor, shields, capes
+    case 25: // Merien defense items — defense + special ability
+    {
+        itm.defense = static_cast<int16_t>(tmpl->effect_value1 + tmpl->effect_value2);
+        break;
+    }
+    case 14: // ADDEFFECT — passive stat items (rings, necklaces)
+    {
+        // v1 = effect subtype, v2 = magnitude
+        size_t eidx = 0;
+        auto add_eff = [&](item_effect_type t, int16_t v)
+        {
+            if (v != 0 && eidx < itm.effects.size())
+            {
+                itm.effects[eidx].type = t;
+                itm.effects[eidx].value = v;
+                ++eidx;
+            }
+        };
+
+        switch (tmpl->effect_value1)
+        {
+        case 1:  add_eff(item_effect_type::magic_defense_bonus, static_cast<int16_t>(tmpl->effect_value2 * 7)); break;
+        case 2:  add_eff(item_effect_type::mp_bonus, tmpl->effect_value2); break;
+        case 3:  add_eff(item_effect_type::attack_bonus, tmpl->effect_value2); break;
+        case 4:  add_eff(item_effect_type::magic_attack_bonus, tmpl->effect_value2); break;
+        case 5:  break; // Lucky effect (flag only, no stat)
+        case 6:  add_eff(item_effect_type::mag_bonus, tmpl->effect_value2); break;
+        case 11: add_eff(item_effect_type::hp_bonus, tmpl->effect_value2); break;
+        default: break;
+        }
+        break;
+    }
+    case 15: // MAGICDAMAGESAVE — magic absorption rings
+    {
+        // No combat stats to populate — effect applied at damage calculation time
+        break;
+    }
+    case 0: // NONE — arrows, crafting materials, misc
+    {
+        // Arrows have damage dice in v1-v3 (same format as weapons)
+        if (tmpl->type == hb::item_type::arrow && tmpl->effect_value2 > 0)
+        {
+            auto dice = tmpl->effect_value1;
+            auto sides = tmpl->effect_value2;
+            auto bonus = tmpl->effect_value3;
+            itm.damage_min = static_cast<int16_t>(dice + bonus);
+            itm.damage_max = static_cast<int16_t>(dice * sides + bonus);
+            itm.attack_power = static_cast<int16_t>(dice * ((sides + 1) / 2) + bonus);
+        }
+        break;
+    }
+    default:
+        // Consumable types (4-7, 9, 11, 12, 17, 18, 22, 28) interpreted at use-time.
+        // Misc types (10, 16, 26) have no combat stats.
+        break;
+    }
+
+    // Hit ratio bonuses from special_effect_value fields
+    if (tmpl->special_effect_value1 != 0)
+    {
+        size_t eidx = 0;
+        while (eidx < itm.effects.size() && !itm.effects[eidx].is_empty()) ++eidx;
+        if (eidx < itm.effects.size())
+        {
+            itm.effects[eidx].type = item_effect_type::hit_bonus;
+            itm.effects[eidx].value = tmpl->special_effect_value1;
+        }
+    }
 
     // Flags
-    itm.tradeable = tmpl->is_tradeable;
-    itm.droppable = tmpl->is_droppable;
-    itm.two_handed = (itm.equip_position == equip_pos::twohand);
-
-    // Audit flag: equipment audited by default, override per-template
-    if (tmpl->audit_override.has_value())
+    if (tmpl->type == hb::item_type::arrow)
     {
-        itm.audited = *tmpl->audit_override;
+        itm.max_stack = 9999;
+        itm.stackable = true;
     }
     else
     {
-        itm.audited = itm.is_equipment();
+        itm.max_stack = 1;
+        itm.stackable = false;
     }
-
-    // Apply stat bonuses from template as effects
-    size_t effect_idx = 0;
-    auto add_effect = [&](item_effect_type type, int16_t value)
-    {
-        if (value == 0 || effect_idx >= itm.effects.size())
-            return;
-        itm.effects[effect_idx].type = type;
-        itm.effects[effect_idx].value = value;
-        ++effect_idx;
-    };
-
-    add_effect(item_effect_type::str_bonus, tmpl->str_bonus);
-    add_effect(item_effect_type::dex_bonus, tmpl->dex_bonus);
-    add_effect(item_effect_type::int_bonus, tmpl->int_bonus);
-    add_effect(item_effect_type::mag_bonus, tmpl->mag_bonus);
-    add_effect(item_effect_type::vit_bonus, tmpl->vit_bonus);
-    add_effect(item_effect_type::chr_bonus, tmpl->cha_bonus);
-    add_effect(item_effect_type::hp_bonus, tmpl->hp_bonus);
-    add_effect(item_effect_type::mp_bonus, tmpl->mp_bonus);
-    add_effect(item_effect_type::sp_bonus, tmpl->sp_bonus);
-    add_effect(item_effect_type::hit_bonus, tmpl->hit_prob_bonus);
-    add_effect(item_effect_type::dodge_bonus, tmpl->dodge_prob_bonus);
+    itm.tradeable = true;
+    itm.droppable = true;
+    itm.two_handed = (tmpl->equip_pos == hb::item_equip_pos::two_hand);
 
     LOG_DEBUG(general, "Populated item from template: {} ({})", itm.name, template_id.value);
+    return true;
 }
 
 } // namespace hb::item

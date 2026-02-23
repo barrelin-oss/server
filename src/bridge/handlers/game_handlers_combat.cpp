@@ -253,8 +253,10 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     auto* item_reg = subsystems().get<item_registry>();
     if (item_reg && attacker->equipment.has_equipped(player::equip_slot::weapon))
     {
-        weapon_tmpl = item_reg->get(attacker->equipment.weapon().id);
-        if (weapon_tmpl && weapon_tmpl->is_bow())
+        auto atk_weapon_id = attacker->equipment.get_equipped(player::equip_slot::weapon);
+        weapon_tmpl = atk_weapon_id ? item_reg->get(*atk_weapon_id) : nullptr;
+        // Legacy bow detection: two-hand equip + sprite == 2 (bow sprite ID)
+        if (weapon_tmpl && weapon_tmpl->equip_pos == item_equip_pos::two_hand && weapon_tmpl->sprite == 2)
         {
             is_ranged = true;
         }
@@ -413,7 +415,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     // Weapon durability loss on hit
     if (combat_result.hit.is_hit() && item_ && attacker->equipment.has_equipped(player::equip_slot::weapon))
     {
-        auto weapon_item_id = attacker->equipment.weapon().id;
+        auto weapon_item_id = *attacker->equipment.get_equipped(player::equip_slot::weapon);
         item_->damage_durability(weapon_item_id, 1);
 
         // Check if weapon broke
@@ -434,7 +436,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         auto weapon_skill = skill::skill_type::hand_attack;
         if (item_ && attacker->equipment.has_equipped(player::equip_slot::weapon))
         {
-            auto* weapon_item = item_->get_item(attacker->equipment.weapon().id);
+            auto* weapon_item = item_->get_item(*attacker->equipment.get_equipped(player::equip_slot::weapon));
             if (weapon_item)
             {
                 weapon_skill = skill::weapon_type_to_skill_type(weapon_item->weapon);

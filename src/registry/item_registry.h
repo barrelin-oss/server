@@ -50,6 +50,9 @@ public:
     // Get total count
     [[nodiscard]] auto count() const -> size_t;
 
+    // Register a template programmatically (for tests and runtime additions)
+    void register_template(item_template tmpl);
+
     // Check if an item exists
     [[nodiscard]] auto exists(item_id id) const -> bool;
 
@@ -57,9 +60,6 @@ public:
     [[nodiscard]] auto all() const -> const std::vector<item_template>&;
 
 private:
-    // Parse a single item line from config (legacy CFG format)
-    auto parse_item_line(std::string_view line, int line_num) -> result<item_template, std::string>;
-
     // Load items from YAML file
     auto load_from_yaml(const std::filesystem::path& path) -> result<size_t, std::string>;
 

@@ -178,11 +178,11 @@ TEST(admin_web_protocol, parse_give_item_request)
 
 TEST(admin_web_protocol, parse_remove_item_request)
 {
-    nlohmann::json j = {{"player_name", "Player1"}, {"inventory_slot", 5}, {"count", 3}};
+    nlohmann::json j = {{"player_name", "Player1"}, {"item_id", 5}, {"count", 3}};
     auto result = network::admin_remove_item_request_data::from_json(j);
     ASSERT_TRUE(result.is_ok());
     EXPECT_EQ(result.value().player_name, "Player1");
-    EXPECT_EQ(result.value().inventory_slot, 5);
+    EXPECT_EQ(result.value().item_id, 5u);
     EXPECT_EQ(result.value().count, 3);
 }
 

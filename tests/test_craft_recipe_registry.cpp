@@ -37,9 +37,9 @@ protected:
         return path;
     }
 
-    void load_items(const std::string& content)
+    void load_items(const std::string& yaml_content)
     {
-        auto path = write_file("items.cfg", content);
+        auto path = write_file("items.yaml", yaml_content);
         items_.load_from_file(path);
     }
 
@@ -50,7 +50,7 @@ protected:
 
 TEST_F(craft_recipe_registry_test, load_alchemy_recipes)
 {
-    load_items("10\tHealthPotion\t5\t0\t5\t25\t0\t0\t0\t0\t0\t0\t0\t0\t0\n");
+    load_items("items:\n  - {id: 10, name: HealthPotion, type: 5, weight: 5, price: 25}\n");
 
     auto path = write_file("recipes.yaml", R"(
 alchemy_recipes:
@@ -77,7 +77,7 @@ alchemy_recipes:
 
 TEST_F(craft_recipe_registry_test, load_crafting_recipes)
 {
-    load_items("20\tGem\t5\t0\t5\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\n");
+    load_items("items:\n  - {id: 20, name: Gem, type: 5, weight: 5, price: 100}\n");
 
     auto path = write_file("craft.yaml", R"(
 crafting_recipes:
@@ -97,7 +97,7 @@ crafting_recipes:
 
 TEST_F(craft_recipe_registry_test, parses_all_fields)
 {
-    load_items("42\tManaPotion\t5\t0\t5\t50\t0\t0\t0\t0\t0\t0\t0\t0\t0\n");
+    load_items("items:\n  - {id: 42, name: ManaPotion, type: 5, weight: 5, price: 50}\n");
 
     auto path = write_file("recipes.yaml", R"(
 alchemy_recipes:
@@ -125,8 +125,9 @@ alchemy_recipes:
 
 TEST_F(craft_recipe_registry_test, lookup_by_id_across_categories)
 {
-    load_items("1\tPotion\t5\t0\t5\t25\t0\t0\t0\t0\t0\t0\t0\t0\t0\n"
-               "2\tGem\t5\t0\t5\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\n");
+    load_items("items:\n"
+               "  - {id: 1, name: Potion, type: 5, weight: 5, price: 25}\n"
+               "  - {id: 2, name: Gem, type: 5, weight: 5, price: 100}\n");
 
     auto alchemy_path = write_file("recipes.yaml", R"(
 alchemy_recipes:
@@ -159,7 +160,7 @@ crafting_recipes:
 
 TEST_F(craft_recipe_registry_test, find_by_result_name)
 {
-    load_items("1\tSuperGem\t5\t0\t5\t100\t0\t0\t0\t0\t0\t0\t0\t0\t0\n");
+    load_items("items:\n  - {id: 1, name: SuperGem, type: 5, weight: 5, price: 100}\n");
 
     auto path = write_file("craft.yaml", R"(
 crafting_recipes:

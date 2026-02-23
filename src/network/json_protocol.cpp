@@ -3,8 +3,10 @@
 
 #include "network/json_protocol.h"
 #include "core/logger.h"
+#include "inventory/inventory.h"
 #include "item/item_system.h"
 #include "item/item.h"
+#include "item/item_serialization.h"
 #include "registry/item_registry.h"
 #include "registry/item_template.h"
 
@@ -402,9 +404,74 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"inventory_reposition_request", json_message_type::inventory_reposition_request},
     {"player_drop_item_request", json_message_type::player_drop_item_request},
     {"player_drop_item_response", json_message_type::player_drop_item_response},
-    {"inventory_slot_update", json_message_type::inventory_slot_update},
+    {"inventory_item_update", json_message_type::inventory_item_update},
+    {"inventory_item_removed", json_message_type::inventory_item_removed},
+    {"inventory_weight_update", json_message_type::inventory_weight_update},
     {"gold_update", json_message_type::gold_update},
-    {"bank_slot_update", json_message_type::bank_slot_update}};
+    {"bank_slot_update", json_message_type::bank_slot_update},
+    // v2 state update messages
+    {"inventory_item_add", json_message_type::inventory_item_add},
+    {"inventory_item_delta", json_message_type::inventory_item_delta},
+    {"inventory_gold_update", json_message_type::inventory_gold_update},
+    {"force_unequip", json_message_type::force_unequip},
+    {"equipment_change", json_message_type::equipment_change},
+    {"bank_slot_cleared", json_message_type::bank_slot_cleared},
+    {"ability_activated", json_message_type::ability_activated},
+    {"ability_expired", json_message_type::ability_expired},
+    // v2 action messages
+    {"inventory_reposition", json_message_type::inventory_reposition},
+    {"equip_request", json_message_type::equip_request},
+    {"equip_result", json_message_type::equip_result},
+    {"unequip_request", json_message_type::unequip_request},
+    {"unequip_result", json_message_type::unequip_result},
+    {"pickup_request", json_message_type::pickup_request},
+    {"pickup_result", json_message_type::pickup_result},
+    {"drop_request", json_message_type::drop_request},
+    {"drop_result", json_message_type::drop_result},
+    {"use_item_request", json_message_type::use_item_request},
+    {"use_item_result", json_message_type::use_item_result},
+    {"upgrade_request", json_message_type::upgrade_request},
+    {"upgrade_result", json_message_type::upgrade_result},
+    {"shop_buy_request_v2", json_message_type::shop_buy_request_v2},
+    {"shop_buy_result", json_message_type::shop_buy_result},
+    {"shop_sell_request_v2", json_message_type::shop_sell_request_v2},
+    {"shop_sell_result", json_message_type::shop_sell_result},
+    {"shop_repair_request_v2", json_message_type::shop_repair_request_v2},
+    {"shop_repair_result", json_message_type::shop_repair_result},
+    {"bank_deposit_request_v2", json_message_type::bank_deposit_request_v2},
+    {"bank_deposit_result", json_message_type::bank_deposit_result},
+    {"bank_withdraw_request_v2", json_message_type::bank_withdraw_request_v2},
+    {"bank_withdraw_result", json_message_type::bank_withdraw_result},
+    {"bank_reposition_request", json_message_type::bank_reposition_request},
+    {"bank_reposition_result", json_message_type::bank_reposition_result},
+    {"activate_ability_request_v2", json_message_type::activate_ability_request_v2},
+    {"activate_ability_failed", json_message_type::activate_ability_failed},
+    {"trade_request", json_message_type::trade_request},
+    {"trade_invite", json_message_type::trade_invite},
+    {"trade_accept", json_message_type::trade_accept},
+    {"trade_decline", json_message_type::trade_decline},
+    {"trade_opened", json_message_type::trade_opened},
+    {"trade_add_item", json_message_type::trade_add_item},
+    {"trade_remove_item", json_message_type::trade_remove_item},
+    {"trade_set_gold", json_message_type::trade_set_gold},
+    {"trade_update", json_message_type::trade_update},
+    {"trade_lock", json_message_type::trade_lock},
+    {"trade_lock_status", json_message_type::trade_lock_status},
+    {"trade_confirm", json_message_type::trade_confirm},
+    {"trade_complete", json_message_type::trade_complete},
+    {"trade_cancel", json_message_type::trade_cancel},
+    {"trade_canceled", json_message_type::trade_canceled},
+    {"shop_open", json_message_type::shop_open},
+    {"bank_open", json_message_type::bank_open},
+    {"set_loot_rule", json_message_type::set_loot_rule},
+    {"loot_rule_changed", json_message_type::loot_rule_changed},
+    {"loot_roll", json_message_type::loot_roll},
+    {"loot_pass", json_message_type::loot_pass},
+    {"loot_assign", json_message_type::loot_assign},
+    {"loot_available", json_message_type::loot_available},
+    {"loot_roll_result", json_message_type::loot_roll_result},
+    {"loot_awarded", json_message_type::loot_awarded},
+    {"loot_expired", json_message_type::loot_expired}};
 
 } // namespace
 
@@ -1223,8 +1290,7 @@ auto character_data_msg::to_json() const -> nlohmann::json
 
 auto inventory_item_msg::to_json() const -> nlohmann::json
 {
-    auto j = nlohmann::json{{"slot", slot},
-                            {"item_id", item_id},
+    auto j = nlohmann::json{{"item_id", item_id},
                             {"name", name},
                             {"count", count},
                             {"durability", durability},
@@ -1237,7 +1303,8 @@ auto inventory_item_msg::to_json() const -> nlohmann::json
                             {"weight", weight},
                             {"level_limit", level_limit},
                             {"pos_x", pos_x},
-                            {"pos_y", pos_y}};
+                            {"pos_y", pos_y},
+                            {"z_order", z_order}};
     if (!attribute.is_empty())
     {
         j["attribute"] = attribute.to_json();
@@ -1245,26 +1312,6 @@ auto inventory_item_msg::to_json() const -> nlohmann::json
     if (equipped_slot.has_value())
     {
         j["equipped_slot"] = *equipped_slot;
-    }
-    return j;
-}
-
-auto equipment_item_msg::to_json() const -> nlohmann::json
-{
-    auto j = nlohmann::json{{"slot", slot},
-                            {"item_id", item_id},
-                            {"name", name},
-                            {"durability", durability},
-                            {"max_durability", max_durability},
-                            {"item_type", item_type},
-                            {"equip_pos", equip_pos},
-                            {"sprite", sprite},
-                            {"sprite_frame", sprite_frame},
-                            {"color", color},
-                            {"weight", weight}};
-    if (!attribute.is_empty())
-    {
-        j["attribute"] = attribute.to_json();
     }
     return j;
 }
@@ -1409,8 +1456,7 @@ auto pickup_result_msg::to_json() const -> nlohmann::json
     nlohmann::json j{{"success", success},
                      {"item_id", item_id},
                      {"item_name", item_name},
-                     {"quantity", quantity},
-                     {"inventory_slot", inventory_slot}};
+                     {"quantity", quantity}};
     if (!attribute.is_empty())
     {
         j["attribute"] = attribute.to_json();
@@ -1683,19 +1729,6 @@ auto make_inventory_data(uint32_t seq, const std::vector<inventory_item_msg>& it
     return json_message{.type = json_message_type::inventory_data,
                         .seq = seq,
                         .data = nlohmann::json{{"items", std::move(items_json)}, {"gold", gold}}};
-}
-
-auto make_equipment_data(uint32_t seq, const std::vector<equipment_item_msg>& equipped) -> json_message
-{
-    nlohmann::json items_json = nlohmann::json::array();
-    for (const auto& item : equipped)
-    {
-        items_json.push_back(item.to_json());
-    }
-
-    return json_message{.type = json_message_type::equipment_data,
-                        .seq = seq,
-                        .data = nlohmann::json{{"equipment", std::move(items_json)}}};
 }
 
 auto make_skills_data(uint32_t seq, const std::vector<skill_entry_msg>& skills) -> json_message
@@ -2389,11 +2422,11 @@ auto shop_sell_request_data::from_json(const nlohmann::json& j) -> result<shop_s
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    if (!j.contains("item_id") || !j["item_id"].is_number())
     {
-        return result<shop_sell_request_data, std::string>::err("Missing inventory_slot");
+        return result<shop_sell_request_data, std::string>::err("Missing item_id");
     }
-    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+    data.item_id = j["item_id"].get<uint32_t>();
 
     if (j.contains("count") && j["count"].is_number())
     {
@@ -2412,11 +2445,11 @@ auto shop_sell_confirm_request_data::from_json(const nlohmann::json& j)
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    if (!j.contains("item_id") || !j["item_id"].is_number())
     {
-        return result<shop_sell_confirm_request_data, std::string>::err("Missing inventory_slot");
+        return result<shop_sell_confirm_request_data, std::string>::err("Missing item_id");
     }
-    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+    data.item_id = j["item_id"].get<uint32_t>();
 
     if (j.contains("count") && j["count"].is_number())
     {
@@ -2434,11 +2467,11 @@ auto shop_repair_request_data::from_json(const nlohmann::json& j) -> result<shop
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    if (!j.contains("item_id") || !j["item_id"].is_number())
     {
-        return result<shop_repair_request_data, std::string>::err("Missing inventory_slot");
+        return result<shop_repair_request_data, std::string>::err("Missing item_id");
     }
-    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+    data.item_id = j["item_id"].get<uint32_t>();
     return result<shop_repair_request_data, std::string>::ok(std::move(data));
 }
 
@@ -2452,11 +2485,11 @@ auto shop_repair_confirm_request_data::from_json(const nlohmann::json& j)
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    if (!j.contains("item_id") || !j["item_id"].is_number())
     {
-        return result<shop_repair_confirm_request_data, std::string>::err("Missing inventory_slot");
+        return result<shop_repair_confirm_request_data, std::string>::err("Missing item_id");
     }
-    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+    data.item_id = j["item_id"].get<uint32_t>();
     return result<shop_repair_confirm_request_data, std::string>::ok(std::move(data));
 }
 
@@ -2469,11 +2502,11 @@ auto bank_deposit_request_data::from_json(const nlohmann::json& j) -> result<ban
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
 
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    if (!j.contains("item_id") || !j["item_id"].is_number())
     {
-        return result<bank_deposit_request_data, std::string>::err("Missing inventory_slot");
+        return result<bank_deposit_request_data, std::string>::err("Missing item_id");
     }
-    data.inventory_slot = static_cast<int16_t>(j["inventory_slot"].get<int>());
+    data.item_id = j["item_id"].get<uint32_t>();
     return result<bank_deposit_request_data, std::string>::ok(std::move(data));
 }
 
@@ -2485,6 +2518,12 @@ auto bank_withdraw_request_data::from_json(const nlohmann::json& j) -> result<ba
         return result<bank_withdraw_request_data, std::string>::err("Missing npc_entity_id");
     }
     data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+
+    if (!j.contains("bank_page") || !j["bank_page"].is_number())
+    {
+        return result<bank_withdraw_request_data, std::string>::err("Missing bank_page");
+    }
+    data.bank_page = static_cast<int16_t>(j["bank_page"].get<int>());
 
     if (!j.contains("bank_slot") || !j["bank_slot"].is_number())
     {
@@ -2719,12 +2758,11 @@ auto player_equip_request_data::from_json(const nlohmann::json& j) -> result<pla
     try
     {
         player_equip_request_data data;
-        auto slot = safe_int16_required(j, "inventory_slot");
-        if (!slot)
+        if (!j.contains("item_id") || !j["item_id"].is_number())
         {
-            return result<player_equip_request_data, std::string>::err("Missing or invalid 'inventory_slot'");
+            return result<player_equip_request_data, std::string>::err("Missing or invalid 'item_id'");
         }
-        data.inventory_slot = *slot;
+        data.item_id = j["item_id"].get<uint32_t>();
 
         if (!j.contains("target_slot") || !j["target_slot"].is_number())
         {
@@ -2756,67 +2794,6 @@ auto player_unequip_request_data::from_json(const nlohmann::json& j) -> result<p
     {
         return result<player_unequip_request_data, std::string>::err(std::string("Parse error: ") + e.what());
     }
-}
-
-auto equip_result_msg::to_json() const -> nlohmann::json
-{
-    nlohmann::json j;
-    j["success"] = success;
-    j["slot"] = slot;
-    if (success)
-    {
-        j["item_id"] = item_id;
-        j["item_name"] = item_name;
-        j["durability"] = durability;
-        j["max_durability"] = max_durability;
-        if (!attribute.is_empty())
-        {
-            j["attribute"] = attribute.to_json();
-        }
-        if (swapped_item_id.has_value())
-        {
-            j["swapped_item_id"] = *swapped_item_id;
-            if (swapped_to_inv_slot.has_value())
-            {
-                j["swapped_to_inv_slot"] = *swapped_to_inv_slot;
-            }
-        }
-        if (unequipped_shield_id.has_value())
-        {
-            j["unequipped_shield_id"] = *unequipped_shield_id;
-            if (shield_to_inv_slot.has_value())
-            {
-                j["shield_to_inv_slot"] = *shield_to_inv_slot;
-            }
-        }
-    }
-    if (!success && !error.empty())
-    {
-        j["error"] = error;
-    }
-    return j;
-}
-
-auto unequip_result_msg::to_json() const -> nlohmann::json
-{
-    nlohmann::json j;
-    j["success"] = success;
-    j["slot"] = slot;
-    if (success)
-    {
-        j["item_id"] = item_id;
-        j["item_name"] = item_name;
-        j["inventory_slot"] = inventory_slot;
-        if (!attribute.is_empty())
-        {
-            j["attribute"] = attribute.to_json();
-        }
-    }
-    if (!success && !error.empty())
-    {
-        j["error"] = error;
-    }
-    return j;
 }
 
 auto equipment_change_broadcast_data::to_json() const -> nlohmann::json
@@ -2862,16 +2839,6 @@ auto stat_update_data::to_json() const -> nlohmann::json
     return j;
 }
 
-auto make_player_equip_response(uint32_t seq, const equip_result_msg& result) -> json_message
-{
-    return json_message{.type = json_message_type::player_equip_response, .seq = seq, .data = result.to_json()};
-}
-
-auto make_player_unequip_response(uint32_t seq, const unequip_result_msg& result) -> json_message
-{
-    return json_message{.type = json_message_type::player_unequip_response, .seq = seq, .data = result.to_json()};
-}
-
 auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message
 {
     return json_message{.type = json_message_type::equipment_change_broadcast, .seq = 0, .data = data.to_json()};
@@ -2886,14 +2853,13 @@ auto make_stat_update(const stat_update_data& data) -> json_message
 
 auto inventory_reposition_request_data::from_json(const nlohmann::json& j) -> result<inventory_reposition_request_data, std::string>
 {
-    if (!j.contains("from_slot") || !j.contains("to_slot"))
+    if (!j.contains("item_id") || !j["item_id"].is_number())
     {
-        return result<inventory_reposition_request_data, std::string>::err("Missing from_slot or to_slot");
+        return result<inventory_reposition_request_data, std::string>::err("Missing item_id");
     }
 
     inventory_reposition_request_data data;
-    data.from_slot = static_cast<int16_t>(j["from_slot"].get<int>());
-    data.to_slot = static_cast<int16_t>(j["to_slot"].get<int>());
+    data.item_id = j["item_id"].get<uint32_t>();
     if (j.contains("pos_x") && j["pos_x"].is_number())
     {
         data.pos_x = static_cast<int16_t>(j["pos_x"].get<int>());
@@ -2909,13 +2875,13 @@ auto inventory_reposition_request_data::from_json(const nlohmann::json& j) -> re
 
 auto drop_item_request_data::from_json(const nlohmann::json& j) -> result<drop_item_request_data, std::string>
 {
-    if (!j.contains("slot"))
+    if (!j.contains("item_id") || !j["item_id"].is_number())
     {
-        return result<drop_item_request_data, std::string>::err("Missing slot");
+        return result<drop_item_request_data, std::string>::err("Missing item_id");
     }
 
     drop_item_request_data data;
-    data.slot = static_cast<int16_t>(j["slot"].get<int>());
+    data.item_id = j["item_id"].get<uint32_t>();
     return result<drop_item_request_data, std::string>::ok(data);
 }
 
@@ -2930,24 +2896,28 @@ auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view
     return json_message{.type = json_message_type::player_drop_item_response, .seq = seq, .data = j};
 }
 
-auto make_inventory_slot_update(int16_t slot, const inventory_item_msg* item) -> json_message
+auto make_inventory_item_update(const inventory_item_msg& item) -> json_message
 {
-    nlohmann::json j;
-    j["slot"] = slot;
-    if (item)
-    {
-        j["item"] = item->to_json();
-    }
-    else
-    {
-        j["item"] = nullptr;
-    }
-    return json_message{.type = json_message_type::inventory_slot_update, .seq = 0, .data = j};
+    return json_message{.type = json_message_type::inventory_item_update, .seq = 0, .data = item.to_json()};
 }
 
-auto make_bank_slot_update(int16_t slot, const inventory_item_msg* item) -> json_message
+auto make_inventory_item_removed(uint32_t item_id) -> json_message
+{
+    return json_message{
+        .type = json_message_type::inventory_item_removed, .seq = 0, .data = nlohmann::json{{"item_id", item_id}}};
+}
+
+auto make_inventory_weight_update(int32_t current_weight, int32_t max_weight) -> json_message
+{
+    return json_message{.type = json_message_type::inventory_weight_update,
+                        .seq = 0,
+                        .data = nlohmann::json{{"current_weight", current_weight}, {"max_weight", max_weight}}};
+}
+
+auto make_bank_slot_update(int16_t page, int16_t slot, const inventory_item_msg* item) -> json_message
 {
     nlohmann::json j;
+    j["page"] = page;
     j["slot"] = slot;
     if (item)
     {
@@ -2971,11 +2941,10 @@ auto make_gold_update(const gold_update_data& data) -> json_message
 }
 
 auto build_inventory_item_msg(
-    int16_t slot_index,
     item_id iid,
     const item::item_system* items,
     const item_registry* registry,
-    std::optional<uint8_t> equipped_slot) -> std::optional<inventory_item_msg>
+    const inventory::inventory_entry* entry) -> std::optional<inventory_item_msg>
 {
     if (!items)
     {
@@ -2989,15 +2958,20 @@ auto build_inventory_item_msg(
     }
 
     inventory_item_msg msg{
-        .slot = static_cast<uint8_t>(slot_index),
         .item_id = iid.value,
         .name = itm->name,
         .count = itm->count,
         .durability = static_cast<int16_t>(itm->durability),
         .max_durability = static_cast<int16_t>(itm->max_durability),
         .attribute = itm->attribute,
-        .equipped_slot = equipped_slot,
     };
+
+    if (entry)
+    {
+        msg.pos_x = entry->pos_x;
+        msg.pos_y = entry->pos_y;
+        msg.z_order = entry->z_order;
+    }
 
     if (registry)
     {
@@ -3006,8 +2980,8 @@ auto build_inventory_item_msg(
             msg.name = get_display_name(tmpl->name, itm->attribute);
             msg.item_type = static_cast<uint8_t>(tmpl->type);
             msg.equip_pos = static_cast<uint8_t>(tmpl->equip_pos);
-            msg.sprite = tmpl->ground_sprite;
-            msg.sprite_frame = tmpl->ground_sprite_frame;
+            msg.sprite = tmpl->sprite;
+            msg.sprite_frame = tmpl->sprite_frame;
             msg.color = tmpl->item_color;
             msg.weight = tmpl->weight;
             msg.level_limit = tmpl->level_limit;
@@ -3484,11 +3458,11 @@ auto admin_remove_item_request_data::from_json(const nlohmann::json& j)
         return result<admin_remove_item_request_data, std::string>::err("player_name required");
     }
     data.player_name = j["player_name"].get<std::string>();
-    if (!j.contains("inventory_slot") || !j["inventory_slot"].is_number())
+    if (!j.contains("item_id") || !j["item_id"].is_number())
     {
-        return result<admin_remove_item_request_data, std::string>::err("inventory_slot required");
+        return result<admin_remove_item_request_data, std::string>::err("item_id required");
     }
-    data.inventory_slot = safe_int16(j, "inventory_slot");
+    data.item_id = j["item_id"].get<uint32_t>();
     data.count = safe_int16(j, "count");
     return result<admin_remove_item_request_data, std::string>::ok(std::move(data));
 }
@@ -4316,10 +4290,9 @@ auto make_guild_update(const std::string& action,
 auto use_item_request_data::from_json(const nlohmann::json& j) -> result<use_item_request_data, std::string>
 {
     use_item_request_data data;
-    auto slot = safe_int16_required(j, "slot");
-    if (!slot.has_value())
-        return result<use_item_request_data, std::string>::err("Missing 'slot'");
-    data.slot = *slot;
+    if (!j.contains("item_id") || !j["item_id"].is_number())
+        return result<use_item_request_data, std::string>::err("Missing 'item_id'");
+    data.item_id = j["item_id"].get<uint32_t>();
     return result<use_item_request_data, std::string>::ok(std::move(data));
 }
 
@@ -4591,20 +4564,19 @@ auto make_player_action_broadcast(const player_action_broadcast_data& data) -> j
 auto item_upgrade_request_data::from_json(const nlohmann::json& j) -> result<item_upgrade_request_data, std::string>
 {
     item_upgrade_request_data data;
-    auto slot = safe_int16_required(j, "item_slot");
-    if (!slot.has_value())
-        return result<item_upgrade_request_data, std::string>::err("Missing 'item_slot'");
-    data.item_slot = *slot;
+    if (!j.contains("item_id") || !j["item_id"].is_number())
+        return result<item_upgrade_request_data, std::string>::err("Missing 'item_id'");
+    data.item_id = j["item_id"].get<uint32_t>();
     return result<item_upgrade_request_data, std::string>::ok(std::move(data));
 }
 
 auto make_item_upgrade_response(
-    uint32_t seq, bool success, int16_t item_slot, uint8_t new_level, std::string_view error) -> json_message
+    uint32_t seq, bool success, uint32_t item_id, uint8_t new_level, std::string_view error) -> json_message
 {
     json_message msg;
     msg.type = json_message_type::item_upgrade_response;
     msg.seq = seq;
-    msg.data = {{"success", success}, {"item_slot", item_slot}, {"new_level", new_level}};
+    msg.data = {{"success", success}, {"item_id", item_id}, {"new_level", new_level}};
     if (!error.empty())
         msg.data["error"] = error;
     return msg;
@@ -4638,6 +4610,1009 @@ auto make_special_ability_status(std::string_view status,
     msg.seq = 0;
     msg.data = {{"status", status}, {"ability_type", ability_type}, {"cooldown_remaining_sec", cooldown_remaining_sec}};
     return msg;
+}
+
+// ============================================================
+// v2 state update message builders (use item::serialize_item)
+// ============================================================
+
+auto make_inventory_item_add(const item::item& itm, int16_t pos_x, int16_t pos_y, int32_t z_order) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "inventory_item_add"},
+        {"data", {{"item", item::serialize_item(itm)}, {"pos_x", pos_x}, {"pos_y", pos_y}, {"z_order", z_order}}}};
+}
+
+auto make_inventory_item_update_v2(
+    const item::item& itm, int16_t pos_x, int16_t pos_y, int32_t z_order) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "inventory_item_update"},
+        {"data", {{"item", item::serialize_item(itm)}, {"pos_x", pos_x}, {"pos_y", pos_y}, {"z_order", z_order}}}};
+}
+
+auto make_inventory_item_removed_v2(item_id id) -> nlohmann::json
+{
+    return nlohmann::json{{"type", "inventory_item_removed"}, {"data", {{"item_id", id.value}}}};
+}
+
+auto make_inventory_item_delta(
+    item_id id, std::optional<int16_t> count, std::optional<int16_t> durability) -> nlohmann::json
+{
+    nlohmann::json data;
+    data["item_id"] = id.value;
+    if (count.has_value())
+    {
+        data["count"] = *count;
+    }
+    if (durability.has_value())
+    {
+        data["durability"] = *durability;
+    }
+    return nlohmann::json{{"type", "inventory_item_delta"}, {"data", data}};
+}
+
+auto make_inventory_gold_update(int64_t gold) -> nlohmann::json
+{
+    return nlohmann::json{{"type", "inventory_gold_update"}, {"data", {{"gold", gold}}}};
+}
+
+auto make_inventory_weight_update_v2(int32_t weight, int32_t max_weight) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "inventory_weight_update"}, {"data", {{"weight", weight}, {"max_weight", max_weight}}}};
+}
+
+auto make_force_unequip(std::string_view slot, std::string_view reason) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "force_unequip"},
+        {"data", {{"slot", std::string(slot)}, {"reason", std::string(reason)}}}};
+}
+
+auto make_equipment_change(
+    uint32_t entity_id, std::string_view slot, const nlohmann::json& item_json) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "equipment_change"},
+        {"data", {{"entity_id", entity_id}, {"slot", std::string(slot)}, {"item", item_json}}}};
+}
+
+auto make_ground_item_spawn_v2(
+    const item::item& itm, std::string_view map, int16_t x, int16_t y) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "ground_item_spawn"},
+        {"data",
+         {{"item", item::serialize_item(itm)},
+          {"map", std::string(map)},
+          {"x", x},
+          {"y", y}}}};
+}
+
+auto make_ground_item_removed_v2(item_id id, std::string_view map, int16_t x, int16_t y) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "ground_item_removed"},
+        {"data", {{"item_id", id.value}, {"map", std::string(map)}, {"x", x}, {"y", y}}}};
+}
+
+auto make_bank_slot_update_v2(int16_t page, int16_t slot, const item::item& itm) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "bank_slot_update"},
+        {"data", {{"page", page}, {"slot", slot}, {"item", item::serialize_item(itm)}}}};
+}
+
+auto make_bank_slot_cleared(int16_t page, int16_t slot) -> nlohmann::json
+{
+    return nlohmann::json{{"type", "bank_slot_cleared"}, {"data", {{"page", page}, {"slot", slot}}}};
+}
+
+auto make_ability_activated(uint32_t entity_id, std::string_view ability_type, int32_t duration_ms) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "ability_activated"},
+        {"data",
+         {{"entity_id", entity_id},
+          {"ability_type", std::string(ability_type)},
+          {"duration_ms", duration_ms}}}};
+}
+
+auto make_ability_expired(uint32_t entity_id, std::string_view ability_type) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "ability_expired"},
+        {"data", {{"entity_id", entity_id}, {"ability_type", std::string(ability_type)}}}};
+}
+
+auto make_inventory_data_v2(
+    const std::vector<std::tuple<nlohmann::json, int16_t, int16_t, int32_t>>& items,
+    const std::map<std::string, uint32_t>& equipment_slots,
+    int64_t gold,
+    int32_t weight,
+    int32_t max_weight) -> nlohmann::json
+{
+    auto items_json = nlohmann::json::array();
+    for (const auto& [item_obj, pos_x, pos_y, z_order] : items)
+    {
+        items_json.push_back(nlohmann::json{
+            {"item", item_obj},
+            {"pos_x", pos_x},
+            {"pos_y", pos_y},
+            {"z_order", z_order}});
+    }
+
+    auto slots_json = nlohmann::json::object();
+    for (const auto& [slot_name, item_id_val] : equipment_slots)
+    {
+        slots_json[slot_name] = item_id_val;
+    }
+
+    return nlohmann::json{
+        {"type", "inventory_data"},
+        {"data",
+         {{"items", std::move(items_json)},
+          {"equipment_slots", std::move(slots_json)},
+          {"gold", gold},
+          {"weight", weight},
+          {"max_weight", max_weight}}}};
+}
+
+// ============================================================
+// v2 action message parsers and builders
+// ============================================================
+
+// --- inventory_reposition ---
+
+auto inventory_reposition_data::from_json(const nlohmann::json& j) -> result<inventory_reposition_data, std::string>
+{
+    try
+    {
+        inventory_reposition_data data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<inventory_reposition_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        if (!j.contains("pos_x") || !j["pos_x"].is_number())
+        {
+            return result<inventory_reposition_data, std::string>::err("Missing or invalid 'pos_x'");
+        }
+        data.pos_x = j["pos_x"].get<int32_t>();
+        if (!j.contains("pos_y") || !j["pos_y"].is_number())
+        {
+            return result<inventory_reposition_data, std::string>::err("Missing or invalid 'pos_y'");
+        }
+        data.pos_y = j["pos_y"].get<int32_t>();
+        return result<inventory_reposition_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<inventory_reposition_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+// --- equip_request ---
+
+auto equip_request_data::from_json(const nlohmann::json& j) -> result<equip_request_data, std::string>
+{
+    try
+    {
+        equip_request_data data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<equip_request_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        if (!j.contains("slot") || !j["slot"].is_string())
+        {
+            return result<equip_request_data, std::string>::err("Missing or invalid 'slot'");
+        }
+        data.slot = j["slot"].get<std::string>();
+        return result<equip_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<equip_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_equip_result(bool success, std::string_view slot) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "equip_result"},
+        {"data", {{"success", success}, {"slot", std::string(slot)}}}};
+}
+
+// --- unequip_request ---
+
+auto unequip_request_data::from_json(const nlohmann::json& j) -> result<unequip_request_data, std::string>
+{
+    try
+    {
+        unequip_request_data data;
+        if (!j.contains("slot") || !j["slot"].is_string())
+        {
+            return result<unequip_request_data, std::string>::err("Missing or invalid 'slot'");
+        }
+        data.slot = j["slot"].get<std::string>();
+        return result<unequip_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<unequip_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_unequip_result(bool success, std::string_view slot) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "unequip_result"},
+        {"data", {{"success", success}, {"slot", std::string(slot)}}}};
+}
+
+// --- pickup_request ---
+
+auto pickup_request_data::from_json(const nlohmann::json& j) -> result<pickup_request_data, std::string>
+{
+    try
+    {
+        pickup_request_data data;
+        if (!j.contains("map") || !j["map"].is_string())
+        {
+            return result<pickup_request_data, std::string>::err("Missing or invalid 'map'");
+        }
+        data.map = j["map"].get<std::string>();
+        if (!j.contains("x") || !j["x"].is_number())
+        {
+            return result<pickup_request_data, std::string>::err("Missing or invalid 'x'");
+        }
+        data.x = j["x"].get<int32_t>();
+        if (!j.contains("y") || !j["y"].is_number())
+        {
+            return result<pickup_request_data, std::string>::err("Missing or invalid 'y'");
+        }
+        data.y = j["y"].get<int32_t>();
+        return result<pickup_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<pickup_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_pickup_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "pickup_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- drop_request ---
+
+auto drop_request_data::from_json(const nlohmann::json& j) -> result<drop_request_data, std::string>
+{
+    try
+    {
+        drop_request_data data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<drop_request_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<drop_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<drop_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_drop_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "drop_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- use_item_request (v2) ---
+
+auto use_item_request_data_v2::from_json(const nlohmann::json& j) -> result<use_item_request_data_v2, std::string>
+{
+    try
+    {
+        use_item_request_data_v2 data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<use_item_request_data_v2, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<use_item_request_data_v2, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<use_item_request_data_v2, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_use_item_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "use_item_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- upgrade_request ---
+
+auto upgrade_request_data::from_json(const nlohmann::json& j) -> result<upgrade_request_data, std::string>
+{
+    try
+    {
+        upgrade_request_data data;
+        if (!j.contains("target_id") || !j["target_id"].is_number())
+        {
+            return result<upgrade_request_data, std::string>::err("Missing or invalid 'target_id'");
+        }
+        data.target_id = j["target_id"].get<int32_t>();
+        if (!j.contains("stone_id") || !j["stone_id"].is_number())
+        {
+            return result<upgrade_request_data, std::string>::err("Missing or invalid 'stone_id'");
+        }
+        data.stone_id = j["stone_id"].get<int32_t>();
+        return result<upgrade_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<upgrade_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_upgrade_result_v2(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "upgrade_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- shop_buy_request (v2) ---
+
+auto shop_buy_request_data_v2::from_json(const nlohmann::json& j) -> result<shop_buy_request_data_v2, std::string>
+{
+    try
+    {
+        shop_buy_request_data_v2 data;
+        if (!j.contains("template_id") || !j["template_id"].is_number())
+        {
+            return result<shop_buy_request_data_v2, std::string>::err("Missing or invalid 'template_id'");
+        }
+        data.template_id = j["template_id"].get<int32_t>();
+        return result<shop_buy_request_data_v2, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<shop_buy_request_data_v2, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_shop_buy_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "shop_buy_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- shop_sell_request (v2) ---
+
+auto shop_sell_request_data_v2::from_json(const nlohmann::json& j) -> result<shop_sell_request_data_v2, std::string>
+{
+    try
+    {
+        shop_sell_request_data_v2 data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<shop_sell_request_data_v2, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<shop_sell_request_data_v2, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<shop_sell_request_data_v2, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_shop_sell_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "shop_sell_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- shop_repair_request (v2) ---
+
+auto shop_repair_request_data_v2::from_json(const nlohmann::json& j) -> result<shop_repair_request_data_v2, std::string>
+{
+    try
+    {
+        shop_repair_request_data_v2 data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<shop_repair_request_data_v2, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<shop_repair_request_data_v2, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<shop_repair_request_data_v2, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_shop_repair_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "shop_repair_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- bank_deposit_request (v2) ---
+
+auto bank_deposit_request_data_v2::from_json(const nlohmann::json& j)
+    -> result<bank_deposit_request_data_v2, std::string>
+{
+    try
+    {
+        bank_deposit_request_data_v2 data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<bank_deposit_request_data_v2, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        // page and slot are optional (auto-deposit if absent)
+        if (j.contains("page") && j["page"].is_number())
+        {
+            data.page = j["page"].get<int32_t>();
+        }
+        if (j.contains("slot") && j["slot"].is_number())
+        {
+            data.slot = j["slot"].get<int32_t>();
+        }
+        return result<bank_deposit_request_data_v2, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<bank_deposit_request_data_v2, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_bank_deposit_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "bank_deposit_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- bank_withdraw_request (v2) ---
+
+auto bank_withdraw_request_data_v2::from_json(const nlohmann::json& j)
+    -> result<bank_withdraw_request_data_v2, std::string>
+{
+    try
+    {
+        bank_withdraw_request_data_v2 data;
+        if (!j.contains("page") || !j["page"].is_number())
+        {
+            return result<bank_withdraw_request_data_v2, std::string>::err("Missing or invalid 'page'");
+        }
+        data.page = j["page"].get<int32_t>();
+        if (!j.contains("slot") || !j["slot"].is_number())
+        {
+            return result<bank_withdraw_request_data_v2, std::string>::err("Missing or invalid 'slot'");
+        }
+        data.slot = j["slot"].get<int32_t>();
+        return result<bank_withdraw_request_data_v2, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<bank_withdraw_request_data_v2, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_bank_withdraw_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "bank_withdraw_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- bank_reposition_request ---
+
+auto bank_reposition_request_data::from_json(const nlohmann::json& j)
+    -> result<bank_reposition_request_data, std::string>
+{
+    try
+    {
+        bank_reposition_request_data data;
+        if (!j.contains("from_page") || !j["from_page"].is_number())
+        {
+            return result<bank_reposition_request_data, std::string>::err("Missing or invalid 'from_page'");
+        }
+        data.from_page = j["from_page"].get<int32_t>();
+        if (!j.contains("from_slot") || !j["from_slot"].is_number())
+        {
+            return result<bank_reposition_request_data, std::string>::err("Missing or invalid 'from_slot'");
+        }
+        data.from_slot = j["from_slot"].get<int32_t>();
+        if (!j.contains("to_page") || !j["to_page"].is_number())
+        {
+            return result<bank_reposition_request_data, std::string>::err("Missing or invalid 'to_page'");
+        }
+        data.to_page = j["to_page"].get<int32_t>();
+        if (!j.contains("to_slot") || !j["to_slot"].is_number())
+        {
+            return result<bank_reposition_request_data, std::string>::err("Missing or invalid 'to_slot'");
+        }
+        data.to_slot = j["to_slot"].get<int32_t>();
+        return result<bank_reposition_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<bank_reposition_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_bank_reposition_result(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "bank_reposition_result"},
+        {"data", {{"success", success}}}};
+}
+
+// --- activate_ability_request (v2) ---
+
+auto activate_ability_request_data::from_json(const nlohmann::json& j)
+    -> result<activate_ability_request_data, std::string>
+{
+    try
+    {
+        activate_ability_request_data data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<activate_ability_request_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<activate_ability_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<activate_ability_request_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_activate_ability_failed(std::string_view error) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "activate_ability_failed"},
+        {"data", {{"error", std::string(error)}}}};
+}
+
+// ============================================================
+// v2 trade message parsers and builders
+// ============================================================
+
+// --- Phase 0: Initiating ---
+
+auto trade_request_data_v2::from_json(const nlohmann::json& j)
+    -> result<trade_request_data_v2, std::string>
+{
+    try
+    {
+        trade_request_data_v2 data;
+        if (!j.contains("target_entity_id") || !j["target_entity_id"].is_number())
+        {
+            return result<trade_request_data_v2, std::string>::err("Missing or invalid 'target_entity_id'");
+        }
+        data.target_entity_id = j["target_entity_id"].get<int32_t>();
+        return result<trade_request_data_v2, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<trade_request_data_v2, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_trade_invite(uint32_t from_entity_id, std::string_view from_name) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "trade_invite"},
+        {"data", {{"from_entity_id", from_entity_id}, {"from_name", std::string(from_name)}}}};
+}
+
+auto trade_accept_data::from_json(const nlohmann::json& j)
+    -> result<trade_accept_data, std::string>
+{
+    try
+    {
+        trade_accept_data data;
+        if (!j.contains("from_entity_id") || !j["from_entity_id"].is_number())
+        {
+            return result<trade_accept_data, std::string>::err("Missing or invalid 'from_entity_id'");
+        }
+        data.from_entity_id = j["from_entity_id"].get<int32_t>();
+        return result<trade_accept_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<trade_accept_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto trade_decline_data::from_json(const nlohmann::json& j)
+    -> result<trade_decline_data, std::string>
+{
+    try
+    {
+        trade_decline_data data;
+        if (!j.contains("from_entity_id") || !j["from_entity_id"].is_number())
+        {
+            return result<trade_decline_data, std::string>::err("Missing or invalid 'from_entity_id'");
+        }
+        data.from_entity_id = j["from_entity_id"].get<int32_t>();
+        return result<trade_decline_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<trade_decline_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_trade_opened(uint32_t partner_entity_id, std::string_view partner_name) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "trade_opened"},
+        {"data", {{"partner_entity_id", partner_entity_id}, {"partner_name", std::string(partner_name)}}}};
+}
+
+// --- Phase 1: Offer ---
+
+auto trade_add_item_data::from_json(const nlohmann::json& j)
+    -> result<trade_add_item_data, std::string>
+{
+    try
+    {
+        trade_add_item_data data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<trade_add_item_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<trade_add_item_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<trade_add_item_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto trade_remove_item_data::from_json(const nlohmann::json& j)
+    -> result<trade_remove_item_data, std::string>
+{
+    try
+    {
+        trade_remove_item_data data;
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<trade_remove_item_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<trade_remove_item_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<trade_remove_item_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto trade_set_gold_data::from_json(const nlohmann::json& j)
+    -> result<trade_set_gold_data, std::string>
+{
+    try
+    {
+        trade_set_gold_data data;
+        if (!j.contains("amount") || !j["amount"].is_number())
+        {
+            return result<trade_set_gold_data, std::string>::err("Missing or invalid 'amount'");
+        }
+        data.amount = j["amount"].get<int64_t>();
+        return result<trade_set_gold_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<trade_set_gold_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_trade_update(
+    std::string_view side, const std::vector<nlohmann::json>& items, int64_t gold) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "trade_update"},
+        {"data", {{"side", std::string(side)}, {"items", items}, {"gold", gold}}}};
+}
+
+// --- Phase 2: Lock ---
+
+auto make_trade_lock_status(bool my_locked, bool their_locked) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "trade_lock_status"},
+        {"data", {{"my_locked", my_locked}, {"their_locked", their_locked}}}};
+}
+
+// --- Phase 3: Confirm ---
+
+auto make_trade_complete(bool success) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "trade_complete"},
+        {"data", {{"success", success}}}};
+}
+
+// --- Cancellation ---
+
+auto make_trade_canceled(std::string_view reason) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "trade_canceled"},
+        {"data", {{"reason", std::string(reason)}}}};
+}
+
+// ============================================================
+// Shop and bank open messages
+// ============================================================
+
+auto make_shop_open(
+    std::string_view npc_name,
+    std::string_view shop_type,
+    const std::vector<std::pair<nlohmann::json, int32_t>>& items) -> nlohmann::json
+{
+    auto items_array = nlohmann::json::array();
+    for (const auto& [item_json, buy_price] : items)
+    {
+        items_array.push_back({
+            {"item", item_json},
+            {"buy_price", buy_price}
+        });
+    }
+
+    return nlohmann::json{
+        {"type", "shop_open"},
+        {"data", {
+            {"npc_name", std::string(npc_name)},
+            {"shop_type", std::string(shop_type)},
+            {"items", std::move(items_array)}
+        }}
+    };
+}
+
+auto make_bank_open_v2(
+    const std::vector<std::vector<nlohmann::json>>& pages,
+    int16_t total_pages) -> nlohmann::json
+{
+    auto pages_array = nlohmann::json::array();
+    for (size_t i = 0; i < pages.size(); ++i)
+    {
+        auto slots_array = nlohmann::json::array();
+        for (const auto& slot : pages[i])
+        {
+            if (slot.is_null() || slot.empty())
+            {
+                slots_array.push_back(nullptr);
+            }
+            else
+            {
+                slots_array.push_back(slot);
+            }
+        }
+
+        pages_array.push_back({
+            {"page_num", static_cast<int>(i)},
+            {"slots", std::move(slots_array)}
+        });
+    }
+
+    return nlohmann::json{
+        {"type", "bank_open"},
+        {"data", {
+            {"pages", std::move(pages_array)},
+            {"total_pages", total_pages}
+        }}
+    };
+}
+
+// ============================================================
+// Party loot distribution messages
+// ============================================================
+
+auto set_loot_rule_data::from_json(const nlohmann::json& j)
+    -> result<set_loot_rule_data, std::string>
+{
+    try
+    {
+        set_loot_rule_data data;
+        if (!j.contains("rule") || !j["rule"].is_string())
+        {
+            return result<set_loot_rule_data, std::string>::err("Missing or invalid 'rule'");
+        }
+        data.rule = j["rule"].get<std::string>();
+        if (data.rule != "disabled" && data.rule != "greed" && data.rule != "master")
+        {
+            return result<set_loot_rule_data, std::string>::err("Invalid rule: must be 'disabled', 'greed', or 'master'");
+        }
+        return result<set_loot_rule_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<set_loot_rule_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto loot_roll_data::from_json(const nlohmann::json& j)
+    -> result<loot_roll_data, std::string>
+{
+    try
+    {
+        loot_roll_data data;
+        if (!j.contains("loot_id") || !j["loot_id"].is_string())
+        {
+            return result<loot_roll_data, std::string>::err("Missing or invalid 'loot_id'");
+        }
+        data.loot_id = j["loot_id"].get<std::string>();
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<loot_roll_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<loot_roll_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<loot_roll_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto loot_pass_data::from_json(const nlohmann::json& j)
+    -> result<loot_pass_data, std::string>
+{
+    try
+    {
+        loot_pass_data data;
+        if (!j.contains("loot_id") || !j["loot_id"].is_string())
+        {
+            return result<loot_pass_data, std::string>::err("Missing or invalid 'loot_id'");
+        }
+        data.loot_id = j["loot_id"].get<std::string>();
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<loot_pass_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        return result<loot_pass_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<loot_pass_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto loot_assign_data::from_json(const nlohmann::json& j)
+    -> result<loot_assign_data, std::string>
+{
+    try
+    {
+        loot_assign_data data;
+        if (!j.contains("loot_id") || !j["loot_id"].is_string())
+        {
+            return result<loot_assign_data, std::string>::err("Missing or invalid 'loot_id'");
+        }
+        data.loot_id = j["loot_id"].get<std::string>();
+        if (!j.contains("item_id") || !j["item_id"].is_number())
+        {
+            return result<loot_assign_data, std::string>::err("Missing or invalid 'item_id'");
+        }
+        data.item_id = j["item_id"].get<int32_t>();
+        if (!j.contains("target_entity_id") || !j["target_entity_id"].is_number())
+        {
+            return result<loot_assign_data, std::string>::err("Missing or invalid 'target_entity_id'");
+        }
+        data.target_entity_id = j["target_entity_id"].get<int32_t>();
+        return result<loot_assign_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<loot_assign_data, std::string>::err(std::string("Parse error: ") + e.what());
+    }
+}
+
+auto make_loot_rule_changed(std::string_view rule, uint32_t set_by) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "loot_rule_changed"},
+        {"data", {
+            {"rule", std::string(rule)},
+            {"set_by", set_by}
+        }}
+    };
+}
+
+auto make_loot_available(
+    std::string_view loot_id,
+    const std::vector<nlohmann::json>& items,
+    std::string_view source_map,
+    int16_t source_x,
+    int16_t source_y,
+    std::string_view rule,
+    int32_t timeout_ms) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "loot_available"},
+        {"data", {
+            {"loot_id", std::string(loot_id)},
+            {"items", items},
+            {"source_map", std::string(source_map)},
+            {"source_x", source_x},
+            {"source_y", source_y},
+            {"rule", std::string(rule)},
+            {"timeout_ms", timeout_ms}
+        }}
+    };
+}
+
+auto make_loot_roll_result(
+    std::string_view loot_id,
+    uint32_t item_id,
+    uint32_t entity_id,
+    std::string_view player_name,
+    int32_t roll) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "loot_roll_result"},
+        {"data", {
+            {"loot_id", std::string(loot_id)},
+            {"item_id", item_id},
+            {"entity_id", entity_id},
+            {"player_name", std::string(player_name)},
+            {"roll", roll}
+        }}
+    };
+}
+
+auto make_loot_awarded(
+    std::string_view loot_id,
+    uint32_t item_id,
+    uint32_t winner_entity_id,
+    std::string_view winner_name) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "loot_awarded"},
+        {"data", {
+            {"loot_id", std::string(loot_id)},
+            {"item_id", item_id},
+            {"winner_entity_id", winner_entity_id},
+            {"winner_name", std::string(winner_name)}
+        }}
+    };
+}
+
+auto make_loot_expired(std::string_view loot_id) -> nlohmann::json
+{
+    return nlohmann::json{
+        {"type", "loot_expired"},
+        {"data", {
+            {"loot_id", std::string(loot_id)}
+        }}
+    };
 }
 
 } // namespace hb::network

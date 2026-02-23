@@ -30,6 +30,7 @@
 #include "bridge/handlers/entity_builders.h"
 #include "effect/effect_system.h"
 #include "registry/item_registry.h"
+#include "item/item_serialization.h"
 
 namespace hb::bridge
 {
@@ -737,22 +738,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     switch (row.location)
                     {
                     case auth::item_location::inventory:
-                    case auth::item_location::equipment: // Legacy: equipment items are now in inventory
                     {
                         if (inv)
                         {
-                            auto* slot = inv->get_slot(row.slot);
-                            if (slot)
+                            auto* entry = inv->add_item(restored_id, static_cast<int16_t>(row.count), row.pos_x, row.pos_y);
+                            if (entry)
                             {
-                                slot->item = restored_id;
-                                slot->count = row.count;
-                                slot->pos_x = row.pos_x;
-                                slot->pos_y = row.pos_y;
-                                // Set equipped_as from DB equip_slot column
-                                if (row.equip_slot.has_value())
-                                {
-                                    slot->equipped_as = static_cast<uint8_t>(*row.equip_slot);
-                                }
+                                entry->z_order = row.z_order;
                             }
                         }
                         break;
@@ -761,14 +753,12 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     {
                         if (bank)
                         {
-                            auto* slot = bank->get_slot(row.slot);
-                            if (slot)
-                            {
-                                slot->item = restored_id;
-                                slot->count = row.count;
-                                slot->pos_x = row.pos_x;
-                                slot->pos_y = row.pos_y;
-                            }
+                            // Use bank_page/bank_slot if available, otherwise fall back to flat slot
+                            int16_t page = row.bank_page.value_or(
+                                static_cast<int16_t>(row.slot / bank->slots_per_page()));
+                            int16_t slot_in_page = row.bank_slot.value_or(
+                                static_cast<int16_t>(row.slot % bank->slots_per_page()));
+                            bank->set_slot(page, slot_in_page, restored_id);
                         }
                         break;
                     }
@@ -777,14 +767,53 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                     }
                 }
 
+                // Load equipment from character_equipment table
+                auto equip_rows = auth_->load_equipment(char_data.id);
+                for (const auto& er : equip_rows)
+                {
+                    auto eq_slot = static_cast<player::equip_slot>(er.slot);
+                    if (static_cast<size_t>(eq_slot) < player::equip_slot_count)
+                    {
+                        player->equipment.equip(eq_slot, item_id{er.item_id});
+                    }
+                }
+
+                // Set next_z_order from the maximum z_order loaded
+                if (inv && inv->count() > 0)
+                {
+                    int32_t max_z = 0;
+                    for (const auto& entry : inv->items())
+                    {
+                        if (entry.z_order > max_z)
+                            max_z = entry.z_order;
+                    }
+                    inv->set_next_z_order(max_z + 1);
+                }
+
                 LOG_DEBUG(bridge, "Restored {} items for player {}", item_rows.size(), live_player_id.value);
 
                 // Set gold from character data
                 inventory_->add_gold(entity, char_data.gold);
                 LOG_DEBUG(bridge, "Set gold for player {}: {}", live_player_id.value, char_data.gold);
 
-                // Rebuild equipment cache from inventory equipped_as flags
+                // Recalculate equipment modifiers and appearance from equipment_state
                 players_->rebuild_equipment_cache(live_player_id);
+
+                // Initialize weight tracking
+                if (inv && item_registry_)
+                {
+                    int32_t total = 0;
+                    for (const auto& entry : inv->items())
+                    {
+                        auto* tmpl = item_registry_->get(entry.item);
+                        if (tmpl)
+                            total += tmpl->weight * entry.count;
+                    }
+                    auto str = player->base.strength;
+                    auto lvl = player->experience.level;
+                    inventory_->set_weight(entity, total,
+                                           inventory::inventory::max_weight(str, lvl));
+                }
             }
 
             // Deserialize and apply magic (spell knowledge)
@@ -1053,78 +1082,55 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         enter_game_callback_(char_data.name, static_cast<int16_t>(char_data.level), char_data.map_name);
     }
 
-    // Build inventory data for network message
-    std::vector<network::inventory_item_msg> inventory_list;
+    // Build v2 inventory data for separate inventory_data message
+    auto* enter_player = players_->get_player(live_player_id);
     int32_t player_gold = char_data.gold;
+    std::vector<std::tuple<nlohmann::json, int16_t, int16_t, int32_t>> inv_items;
+    std::map<std::string, uint32_t> equip_slots;
+    int32_t inv_weight = 0;
+    int32_t inv_max_weight = 0;
+
     if (inventory_)
     {
-        auto entity = entity_id{live_player_id.value};
-        auto* inv = inventory_->get_inventory(entity);
-        if (inv)
+        auto player_entity = entity_id{live_player_id.value};
+        auto* inv = inventory_->get_inventory(player_entity);
+        if (inv && item_)
         {
-            for (int16_t i = 0; i < inv->capacity(); ++i)
+            for (const auto& entry : inv->items())
             {
-                const auto* slot = inv->get_slot(i);
-                if (slot && !slot->is_empty())
+                auto* itm = item_->get_item(entry.item);
+                if (itm)
                 {
-                    // Look up item instance for attribute and name
-                    std::string item_name;
-                    item::item_attribute attr;
-                    int16_t dur = 0, max_dur = 0;
-                    uint8_t tmpl_type = 0;
-                    uint8_t tmpl_equip_pos = 0;
-                    int16_t sprite = 0;
-                    int16_t sprite_frame = 0;
-                    int8_t color = 0;
-                    int16_t weight = 0;
-                    int16_t level_limit = 0;
-                    if (item_)
-                    {
-                        if (auto* itm = item_->get_item(slot->item))
-                        {
-                            attr = itm->attribute;
-                            dur = static_cast<int16_t>(itm->durability);
-                            max_dur = static_cast<int16_t>(itm->max_durability);
-                            if (item_registry_)
-                            {
-                                if (auto* tmpl = item_registry_->get(itm->template_id))
-                                {
-                                    item_name = network::get_display_name(tmpl->name, attr);
-                                    tmpl_type = static_cast<uint8_t>(tmpl->type);
-                                    tmpl_equip_pos = static_cast<uint8_t>(tmpl->equip_pos);
-                                    sprite = tmpl->ground_sprite;
-                                    sprite_frame = tmpl->ground_sprite_frame;
-                                    color = tmpl->item_color;
-                                    weight = tmpl->weight;
-                                    level_limit = tmpl->level_limit;
-                                }
-                            }
-                        }
-                    }
-                    inventory_list.push_back({.slot = static_cast<uint8_t>(i),
-                                              .item_id = slot->item.value,
-                                              .name = std::move(item_name),
-                                              .count = slot->count,
-                                              .durability = dur,
-                                              .max_durability = max_dur,
-                                              .attribute = attr,
-                                              .item_type = tmpl_type,
-                                              .equip_pos = tmpl_equip_pos,
-                                              .sprite = sprite,
-                                              .sprite_frame = sprite_frame,
-                                              .color = color,
-                                              .weight = weight,
-                                              .level_limit = level_limit,
-                                              .pos_x = slot->pos_x,
-                                              .pos_y = slot->pos_y,
-                                              .equipped_slot = slot->equipped_as});
+                    inv_items.emplace_back(
+                        item::serialize_item(*itm),
+                        entry.pos_x,
+                        entry.pos_y,
+                        entry.z_order);
                 }
             }
         }
-        player_gold = static_cast<int32_t>(inventory_->get_gold(entity));
+        player_gold = static_cast<int32_t>(inventory_->get_gold(player_entity));
+        inv_weight = inventory_->get_current_weight(player_entity);
+        inv_max_weight = inventory_->get_max_weight(player_entity);
     }
 
-    // Equipment data is now included in inventory items via equipped_slot field
+    // Build equipment slot map from player equipment_state
+    if (enter_player)
+    {
+        // Map equip_slot enum to lowercase protocol string names
+        static constexpr const char* slot_names[] = {
+            "head", "body", "arms", "pants", "boots", "weapon", "shield",
+            "twohand", "ring_left", "ring_right", "amulet", "cape", "angel", "fullbody"};
+
+        for (const auto& [slot, id] : enter_player->equipment.all_equipped())
+        {
+            auto idx = static_cast<size_t>(slot);
+            if (idx < std::size(slot_names))
+            {
+                equip_slots[slot_names[idx]] = id.value;
+            }
+        }
+    }
 
     // Build skills data for network message
     std::vector<network::skill_entry_msg> skills_list;
@@ -1288,7 +1294,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                                                                 .guild_name = enter_guild_name,
                                                                                 .guild_tag = enter_guild_tag,
                                                                                 .guild_rank = enter_guild_rank},
-                                       .inventory = inventory_list,
+                                       .inventory = {},  // inventory sent separately via v2 inventory_data
                                        .skills = skills_list,
                                        .spells = spells_list,
                                        .quests = quests_list,
@@ -1302,6 +1308,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     // Send combined enter game response with full game state
     auto response = network::make_enter_game_response(msg.seq, true, &game_state);
     conn->send(response);
+
+    // Send v2 inventory data with items, equipment slots, gold, and weight
+    {
+        auto inv_msg = network::make_inventory_data_v2(
+            inv_items, equip_slots, player_gold, inv_weight, inv_max_weight);
+        conn->send_raw(inv_msg.dump());
+    }
 
     // Send visible entities (players + alive/dead NPCs) at current position
     if (players_ && world_)
@@ -1548,8 +1561,9 @@ void auth_handlers::save_player_state(player_id pid)
     // Serialize skills
     auto skills_json = auth::serialize_skills(player->skills);
 
-    // Collect items from inventory, equipment, bank into item_rows
+    // Collect items from inventory, bank into item_rows
     std::vector<auth::item_row> item_rows;
+    std::vector<auth::equipment_row> equip_rows;
     int32_t player_gold = 0;
 
     if (inventory_)
@@ -1560,84 +1574,88 @@ void auth_handlers::save_player_state(player_id pid)
         auto* inv = inventory_->get_inventory(entity);
         if (inv)
         {
-            for (int16_t i = 0; i < inv->capacity(); ++i)
+            for (const auto& entry : inv->items())
             {
-                const auto* slot = inv->get_slot(i);
-                if (slot && !slot->is_empty())
+                if (auto* itm = item_->get_item(entry.item))
                 {
-                    if (auto* itm = item_->get_item(slot->item))
-                    {
-                        item_rows.push_back({
-                            .id = itm->id.value,
-                            .character_id = static_cast<int32_t>(player->character_id.value),
-                            .template_id = itm->template_id.value,
-                            .name = itm->name,
-                            .location = auth::item_location::inventory,
-                            .slot = i,
-                            .count = slot->count,
-                            .durability = itm->durability,
-                            .max_durability = itm->max_durability,
-                            .color = itm->color,
-                            .bound_to = itm->bound_to
-                                ? std::optional<int32_t>(static_cast<int32_t>(itm->bound_to->value))
-                                : std::nullopt,
-                            .upgrade_level = itm->attribute.upgrade_level,
-                            .main_enchant_type = static_cast<uint8_t>(itm->attribute.main_type),
-                            .main_enchant_value = itm->attribute.main_value,
-                            .sub_enchant_type = static_cast<uint8_t>(itm->attribute.sub_type),
-                            .sub_enchant_value = itm->attribute.sub_value,
-                            .custom_made = itm->attribute.custom_made,
-                            .custom_quality = itm->attribute.custom_quality,
-                            .pos_x = slot->pos_x,
-                            .pos_y = slot->pos_y,
-                            .equip_slot = slot->equipped_as.has_value()
-                                ? std::optional<int16_t>(static_cast<int16_t>(*slot->equipped_as))
-                                : std::nullopt,
-                        });
-                    }
+                    item_rows.push_back({
+                        .id = itm->id.value,
+                        .character_id = static_cast<int32_t>(player->character_id.value),
+                        .template_id = itm->template_id.value,
+                        .location = auth::item_location::inventory,
+                        .slot = 0, // Slot is meaningless in entry-based inventory
+                        .count = entry.count,
+                        .durability = itm->durability,
+                        .max_durability = itm->max_durability,
+                        .color = itm->color,
+                        .bound_to = itm->bound_to
+                            ? std::optional<int32_t>(static_cast<int32_t>(itm->bound_to->value))
+                            : std::nullopt,
+                        .upgrade_level = itm->attribute.upgrade_level,
+                        .main_enchant_type = static_cast<uint8_t>(itm->attribute.main_type),
+                        .main_enchant_value = itm->attribute.main_value,
+                        .sub_enchant_type = static_cast<uint8_t>(itm->attribute.sub_type),
+                        .sub_enchant_value = itm->attribute.sub_value,
+                        .custom_made = itm->attribute.custom_made,
+                        .custom_quality = itm->attribute.custom_quality,
+                        .pos_x = entry.pos_x,
+                        .pos_y = entry.pos_y,
+                        .z_order = entry.z_order,
+                    });
                 }
             }
-            LOG_DEBUG(bridge, "Saving inventory for player {} ({} items)", pid.value, inv->used_slots());
+            LOG_DEBUG(bridge, "Saving inventory for player {} ({} items)", pid.value, inv->count());
         }
 
-        // Equipment items are now stored as inventory items with equip_slot set
-        // (no separate equipment loop needed)
+        // Build equipment rows from equipment_state
+        for (const auto& [slot, iid] : player->equipment.all_equipped())
+        {
+            equip_rows.push_back({
+                .character_id = static_cast<int32_t>(player->character_id.value),
+                .slot = static_cast<int16_t>(slot),
+                .item_id = iid.value,
+            });
+        }
 
         // Gather bank items
         auto* bank = inventory_->get_bank(entity);
         if (bank)
         {
-            for (int16_t i = 0; i < bank->capacity(); ++i)
+            for (int16_t p = 0; p < bank->total_pages(); ++p)
             {
-                const auto* slot = bank->get_slot(i);
-                if (slot && !slot->is_empty())
+                for (int16_t s = 0; s < bank->slots_per_page(); ++s)
                 {
-                    if (auto* itm = item_->get_item(slot->item))
+                    auto slot_item = bank->get_slot(p, s);
+                    if (slot_item)
                     {
-                        item_rows.push_back({
-                            .id = itm->id.value,
-                            .character_id = static_cast<int32_t>(player->character_id.value),
-                            .template_id = itm->template_id.value,
-                            .name = itm->name,
-                            .location = auth::item_location::bank,
-                            .slot = i,
-                            .count = slot->count,
-                            .durability = itm->durability,
-                            .max_durability = itm->max_durability,
-                            .color = itm->color,
-                            .bound_to = itm->bound_to
-                                ? std::optional<int32_t>(static_cast<int32_t>(itm->bound_to->value))
-                                : std::nullopt,
-                            .upgrade_level = itm->attribute.upgrade_level,
-                            .main_enchant_type = static_cast<uint8_t>(itm->attribute.main_type),
-                            .main_enchant_value = itm->attribute.main_value,
-                            .sub_enchant_type = static_cast<uint8_t>(itm->attribute.sub_type),
-                            .sub_enchant_value = itm->attribute.sub_value,
-                            .custom_made = itm->attribute.custom_made,
-                            .custom_quality = itm->attribute.custom_quality,
-                            .pos_x = slot->pos_x,
-                            .pos_y = slot->pos_y,
-                        });
+                        if (auto* itm = item_->get_item(*slot_item))
+                        {
+                            // Store flat index for legacy compatibility + bank_page/bank_slot
+                            auto flat_slot = static_cast<int16_t>(p * bank->slots_per_page() + s);
+                            item_rows.push_back({
+                                .id = itm->id.value,
+                                .character_id = static_cast<int32_t>(player->character_id.value),
+                                .template_id = itm->template_id.value,
+                                .location = auth::item_location::bank,
+                                .slot = flat_slot,
+                                .count = itm->count,
+                                .durability = itm->durability,
+                                .max_durability = itm->max_durability,
+                                .color = itm->color,
+                                .bound_to = itm->bound_to
+                                    ? std::optional<int32_t>(static_cast<int32_t>(itm->bound_to->value))
+                                    : std::nullopt,
+                                .upgrade_level = itm->attribute.upgrade_level,
+                                .main_enchant_type = static_cast<uint8_t>(itm->attribute.main_type),
+                                .main_enchant_value = itm->attribute.main_value,
+                                .sub_enchant_type = static_cast<uint8_t>(itm->attribute.sub_type),
+                                .sub_enchant_value = itm->attribute.sub_value,
+                                .custom_made = itm->attribute.custom_made,
+                                .custom_quality = itm->attribute.custom_quality,
+                                .bank_page = p,
+                                .bank_slot = s,
+                            });
+                        }
                     }
                 }
             }
@@ -1648,8 +1666,9 @@ void auth_handlers::save_player_state(player_id pid)
         player_gold = static_cast<int32_t>(inventory_->get_gold(entity));
     }
 
-    // Save items to DB
+    // Save items and equipment to DB
     auth_->save_items(player->character_id, item_rows);
+    auth_->save_equipment(player->character_id, equip_rows);
 
     // Serialize magic (spell knowledge)
     std::string magic_json = "[]";
@@ -1762,13 +1781,9 @@ void auth_handlers::destroy_player_items(entity_id owner)
     auto* inv = inventory_->get_inventory(owner);
     if (inv)
     {
-        for (int16_t i = 0; i < inv->capacity(); ++i)
+        for (const auto& entry : inv->items())
         {
-            const auto* slot = inv->get_slot(i);
-            if (slot && !slot->is_empty())
-            {
-                item_->destroy_item(slot->item);
-            }
+            item_->destroy_item(entry.item);
         }
     }
 
@@ -1776,12 +1791,15 @@ void auth_handlers::destroy_player_items(entity_id owner)
     auto* bank = inventory_->get_bank(owner);
     if (bank)
     {
-        for (int16_t i = 0; i < bank->capacity(); ++i)
+        for (int16_t p = 0; p < bank->total_pages(); ++p)
         {
-            const auto* slot = bank->get_slot(i);
-            if (slot && !slot->is_empty())
+            for (int16_t s = 0; s < bank->slots_per_page(); ++s)
             {
-                item_->destroy_item(slot->item);
+                auto slot_item = bank->get_slot(p, s);
+                if (slot_item)
+                {
+                    item_->destroy_item(*slot_item);
+                }
             }
         }
     }

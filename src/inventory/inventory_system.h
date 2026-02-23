@@ -32,7 +32,8 @@ enum class inventory_result : uint8_t
 struct inventory_system_config
 {
     int32_t default_inventory_size{50};
-    int32_t default_bank_size{200};
+    int16_t bank_pages{default_bank_pages};
+    int16_t bank_slots_per_page{default_bank_slots_per_page};
     bool enable_weight_limit{false};
     int32_t base_weight_limit{1000};
 };
@@ -64,20 +65,25 @@ public:
     [[nodiscard]] auto get_bank(entity_id owner) -> bank_storage*;
 
     // Item operations
-    auto add_item(entity_id owner, item_id item, int16_t count = 1) -> inventory_result;
+    auto add_item(entity_id owner, item_id item, int16_t count = 1, int16_t pos_x = 0, int16_t pos_y = 0)
+        -> inventory_result;
     auto remove_item(entity_id owner, item_id item, int16_t count = 1) -> inventory_result;
-    auto move_item(entity_id owner, int16_t from_slot, int16_t to_slot) -> inventory_result;
-    auto swap_items(entity_id owner, int16_t slot_a, int16_t slot_b) -> inventory_result;
 
     // Bank operations
-    auto deposit_item(entity_id owner, int16_t inv_slot) -> inventory_result;
-    auto withdraw_item(entity_id owner, int16_t bank_slot) -> inventory_result;
+    auto deposit_item(entity_id owner, item_id item) -> inventory_result;
+    auto withdraw_item(entity_id owner, int16_t bank_page, int16_t bank_slot) -> inventory_result;
 
     // Queries
     [[nodiscard]] auto has_item(entity_id owner, item_id item, int16_t count = 1) const -> bool;
     [[nodiscard]] auto count_item(entity_id owner, item_id item) const -> int32_t;
     [[nodiscard]] auto free_slots(entity_id owner) const -> int16_t;
     [[nodiscard]] auto is_full(entity_id owner) const -> bool;
+
+    // Weight
+    void set_weight(entity_id owner, int32_t current, int32_t max);
+    [[nodiscard]] auto get_current_weight(entity_id owner) const -> int32_t;
+    [[nodiscard]] auto get_max_weight(entity_id owner) const -> int32_t;
+    [[nodiscard]] auto can_carry(entity_id owner, int32_t additional_weight) const -> bool;
 
     // Gold
     [[nodiscard]] auto get_gold(entity_id owner) const -> int64_t;
@@ -103,6 +109,14 @@ private:
     std::unordered_map<entity_id, inventory> inventories_;
     std::unordered_map<entity_id, bank_storage> banks_;
     std::unordered_map<entity_id, int64_t> gold_;
+
+    // Weight tracking (current, max) per entity
+    struct weight_info
+    {
+        int32_t current{0};
+        int32_t max{0};
+    };
+    std::unordered_map<entity_id, weight_info> weights_;
 
     // Trading state
     std::unordered_map<entity_id, trade_window> trade_windows_;

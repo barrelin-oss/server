@@ -80,6 +80,7 @@ set(REGISTRY_SOURCES
     src/registry/craft_recipe_registry.cpp
     src/registry/mining_registry.cpp
     src/registry/fishing_registry.cpp
+    src/registry/registry_validator.cpp
 )
 
 set(NETWORK_SOURCES
@@ -133,6 +134,8 @@ set(ITEM_SOURCES
     src/item/item_system.cpp
     src/item/item_attribute.cpp
     src/item/item_upgrade.cpp
+    src/item/item_serialization.cpp
+    src/item/item_ops.cpp
 )
 
 set(COMBAT_SOURCES
@@ -229,6 +232,7 @@ set(BRIDGE_SOURCES
     src/bridge/handlers/game_handlers_chat.cpp
     src/bridge/handlers/game_handlers_social.cpp
     src/bridge/handlers/game_handlers_equipment.cpp
+    src/bridge/handlers/game_handlers_trade.cpp
     src/bridge/handlers/game_handlers_crafting.cpp
     src/bridge/handlers/admin_web_handlers.cpp
     src/bridge/handlers/entity_builders.cpp
@@ -350,6 +354,7 @@ add_executable(hgserver_tests
     tests/test_combat.cpp
     tests/test_magic.cpp
     tests/test_inventory.cpp
+    tests/test_bank_storage.cpp
     tests/test_skill.cpp
     tests/test_quest.cpp
     tests/test_social.cpp
@@ -399,6 +404,10 @@ add_executable(hgserver_tests
     tests/test_item_audit.cpp
     tests/test_npc_special_ability.cpp
     tests/test_websocket_queue.cpp
+    tests/test_equipment_state.cpp
+    tests/test_item_serialization.cpp
+    tests/test_item_protocol_v2.cpp
+    tests/test_item_ops.cpp
 )
 
 target_link_libraries(hgserver_tests PRIVATE

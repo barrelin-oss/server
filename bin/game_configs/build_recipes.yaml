@@ -1,982 +1,1948 @@
 build_recipes:
   - result: SuperCoal
-    skill_req: 20
-    skill_limit: 0
-    success_rate: 30
+    skill_limit: 20
+    average_value: 6
+    max_skill: 30
+    attribute: 0
     ingredients:
-      - { item_id: 355, count: 1 }
-      - { item_id: 355, count: 1 }
-      - { item_id: 355, count: 1 }
+      - item_id: 355
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
   - result: UltraCoal
-    skill_req: 80
-    skill_limit: 0
-    success_rate: 90
+    skill_limit: 80
+    average_value: 6
+    max_skill: 90
+    attribute: 0
     ingredients:
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
   - result: IronIngot
-    skill_req: 20
-    skill_limit: 0
-    success_rate: 30
+    skill_limit: 20
+    average_value: 6
+    max_skill: 30
+    attribute: 0
     ingredients:
-      - { item_id: 357, count: 1 }
-      - { item_id: 357, count: 1 }
-      - { item_id: 357, count: 1 }
-      - { item_id: 501, count: 1 }
+      - item_id: 357
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
   - result: MithralIngot
-    skill_req: 85
-    skill_limit: 0
-    success_rate: 95
-    ingredients:
-      - { item_id: 508, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: GoldIngot
-    skill_req: 70
-    skill_limit: 0
-    success_rate: 95
-    ingredients:
-      - { item_id: 354, count: 1 }
-      - { item_id: 354, count: 1 }
-      - { item_id: 354, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: SilverIngot
-    skill_req: 40
-    skill_limit: 0
-    success_rate: 95
-    ingredients:
-      - { item_id: 356, count: 1 }
-      - { item_id: 356, count: 1 }
-      - { item_id: 356, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: BlondeIngot
-    skill_req: 40
-    skill_limit: 0
-    success_rate: 95
-    ingredients:
-      - { item_id: 507, count: 1 }
-      - { item_id: 507, count: 1 }
-      - { item_id: 507, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: Dagger
-    skill_req: 30
-    skill_limit: 26
-    success_rate: 40
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: ShortSword
-    skill_req: 40
-    skill_limit: 33
-    success_rate: 50
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: MainGauche
-    skill_req: 50
-    skill_limit: 41
-    success_rate: 60
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Gradius
-    skill_req: 60
-    skill_limit: 48
-    success_rate: 70
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: LongSword
-    skill_req: 40
-    skill_limit: 33
-    success_rate: 50
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Sabre
-    skill_req: 50
-    skill_limit: 41
-    success_rate: 60
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Scimitar
-    skill_req: 60
-    skill_limit: 48
-    success_rate: 70
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Falchion
-    skill_req: 70
-    skill_limit: 56
-    success_rate: 80
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Esterk
-    skill_req: 40
-    skill_limit: 33
-    success_rate: 50
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
-  - result: Rapier
-    skill_req: 50
-    skill_limit: 41
-    success_rate: 60
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
-  - result: BroadSword
-    skill_req: 50
-    skill_limit: 41
-    success_rate: 60
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: BastadSword
-    skill_req: 60
-    skill_limit: 48
-    success_rate: 70
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-      - { item_id: 357, count: 1 }
-  - result: Claymore
-    skill_req: 70
-    skill_limit: 56
-    success_rate: 80
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: GreatSword
-    skill_req: 80
-    skill_limit: 63
-    success_rate: 90
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: Flameberge
-    skill_req: 90
-    skill_limit: 71
-    success_rate: 100
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: GiantSword
-    skill_req: 95
-    skill_limit: 75
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-  - result: BlackShadowSword
-    skill_req: 99
-    skill_limit: 75
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 506, count: 1 }
-      - { item_id: 505, count: 1 }
-      - { item_id: 505, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 195, count: 1 }
-  - result: LightAxe
-    skill_req: 30
-    skill_limit: 26
-    success_rate: 40
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Tomahoc
-    skill_req: 40
-    skill_limit: 33
-    success_rate: 50
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: SexonAxe
-    skill_req: 50
-    skill_limit: 41
-    success_rate: 60
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: DoubleAxe
-    skill_req: 60
-    skill_limit: 48
-    success_rate: 70
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: WarAxe
-    skill_req: 70
-    skill_limit: 56
-    success_rate: 80
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: BattleAxe
-    skill_req: 90
-    skill_limit: 66
-    success_rate: 100
-    ingredients:
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: Hammer
-    skill_req: 90
-    skill_limit: 71
-    success_rate: 100
-    ingredients:
-      - { item_id: 503, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 502, count: 1 }
-  - result: BattleHammer
-    skill_req: 95
-    skill_limit: 72
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 500, count: 1 }
-  - result: BarbarianHammer
-    skill_req: 99
-    skill_limit: 73
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 351, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-  - result: Hauberk(M)
-    skill_req: 40
-    skill_limit: 33
-    success_rate: 50
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 207, count: 1 }
-  - result: Hauberk(W)
-    skill_req: 40
-    skill_limit: 33
-    success_rate: 50
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 207, count: 1 }
-  - result: ChainHose(M)
-    skill_req: 50
-    skill_limit: 41
-    success_rate: 60
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 207, count: 1 }
-  - result: ChainHose(W)
-    skill_req: 50
-    skill_limit: 41
-    success_rate: 60
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 207, count: 1 }
-  - result: ScaleMail(M)
-    skill_req: 60
-    skill_limit: 48
-    success_rate: 70
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 207, count: 1 }
-  - result: ScaleMail(W)
-    skill_req: 60
-    skill_limit: 48
-    success_rate: 70
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 207, count: 1 }
-  - result: ChainMail(M)
-    skill_req: 70
-    skill_limit: 56
-    success_rate: 80
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 207, count: 1 }
-  - result: ChainMail(W)
-    skill_req: 70
-    skill_limit: 56
-    success_rate: 80
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 207, count: 1 }
-  - result: PlateLeggings(M)
-    skill_req: 80
-    skill_limit: 63
-    success_rate: 90
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 198, count: 1 }
-  - result: PlateLeggings(W)
-    skill_req: 80
-    skill_limit: 63
-    success_rate: 90
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 198, count: 1 }
-  - result: PlateMail(M)
-    skill_req: 90
-    skill_limit: 71
-    success_rate: 100
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 198, count: 1 }
-  - result: PlateMail(W)
-    skill_req: 90
-    skill_limit: 71
-    success_rate: 100
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 198, count: 1 }
-  - result: WizardHauberk(M)
-    skill_req: 95
-    skill_limit: 71
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: WizardHauberk(W)
-    skill_req: 95
-    skill_limit: 71
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: KnightHauberk(M)
-    skill_req: 95
-    skill_limit: 80
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: KnightHauberk(W)
-    skill_req: 95
-    skill_limit: 80
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: KnightPlateLeg(M)
-    skill_req: 95
-    skill_limit: 80
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: KnightPlateLeg(W)
-    skill_req: 95
-    skill_limit: 80
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: KnightPlateMail(M)
-    skill_req: 99
-    skill_limit: 71
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: KnightPlateMail(W)
-    skill_req: 99
-    skill_limit: 71
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: Helm(M)
-    skill_req: 75
-    skill_limit: 60
-    success_rate: 85
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 200, count: 1 }
-  - result: Helm(W)
-    skill_req: 75
-    skill_limit: 60
-    success_rate: 85
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 200, count: 1 }
-  - result: FullHelm(M)
-    skill_req: 80
-    skill_limit: 65
-    success_rate: 90
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 200, count: 1 }
-  - result: FullHelm(W)
-    skill_req: 80
-    skill_limit: 65
-    success_rate: 90
-    ingredients:
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 200, count: 1 }
-  - result: KnightFullHelm(M)
-    skill_req: 95
-    skill_limit: 75
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: KnightFullHelm(W)
-    skill_req: 95
-    skill_limit: 75
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 553, count: 1 }
-  - result: Wings-Helm(M)
-    skill_req: 95
-    skill_limit: 75
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 200, count: 1 }
-  - result: Wings-Helm(W)
-    skill_req: 95
-    skill_limit: 75
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 200, count: 1 }
-  - result: Horned-Helm(M)
-    skill_req: 99
-    skill_limit: 80
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 200, count: 1 }
-  - result: Horned-Helm(W)
-    skill_req: 99
-    skill_limit: 80
-    success_rate: 100
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 504, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 200, count: 1 }
-  - result: LongSword+1
-    skill_req: 45
-    skill_limit: 43
-    success_rate: 80
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Sabre+1
-    skill_req: 55
-    skill_limit: 51
-    success_rate: 85
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Scimitar+1
-    skill_req: 65
-    skill_limit: 58
-    success_rate: 90
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Falchion+1
-    skill_req: 75
-    skill_limit: 66
-    success_rate: 95
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 355, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Esterk+1
-    skill_req: 45
-    skill_limit: 43
-    success_rate: 65
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Rapier+1
-    skill_req: 55
-    skill_limit: 51
-    success_rate: 75
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: BroadSword+1
-    skill_req: 55
-    skill_limit: 51
-    success_rate: 90
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: BastadSword+1
-    skill_req: 65
-    skill_limit: 58
-    success_rate: 95
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 357, count: 1 }
-  - result: Claymore+1
-    skill_req: 75
-    skill_limit: 66
-    success_rate: 96
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: GreatSword+1
-    skill_req: 84
-    skill_limit: 73
-    success_rate: 97
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 502, count: 1 }
-  - result: Flameberge+1
-    skill_req: 93
-    skill_limit: 81
-    success_rate: 100
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 502, count: 1 }
-  - result: LightAxe+1
-    skill_req: 40
-    skill_limit: 36
-    success_rate: 60
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: Tomahoc+1
-    skill_req: 45
-    skill_limit: 43
-    success_rate: 70
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: SexonAxe+1
-    skill_req: 55
-    skill_limit: 51
-    success_rate: 80
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 355, count: 1 }
-  - result: DoubleAxe+1
-    skill_req: 65
-    skill_limit: 58
-    success_rate: 90
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: WarAxe+1
-    skill_req: 80
-    skill_limit: 66
-    success_rate: 94
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: BattleAxe+1
-    skill_req: 95
-    skill_limit: 75
-    success_rate: 100
-    ingredients:
-      - { item_id: 505, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 502, count: 1 }
-  - result: LongSword+2
-    skill_req: 55
-    skill_limit: 53
-    success_rate: 80
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-  - result: Sabre+2
-    skill_req: 65
-    skill_limit: 61
-    success_rate: 85
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: Scimitar+2
-    skill_req: 75
-    skill_limit: 68
-    success_rate: 90
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: Falchion+2
-    skill_req: 85
-    skill_limit: 76
-    success_rate: 95
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: Esterk+2
-    skill_req: 55
-    skill_limit: 53
-    success_rate: 65
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: Rapier+2
-    skill_req: 65
-    skill_limit: 61
-    success_rate: 75
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-      - { item_id: 501, count: 1 }
-  - result: BroadSword+2
-    skill_req: 65
-    skill_limit: 61
-    success_rate: 80
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-  - result: BastadSword+2
-    skill_req: 75
-    skill_limit: 68
-    success_rate: 85
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-  - result: Claymore+2
-    skill_req: 85
-    skill_limit: 76
-    success_rate: 90
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-  - result: GreatSword+2
-    skill_req: 94
-    skill_limit: 83
-    success_rate: 95
-    ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 502, count: 1 }
-  - result: Flameberge+2
-    skill_req: 97
     skill_limit: 85
-    success_rate: 100
+    average_value: 6
+    max_skill: 95
+    attribute: 0
     ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: GoldIngot
+    skill_limit: 70
+    average_value: 6
+    max_skill: 95
+    attribute: 0
+    ingredients:
+      - item_id: 354
+        count: 1
+        value: 0
+      - item_id: 354
+        count: 1
+        value: 0
+      - item_id: 354
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: SilverIngot
+    skill_limit: 40
+    average_value: 6
+    max_skill: 95
+    attribute: 0
+    ingredients:
+      - item_id: 356
+        count: 1
+        value: 0
+      - item_id: 356
+        count: 1
+        value: 0
+      - item_id: 356
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: BlondeIngot
+    skill_limit: 40
+    average_value: 6
+    max_skill: 95
+    attribute: 0
+    ingredients:
+      - item_id: 507
+        count: 1
+        value: 0
+      - item_id: 507
+        count: 1
+        value: 0
+      - item_id: 507
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: Dagger
+    skill_limit: 30
+    average_value: 1
+    max_skill: 40
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: ShortSword
+    skill_limit: 40
+    average_value: 1
+    max_skill: 50
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: MainGauche
+    skill_limit: 50
+    average_value: 1
+    max_skill: 60
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Gradius
+    skill_limit: 60
+    average_value: 1
+    max_skill: 70
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: LongSword
+    skill_limit: 40
+    average_value: 1
+    max_skill: 50
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Sabre
+    skill_limit: 50
+    average_value: 1
+    max_skill: 60
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Scimitar
+    skill_limit: 60
+    average_value: 1
+    max_skill: 70
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Falchion
+    skill_limit: 70
+    average_value: 1
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Esterk
+    skill_limit: 40
+    average_value: 1
+    max_skill: 50
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+  - result: Rapier
+    skill_limit: 50
+    average_value: 1
+    max_skill: 60
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+  - result: BroadSword
+    skill_limit: 50
+    average_value: 1
+    max_skill: 60
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: BastadSword
+    skill_limit: 60
+    average_value: 1
+    max_skill: 70
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+  - result: Claymore
+    skill_limit: 70
+    average_value: 1
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: GreatSword
+    skill_limit: 80
+    average_value: 1
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: Flameberge
+    skill_limit: 90
+    average_value: 1
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: GiantSword
+    skill_limit: 95
+    average_value: 1
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+  - result: LightAxe
+    skill_limit: 30
+    average_value: 15
+    max_skill: 40
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Tomahoc
+    skill_limit: 40
+    average_value: 15
+    max_skill: 50
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: SexonAxe
+    skill_limit: 50
+    average_value: 15
+    max_skill: 60
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: DoubleAxe
+    skill_limit: 60
+    average_value: 15
+    max_skill: 70
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: WarAxe
+    skill_limit: 70
+    average_value: 15
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: BattleAxe
+    skill_limit: 90
+    average_value: 15
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: Hauberk(M)
+    skill_limit: 40
+    average_value: 7
+    max_skill: 50
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 207
+        count: 1
+        value: 0
+  - result: ChainHose(M)
+    skill_limit: 50
+    average_value: 8
+    max_skill: 60
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 207
+        count: 1
+        value: 0
+  - result: ScaleMail(M)
+    skill_limit: 60
+    average_value: 9
+    max_skill: 70
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 207
+        count: 1
+        value: 0
+  - result: ChainMail(M)
+    skill_limit: 70
+    average_value: 9
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 207
+        count: 1
+        value: 0
+  - result: PlateLeggings(M)
+    skill_limit: 80
+    average_value: 8
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 198
+        count: 1
+        value: 0
+  - result: PlateMail(M)
+    skill_limit: 90
+    average_value: 9
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 198
+        count: 1
+        value: 0
+  - result: WizardHauberk(M)
+    skill_limit: 95
+    average_value: 7
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 1
+        value: 0
+  - result: KnightHauberk(M)
+    skill_limit: 95
+    average_value: 7
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 1
+        value: 0
+  - result: KnightPlateLeg(M)
+    skill_limit: 95
+    average_value: 8
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 1
+        value: 0
+  - result: KnightPlateMail(M)
+    skill_limit: 99
+    average_value: 8
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 1
+        value: 0
+  - result: Helm(M)
+    skill_limit: 75
+    average_value: 21
+    max_skill: 85
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 200
+        count: 1
+        value: 0
+  - result: FullHelm(M)
+    skill_limit: 80
+    average_value: 21
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 200
+        count: 1
+        value: 0
+  - result: KnightFullHelm(M)
+    skill_limit: 95
+    average_value: 21
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 1
+        value: 0
+  - result: Wings-Helm(M)
+    skill_limit: 95
+    average_value: 21
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 200
+        count: 1
+        value: 0
+  - result: Horned-Helm(M)
+    skill_limit: 99
+    average_value: 21
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 200
+        count: 1
+        value: 0
+  - result: Hauberk(W)
+    skill_limit: 40
+    average_value: 0
+    max_skill: 11
+    attribute: 50
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 207
+        count: 1
+        value: 0
+  - result: ChainHose(W)
+    skill_limit: 50
+    average_value: 12
+    max_skill: 60
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 207
+        count: 1
+        value: 0
+  - result: ScaleMail(W)
+    skill_limit: 60
+    average_value: 13
+    max_skill: 70
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 207
+        count: 1
+        value: 0
+  - result: ChainMail(W)
+    skill_limit: 70
+    average_value: 13
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 207
+        count: 1
+        value: 0
+  - result: PlateLeggings(W)
+    skill_limit: 80
+    average_value: 12
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 198
+        count: 1
+        value: 0
+  - result: PlateMail(W)
+    skill_limit: 90
+    average_value: 13
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 198
+        count: 1
+        value: 0
+  - result: KnightHauberk(W)
+    skill_limit: 95
+    average_value: 11
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 1
+        value: 0
+  - result: KnightPlateLeg(W)
+    skill_limit: 95
+    average_value: 12
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 1
+        value: 0
+  - result: KnightPlateMail(W)
+    skill_limit: 99
+    average_value: 9
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 0
+        value: 1
+  - result: Helm(W)
+    skill_limit: 75
+    average_value: 21
+    max_skill: 85
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 200
+        count: 1
+        value: 0
+  - result: FullHelm(W)
+    skill_limit: 80
+    average_value: 21
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 200
+        count: 0
+        value: 1
+  - result: KnightFullHelm(W)
+    skill_limit: 95
+    average_value: 21
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 553
+        count: 1
+        value: 0
+  - result: Wings-Helm(W)
+    skill_limit: 95
+    average_value: 21
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 200
+        count: 0
+        value: 1
+  - result: Horned-Helm(W)
+    skill_limit: 99
+    average_value: 21
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 504
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 200
+        count: 0
+        value: 1
+  - result: LongSword+1
+    skill_limit: 45
+    average_value: 1
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Sabre+1
+    skill_limit: 55
+    average_value: 1
+    max_skill: 85
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Scimitar+1
+    skill_limit: 65
+    average_value: 1
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Falchion+1
+    skill_limit: 75
+    average_value: 1
+    max_skill: 95
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Esterk+1
+    skill_limit: 45
+    average_value: 1
+    max_skill: 65
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Rapier+1
+    skill_limit: 55
+    average_value: 1
+    max_skill: 75
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: BroadSword+1
+    skill_limit: 55
+    average_value: 1
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: BastadSword+1
+    skill_limit: 65
+    average_value: 1
+    max_skill: 95
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 357
+        count: 1
+        value: 0
+  - result: Claymore+1
+    skill_limit: 75
+    average_value: 1
+    max_skill: 96
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: GreatSword+1
+    skill_limit: 84
+    average_value: 1
+    max_skill: 97
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+  - result: Flameberge+1
+    skill_limit: 93
+    average_value: 1
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+  - result: LightAxe+1
+    skill_limit: 40
+    average_value: 15
+    max_skill: 60
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: Tomahoc+1
+    skill_limit: 45
+    average_value: 15
+    max_skill: 70
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: SexonAxe+1
+    skill_limit: 55
+    average_value: 15
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 355
+        count: 1
+        value: 0
+  - result: DoubleAxe+1
+    skill_limit: 65
+    average_value: 15
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: WarAxe+1
+    skill_limit: 80
+    average_value: 15
+    max_skill: 94
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 1
+        value: 0
+  - result: BattleAxe+1
+    skill_limit: 95
+    average_value: 15
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 505
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+  - result: LongSword+2
+    skill_limit: 55
+    average_value: 1
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+  - result: Sabre+2
+    skill_limit: 65
+    average_value: 1
+    max_skill: 85
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 0
+        value: 1
+  - result: Scimitar+2
+    skill_limit: 75
+    average_value: 1
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 0
+        value: 1
+  - result: Falchion+2
+    skill_limit: 85
+    average_value: 1
+    max_skill: 95
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 0
+        value: 1
+  - result: Esterk+2
+    skill_limit: 55
+    average_value: 1
+    max_skill: 65
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 0
+        value: 1
+  - result: Rapier+2
+    skill_limit: 65
+    average_value: 1
+    max_skill: 75
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+      - item_id: 501
+        count: 0
+        value: 1
+  - result: BroadSword+2
+    skill_limit: 65
+    average_value: 1
+    max_skill: 80
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+  - result: BastadSword+2
+    skill_limit: 75
+    average_value: 1
+    max_skill: 85
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+  - result: Claymore+2
+    skill_limit: 85
+    average_value: 1
+    max_skill: 90
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+  - result: GreatSword+2
+    skill_limit: 94
+    average_value: 1
+    max_skill: 95
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
+  - result: Flameberge+2
+    skill_limit: 97
+    average_value: 1
+    max_skill: 100
+    attribute: 0
+    ingredients:
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
   - result: LightAxe+2
-    skill_req: 50
-    skill_limit: 36
-    success_rate: 75
+    skill_limit: 50
+    average_value: 15
+    max_skill: 75
+    attribute: 0
     ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 502, count: 1 }
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 502
+        count: 1
+        value: 0
   - result: Tomahoc+2
-    skill_req: 55
-    skill_limit: 53
-    success_rate: 80
+    skill_limit: 55
+    average_value: 0
+    max_skill: 15
+    attribute: 80
     ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
   - result: SexonAxe+2
-    skill_req: 65
-    skill_limit: 61
-    success_rate: 85
+    skill_limit: 65
+    average_value: 0
+    max_skill: 15
+    attribute: 85
     ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
   - result: DoubleAxe+2
-    skill_req: 75
-    skill_limit: 68
-    success_rate: 90
+    skill_limit: 75
+    average_value: 15
+    max_skill: 90
+    attribute: 0
     ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
   - result: WarAxe+2
-    skill_req: 90
-    skill_limit: 76
-    success_rate: 95
+    skill_limit: 90
+    average_value: 15
+    max_skill: 95
+    attribute: 0
     ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
-      - { item_id: 500, count: 1 }
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0
   - result: BattleAxe+2
-    skill_req: 99
-    skill_limit: 88
-    success_rate: 100
+    skill_limit: 99
+    average_value: 15
+    max_skill: 100
+    attribute: 0
     ingredients:
-      - { item_id: 506, count: 1 }
-      - { item_id: 506, count: 1 }
-      - { item_id: 503, count: 1 }
-      - { item_id: 508, count: 1 }
-      - { item_id: 195, count: 1 }
-      - { item_id: 500, count: 1 }
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 506
+        count: 1
+        value: 0
+      - item_id: 503
+        count: 1
+        value: 0
+      - item_id: 508
+        count: 1
+        value: 0
+      - item_id: 195
+        count: 1
+        value: 0
+      - item_id: 500
+        count: 1
+        value: 0

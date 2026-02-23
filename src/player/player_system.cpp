@@ -6,7 +6,6 @@
 #include "core/subsystem.h"
 #include "item/item_system.h"
 #include "item/item_effect.h"
-#include "inventory/inventory_system.h"
 #include "registry/item_registry.h"
 #include "effect/effect_system.h"
 #include "world/world_subsystem.h"
@@ -385,28 +384,13 @@ void player_system::clear_all_status(player_id id)
     p->status = player_status::none;
 }
 
-void player_system::equip_item(player_id id, int16_t inv_slot_index, equip_slot slot)
+void player_system::equip_item(player_id id, item_id item, equip_slot slot)
 {
     auto* p = get_player(id);
     if (!p)
         return;
 
-    // Set the equipped_as flag on the inventory slot
-    auto* inv_sys = subsystems().get<inventory::inventory_system>();
-    if (inv_sys)
-    {
-        auto* inv = inv_sys->get_inventory(entity_id{id.value});
-        if (inv)
-        {
-            auto* inv_slot = inv->get_slot(inv_slot_index);
-            if (inv_slot)
-            {
-                inv_slot->equipped_as = static_cast<uint8_t>(slot);
-            }
-        }
-    }
-
-    rebuild_equipment_cache(id);
+    p->equipment.equip(slot, item);
     recalculate_equipment_modifiers(id);
     recalculate_appearance(id);
 }
@@ -417,79 +401,22 @@ auto player_system::unequip_item(player_id id, equip_slot slot) -> item_id
     if (!p)
         return item_id{};
 
-    // Get the inv_index from the equipment cache
-    const auto& equipped = p->equipment.get(slot);
-    if (equipped.is_empty())
+    auto unequipped = p->equipment.unequip(slot);
+    if (!unequipped.has_value())
         return item_id{};
 
-    auto result_id = equipped.id;
-    auto inv_idx = equipped.inv_index;
-
-    // Clear the equipped_as flag on the inventory slot
-    auto* inv_sys = subsystems().get<inventory::inventory_system>();
-    if (inv_sys && inv_idx >= 0)
-    {
-        auto* inv = inv_sys->get_inventory(entity_id{id.value});
-        if (inv)
-        {
-            auto* inv_slot = inv->get_slot(inv_idx);
-            if (inv_slot)
-            {
-                inv_slot->equipped_as.reset();
-            }
-        }
-    }
-
-    rebuild_equipment_cache(id);
     recalculate_equipment_modifiers(id);
     recalculate_appearance(id);
-    return result_id;
+    return *unequipped;
 }
 
 void player_system::rebuild_equipment_cache(player_id id)
 {
-    auto* p = get_player(id);
-    if (!p)
-        return;
-
-    // Clear existing cache
-    p->equipment.clear_all();
-
-    auto* inv_sys = subsystems().get<inventory::inventory_system>();
-    if (!inv_sys)
-        return;
-
-    auto* inv = inv_sys->get_inventory(entity_id{id.value});
-    if (!inv)
-        return;
-
-    auto* item_sys = subsystems().get<item::item_system>();
-
-    for (int16_t i = 0; i < inv->capacity(); ++i)
-    {
-        const auto* slot = inv->get_slot(i);
-        if (!slot || slot->is_empty() || !slot->equipped_as.has_value())
-            continue;
-
-        auto eq_slot = static_cast<equip_slot>(*slot->equipped_as);
-        if (static_cast<size_t>(eq_slot) >= equip_slot_count)
-            continue;
-
-        auto& eq = p->equipment.get(eq_slot);
-        eq.id = slot->item;
-        eq.inv_index = i;
-
-        // Look up template and durability from item_system
-        if (item_sys)
-        {
-            if (auto* itm = item_sys->get_item(slot->item))
-            {
-                eq.template_id = itm->template_id;
-                eq.durability = static_cast<uint16_t>(itm->durability);
-                eq.max_durability = static_cast<uint16_t>(itm->max_durability);
-            }
-        }
-    }
+    // Equipment state is now maintained directly by equip_item/unequip_item
+    // and populated from DB during load. This function just recalculates
+    // derived stats and appearance from the current equipment_state.
+    recalculate_equipment_modifiers(id);
+    recalculate_appearance(id);
 }
 
 void player_system::recalculate_equipment_modifiers(player_id id)
@@ -514,34 +441,30 @@ void player_system::recalculate_equipment_modifiers(player_id id)
     item::special_ability_type found_ability = item::special_ability_type::none;
 
     // Iterate through all equipment slots and apply their effects
-    for (size_t i = 0; i < equip_slot_count; ++i)
+    for (auto [slot, eq_item_id] : p->equipment.all_equipped())
     {
-        const auto& equipped = p->equipment.slots[i];
-        if (equipped.is_empty())
-            continue;
-
         // Get the item from the item system
-        auto* equipped_item = item_sys->get_item(equipped.id);
-        if (!equipped_item)
+        auto* eq_item = item_sys->get_item(eq_item_id);
+        if (!eq_item)
             continue;
 
         // Skip broken items
-        if (equipped_item->is_broken())
+        if (eq_item->is_broken())
             continue;
 
         // Apply item base stats and effects to equipment modifiers only
-        item::apply_item_base_stats(*equipped_item, p->equipment_modifiers);
+        item::apply_item_base_stats(*eq_item, p->equipment_modifiers);
 
         // Apply per-instance attribute bonuses (upgrade level, enchantments)
-        item::apply_item_attribute(*equipped_item, p->equipment_modifiers);
+        item::apply_item_attribute(*eq_item, p->equipment_modifiers);
 
         // Check for special ability (first one found wins)
         if (found_ability == item::special_ability_type::none && item_reg)
         {
-            auto* tmpl = item_reg->get(equipped_item->template_id);
-            if (tmpl && tmpl->special_ability != item::special_ability_type::none)
+            auto* tmpl = item_reg->get(eq_item->template_id);
+            if (tmpl && tmpl->special_effect != 0)
             {
-                found_ability = tmpl->special_ability;
+                found_ability = static_cast<item::special_ability_type>(tmpl->special_effect);
             }
         }
     }
@@ -575,11 +498,11 @@ void player_system::recalculate_appearance(player_id id)
     // Helper: extract visual from an equipped slot
     auto extract_visual = [&](equip_slot slot) -> equipment_visual
     {
-        const auto& equipped = p->equipment.get(slot);
-        if (equipped.is_empty())
+        auto equipped = p->equipment.get_equipped(slot);
+        if (!equipped.has_value())
             return {};
 
-        auto* inst = item_sys->get_item(equipped.id);
+        auto* inst = item_sys->get_item(*equipped);
         if (!inst)
             return {};
 
@@ -600,10 +523,10 @@ void player_system::recalculate_appearance(player_id id)
     p->appearance.cape = extract_visual(equip_slot::cape);
 
     // Weapon speed from template
-    const auto& weapon_equipped = p->equipment.get(equip_slot::weapon);
-    if (!weapon_equipped.is_empty())
+    auto weapon_equipped = p->equipment.get_equipped(equip_slot::weapon);
+    if (weapon_equipped.has_value())
     {
-        if (auto* inst = item_sys->get_item(weapon_equipped.id))
+        if (auto* inst = item_sys->get_item(*weapon_equipped))
         {
             if (auto* tmpl = item_reg->get(inst->template_id))
             {

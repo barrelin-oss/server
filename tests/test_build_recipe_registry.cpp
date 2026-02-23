@@ -37,9 +37,9 @@ protected:
         return path;
     }
 
-    void load_items(const std::string& content)
+    void load_items(const std::string& yaml_content)
     {
-        auto path = write_file("items.cfg", content);
+        auto path = write_file("items.yaml", yaml_content);
         items_.load_from_file(path);
     }
 
@@ -51,7 +51,7 @@ protected:
 TEST_F(build_recipe_registry_test, load_valid_yaml)
 {
     // Load item so name resolution works
-    load_items("1\tSword\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n");
+    load_items("items:\n  - {id: 1, name: Sword, type: 13, equip_pos: 8, weight: 100, price: 500}\n");
 
     auto path = write_file("recipes.yaml", R"(
 build_recipes:
@@ -72,8 +72,9 @@ build_recipes:
 
 TEST_F(build_recipe_registry_test, auto_assigns_sequential_ids)
 {
-    load_items("1\tSword\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n"
-               "2\tShield\t14\t7\t50\t300\t5\t0\t0\t0\t15\t8\t0\t0\t0\n");
+    load_items("items:\n"
+               "  - {id: 1, name: Sword, type: 13, equip_pos: 8, weight: 100, price: 500}\n"
+               "  - {id: 2, name: Shield, type: 14, equip_pos: 7, weight: 50, price: 300}\n");
 
     auto path = write_file("recipes.yaml", R"(
 build_recipes:
@@ -102,7 +103,7 @@ build_recipes:
 
 TEST_F(build_recipe_registry_test, parses_all_fields)
 {
-    load_items("42\tTestBlade\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n");
+    load_items("items:\n  - {id: 42, name: TestBlade, type: 13, equip_pos: 8, weight: 100, price: 500}\n");
 
     auto path = write_file("recipes.yaml", R"(
 build_recipes:
@@ -132,7 +133,7 @@ build_recipes:
 
 TEST_F(build_recipe_registry_test, resolves_item_name_to_template_id)
 {
-    load_items("99\tMagicAxe\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n");
+    load_items("items:\n  - {id: 99, name: MagicAxe, type: 13, equip_pos: 8, weight: 100, price: 500}\n");
 
     auto path = write_file("recipes.yaml", R"(
 build_recipes:
@@ -168,8 +169,9 @@ build_recipes:
 
 TEST_F(build_recipe_registry_test, find_by_result_name)
 {
-    load_items("1\tSword\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n"
-               "2\tShield\t14\t7\t50\t300\t5\t0\t0\t0\t15\t8\t0\t0\t0\n");
+    load_items("items:\n"
+               "  - {id: 1, name: Sword, type: 13, equip_pos: 8, weight: 100, price: 500}\n"
+               "  - {id: 2, name: Shield, type: 14, equip_pos: 7, weight: 50, price: 300}\n");
 
     auto path = write_file("recipes.yaml", R"(
 build_recipes:

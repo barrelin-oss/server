@@ -263,10 +263,14 @@ auto world_subsystem::get_all_entities_in_range(map_id mid,
 }
 
 // Ground item management
-void world_subsystem::add_ground_item(map_id map, const position& pos, item_id item)
+void world_subsystem::add_ground_item(map_id map, const position& pos, item_id item, int32_t lifetime_ms)
 {
     map_position_key key{map, pos};
-    ground_items_[key].push_back(ground_item_entry{.item = item, .drop_time = std::chrono::steady_clock::now()});
+    ground_items_[key].push_back(ground_item_entry{
+        .item = item,
+        .drop_time = std::chrono::steady_clock::now(),
+        .lifetime_ms = lifetime_ms,
+    });
 
     // Update dynamic tile item count
     auto* m = get_map(map);
@@ -370,7 +374,11 @@ auto world_subsystem::remove_expired_ground_items(std::chrono::seconds max_age)
 
         for (auto eit = entries.begin(); eit != entries.end();)
         {
-            if (now - eit->drop_time >= max_age)
+            auto age_limit = eit->lifetime_ms > 0
+                ? std::chrono::milliseconds(eit->lifetime_ms)
+                : std::chrono::duration_cast<std::chrono::milliseconds>(max_age);
+
+            if (now - eit->drop_time >= age_limit)
             {
                 expired.emplace_back(map, pos, eit->item);
                 eit = entries.erase(eit);

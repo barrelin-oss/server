@@ -52,11 +52,11 @@ TEST_F(registry_test, item_registry_lifecycle)
 
 TEST_F(registry_test, item_registry_load)
 {
-    auto path = create_test_file("items.cfg",
-                                 "; Item config\n"
-                                 "1\tSword\t13\t8\t100\t500\t10\t1\t6\t2\t0\t10\t5\t0\t0\n"
-                                 "2\tShield\t14\t7\t50\t300\t5\t0\t0\t0\t15\t8\t0\t0\t0\n"
-                                 "3\tPotion\t5\t0\t5\t25\t0\t0\t0\t0\t0\t0\t0\t0\t0\n");
+    auto path = create_test_file("items.yaml",
+                                 "items:\n"
+                                 "  - {id: 1, name: Sword, type: 13, equip_pos: 8, weight: 100, price: 500}\n"
+                                 "  - {id: 2, name: Shield, type: 14, equip_pos: 7, weight: 50, price: 300}\n"
+                                 "  - {id: 3, name: Potion, type: 5, equip_pos: 0, weight: 5, price: 25}\n");
 
     item_registry registry;
     registry.initialize();
@@ -69,7 +69,9 @@ TEST_F(registry_test, item_registry_load)
 
 TEST_F(registry_test, item_registry_get_by_id)
 {
-    auto path = create_test_file("items.cfg", "100\tTestSword\t13\t8\t100\t500\t10\t2\t8\t3\t0\t15\t10\t5\t0\n");
+    auto path = create_test_file("items.yaml",
+                                 "items:\n"
+                                 "  - {id: 100, name: TestSword, type: 13, equip_pos: 8, weight: 100, price: 500}\n");
 
     item_registry registry;
     registry.initialize();
@@ -88,7 +90,9 @@ TEST_F(registry_test, item_registry_get_by_id)
 
 TEST_F(registry_test, item_registry_find_by_name)
 {
-    auto path = create_test_file("items.cfg", "1\tMagicStaff\t13\t8\t50\t1000\t20\t1\t4\t1\t0\t0\t0\t15\t10\n");
+    auto path = create_test_file("items.yaml",
+                                 "items:\n"
+                                 "  - {id: 1, name: MagicStaff, type: 13, equip_pos: 8, weight: 50, price: 1000}\n");
 
     item_registry registry;
     registry.initialize();
@@ -109,10 +113,11 @@ TEST_F(registry_test, item_registry_find_by_name)
 
 TEST_F(registry_test, item_registry_duplicate_id)
 {
-    auto path = create_test_file("items.cfg",
-                                 "1\tItem1\t13\t8\t10\t100\t0\n"
-                                 "1\tItem2\t13\t8\t20\t200\t0\n" // Duplicate ID
-                                 "2\tItem3\t13\t8\t30\t300\t0\n");
+    auto path = create_test_file("items.yaml",
+                                 "items:\n"
+                                 "  - {id: 1, name: Item1, type: 13, equip_pos: 8, weight: 10, price: 100}\n"
+                                 "  - {id: 1, name: Item2, type: 13, equip_pos: 8, weight: 20, price: 200}\n"
+                                 "  - {id: 2, name: Item3, type: 13, equip_pos: 8, weight: 30, price: 300}\n");
 
     item_registry registry;
     registry.initialize();

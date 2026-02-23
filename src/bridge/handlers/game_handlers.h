@@ -13,6 +13,7 @@
 
 #include <optional>
 #include <functional>
+#include <unordered_map>
 #include <vector>
 #include <string>
 
@@ -126,6 +127,11 @@ namespace hb::audit
 class item_audit_system;
 }
 
+namespace hb::item_ops
+{
+struct trade_result;
+}
+
 namespace hb::bridge
 {
 
@@ -221,16 +227,26 @@ private:
     void handle_player_pickup(connection_id conn_id, const network::json_message& msg);
     void handle_player_interact(connection_id conn_id, const network::json_message& msg);
 
-    // NPC interaction - shops
+    // NPC interaction - shops (v1: quote/confirm cycle)
     void handle_shop_buy(connection_id conn_id, const network::json_message& msg);
     void handle_shop_sell(connection_id conn_id, const network::json_message& msg);
     void handle_shop_sell_confirm(connection_id conn_id, const network::json_message& msg);
     void handle_shop_repair(connection_id conn_id, const network::json_message& msg);
     void handle_shop_repair_confirm(connection_id conn_id, const network::json_message& msg);
 
-    // NPC interaction - banking
+    // NPC interaction - shops (v2: single-step via item_ops)
+    void handle_shop_buy_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_shop_sell_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_shop_repair_v2(connection_id conn_id, const network::json_message& msg);
+
+    // NPC interaction - banking (v1: uses npc_entity_id validation)
     void handle_bank_deposit(connection_id conn_id, const network::json_message& msg);
     void handle_bank_withdraw(connection_id conn_id, const network::json_message& msg);
+
+    // NPC interaction - banking (v2: proximity-based via item_ops)
+    void handle_bank_deposit_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_bank_withdraw_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_bank_reposition(connection_id conn_id, const network::json_message& msg);
 
     // NPC interaction - dialog
     void handle_dialog_choice(connection_id conn_id, const network::json_message& msg);
@@ -302,6 +318,22 @@ private:
 
     // Death/Respawn
     void handle_respawn_request(connection_id conn_id, const network::json_message& msg);
+
+    // Trading (v2: 3-phase offer -> lock -> confirm)
+    void handle_trade_request_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_trade_accept_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_trade_decline_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_trade_add_item_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_trade_remove_item_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_trade_set_gold_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_trade_lock_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_trade_confirm_v2(connection_id conn_id, const network::json_message& msg);
+    void handle_trade_cancel_v2(connection_id conn_id, const network::json_message& msg);
+
+    // Trade helpers
+    void send_trade_update_v2(entity_id player_a, entity_id player_b);
+    void send_trade_complete_updates(entity_id player_a, entity_id player_b,
+                                     const item_ops::trade_result& result);
 
     // NPC interaction helper - validates NPC exists, is in range, and is friendly
     struct npc_interaction_check
@@ -457,6 +489,9 @@ private:
     audit::item_audit_system* audit_{nullptr};
     config_system* config_{nullptr};
     save_player_callback save_callback_;
+
+    // Pending trade invitations: target_entity_id -> requester_entity_id
+    std::unordered_map<uint32_t, uint32_t> pending_trade_invites_;
 };
 
 } // namespace hb::bridge

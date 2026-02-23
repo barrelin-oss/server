@@ -133,6 +133,10 @@ public:
     void save_items(player_id char_id, const std::vector<item_row>& items);
     [[nodiscard]] auto get_max_item_id() -> uint32_t;
 
+    // Equipment persistence (character_equipment table)
+    [[nodiscard]] auto load_equipment(player_id char_id) -> std::vector<equipment_row>;
+    void save_equipment(player_id char_id, const std::vector<equipment_row>& equipment);
+
     // Ban management
     [[nodiscard]] auto ban_account(account_id id,
                                    std::string_view reason,

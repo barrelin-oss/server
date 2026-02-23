@@ -180,10 +180,10 @@ auto build_equip_visual(player::equip_slot slot,
     }
 
     // Look up item name and rarity
-    const auto& equipped = equip.get(slot);
-    if (!equipped.is_empty() && items && item_reg)
+    auto equipped = equip.get_equipped(slot);
+    if (equipped.has_value() && items && item_reg)
     {
-        if (auto* inst = items->get_item(equipped.id))
+        if (auto* inst = items->get_item(*equipped))
         {
             v.name = inst->name;
             v.rarity = std::string(rarity_to_string(inst->rarity));
@@ -485,8 +485,8 @@ void send_visible_ground_items(network::ws_connection* conn,
                 if (auto* tmpl = item_reg->get(itm->template_id))
                 {
                     display_name = network::get_display_name(tmpl->name, itm->attribute);
-                    gi_sprite = tmpl->ground_sprite;
-                    gi_frame = tmpl->ground_sprite_frame;
+                    gi_sprite = tmpl->sprite;
+                    gi_frame = tmpl->sprite_frame;
                     gi_color = tmpl->item_color;
                 }
             }

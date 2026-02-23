@@ -36,6 +36,9 @@ public:
     // Stats
     [[nodiscard]] auto count() const -> size_t { return shops_.size(); }
 
+    // Iteration
+    [[nodiscard]] auto shops() const -> const std::unordered_map<std::string, npc::shop_config>& { return shops_; }
+
 private:
     std::unordered_map<std::string, npc::shop_config> shops_;
 };

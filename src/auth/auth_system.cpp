@@ -1108,11 +1108,12 @@ auto auth_system::load_items(player_id char_id) -> std::vector<item_row>
     }
 
     auto db_result = database_->execute_params(
-        R"(SELECT id, character_id, template_id, name, location, slot, count,
+        R"(SELECT id, character_id, template_id, location, slot, count,
                   durability, max_durability, color, bound_to,
                   upgrade_level, main_enchant_type, main_enchant_value,
                   sub_enchant_type, sub_enchant_value,
-                  custom_made, custom_quality, pos_x, pos_y, equip_slot
+                  custom_made, custom_quality, pos_x, pos_y, z_order,
+                  bank_page, bank_slot
            FROM items WHERE character_id = $1
            ORDER BY location, slot)",
         static_cast<int>(char_id.value));
@@ -1132,7 +1133,6 @@ auto auth_system::load_items(player_id char_id) -> std::vector<item_row>
         ir.id = static_cast<uint32_t>(row["id"].as<int>());
         ir.character_id = row["character_id"].as<int>();
         ir.template_id = static_cast<uint32_t>(row["template_id"].as<int>());
-        ir.name = row["name"].as<std::string>();
         ir.location = static_cast<item_location>(row["location"].as<int>());
         ir.slot = static_cast<int16_t>(row["slot"].as<int>());
         ir.count = static_cast<int16_t>(row["count"].as<int>());
@@ -1150,9 +1150,13 @@ auto auth_system::load_items(player_id char_id) -> std::vector<item_row>
         ir.custom_quality = static_cast<int8_t>(row["custom_quality"].as<int>());
         ir.pos_x = static_cast<int16_t>(row["pos_x"].as<int>());
         ir.pos_y = static_cast<int16_t>(row["pos_y"].as<int>());
-        ir.equip_slot = row["equip_slot"].is_null()
+        ir.z_order = row["z_order"].as<int>();
+        ir.bank_page = row["bank_page"].is_null()
             ? std::nullopt
-            : std::optional<int16_t>(static_cast<int16_t>(row["equip_slot"].as<int>()));
+            : std::optional<int16_t>(static_cast<int16_t>(row["bank_page"].as<int>()));
+        ir.bank_slot = row["bank_slot"].is_null()
+            ? std::nullopt
+            : std::optional<int16_t>(static_cast<int16_t>(row["bank_slot"].as<int>()));
 
         rows.push_back(std::move(ir));
     }
@@ -1189,17 +1193,17 @@ void auth_system::save_items(player_id char_id, const std::vector<item_row>& ite
     for (const auto& ir : items)
     {
         auto ins_result = database_->execute_params(
-            R"(INSERT INTO items (id, character_id, template_id, name, location, slot, count,
+            R"(INSERT INTO items (id, character_id, template_id, location, slot, count,
                                   durability, max_durability, color, bound_to,
                                   upgrade_level, main_enchant_type, main_enchant_value,
                                   sub_enchant_type, sub_enchant_value,
-                                  custom_made, custom_quality, pos_x, pos_y, equip_slot)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-                       $12, $13, $14, $15, $16, $17, $18, $19, $20, $21))",
+                                  custom_made, custom_quality, pos_x, pos_y, z_order,
+                                  bank_page, bank_slot)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                       $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22))",
             static_cast<int>(ir.id),
             static_cast<int>(ir.character_id),
             static_cast<int>(ir.template_id),
-            ir.name,
             static_cast<int>(ir.location),
             static_cast<int>(ir.slot),
             static_cast<int>(ir.count),
@@ -1216,7 +1220,9 @@ void auth_system::save_items(player_id char_id, const std::vector<item_row>& ite
             static_cast<int>(ir.custom_quality),
             static_cast<int>(ir.pos_x),
             static_cast<int>(ir.pos_y),
-            ir.equip_slot.has_value() ? std::optional<int>(*ir.equip_slot) : std::optional<int>{});
+            static_cast<int>(ir.z_order),
+            ir.bank_page.has_value() ? std::optional<int>(*ir.bank_page) : std::optional<int>{},
+            ir.bank_slot.has_value() ? std::optional<int>(*ir.bank_slot) : std::optional<int>{});
 
         if (ins_result.is_err())
         {
@@ -1248,6 +1254,76 @@ auto auth_system::get_max_item_id() -> uint32_t
     }
 
     return static_cast<uint32_t>(db_result.value()[0]["max_id"].as<int>());
+}
+
+auto auth_system::load_equipment(player_id char_id) -> std::vector<equipment_row>
+{
+    if (!database_)
+    {
+        return {};
+    }
+
+    auto db_result = database_->execute_params(
+        "SELECT character_id, slot, item_id FROM character_equipment WHERE character_id = $1",
+        static_cast<int>(char_id.value));
+
+    if (db_result.is_err())
+    {
+        LOG_ERROR(auth, "Failed to load equipment for character {}: {}", char_id.value, db_result.error());
+        return {};
+    }
+
+    std::vector<equipment_row> rows;
+    rows.reserve(db_result.value().size());
+
+    for (const auto& row : db_result.value())
+    {
+        equipment_row er;
+        er.character_id = row["character_id"].as<int>();
+        er.slot = static_cast<int16_t>(row["slot"].as<int>());
+        er.item_id = static_cast<uint32_t>(row["item_id"].as<int>());
+        rows.push_back(er);
+    }
+
+    LOG_DEBUG(auth, "Loaded {} equipment entries for character {}", rows.size(), char_id.value);
+    return rows;
+}
+
+void auth_system::save_equipment(player_id char_id, const std::vector<equipment_row>& equipment)
+{
+    if (!database_)
+    {
+        return;
+    }
+
+    // Delete existing equipment
+    auto del_result = database_->execute_params(
+        "DELETE FROM character_equipment WHERE character_id = $1",
+        static_cast<int>(char_id.value));
+
+    if (del_result.is_err())
+    {
+        LOG_ERROR(auth, "Failed to delete equipment for character {}: {}", char_id.value, del_result.error());
+        return;
+    }
+
+    // Insert current equipment
+    for (const auto& er : equipment)
+    {
+        auto ins_result = database_->execute_params(
+            "INSERT INTO character_equipment (character_id, slot, item_id) VALUES ($1, $2, $3)",
+            static_cast<int>(er.character_id),
+            static_cast<int>(er.slot),
+            static_cast<int>(er.item_id));
+
+        if (ins_result.is_err())
+        {
+            LOG_ERROR(auth, "Failed to insert equipment slot {} for character {}: {}",
+                      er.slot, char_id.value, ins_result.error());
+        }
+    }
+
+    LOG_DEBUG(auth, "Saved {} equipment entries for character {}", equipment.size(), char_id.value);
 }
 
 auto auth_system::ban_account(account_id id,

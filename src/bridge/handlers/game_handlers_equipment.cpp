@@ -8,6 +8,8 @@
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
 #include "item/item_effect.h"
+#include "item/item_ops.h"
+#include "item/item_serialization.h"
 #include "item/item_upgrade.h"
 #include "item/special_ability.h"
 #include "registry/item_registry.h"
@@ -40,6 +42,60 @@ auto dice_roll(int count, int sides, int bonus) -> int32_t
     return total;
 }
 
+// Lowercase slot names matching the v2 protocol.
+// Indexed by equip_slot enum value.
+constexpr const char* slot_names[] = {
+    "head", "body", "arms", "pants", "boots", "weapon", "shield",
+    "twohand", "ring_left", "ring_right", "amulet", "cape", "angel", "fullbody"};
+
+auto slot_to_name(player::equip_slot slot) -> std::string_view
+{
+    auto idx = static_cast<size_t>(slot);
+    if (idx < std::size(slot_names))
+    {
+        return slot_names[idx];
+    }
+    return "unknown";
+}
+
+auto parse_equip_slot(std::string_view name) -> std::optional<player::equip_slot>
+{
+    for (size_t i = 0; i < std::size(slot_names); ++i)
+    {
+        if (name == slot_names[i])
+        {
+            return static_cast<player::equip_slot>(i);
+        }
+    }
+    return std::nullopt;
+}
+
+// Send a v2 inventory_item_update for the given item to the connection.
+void send_item_update_v2(network::ws_connection* conn,
+                         item_id iid,
+                         item::item_system* items,
+                         inventory::inventory_system* inv,
+                         entity_id owner)
+{
+    if (!conn || !items || !inv)
+        return;
+
+    auto* itm = items->get_item(iid);
+    if (!itm)
+        return;
+
+    auto* inv_data = inv->get_inventory(owner);
+    if (!inv_data)
+        return;
+
+    auto* entry = inv_data->get_item(iid);
+    if (!entry)
+        return;
+
+    auto msg = network::make_inventory_item_update_v2(*itm, entry->pos_x, entry->pos_y, entry->z_order);
+    conn->send_raw(msg.dump());
+}
+
 } // namespace
 
 void game_handlers::handle_player_equip(connection_id conn_id, const network::json_message& msg)
@@ -54,14 +110,46 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
         return;
     }
 
-    auto data_result = network::player_equip_request_data::from_json(msg.data);
-    if (data_result.is_err())
+    // Parse request — support both v1 (player_equip_request) and v2 (equip_request) formats
+    item_id target_item_id{};
+    player::equip_slot target_slot{};
+    std::string slot_name;
+
+    if (msg.type == network::json_message_type::equip_request)
     {
-        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
-        return;
+        // v2 format: item_id + string slot name
+        auto data_result = network::equip_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        auto& data = data_result.value();
+        target_item_id = item_id{static_cast<uint32_t>(data.item_id)};
+        slot_name = data.slot;
+        auto slot_opt = parse_equip_slot(data.slot);
+        if (!slot_opt)
+        {
+            conn->send_raw(network::make_equip_result(false, data.slot).dump());
+            return;
+        }
+        target_slot = *slot_opt;
+    }
+    else
+    {
+        // v1 format: item_id + numeric target_slot
+        auto data_result = network::player_equip_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        auto& data = data_result.value();
+        target_item_id = item_id{data.item_id};
+        target_slot = static_cast<player::equip_slot>(data.target_slot);
+        slot_name = std::string(slot_to_name(target_slot));
     }
 
-    auto& data = data_result.value();
     auto pid = conn->player();
     auto* plr = players_->get_player(pid);
     if (!plr)
@@ -70,63 +158,42 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
         return;
     }
 
+    auto owner_eid = entity_id(plr->id.value);
+
     // Check alive
     if (plr->is_dead())
     {
-        send_error(conn_id, msg.seq, "player_dead", "Cannot equip while dead");
+        conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
 
     // Check not trading
-    auto trade_partner = inventory_->get_trade_partner(entity_id(plr->ecs_entity.id));
+    auto trade_partner = inventory_->get_trade_partner(owner_eid);
     if (trade_partner.is_valid())
     {
-        send_error(conn_id, msg.seq, "player_busy", "Cannot equip while trading");
-        return;
-    }
-
-    // Get inventory and validate slot
-    auto* inv = inventory_->get_inventory(entity_id(plr->ecs_entity.id));
-    if (!inv)
-    {
-        send_error(conn_id, msg.seq, "internal_error", "Inventory not found");
-        return;
-    }
-
-    auto* inv_slot = inv->get_slot(data.inventory_slot);
-    if (!inv_slot || inv_slot->is_empty())
-    {
-        send_error(conn_id, msg.seq, "invalid_slot", "Inventory slot is empty");
+        conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
 
     // Get the item
-    auto* itm = item_->get_item(inv_slot->item);
+    auto* itm = item_->get_item(target_item_id);
     if (!itm)
     {
-        send_error(conn_id, msg.seq, "item_not_found", "Item not found");
+        conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
 
-    // Validate item is equipment
+    // Validate item is equippable
     if (!itm->is_equipment() || itm->equip_position == item::equip_pos::none)
     {
-        send_error(conn_id, msg.seq, "not_equippable", "Item cannot be equipped");
+        conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
 
-    // Validate durability
-    if (itm->is_broken())
-    {
-        send_error(conn_id, msg.seq, "item_broken", "Item is broken and cannot be equipped");
-        return;
-    }
-
-    // Validate target slot
-    auto target_slot = static_cast<player::equip_slot>(data.target_slot);
+    // Validate target slot is compatible with item
     if (!player::is_valid_slot_for_item(itm->equip_position, target_slot))
     {
-        send_error(conn_id, msg.seq, "invalid_slot", "Item cannot go in that slot");
+        conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
 
@@ -139,116 +206,75 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
                                         plr->computed.magic);
     if (!req.can_use())
     {
-        send_error(conn_id, msg.seq, "requirements_not_met", "You do not meet the requirements");
+        conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
 
-    network::equip_result_msg result;
-    result.slot = data.target_slot;
-
-    // Two-handed weapon logic: if equipping a 2H weapon and shield is occupied
+    // Two-handed weapon logic: if equipping a 2H weapon and shield is occupied, auto-unequip shield
     if (itm->two_handed && plr->equipment.has_equipped(player::equip_slot::shield))
     {
-        // Just clear the shield's equipped_as flag — item stays in its inventory slot
-        auto shield_item_id = players_->unequip_item(pid, player::equip_slot::shield);
-        if (shield_item_id.is_valid())
+        auto shield_result = item_ops::unequip_item(owner_eid, player::equip_slot::shield, &plr->equipment);
+        if (shield_result.success)
         {
-            result.unequipped_shield_id = shield_item_id.value;
+            players_->recalculate_equipment_modifiers(pid);
+            players_->recalculate_appearance(pid);
+
+            // Send inventory update for the shield (no longer equipped)
+            send_item_update_v2(conn, shield_result.unequipped, item_, inventory_, owner_eid);
+
+            // Broadcast empty shield slot to nearby
             broadcast_equipment_change(pid, player::equip_slot::shield, item_id{});
         }
     }
 
-    // Shield equip + 2H weapon currently equipped: check the weapon in weapon slot
+    // Shield equip + 2H weapon currently equipped: block it
     if (target_slot == player::equip_slot::shield && plr->equipment.has_equipped(player::equip_slot::weapon))
     {
-        auto* weapon_itm = item_->get_item(plr->equipment.weapon().id);
+        auto weapon_id = plr->equipment.get_equipped(player::equip_slot::weapon);
+        auto* weapon_itm = weapon_id ? item_->get_item(*weapon_id) : nullptr;
         if (weapon_itm && weapon_itm->two_handed)
         {
-            send_error(
-                conn_id, msg.seq, "two_handed_weapon_equipped", "Cannot equip shield while using a two-handed weapon");
+            conn->send_raw(network::make_equip_result(false, slot_name).dump());
             return;
         }
     }
 
-    // Swap logic: if target equipment slot is occupied, just clear its equipped_as flag
-    if (plr->equipment.has_equipped(target_slot))
+    // Call item_ops to equip (handles swap if slot occupied)
+    auto result = item_ops::equip_item(owner_eid, target_item_id, target_slot, item_, inventory_, &plr->equipment);
+    if (!result.success)
     {
-        auto old_item_id = players_->unequip_item(pid, target_slot);
-        result.swapped_item_id = old_item_id.value;
+        conn->send_raw(network::make_equip_result(false, slot_name).dump());
+        return;
     }
 
-    // Equip new item — sets equipped_as on the inventory slot, rebuilds cache + recalculates
-    players_->equip_item(pid, data.inventory_slot, target_slot);
+    // Recalculate stats and appearance after equip
+    players_->recalculate_equipment_modifiers(pid);
+    players_->recalculate_appearance(pid);
 
-    // Build success response
-    result.success = true;
-    result.item_id = itm->id.value;
-    result.attribute = itm->attribute;
-    if (item_registry_)
-    {
-        if (auto* tmpl = item_registry_->get(itm->template_id))
-        {
-            result.item_name = network::get_display_name(tmpl->name, itm->attribute);
-        }
-        else
-        {
-            result.item_name = itm->name;
-        }
-    }
-    else
-    {
-        result.item_name = itm->name;
-    }
-    result.durability = itm->durability;
-    result.max_durability = itm->max_durability;
+    // Send v2 ack
+    conn->send_raw(network::make_equip_result(true, slot_name).dump());
 
-    conn->send(network::make_player_equip_response(msg.seq, result));
-
-    // Send inventory_slot_updates for affected items
-    // 1. Shield that was unequipped (if 2H weapon equipped)
-    if (result.unequipped_shield_id.has_value() && *result.unequipped_shield_id != 0)
+    // Send inventory_item_updates for affected items
+    // 1. Swapped-out item (if slot was occupied)
+    if (result.swapped_out.has_value())
     {
-        auto sid = item_id(*result.unequipped_shield_id);
-        if (auto shield_slot = inv->find_item(sid); shield_slot)
-        {
-            auto shield_msg = network::build_inventory_item_msg(*shield_slot, sid, item_, item_registry_);
-            if (shield_msg)
-                conn->send(network::make_inventory_slot_update(*shield_slot, &*shield_msg));
-        }
-    }
-    // 2. Old item swapped out of target slot
-    if (result.swapped_item_id.has_value() && *result.swapped_item_id != 0)
-    {
-        auto oid = item_id(*result.swapped_item_id);
-        if (auto old_slot = inv->find_item(oid); old_slot)
-        {
-            auto old_msg = network::build_inventory_item_msg(*old_slot, oid, item_, item_registry_);
-            if (old_msg)
-                conn->send(network::make_inventory_slot_update(*old_slot, &*old_msg));
-        }
-    }
-    // 3. Newly equipped item
-    {
-        auto equip_msg = network::build_inventory_item_msg(
-            data.inventory_slot, inv_slot->item, item_, item_registry_,
-            static_cast<uint8_t>(target_slot));
-        if (equip_msg)
-            conn->send(network::make_inventory_slot_update(data.inventory_slot, &*equip_msg));
+        send_item_update_v2(conn, *result.swapped_out, item_, inventory_, owner_eid);
     }
 
-    // Send stat update
-    // Re-fetch player since recalculate may have changed computed stats
+    // 2. Newly equipped item
+    send_item_update_v2(conn, target_item_id, item_, inventory_, owner_eid);
+
+    // Send stat update (re-fetch player since recalculate may have changed computed stats)
     plr = players_->get_player(pid);
     if (plr)
     {
         send_stat_update(conn_id, *plr);
     }
 
-    // Broadcast to nearby players
-    broadcast_equipment_change(pid, target_slot, itm->id);
+    // Broadcast equipment change to nearby players
+    broadcast_equipment_change(pid, target_slot, target_item_id);
 
-    LOG_DEBUG(
-        bridge, "Player {} equipped item {} ('{}') to slot {}", pid.value, itm->id.value, itm->name, data.target_slot);
+    LOG_DEBUG(bridge, "Player {} equipped item {} to slot '{}'", pid.value, target_item_id.value, slot_name);
 }
 
 void game_handlers::handle_player_unequip(connection_id conn_id, const network::json_message& msg)
@@ -263,14 +289,48 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
         return;
     }
 
-    auto data_result = network::player_unequip_request_data::from_json(msg.data);
-    if (data_result.is_err())
+    // Parse request — support both v1 (player_unequip_request) and v2 (unequip_request) formats
+    player::equip_slot slot{};
+    std::string slot_name;
+
+    if (msg.type == network::json_message_type::unequip_request)
     {
-        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
-        return;
+        // v2 format: string slot name
+        auto data_result = network::unequip_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        auto& data = data_result.value();
+        slot_name = data.slot;
+        auto slot_opt = parse_equip_slot(data.slot);
+        if (!slot_opt)
+        {
+            conn->send_raw(network::make_unequip_result(false, data.slot).dump());
+            return;
+        }
+        slot = *slot_opt;
+    }
+    else
+    {
+        // v1 format: numeric equip_slot
+        auto data_result = network::player_unequip_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        auto& data = data_result.value();
+        if (data.equip_slot >= static_cast<uint8_t>(player::equip_slot::count))
+        {
+            send_error(conn_id, msg.seq, "invalid_slot", "Invalid equipment slot");
+            return;
+        }
+        slot = static_cast<player::equip_slot>(data.equip_slot);
+        slot_name = std::string(slot_to_name(slot));
     }
 
-    auto& data = data_result.value();
     auto pid = conn->player();
     auto* plr = players_->get_player(pid);
     if (!plr)
@@ -279,76 +339,40 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
         return;
     }
 
+    auto owner_eid = entity_id(plr->id.value);
+
     // Check alive
     if (plr->is_dead())
     {
-        send_error(conn_id, msg.seq, "player_dead", "Cannot unequip while dead");
+        conn->send_raw(network::make_unequip_result(false, slot_name).dump());
         return;
     }
 
     // Check not trading
-    auto trade_partner = inventory_->get_trade_partner(entity_id(plr->ecs_entity.id));
+    auto trade_partner = inventory_->get_trade_partner(owner_eid);
     if (trade_partner.is_valid())
     {
-        send_error(conn_id, msg.seq, "player_busy", "Cannot unequip while trading");
+        conn->send_raw(network::make_unequip_result(false, slot_name).dump());
         return;
     }
 
-    // Validate slot
-    if (data.equip_slot >= static_cast<uint8_t>(player::equip_slot::count))
+    // Call item_ops to unequip
+    auto result = item_ops::unequip_item(owner_eid, slot, &plr->equipment);
+    if (!result.success)
     {
-        send_error(conn_id, msg.seq, "invalid_slot", "Invalid equipment slot");
+        conn->send_raw(network::make_unequip_result(false, slot_name).dump());
         return;
     }
 
-    auto slot = static_cast<player::equip_slot>(data.equip_slot);
-    if (!plr->equipment.has_equipped(slot))
-    {
-        send_error(conn_id, msg.seq, "slot_empty", "Nothing equipped in that slot");
-        return;
-    }
+    // Recalculate stats and appearance
+    players_->recalculate_equipment_modifiers(pid);
+    players_->recalculate_appearance(pid);
 
-    // Get the inventory slot index from the equipment cache (item is already in inventory)
-    auto inv_idx = plr->equipment.get(slot).inv_index;
-    auto equipped_id = plr->equipment.get(slot).id;
+    // Send v2 ack
+    conn->send_raw(network::make_unequip_result(true, slot_name).dump());
 
-    // Unequip — clears equipped_as flag, item stays in its inventory slot
-    players_->unequip_item(pid, slot);
-
-    // Get item details for response
-    auto* itm = item_->get_item(equipped_id);
-    std::string item_name = itm ? itm->name : "Unknown";
-    item::item_attribute attr{};
-    if (itm)
-    {
-        attr = itm->attribute;
-        if (item_registry_)
-        {
-            if (auto* tmpl = item_registry_->get(itm->template_id))
-            {
-                item_name = network::get_display_name(tmpl->name, attr);
-            }
-        }
-    }
-
-    // Build response
-    network::unequip_result_msg result;
-    result.success = true;
-    result.slot = data.equip_slot;
-    result.item_id = equipped_id.value;
-    result.item_name = item_name;
-    result.inventory_slot = static_cast<uint8_t>(inv_idx >= 0 ? inv_idx : 0);
-    result.attribute = attr;
-
-    conn->send(network::make_player_unequip_response(msg.seq, result));
-
-    // Send inventory_slot_update (item stays in same slot, just no longer equipped)
-    {
-        auto item_msg = network::build_inventory_item_msg(
-            static_cast<int16_t>(inv_idx), equipped_id, item_, item_registry_);
-        if (item_msg)
-            conn->send(network::make_inventory_slot_update(static_cast<int16_t>(inv_idx), &*item_msg));
-    }
+    // Send inventory_item_update (item stays in inventory, just no longer equipped)
+    send_item_update_v2(conn, result.unequipped, item_, inventory_, owner_eid);
 
     // Send stat update
     plr = players_->get_player(pid);
@@ -360,12 +384,7 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
     // Broadcast to nearby (slot now empty)
     broadcast_equipment_change(pid, slot, item_id{});
 
-    LOG_DEBUG(bridge,
-              "Player {} unequipped item {} ('{}') from slot {}",
-              pid.value,
-              equipped_id.value,
-              item_name,
-              data.equip_slot);
+    LOG_DEBUG(bridge, "Player {} unequipped item {} from slot '{}'", pid.value, result.unequipped.value, slot_name);
 }
 
 void game_handlers::broadcast_equipment_change(player_id pid, player::equip_slot slot, item_id itm)
@@ -377,6 +396,21 @@ void game_handlers::broadcast_equipment_change(player_id pid, player::equip_slot
     if (!plr)
         return;
 
+    // Build v2 equipment_change message with serialized item (or null if slot cleared)
+    nlohmann::json item_json = nullptr;
+    if (itm.is_valid() && item_)
+    {
+        auto* item_inst = item_->get_item(itm);
+        if (item_inst)
+        {
+            item_json = item::serialize_item(*item_inst);
+        }
+    }
+
+    auto v2_msg = network::make_equipment_change(plr->ecs_entity.id, slot_to_name(slot), item_json);
+    auto v2_str = v2_msg.dump();
+
+    // Also build the v1 broadcast for backward compatibility
     uint32_t template_id = 0;
     if (itm.is_valid() && item_)
     {
@@ -391,13 +425,23 @@ void game_handlers::broadcast_equipment_change(player_id pid, player::equip_slot
                                                   .slot = static_cast<uint8_t>(slot),
                                                   .item_id = itm.value,
                                                   .template_id = template_id};
-    auto msg = network::make_equipment_change_broadcast(data);
-    broadcast_to_visible(players_, ws_server_, plr->current_map, plr->pos, msg, pid);
+    auto v1_msg = network::make_equipment_change_broadcast(data);
+
+    // Broadcast v1 to all visible (existing clients)
+    broadcast_to_visible(players_, ws_server_, plr->current_map, plr->pos, v1_msg, pid);
+
+    // Send v2 to all visible players including the acting player
+    for_each_visible_connection(
+        players_, ws_server_, plr->current_map, plr->pos,
+        [&v2_str](player_id, player::player&, network::ws_connection& conn)
+        {
+            conn.send_raw(v2_str);
+        });
 
     // Forward to admin spectators
     for (auto admin_conn : ws_server_->get_admin_subscribers(plr->current_map))
     {
-        ws_server_->send(admin_conn, msg);
+        ws_server_->send(admin_conn, v1_msg);
     }
 }
 
@@ -413,13 +457,30 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
         return;
     }
 
-    auto data_result = network::use_item_request_data::from_json(msg.data);
-    if (data_result.is_err())
+    // Parse request — support both v1 (player_use_item_request) and v2 (use_item_request) formats
+    uint32_t raw_item_id = 0;
+    bool is_v2 = (msg.type == network::json_message_type::use_item_request);
+
+    if (is_v2)
     {
-        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
-        return;
+        auto data_result = network::use_item_request_data_v2::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        raw_item_id = static_cast<uint32_t>(data_result.value().item_id);
     }
-    const auto& data = data_result.value();
+    else
+    {
+        auto data_result = network::use_item_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        raw_item_id = data_result.value().item_id;
+    }
 
     auto pid = conn->player();
     auto* plr = players_->get_player(pid);
@@ -431,11 +492,11 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
 
     if (plr->is_dead())
     {
-        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "dead"));
+        conn->send_raw(network::make_use_item_result(false).dump());
         return;
     }
 
-    // Validate slot
+    // Validate item
     auto owner_id = entity_id(plr->id.value);
     auto* inv = inventory_->get_inventory(owner_id);
     if (!inv)
@@ -444,14 +505,15 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
         return;
     }
 
-    auto* slot = inv->get_slot(data.slot);
-    if (!slot || slot->is_empty())
+    auto use_item_id = item_id{raw_item_id};
+    auto* entry = inv->get_item(use_item_id);
+    if (!entry)
     {
-        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "empty_slot"));
+        conn->send_raw(network::make_use_item_result(false).dump());
         return;
     }
 
-    // Look up item template
+    // Look up item instance and template
     auto* item_reg = subsystems().get<item_registry>();
     if (!item_reg)
     {
@@ -459,43 +521,93 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
         return;
     }
 
-    const auto* tmpl = item_reg->get(slot->item);
+    auto* use_itm = item_ ? item_->get_item(use_item_id) : nullptr;
+    const auto* tmpl = use_itm ? item_reg->get(use_itm->template_id) : nullptr;
     if (!tmpl)
     {
-        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "unknown_item"));
+        conn->send_raw(network::make_use_item_result(false).dump());
         return;
     }
 
-    if (!tmpl->is_usable())
+    // Check legacy item types for usability
+    if (tmpl->type != item_type::eat && tmpl->type != item_type::use_deplete)
     {
-        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "not_consumable"));
+        conn->send_raw(network::make_use_item_result(false).dump());
         return;
     }
 
-    const auto& eff = tmpl->use_effect;
+    // Interpret consumable effect from raw template fields:
+    // effect_type maps to consumable_effect_type (4=hp, 5=mp, 6=sp, 7=food, 11=scroll)
+    struct consumable_params
+    {
+        int16_t type{0};
+        int16_t v1{0};
+        int16_t v2{0};
+        int16_t v3{0};
+        int16_t v4{0};
+        int16_t v5{0};
+    };
+    consumable_params eff;
+    eff.type = tmpl->effect_type;
+    eff.v1 = tmpl->effect_value1;
+    eff.v2 = tmpl->effect_value2;
+    eff.v3 = tmpl->effect_value3;
+    eff.v4 = tmpl->effect_value4;
+    eff.v5 = tmpl->effect_value5;
 
     // Save pre-use state for audit
-    auto use_item_id = slot->item;
-    int16_t pre_use_count = slot->count;
-    bool use_audited = false;
-    if (auto* use_itm = item_ ? item_->get_item(use_item_id) : nullptr)
-    {
-        use_audited = use_itm->audited;
-    }
+    int16_t pre_use_count = entry->count;
+    bool use_audited = use_itm ? use_itm->audited : false;
 
     // Get current map for restriction checks
     auto* current_map = world_ ? world_->get_map(plr->current_map) : nullptr;
 
-    switch (eff.type)
+    // Raw effect_type values from legacy: 4=hp, 5=mp, 6=sp, 7=food, 11=magic_scroll
+    constexpr int16_t eff_hp_restore = 4;
+    constexpr int16_t eff_mp_restore = 5;
+    constexpr int16_t eff_sp_restore = 6;
+    constexpr int16_t eff_food = 7;
+    constexpr int16_t eff_magic_scroll = 11;
+
+    // Helper lambda: consume one stack of the item and send the appropriate inventory update
+    auto consume_one = [&]()
     {
-    case consumable_effect_type::hp_restore:
-    case consumable_effect_type::mp_restore:
-    case consumable_effect_type::sp_restore:
+        bool fully_consumed = (entry->count <= 1);
+        if (fully_consumed)
+        {
+            inv->remove_item(use_item_id);
+            entry = nullptr;
+            conn->send_raw(network::make_inventory_item_removed_v2(use_item_id).dump());
+        }
+        else
+        {
+            --entry->count;
+            conn->send_raw(network::make_inventory_item_delta(use_item_id, entry->count, std::nullopt).dump());
+        }
+        return fully_consumed;
+    };
+
+    // Helper lambda: audit item consumption
+    auto audit_consumption = [&]()
+    {
+        if (audit_ && use_audited)
+        {
+            auto* post_entry = inv->get_item(use_item_id);
+            int16_t post_count = post_entry ? post_entry->count : 0;
+            if (post_count < pre_use_count)
+            {
+                audit_->log_item(
+                    static_cast<int32_t>(plr->character_id.value), tmpl->name, static_cast<int32_t>(use_item_id.value), item_log_type::use, pre_use_count - post_count);
+            }
+        }
+    };
+
+    if (eff.type == eff_hp_restore || eff.type == eff_mp_restore || eff.type == eff_sp_restore)
     {
         // Map restriction check
         if (current_map && current_map->config().is_potions_disabled)
         {
-            conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "potions_disabled"));
+            conn->send_raw(network::make_use_item_result(false).dump());
             return;
         }
 
@@ -505,91 +617,55 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
         bool speed_hack = plr->potion_tracker.is_speed_hack();
 
         // Consume the item regardless of speed hack
-        if (slot->count <= 1)
-        {
-            slot->clear();
-        }
-        else
-        {
-            --slot->count;
-        }
+        consume_one();
 
         if (speed_hack)
         {
             // Item consumed but no effect applied
-            // Send inventory_slot_update for consumed potion
-            if (slot->is_empty())
-            {
-                conn->send(network::make_inventory_slot_update(data.slot, nullptr));
-            }
-            else
-            {
-                auto potion_msg = network::build_inventory_item_msg(data.slot, slot->item, item_, item_registry_);
-                if (potion_msg)
-                    conn->send(network::make_inventory_slot_update(data.slot, &*potion_msg));
-            }
-            conn->send(network::make_use_item_response(msg.seq, true, tmpl->name, "none", 0, 0, 0));
+            conn->send_raw(network::make_use_item_result(true).dump());
+            audit_consumption();
             return;
         }
 
         int32_t amount = dice_roll(eff.v1, eff.v2, eff.v3);
 
-        std::string effect_name;
-        int32_t current = 0;
-        int32_t max_val = 0;
-
-        if (eff.type == consumable_effect_type::hp_restore)
+        if (eff.type == eff_hp_restore)
         {
             plr->heal_hp(amount);
-            effect_name = "hp";
-            current = plr->hp;
-            max_val = plr->computed.max_hp;
         }
-        else if (eff.type == consumable_effect_type::mp_restore)
+        else if (eff.type == eff_mp_restore)
         {
             plr->heal_mp(amount);
-            effect_name = "mp";
-            current = plr->mp;
-            max_val = plr->computed.max_mp;
         }
         else
         {
             plr->heal_sp(amount);
             // SP potions also cure poison (legacy behavior)
             plr->remove_status(player::player_status::poisoned);
-            effect_name = "sp";
-            current = plr->sp;
-            max_val = plr->computed.max_sp;
         }
 
-        conn->send(network::make_use_item_response(msg.seq, true, tmpl->name, effect_name, amount, current, max_val));
-        break;
-    }
+        conn->send_raw(network::make_use_item_result(true).dump());
 
-    case consumable_effect_type::food:
+        // Send stat update so client sees HP/MP/SP change
+        send_stat_update(conn_id, *plr);
+    }
+    else if (eff.type == eff_food)
     {
         int32_t amount = dice_roll(eff.v1, eff.v2, eff.v3);
 
         // Consume the item
-        if (slot->count <= 1)
-        {
-            slot->clear();
-        }
-        else
-        {
-            --slot->count;
-        }
+        consume_one();
 
         // Legacy: food adds to both hunger AND hp_stock (bonus HP spread over regen ticks)
         players_->restore_hunger(pid, static_cast<int8_t>(std::min(amount, static_cast<int32_t>(127))));
         players_->add_hp_stock(pid, amount);
 
-        conn->send(
-            network::make_use_item_response(msg.seq, true, tmpl->name, "hunger", amount, plr->hunger.level, 100));
-        break;
-    }
+        conn->send_raw(network::make_use_item_result(true).dump());
 
-    case consumable_effect_type::magic_scroll:
+        // Send stat update
+        send_stat_update(conn_id, *plr);
+    }
+    else if (eff.type == eff_magic_scroll)
     {
         // Recall scroll (v1 == 1)
         if (eff.v1 == 1)
@@ -597,31 +673,12 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
             // Map restriction check
             if (current_map && current_map->config().is_recall_impossible)
             {
-                conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "recall_impossible"));
+                conn->send_raw(network::make_use_item_result(false).dump());
                 return;
             }
 
             // Consume scroll FIRST (legacy ordering)
-            if (slot->count <= 1)
-            {
-                slot->clear();
-            }
-            else
-            {
-                --slot->count;
-            }
-
-            // Send inventory_slot_update for consumed scroll
-            if (slot->is_empty())
-            {
-                conn->send(network::make_inventory_slot_update(data.slot, nullptr));
-            }
-            else
-            {
-                auto scroll_msg = network::build_inventory_item_msg(data.slot, slot->item, item_, item_registry_);
-                if (scroll_msg)
-                    conn->send(network::make_inventory_slot_update(data.slot, &*scroll_msg));
-            }
+            consume_one();
 
             // Teleport to faction home
             std::string dest_map = get_respawn_map_name(plr->faction);
@@ -629,44 +686,23 @@ void game_handlers::handle_player_use_item(connection_id conn_id, const network:
 
             execute_player_teleport(pid, conn_id, msg.seq, dest_map, dest_pos, world::direction::south);
 
-            // execute_player_teleport sends its own response — no use_item response needed
+            // execute_player_teleport sends its own response -- no use_item ack needed
             LOG_INFO(
                 bridge, "Player {} used recall scroll -> {} ({}, {})", pid.value, dest_map, dest_pos.x, dest_pos.y);
+
+            audit_consumption();
             return;
         }
 
         // Other scroll subtypes not yet implemented
-        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "unsupported_item_type"));
-        break;
-    }
-
-    default:
-        conn->send(network::make_use_item_response(msg.seq, false, {}, {}, 0, 0, 0, "unsupported_item_type"));
-        break;
-    }
-
-    // Send inventory_slot_update after item consumption
-    if (slot->is_empty())
-    {
-        conn->send(network::make_inventory_slot_update(data.slot, nullptr));
+        conn->send_raw(network::make_use_item_result(false).dump());
     }
     else
     {
-        auto item_msg = network::build_inventory_item_msg(data.slot, slot->item, item_, item_registry_);
-        if (item_msg)
-            conn->send(network::make_inventory_slot_update(data.slot, &*item_msg));
+        conn->send_raw(network::make_use_item_result(false).dump());
     }
 
-    // Audit item use (check if count changed = item was consumed)
-    if (audit_ && use_audited)
-    {
-        int16_t post_count = slot->is_empty() ? 0 : slot->count;
-        if (post_count < pre_use_count)
-        {
-            audit_->log_item(
-                static_cast<int32_t>(plr->character_id.value), tmpl->name, static_cast<int32_t>(use_item_id.value), item_log_type::use, pre_use_count - post_count);
-        }
-    }
+    audit_consumption();
 }
 
 void game_handlers::handle_item_upgrade(connection_id conn_id, const network::json_message& msg)
@@ -681,13 +717,35 @@ void game_handlers::handle_item_upgrade(connection_id conn_id, const network::js
         return;
     }
 
-    auto data_result = network::item_upgrade_request_data::from_json(msg.data);
-    if (data_result.is_err())
+    // Parse request — support both v1 (item_upgrade_request) and v2 (upgrade_request) formats
+    item_id target_iid{};
+    item_id stone_iid{};
+    bool is_v2 = (msg.type == network::json_message_type::upgrade_request);
+
+    if (is_v2)
     {
-        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
-        return;
+        auto data_result = network::upgrade_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        auto& data = data_result.value();
+        target_iid = item_id{static_cast<uint32_t>(data.target_id)};
+        stone_iid = item_id{static_cast<uint32_t>(data.stone_id)};
     }
-    const auto& data = data_result.value();
+    else
+    {
+        // v1 format: item_id only, stone is auto-found
+        auto data_result = network::item_upgrade_request_data::from_json(msg.data);
+        if (data_result.is_err())
+        {
+            send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+            return;
+        }
+        target_iid = item_id{data_result.value().item_id};
+        // stone_iid stays invalid — will be auto-found below
+    }
 
     auto pid = conn->player();
     auto* plr = players_->get_player(pid);
@@ -699,134 +757,97 @@ void game_handlers::handle_item_upgrade(connection_id conn_id, const network::js
 
     if (plr->is_dead())
     {
-        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot, 0, "dead"));
+        conn->send_raw(network::make_upgrade_result_v2(false).dump());
         return;
     }
 
-    // Get inventory
-    auto owner_id = entity_id(plr->id.value);
-    auto* inv = inventory_->get_inventory(owner_id);
+    auto owner_eid = entity_id(plr->id.value);
+    auto* inv = inventory_->get_inventory(owner_eid);
     if (!inv)
     {
         send_error(conn_id, msg.seq, "internal_error", "Inventory unavailable");
         return;
     }
 
-    // Validate target item slot
-    auto* target_slot = inv->get_slot(data.item_slot);
-    if (!target_slot || target_slot->is_empty())
-    {
-        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot, 0, "empty_slot"));
-        return;
-    }
-
-    auto* target_item = item_->get_item(target_slot->item);
+    // Validate target item exists and is equipment
+    auto* target_item = item_->get_item(target_iid);
     if (!target_item)
     {
-        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot, 0, "invalid_item"));
+        conn->send_raw(network::make_upgrade_result_v2(false).dump());
         return;
     }
 
-    // Item must be equipment
     if (!target_item->is_equipment())
     {
-        conn->send(network::make_item_upgrade_response(msg.seq, false, data.item_slot, 0, "not_equipment"));
+        conn->send_raw(network::make_upgrade_result_v2(false).dump());
         return;
     }
 
     // Already at max level
     if (target_item->attribute.upgrade_level >= item::max_upgrade_level)
     {
-        conn->send(network::make_item_upgrade_response(
-            msg.seq, false, data.item_slot, target_item->attribute.upgrade_level, "max_level"));
+        conn->send_raw(network::make_upgrade_result_v2(false).dump());
         return;
     }
 
-    // Find appropriate upgrade stone in inventory
-    int16_t stone_slot = -1;
-    item_id stone_item_id{};
-
-    for (int16_t i = 0; i < inv->capacity(); ++i)
+    // If stone not specified (v1), auto-find an appropriate upgrade stone
+    if (!stone_iid.is_valid())
     {
-        auto* slot = inv->get_slot(i);
-        if (!slot || slot->is_empty())
-            continue;
-
-        auto* itm = item_->get_item(slot->item);
-        if (!itm)
-            continue;
-
-        // Check for Xelima (weapons) or Merien (armor/accessories)
-        if (itm->template_id.value == item::xelima_stone_id || itm->template_id.value == item::merien_stone_id)
+        for (auto& inv_entry : inv->items())
         {
-            if (item::is_valid_upgrade_stone(*target_item, itm->template_id.value))
+            auto* itm = item_->get_item(inv_entry.item);
+            if (!itm)
+                continue;
+
+            if (itm->template_id.value == item::xelima_stone_id || itm->template_id.value == item::merien_stone_id)
             {
-                stone_slot = i;
-                stone_item_id = slot->item;
-                break;
+                if (item::is_valid_upgrade_stone(*target_item, itm->template_id.value))
+                {
+                    stone_iid = inv_entry.item;
+                    break;
+                }
             }
         }
     }
 
-    if (stone_slot < 0)
+    if (!stone_iid.is_valid())
     {
-        conn->send(network::make_item_upgrade_response(
-            msg.seq, false, data.item_slot, target_item->attribute.upgrade_level, "no_stone"));
+        conn->send_raw(network::make_upgrade_result_v2(false).dump());
         return;
     }
 
-    // Attempt the upgrade
-    auto result = item::attempt_upgrade(*target_item);
+    // Attempt the upgrade (probability-based)
+    auto upgrade_result = item::attempt_upgrade(*target_item);
 
-    // Consume stone (always consumed)
-    auto* s_slot = inv->get_slot(stone_slot);
-    if (s_slot)
+    // Consume stone (always consumed regardless of success)
+    auto* stone_entry = inv->get_item(stone_iid);
+    if (stone_entry)
     {
-        if (s_slot->count <= 1)
+        if (stone_entry->count <= 1)
         {
-            s_slot->clear();
-            item_->destroy_item(stone_item_id);
+            inv->remove_item(stone_iid);
+            item_->destroy_item(stone_iid);
+            stone_entry = nullptr;
+            conn->send_raw(network::make_inventory_item_removed_v2(stone_iid).dump());
         }
         else
         {
-            s_slot->count -= 1;
+            stone_entry->count -= 1;
+            conn->send_raw(network::make_inventory_item_delta(stone_iid, stone_entry->count, std::nullopt).dump());
         }
     }
 
     // If successful, recalculate equipment modifiers
-    if (result.success)
+    if (upgrade_result.success)
     {
         players_->recalculate_equipment_modifiers(pid);
     }
 
-    conn->send(network::make_item_upgrade_response(msg.seq, result.success, data.item_slot, result.new_level));
+    // Send v2 ack
+    conn->send_raw(network::make_upgrade_result_v2(upgrade_result.success).dump());
 
-    // Send inventory_slot_update for consumed stone
-    if (stone_slot >= 0)
-    {
-        auto* stone_s = inv->get_slot(stone_slot);
-        if (!stone_s || stone_s->is_empty())
-        {
-            conn->send(network::make_inventory_slot_update(stone_slot, nullptr));
-        }
-        else
-        {
-            auto stone_msg = network::build_inventory_item_msg(stone_slot, stone_s->item, item_, item_registry_);
-            if (stone_msg)
-                conn->send(network::make_inventory_slot_update(stone_slot, &*stone_msg));
-        }
-    }
-
-    // Send inventory_slot_update for upgraded/target item (attribute may have changed)
-    {
-        auto* ts = inv->get_slot(data.item_slot);
-        if (ts && !ts->is_empty())
-        {
-            auto upgraded_msg = network::build_inventory_item_msg(data.item_slot, ts->item, item_, item_registry_);
-            if (upgraded_msg)
-                conn->send(network::make_inventory_slot_update(data.item_slot, &*upgraded_msg));
-        }
-    }
+    // Send inventory update for the target item (attribute may have changed)
+    send_item_update_v2(conn, target_iid, item_, inventory_, owner_eid);
 }
 
 void game_handlers::handle_activate_ability(connection_id conn_id, const network::json_message& msg)
@@ -851,7 +872,7 @@ void game_handlers::handle_activate_ability(connection_id conn_id, const network
 
     if (plr->is_dead())
     {
-        conn->send(network::make_activate_ability_response(msg.seq, false, 0, 0, "dead"));
+        conn->send_raw(network::make_activate_ability_failed("dead").dump());
         return;
     }
 
@@ -860,7 +881,7 @@ void game_handlers::handle_activate_ability(connection_id conn_id, const network
     // No ability equipped
     if (ability.type == item::special_ability_type::none)
     {
-        conn->send(network::make_activate_ability_response(msg.seq, false, 0, 0, "no_ability"));
+        conn->send_raw(network::make_activate_ability_failed("no_ability").dump());
         return;
     }
 
@@ -871,33 +892,40 @@ void game_handlers::handle_activate_ability(connection_id conn_id, const network
 
     if (ability.is_on_cooldown(now))
     {
-        auto remaining = ability.cooldown_remaining(now);
-        conn->send(network::make_activate_ability_response(
-            msg.seq, false, static_cast<uint8_t>(ability.type), remaining, "on_cooldown"));
+        conn->send_raw(network::make_activate_ability_failed("on_cooldown").dump());
         return;
     }
 
     if (ability.is_active())
     {
-        conn->send(network::make_activate_ability_response(
-            msg.seq, false, static_cast<uint8_t>(ability.type), 0, "already_active"));
+        conn->send_raw(network::make_activate_ability_failed("already_active").dump());
         return;
     }
 
     if (!ability.is_ready())
     {
-        conn->send(network::make_activate_ability_response(
-            msg.seq, false, static_cast<uint8_t>(ability.type), 0, "not_ready"));
+        conn->send_raw(network::make_activate_ability_failed("not_ready").dump());
         return;
     }
 
     // Activate
     ability.activate(now);
 
-    conn->send(network::make_activate_ability_response(
-        msg.seq, true, static_cast<uint8_t>(ability.type), item::ability_cooldown_seconds));
+    auto ability_name = std::string(item::special_ability_type_to_string(ability.type));
+    constexpr int32_t duration_ms = item::ability_cooldown_seconds * 1000;
 
-    // Broadcast status update to the player
+    // Broadcast ability_activated to all visible players (including the activator)
+    auto activated_msg = network::make_ability_activated(plr->ecs_entity.id, ability_name, duration_ms);
+    auto activated_str = activated_msg.dump();
+
+    for_each_visible_connection(
+        players_, ws_server_, plr->current_map, plr->pos,
+        [&activated_str](player_id, player::player&, network::ws_connection& c)
+        {
+            c.send_raw(activated_str);
+        });
+
+    // Also send special_ability_status to the activator (for UI state tracking)
     conn->send(network::make_special_ability_status("active", static_cast<uint8_t>(ability.type), 0));
 }
 

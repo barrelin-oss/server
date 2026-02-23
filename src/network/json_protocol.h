@@ -10,15 +10,18 @@
 
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <map>
 #include <string>
 #include <string_view>
 #include <optional>
 #include <chrono>
+#include <tuple>
 #include <variant>
 
-// Forward declarations for build_inventory_item_msg
-namespace hb::item { class item_system; }
+// Forward declarations for build_inventory_item_msg and v2 builders
+namespace hb::item { class item_system; struct item; }
 namespace hb { class item_registry; }
+namespace hb::inventory { struct inventory_entry; }
 
 namespace hb::network
 {
@@ -482,16 +485,89 @@ enum class json_message_type
     special_ability_status,    // S->C: Ability status update (ready/active/cooldown/disabled)
 
     // Inventory management
-    inventory_reposition_request, // C->S: Move item between slots (no response)
+    inventory_reposition_request, // C->S: Reposition item in inventory
     player_drop_item_request,     // C->S: Drop item from inventory
     player_drop_item_response,    // S->C: Drop result
-    inventory_slot_update,        // S->C: Single slot changed
+    inventory_item_update,        // S->C: Single item added/changed
+    inventory_item_removed,       // S->C: Item removed from inventory
+    inventory_weight_update,      // S->C: Weight capacity changed
 
     // Gold notification
     gold_update, // S->C: Gold amount changed
 
     // Bank management
     bank_slot_update, // S->C: Single bank slot changed
+
+    // v2 state update messages (item::serialize_item-based)
+    inventory_item_add,    // S->C: Item added to inventory
+    inventory_item_delta,  // S->C: Partial update (count/durability only)
+    inventory_gold_update, // S->C: Gold total changed
+    force_unequip,         // S->C: Server forced unequip (broken, hammer_strip, armor_break)
+    equipment_change,      // S->broadcast: Equipment slot changed (visible to nearby)
+    bank_slot_cleared,     // S->C: Bank slot emptied
+    ability_activated,     // S->broadcast: Special ability activated on entity
+    ability_expired,       // S->broadcast: Special ability expired on entity
+
+    // v2 action messages (acknowledgment-only results)
+    inventory_reposition,       // C->S: Reposition item in inventory grid (no response)
+    equip_request,              // C->S: Equip item to slot (string-based)
+    equip_result,               // S->C: Equip acknowledgment
+    unequip_request,            // C->S: Unequip slot (string-based)
+    unequip_result,             // S->C: Unequip acknowledgment
+    pickup_request,             // C->S: Pick up ground item
+    pickup_result,              // S->C: Pickup acknowledgment
+    drop_request,               // C->S: Drop item from inventory
+    drop_result,                // S->C: Drop acknowledgment
+    use_item_request,           // C->S: Use consumable item
+    use_item_result,            // S->C: Use item acknowledgment
+    upgrade_request,            // C->S: Upgrade item with stone
+    upgrade_result,             // S->C: Upgrade acknowledgment
+    shop_buy_request_v2,        // C->S: Buy from shop (v2)
+    shop_buy_result,            // S->C: Buy acknowledgment
+    shop_sell_request_v2,       // C->S: Sell to shop (v2)
+    shop_sell_result,           // S->C: Sell acknowledgment
+    shop_repair_request_v2,     // C->S: Repair at shop (v2)
+    shop_repair_result,         // S->C: Repair acknowledgment
+    bank_deposit_request_v2,    // C->S: Deposit to bank (v2)
+    bank_deposit_result,        // S->C: Deposit acknowledgment
+    bank_withdraw_request_v2,   // C->S: Withdraw from bank (v2)
+    bank_withdraw_result,       // S->C: Withdraw acknowledgment
+    bank_reposition_request,    // C->S: Move item within bank
+    bank_reposition_result,     // S->C: Reposition acknowledgment
+    activate_ability_request_v2, // C->S: Activate special ability (v2)
+    activate_ability_failed,    // S->C: Ability activation failed
+
+    // v2 trade messages (3-phase: offer -> lock -> confirm -> exchange)
+    trade_request,    // C->S: Initiate trade with target
+    trade_invite,     // S->C: Incoming trade invitation
+    trade_accept,     // C->S: Accept trade invitation
+    trade_decline,    // C->S: Decline trade invitation
+    trade_opened,     // S->C: Trade window opened
+    trade_add_item,   // C->S: Add item to trade offer
+    trade_remove_item,// C->S: Remove item from trade offer
+    trade_set_gold,   // C->S: Set gold amount in trade
+    trade_update,     // S->C: Trade offer state changed
+    trade_lock,       // C->S: Lock trade offer
+    trade_lock_status,// S->C: Lock status of both sides
+    trade_confirm,    // C->S: Confirm locked trade
+    trade_complete,   // S->C: Trade completed
+    trade_cancel,     // C->S: Cancel trade
+    trade_canceled,   // S->C: Trade was canceled
+
+    // NPC interaction - shop/bank open (v2, serialize_item-based)
+    shop_open,      // S->C: Shop inventory display
+    bank_open,      // S->C: Bank contents display
+
+    // Party loot distribution
+    set_loot_rule,     // C->S: Set party loot rule
+    loot_rule_changed, // S->C: Loot rule was changed
+    loot_roll,         // C->S: Roll on loot item
+    loot_pass,         // C->S: Pass on loot item
+    loot_assign,       // C->S: Master looter assigns item
+    loot_available,    // S->C: Loot is available for distribution
+    loot_roll_result,  // S->C: Someone rolled on loot
+    loot_awarded,      // S->C: Loot was awarded to someone
+    loot_expired,      // S->C: Loot expired without being awarded
 
     // Unknown/invalid
     unknown
@@ -1178,12 +1254,138 @@ enum class json_message_type
         return "player_drop_item_request";
     case json_message_type::player_drop_item_response:
         return "player_drop_item_response";
-    case json_message_type::inventory_slot_update:
-        return "inventory_slot_update";
+    case json_message_type::inventory_item_update:
+        return "inventory_item_update";
+    case json_message_type::inventory_item_removed:
+        return "inventory_item_removed";
+    case json_message_type::inventory_weight_update:
+        return "inventory_weight_update";
     case json_message_type::gold_update:
         return "gold_update";
     case json_message_type::bank_slot_update:
         return "bank_slot_update";
+    case json_message_type::inventory_item_add:
+        return "inventory_item_add";
+    case json_message_type::inventory_item_delta:
+        return "inventory_item_delta";
+    case json_message_type::inventory_gold_update:
+        return "inventory_gold_update";
+    case json_message_type::force_unequip:
+        return "force_unequip";
+    case json_message_type::equipment_change:
+        return "equipment_change";
+    case json_message_type::bank_slot_cleared:
+        return "bank_slot_cleared";
+    case json_message_type::ability_activated:
+        return "ability_activated";
+    case json_message_type::ability_expired:
+        return "ability_expired";
+    case json_message_type::inventory_reposition:
+        return "inventory_reposition";
+    case json_message_type::equip_request:
+        return "equip_request";
+    case json_message_type::equip_result:
+        return "equip_result";
+    case json_message_type::unequip_request:
+        return "unequip_request";
+    case json_message_type::unequip_result:
+        return "unequip_result";
+    case json_message_type::pickup_request:
+        return "pickup_request";
+    case json_message_type::pickup_result:
+        return "pickup_result";
+    case json_message_type::drop_request:
+        return "drop_request";
+    case json_message_type::drop_result:
+        return "drop_result";
+    case json_message_type::use_item_request:
+        return "use_item_request";
+    case json_message_type::use_item_result:
+        return "use_item_result";
+    case json_message_type::upgrade_request:
+        return "upgrade_request";
+    case json_message_type::upgrade_result:
+        return "upgrade_result";
+    case json_message_type::shop_buy_request_v2:
+        return "shop_buy_request_v2";
+    case json_message_type::shop_buy_result:
+        return "shop_buy_result";
+    case json_message_type::shop_sell_request_v2:
+        return "shop_sell_request_v2";
+    case json_message_type::shop_sell_result:
+        return "shop_sell_result";
+    case json_message_type::shop_repair_request_v2:
+        return "shop_repair_request_v2";
+    case json_message_type::shop_repair_result:
+        return "shop_repair_result";
+    case json_message_type::bank_deposit_request_v2:
+        return "bank_deposit_request_v2";
+    case json_message_type::bank_deposit_result:
+        return "bank_deposit_result";
+    case json_message_type::bank_withdraw_request_v2:
+        return "bank_withdraw_request_v2";
+    case json_message_type::bank_withdraw_result:
+        return "bank_withdraw_result";
+    case json_message_type::bank_reposition_request:
+        return "bank_reposition_request";
+    case json_message_type::bank_reposition_result:
+        return "bank_reposition_result";
+    case json_message_type::activate_ability_request_v2:
+        return "activate_ability_request_v2";
+    case json_message_type::activate_ability_failed:
+        return "activate_ability_failed";
+    case json_message_type::trade_request:
+        return "trade_request";
+    case json_message_type::trade_invite:
+        return "trade_invite";
+    case json_message_type::trade_accept:
+        return "trade_accept";
+    case json_message_type::trade_decline:
+        return "trade_decline";
+    case json_message_type::trade_opened:
+        return "trade_opened";
+    case json_message_type::trade_add_item:
+        return "trade_add_item";
+    case json_message_type::trade_remove_item:
+        return "trade_remove_item";
+    case json_message_type::trade_set_gold:
+        return "trade_set_gold";
+    case json_message_type::trade_update:
+        return "trade_update";
+    case json_message_type::trade_lock:
+        return "trade_lock";
+    case json_message_type::trade_lock_status:
+        return "trade_lock_status";
+    case json_message_type::trade_confirm:
+        return "trade_confirm";
+    case json_message_type::trade_complete:
+        return "trade_complete";
+    case json_message_type::trade_cancel:
+        return "trade_cancel";
+    case json_message_type::trade_canceled:
+        return "trade_canceled";
+    case json_message_type::shop_open:
+        return "shop_open";
+    case json_message_type::bank_open:
+        return "bank_open";
+    case json_message_type::set_loot_rule:
+        return "set_loot_rule";
+    case json_message_type::loot_rule_changed:
+        return "loot_rule_changed";
+    case json_message_type::loot_roll:
+        return "loot_roll";
+    case json_message_type::loot_pass:
+        return "loot_pass";
+    case json_message_type::loot_assign:
+        return "loot_assign";
+    case json_message_type::loot_available:
+        return "loot_available";
+    case json_message_type::loot_roll_result:
+        return "loot_roll_result";
+    case json_message_type::loot_awarded:
+        return "loot_awarded";
+    case json_message_type::loot_expired:
+        return "loot_expired";
     default:
         return "unknown";
     }
@@ -1469,7 +1671,6 @@ struct character_data_msg
 // Inventory item for inventory_data message
 struct inventory_item_msg
 {
-    uint8_t slot;
     uint32_t item_id;
     std::string name;
     int16_t count;
@@ -1489,30 +1690,10 @@ struct inventory_item_msg
     // Free-form pixel position (client layout)
     int16_t pos_x{0};
     int16_t pos_y{0};
+    int32_t z_order{0};
 
     // Equipment: if set, item is equipped in this slot (maps to equip_slot enum)
     std::optional<uint8_t> equipped_slot{};
-
-    [[nodiscard]] auto to_json() const -> nlohmann::json;
-};
-
-// Equipment item for equipment_data message
-struct equipment_item_msg
-{
-    uint8_t slot;
-    uint32_t item_id;
-    std::string name;
-    int16_t durability;
-    int16_t max_durability;
-    item::item_attribute attribute{}; // Per-instance attribute data
-
-    // Template-derived fields for client rendering
-    uint8_t item_type{0};
-    uint8_t equip_pos{0};
-    int16_t sprite{0};
-    int16_t sprite_frame{0};
-    int8_t color{0};
-    int16_t weight{0};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -1653,7 +1834,6 @@ struct pickup_result_msg
     uint32_t item_id{0};
     std::string item_name;
     int16_t quantity{0};
-    uint8_t inventory_slot{0}; // Where it was placed
     item::item_attribute attribute{};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
@@ -1801,8 +1981,6 @@ struct game_state_msg
 
 [[nodiscard]] auto
 make_inventory_data(uint32_t seq, const std::vector<inventory_item_msg>& items, int32_t gold) -> json_message;
-
-[[nodiscard]] auto make_equipment_data(uint32_t seq, const std::vector<equipment_item_msg>& equipped) -> json_message;
 
 [[nodiscard]] auto make_skills_data(uint32_t seq, const std::vector<skill_entry_msg>& skills) -> json_message;
 
@@ -2122,8 +2300,8 @@ struct entity_info_response_data
 // Equip request from client
 struct player_equip_request_data
 {
-    int16_t inventory_slot{-1}; // Source inventory slot
-    uint8_t target_slot{0};     // Target equip_slot
+    uint32_t item_id{0};    // Item to equip
+    uint8_t target_slot{0}; // Target equip_slot
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_equip_request_data, std::string>;
 };
@@ -2134,39 +2312,6 @@ struct player_unequip_request_data
     uint8_t equip_slot{0}; // Slot to unequip
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<player_unequip_request_data, std::string>;
-};
-
-// Equip result response
-struct equip_result_msg
-{
-    bool success{false};
-    uint8_t slot{0};
-    uint32_t item_id{0};
-    std::string item_name;
-    int16_t durability{0};
-    int16_t max_durability{0};
-    std::optional<uint32_t> swapped_item_id;      // Old item returned to inventory
-    std::optional<uint8_t> swapped_to_inv_slot;   // Where old item went
-    std::optional<uint32_t> unequipped_shield_id; // If 2H forced shield removal
-    std::optional<uint8_t> shield_to_inv_slot;
-    item::item_attribute attribute{};
-    std::string error;
-
-    [[nodiscard]] auto to_json() const -> nlohmann::json;
-};
-
-// Unequip result response
-struct unequip_result_msg
-{
-    bool success{false};
-    uint8_t slot{0};
-    uint32_t item_id{0};
-    std::string item_name;
-    uint8_t inventory_slot{0}; // Where it was placed
-    item::item_attribute attribute{};
-    std::string error;
-
-    [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
 // Equipment change broadcast to nearby players
@@ -2211,8 +2356,6 @@ struct stat_update_data
 };
 
 // Equipment message builders
-[[nodiscard]] auto make_player_equip_response(uint32_t seq, const equip_result_msg& result) -> json_message;
-[[nodiscard]] auto make_player_unequip_response(uint32_t seq, const unequip_result_msg& result) -> json_message;
 [[nodiscard]] auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message;
 [[nodiscard]] auto make_stat_update(const stat_update_data& data) -> json_message;
 
@@ -2223,10 +2366,9 @@ struct stat_update_data
 
 struct inventory_reposition_request_data
 {
-    int16_t from_slot{0};
-    int16_t to_slot{0};
-    int16_t pos_x{0}; // Destination pixel X
-    int16_t pos_y{0}; // Destination pixel Y
+    uint32_t item_id{0};
+    int16_t pos_x{0};
+    int16_t pos_y{0};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<inventory_reposition_request_data, std::string>;
 };
@@ -2235,14 +2377,16 @@ struct inventory_reposition_request_data
 
 struct drop_item_request_data
 {
-    int16_t slot{0};
+    uint32_t item_id{0};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<drop_item_request_data, std::string>;
 };
 
 [[nodiscard]] auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view error = "") -> json_message;
-[[nodiscard]] auto make_inventory_slot_update(int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;
-[[nodiscard]] auto make_bank_slot_update(int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;
+[[nodiscard]] auto make_inventory_item_update(const inventory_item_msg& item) -> json_message;
+[[nodiscard]] auto make_inventory_item_removed(uint32_t item_id) -> json_message;
+[[nodiscard]] auto make_inventory_weight_update(int32_t current_weight, int32_t max_weight) -> json_message;
+[[nodiscard]] auto make_bank_slot_update(int16_t page, int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;
 
 // Gold update notification (server -> client)
 struct gold_update_data
@@ -2272,7 +2416,7 @@ struct shop_buy_request_data
 struct shop_sell_request_data
 {
     uint32_t npc_entity_id{0};
-    int16_t inventory_slot{-1};
+    uint32_t item_id{0};
     int16_t count{1};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_sell_request_data, std::string>;
@@ -2282,7 +2426,7 @@ struct shop_sell_request_data
 struct shop_sell_confirm_request_data
 {
     uint32_t npc_entity_id{0};
-    int16_t inventory_slot{-1};
+    uint32_t item_id{0};
     int16_t count{1};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_sell_confirm_request_data, std::string>;
@@ -2292,7 +2436,7 @@ struct shop_sell_confirm_request_data
 struct shop_repair_request_data
 {
     uint32_t npc_entity_id{0};
-    int16_t inventory_slot{-1};
+    uint32_t item_id{0};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_repair_request_data, std::string>;
 };
@@ -2301,7 +2445,7 @@ struct shop_repair_request_data
 struct shop_repair_confirm_request_data
 {
     uint32_t npc_entity_id{0};
-    int16_t inventory_slot{-1};
+    uint32_t item_id{0};
 
     [[nodiscard]] static auto
     from_json(const nlohmann::json& j) -> result<shop_repair_confirm_request_data, std::string>;
@@ -2311,7 +2455,7 @@ struct shop_repair_confirm_request_data
 struct bank_deposit_request_data
 {
     uint32_t npc_entity_id{0};
-    int16_t inventory_slot{-1};
+    uint32_t item_id{0};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<bank_deposit_request_data, std::string>;
 };
@@ -2320,6 +2464,7 @@ struct bank_deposit_request_data
 struct bank_withdraw_request_data
 {
     uint32_t npc_entity_id{0};
+    int16_t bank_page{0};
     int16_t bank_slot{-1};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<bank_withdraw_request_data, std::string>;
@@ -2711,7 +2856,7 @@ struct guild_invite_respond_request_data
 
 struct use_item_request_data
 {
-    int16_t slot{0};
+    uint32_t item_id{0};
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<use_item_request_data, std::string>;
 };
@@ -2882,7 +3027,7 @@ struct admin_give_item_request_data
 struct admin_remove_item_request_data
 {
     std::string player_name;
-    int16_t inventory_slot{-1};
+    uint32_t item_id{0};
     int16_t count{0}; // 0 = remove entire stack
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<admin_remove_item_request_data, std::string>;
@@ -3378,13 +3523,13 @@ struct player_action_broadcast_data
 
 struct item_upgrade_request_data
 {
-    int16_t item_slot{0}; // Inventory slot of item to upgrade
+    uint32_t item_id{0}; // Item instance to upgrade
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<item_upgrade_request_data, std::string>;
 };
 
 [[nodiscard]] auto make_item_upgrade_response(
-    uint32_t seq, bool success, int16_t item_slot, uint8_t new_level, std::string_view error = {}) -> json_message;
+    uint32_t seq, bool success, uint32_t item_id, uint8_t new_level, std::string_view error = {}) -> json_message;
 
 // === Special ability ===
 
@@ -3413,13 +3558,405 @@ struct item_upgrade_request_data
 
 // === Inventory item builder ===
 
-// Build an inventory_item_msg for a given slot, looking up item and template data.
+// Build an inventory_item_msg for a given item, looking up item and template data.
+// If entry is provided, pos_x/pos_y/z_order are populated from it.
+// equipped_slot is NOT set — caller must populate it from equipment_state if needed.
 // Returns nullopt if the item doesn't exist.
 [[nodiscard]] auto build_inventory_item_msg(
-    int16_t slot_index,
     item_id iid,
     const item::item_system* items,
     const item_registry* registry,
-    std::optional<uint8_t> equipped_slot = std::nullopt) -> std::optional<inventory_item_msg>;
+    const inventory::inventory_entry* entry = nullptr) -> std::optional<inventory_item_msg>;
+
+// ============================================================
+// v2 state update message builders (use item::serialize_item)
+// ============================================================
+
+// Inventory: item added
+[[nodiscard]] auto make_inventory_item_add(
+    const item::item& itm, int16_t pos_x, int16_t pos_y, int32_t z_order) -> nlohmann::json;
+
+// Inventory: full item replacement
+[[nodiscard]] auto make_inventory_item_update_v2(
+    const item::item& itm, int16_t pos_x, int16_t pos_y, int32_t z_order) -> nlohmann::json;
+
+// Inventory: item removed
+[[nodiscard]] auto make_inventory_item_removed_v2(item_id id) -> nlohmann::json;
+
+// Inventory: partial update (count and/or durability only)
+[[nodiscard]] auto make_inventory_item_delta(
+    item_id id, std::optional<int16_t> count, std::optional<int16_t> durability) -> nlohmann::json;
+
+// Inventory: gold total changed
+[[nodiscard]] auto make_inventory_gold_update(int64_t gold) -> nlohmann::json;
+
+// Inventory: weight capacity changed
+[[nodiscard]] auto make_inventory_weight_update_v2(int32_t weight, int32_t max_weight) -> nlohmann::json;
+
+// Equipment: server forced unequip (broken, hammer_strip, armor_break)
+[[nodiscard]] auto make_force_unequip(std::string_view slot, std::string_view reason) -> nlohmann::json;
+
+// Equipment: visible equipment slot changed (broadcast to nearby)
+[[nodiscard]] auto make_equipment_change(
+    uint32_t entity_id, std::string_view slot, const nlohmann::json& item_json) -> nlohmann::json;
+
+// Ground: item appeared on map
+[[nodiscard]] auto make_ground_item_spawn_v2(
+    const item::item& itm, std::string_view map, int16_t x, int16_t y) -> nlohmann::json;
+
+// Ground: item removed from map
+[[nodiscard]] auto make_ground_item_removed_v2(
+    item_id id, std::string_view map, int16_t x, int16_t y) -> nlohmann::json;
+
+// Bank: slot updated with item
+[[nodiscard]] auto make_bank_slot_update_v2(
+    int16_t page, int16_t slot, const item::item& itm) -> nlohmann::json;
+
+// Bank: slot cleared
+[[nodiscard]] auto make_bank_slot_cleared(int16_t page, int16_t slot) -> nlohmann::json;
+
+// Ability: activated on entity
+[[nodiscard]] auto make_ability_activated(
+    uint32_t entity_id, std::string_view ability_type, int32_t duration_ms) -> nlohmann::json;
+
+// Ability: expired on entity
+[[nodiscard]] auto make_ability_expired(
+    uint32_t entity_id, std::string_view ability_type) -> nlohmann::json;
+
+// Inventory: full inventory snapshot sent on login
+// items: each tuple is (serialized_item_json, pos_x, pos_y, z_order)
+// equipment_slots: slot_name -> item_id for occupied slots
+[[nodiscard]] auto make_inventory_data_v2(
+    const std::vector<std::tuple<nlohmann::json, int16_t, int16_t, int32_t>>& items,
+    const std::map<std::string, uint32_t>& equipment_slots,
+    int64_t gold,
+    int32_t weight,
+    int32_t max_weight) -> nlohmann::json;
+
+// ============================================================
+// v2 action message data structs and builders
+// ============================================================
+
+// --- Inventory reposition (no response) ---
+
+struct inventory_reposition_data
+{
+    int32_t item_id{0};
+    int32_t pos_x{0};
+    int32_t pos_y{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<inventory_reposition_data, std::string>;
+};
+
+// --- Equip ---
+
+struct equip_request_data
+{
+    int32_t item_id{0};
+    std::string slot;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<equip_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_equip_result(bool success, std::string_view slot) -> nlohmann::json;
+
+// --- Unequip ---
+
+struct unequip_request_data
+{
+    std::string slot;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<unequip_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_unequip_result(bool success, std::string_view slot) -> nlohmann::json;
+
+// --- Pickup ---
+
+struct pickup_request_data
+{
+    std::string map;
+    int32_t x{0};
+    int32_t y{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<pickup_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_pickup_result(bool success) -> nlohmann::json;
+
+// --- Drop ---
+
+struct drop_request_data
+{
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<drop_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_drop_result(bool success) -> nlohmann::json;
+
+// --- Use item ---
+
+struct use_item_request_data_v2
+{
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<use_item_request_data_v2, std::string>;
+};
+
+[[nodiscard]] auto make_use_item_result(bool success) -> nlohmann::json;
+
+// --- Upgrade ---
+
+struct upgrade_request_data
+{
+    int32_t target_id{0};
+    int32_t stone_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<upgrade_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_upgrade_result_v2(bool success) -> nlohmann::json;
+
+// --- Shop buy ---
+
+struct shop_buy_request_data_v2
+{
+    int32_t template_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_buy_request_data_v2, std::string>;
+};
+
+[[nodiscard]] auto make_shop_buy_result(bool success) -> nlohmann::json;
+
+// --- Shop sell ---
+
+struct shop_sell_request_data_v2
+{
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_sell_request_data_v2, std::string>;
+};
+
+[[nodiscard]] auto make_shop_sell_result(bool success) -> nlohmann::json;
+
+// --- Shop repair ---
+
+struct shop_repair_request_data_v2
+{
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<shop_repair_request_data_v2, std::string>;
+};
+
+[[nodiscard]] auto make_shop_repair_result(bool success) -> nlohmann::json;
+
+// --- Bank deposit ---
+
+struct bank_deposit_request_data_v2
+{
+    int32_t item_id{0};
+    std::optional<int32_t> page;
+    std::optional<int32_t> slot;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<bank_deposit_request_data_v2, std::string>;
+};
+
+[[nodiscard]] auto make_bank_deposit_result(bool success) -> nlohmann::json;
+
+// --- Bank withdraw ---
+
+struct bank_withdraw_request_data_v2
+{
+    int32_t page{0};
+    int32_t slot{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<bank_withdraw_request_data_v2, std::string>;
+};
+
+[[nodiscard]] auto make_bank_withdraw_result(bool success) -> nlohmann::json;
+
+// --- Bank reposition ---
+
+struct bank_reposition_request_data
+{
+    int32_t from_page{0};
+    int32_t from_slot{0};
+    int32_t to_page{0};
+    int32_t to_slot{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<bank_reposition_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_bank_reposition_result(bool success) -> nlohmann::json;
+
+// --- Activate ability ---
+
+struct activate_ability_request_data
+{
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<activate_ability_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_activate_ability_failed(std::string_view error) -> nlohmann::json;
+
+// ============================================================
+// v2 trade message data structs and builders
+// ============================================================
+
+// --- Phase 0: Initiating ---
+
+struct trade_request_data_v2
+{
+    int32_t target_entity_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<trade_request_data_v2, std::string>;
+};
+
+[[nodiscard]] auto make_trade_invite(uint32_t from_entity_id, std::string_view from_name) -> nlohmann::json;
+
+struct trade_accept_data
+{
+    int32_t from_entity_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<trade_accept_data, std::string>;
+};
+
+struct trade_decline_data
+{
+    int32_t from_entity_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<trade_decline_data, std::string>;
+};
+
+[[nodiscard]] auto make_trade_opened(uint32_t partner_entity_id, std::string_view partner_name) -> nlohmann::json;
+
+// --- Phase 1: Offer ---
+
+struct trade_add_item_data
+{
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<trade_add_item_data, std::string>;
+};
+
+struct trade_remove_item_data
+{
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<trade_remove_item_data, std::string>;
+};
+
+struct trade_set_gold_data
+{
+    int64_t amount{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<trade_set_gold_data, std::string>;
+};
+
+[[nodiscard]] auto make_trade_update(
+    std::string_view side, const std::vector<nlohmann::json>& items, int64_t gold) -> nlohmann::json;
+
+// --- Phase 2: Lock ---
+
+// trade_lock: empty data, no struct needed
+
+[[nodiscard]] auto make_trade_lock_status(bool my_locked, bool their_locked) -> nlohmann::json;
+
+// --- Phase 3: Confirm ---
+
+// trade_confirm: empty data, no struct needed
+
+[[nodiscard]] auto make_trade_complete(bool success) -> nlohmann::json;
+
+// --- Cancellation ---
+
+// trade_cancel: empty data, no struct needed
+
+[[nodiscard]] auto make_trade_canceled(std::string_view reason) -> nlohmann::json;
+
+// ============================================================
+// Shop and bank open messages (v2, serialize_item-based)
+// ============================================================
+
+// Shop: catalog of items available for purchase
+// items: each pair is (serialized_item_json, buy_price)
+[[nodiscard]] auto make_shop_open(
+    std::string_view npc_name,
+    std::string_view shop_type,
+    const std::vector<std::pair<nlohmann::json, int32_t>>& items) -> nlohmann::json;
+
+// Bank: full bank contents sent when opening bank
+// pages: outer = pages, inner = slots (null JSON for empty)
+[[nodiscard]] auto make_bank_open_v2(
+    const std::vector<std::vector<nlohmann::json>>& pages,
+    int16_t total_pages) -> nlohmann::json;
+
+// ============================================================
+// Party loot distribution messages
+// ============================================================
+
+// --- Client -> Server (parsers) ---
+
+struct set_loot_rule_data
+{
+    std::string rule; // "disabled", "greed", or "master"
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<set_loot_rule_data, std::string>;
+};
+
+struct loot_roll_data
+{
+    std::string loot_id;
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<loot_roll_data, std::string>;
+};
+
+struct loot_pass_data
+{
+    std::string loot_id;
+    int32_t item_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<loot_pass_data, std::string>;
+};
+
+struct loot_assign_data
+{
+    std::string loot_id;
+    int32_t item_id{0};
+    int32_t target_entity_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<loot_assign_data, std::string>;
+};
+
+// --- Server -> Client (builders) ---
+
+[[nodiscard]] auto make_loot_rule_changed(std::string_view rule, uint32_t set_by) -> nlohmann::json;
+
+[[nodiscard]] auto make_loot_available(
+    std::string_view loot_id,
+    const std::vector<nlohmann::json>& items,
+    std::string_view source_map,
+    int16_t source_x,
+    int16_t source_y,
+    std::string_view rule,
+    int32_t timeout_ms) -> nlohmann::json;
+
+[[nodiscard]] auto make_loot_roll_result(
+    std::string_view loot_id,
+    uint32_t item_id,
+    uint32_t entity_id,
+    std::string_view player_name,
+    int32_t roll) -> nlohmann::json;
+
+[[nodiscard]] auto make_loot_awarded(
+    std::string_view loot_id,
+    uint32_t item_id,
+    uint32_t winner_entity_id,
+    std::string_view winner_name) -> nlohmann::json;
+
+[[nodiscard]] auto make_loot_expired(std::string_view loot_id) -> nlohmann::json;
 
 } // namespace hb::network

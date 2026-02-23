@@ -271,11 +271,22 @@ CREATE TABLE IF NOT EXISTS items (
     custom_quality SMALLINT NOT NULL DEFAULT 0,
     pos_x SMALLINT NOT NULL DEFAULT 0,
     pos_y SMALLINT NOT NULL DEFAULT 0,
-    equip_slot SMALLINT DEFAULT NULL   -- If set, item is equipped in this slot (0-11)
+    z_order INTEGER NOT NULL DEFAULT 0,
+    bank_page SMALLINT,
+    bank_slot SMALLINT,
+    equip_slot SMALLINT DEFAULT NULL   -- DEPRECATED: use character_equipment table instead
 );
 CREATE INDEX IF NOT EXISTS idx_items_character ON items(character_id);
 CREATE INDEX IF NOT EXISTS idx_items_template ON items(template_id);
 CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
+
+-- Character equipment: linked model (slots reference items in inventory)
+CREATE TABLE IF NOT EXISTS character_equipment (
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    slot SMALLINT NOT NULL,           -- equip_slot enum value (0-13)
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    PRIMARY KEY (character_id, slot)
+);
 
 -- ==========================================
 -- War History

@@ -224,31 +224,8 @@ TEST(item_audit, material_defaults_to_not_audited)
     EXPECT_FALSE(itm.is_equipment());
 }
 
-TEST(item_audit, template_audit_override_true)
-{
-    item_template tmpl;
-    tmpl.audit_override = true;
-
-    // When override is set, it should be used regardless of type
-    EXPECT_TRUE(tmpl.audit_override.has_value());
-    EXPECT_TRUE(*tmpl.audit_override);
-}
-
-TEST(item_audit, template_audit_override_false)
-{
-    item_template tmpl;
-    tmpl.audit_override = false;
-
-    EXPECT_TRUE(tmpl.audit_override.has_value());
-    EXPECT_FALSE(*tmpl.audit_override);
-}
-
-TEST(item_audit, template_audit_override_not_set)
-{
-    item_template tmpl;
-
-    EXPECT_FALSE(tmpl.audit_override.has_value());
-}
+// NOTE: audit_override was removed from item_template in the raw-fields rewrite.
+// Audit behavior is now handled entirely at the item instance level.
 
 // ============================================================================
 // Action type enum tests

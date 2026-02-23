@@ -2,7 +2,7 @@
 
 This document tracks implementation progress for the modernized Helbreath server.
 
-**Last Updated:** 2026-02-16
+**Last Updated:** 2026-02-22
 
 ---
 
@@ -195,13 +195,13 @@ This document tracks implementation progress for the modernized Helbreath server
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Item definitions | ✅ | Loaded from item_registry (YAML) |
-| Item instances | ✅ | Individual items with state, owner tracking |
+| Item definitions | ✅ | Loaded from item_registry (YAML), v2 template with raw effect_type + effect_value1-6 |
+| Item instances | ✅ | Individual items with state, owner tracking, damage_min/damage_max |
 | Item stacking | ✅ | Stack/split operations |
 | Durability | ✅ | Wear, repair system |
 | Item effects | ✅ | Stat bonuses, equipment slot mapping |
 | Item properties | ✅ | Weight, price, level requirements, tradeable/droppable flags |
-| Ground items | ✅ | Items on map, pickup, despawn timer |
+| Ground items | ✅ | Items on map, pickup, per-item ground lifetime (template override for expiry) |
 | Loot drops | ✅ | YAML-driven loot_tables.yaml, flat percentages, on_kill + on_despawn phases |
 | Use item handler | ✅ | HP/MP/SP potions, food, recall scrolls, potion speed anti-cheat |
 | Item attributes | ✅ | Per-instance upgrade level, enchantments, custom-made flag (m_dwAttribute) |
@@ -210,6 +210,9 @@ This document tracks implementation progress for the modernized Helbreath server
 | Special abilities | ✅ | SPECABLTY weapon abilities: hp_halve, poison, paralyze, warrior_boost, life_drain |
 | Crafting attributes | ✅ | Custom-made flag, quality, recipe enchantments on manufactured items |
 | Loot attributes | ✅ | Generated enchantments on NPC loot drops, admin item creation with attributes |
+| Item operations | ✅ | item_ops namespace with business logic for all item operations |
+| Item serialization | ✅ | Universal serialize_item() for all contexts (inventory, ground, trade, bank, shop) |
+| Registry cross-validation | ✅ | Startup validation of loot tables + shops vs item_registry |
 
 ---
 
@@ -217,16 +220,18 @@ This document tracks implementation progress for the modernized Helbreath server
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Inventory slots | ✅ | Configurable (default 50), persisted to `items` table |
-| Add/remove items | ✅ | Full inventory management |
-| Move items | ✅ | Slot swap/move with pixel position persistence |
-| Equipment unified | ✅ | Equipped items live in inventory with `equipped_slot` flag (matches legacy behavior) |
-| Equip/unequip | ✅ | Toggle flag on inventory slot, equipment_state is read-only cache |
-| Bank system | ✅ | 200 slots, deposit/withdraw |
+| Entry-based inventory | ✅ | Item_id-keyed, free-form pixel positioning (pos_x, pos_y), z-order layering |
+| Add/remove items | ✅ | Full inventory management by item_id |
+| Reposition items | ✅ | Update pos_x/pos_y/z_order, no slot swapping |
+| Equipment (linked model) | ✅ | equipment_state holds item_id references to inventory; no cached data duplication |
+| Equip/unequip | ✅ | Via item_ops, 14 equip slots (added ring_left, ring_right, angel, fullbody) |
+| Bank system | ✅ | Paginated page+slot model (default 4 pages x 12 slots) |
 | Gold management | ✅ | Loaded/saved with character |
-| Trading | ✅ | Trade window, item/gold offering, confirm/lock, completion |
-| Enter game integration | ✅ | Inventory/bank/gold loaded from DB |
-| Save/disconnect integration | ✅ | Inventory/bank/gold saved to DB |
+| Weight system | ✅ | `max_weight = str * 5 + level * 5`, enforced on pickup, tracked per-entity |
+| Trading | ✅ | 3-phase protocol (offer → lock → confirm) via trade_window |
+| Enter game integration | ✅ | v2 inventory_data message on login (items + equipment + gold + weight) |
+| Save/disconnect integration | ✅ | Inventory/bank/gold saved to DB; character_equipment table for linked model |
+| Item protocol v2 | ✅ | ~70 v2 protocol messages, universal item object shape, action acknowledgments + state update channels |
 
 ---
 
@@ -347,8 +352,8 @@ This document tracks implementation progress for the modernized Helbreath server
 |-----------|--------|-------|
 | Periodic save | ✅ | Configurable auto-save interval, on-demand save methods |
 | Character save | ✅ | Full save on disconnect (stats, position, skills, inventory+equipment, spells, quests, appearance, PK points, EK, contribution, stat points) |
-| Inventory save | ✅ | Per-item rows in `items` table with `equip_slot` column for equipped items |
-| Equipment save | ✅ | Unified with inventory — equipped items have `equip_slot` set in `items` table |
+| Inventory save | ✅ | Per-item rows in `items` table with bank_page/bank_slot columns |
+| Equipment save | ✅ | Linked model via `character_equipment` table (slot → item_id references) |
 | Skills save | ✅ | JSON serialization to JSONB column |
 | Bank save | ✅ | JSON serialization to JSONB column |
 | Gold save | ✅ | Stored in characters table |
@@ -444,6 +449,43 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-02-22: Item System v2 Redesign
+- Rewrote item_template struct to match legacy .cfg format 1:1 (raw effect_type + effect_value1-6)
+- Rewrote item_template YAML loader for 1:1 field mapping
+- Updated equip_pos/equip_slot enums to 14 slots (added ring_left, ring_right, angel, fullbody)
+- Rewrote equipment_state to linked model (slots hold item_id references, not cached data)
+- Removed equipped_as from inventory_entry (equipment tracked via equipment_state)
+- Rewrote bank_storage with paginated page+slot model (default 4 pages x 12 slots)
+- Rewrote trade_window with 3-phase protocol (offer → lock → confirm)
+- Created item_ops_types.h with 17 operation result structs
+- Created item_serialization.h/cpp with universal item JSON serialization (serialize_item)
+- Added damage_min/damage_max fields to item struct (replacing single attack_power average)
+- Added ~70 v2 protocol messages (state updates, actions, trade, shop, bank, party loot)
+- Created item_ops namespace with business logic for all item operations
+- Created character_equipment DB table (linked model persistence)
+- Added bank_page/bank_slot columns to items table
+- Rewrote auth_handlers to send v2 inventory_data on login
+- Rewrote all item handlers (equip, pickup, drop, shop, bank, trade, loot) to use item_ops + v2 protocol
+- Added startup registry cross-validation (loot tables + shops vs item_registry)
+- Added per-item ground lifetime (template override for expiry)
+- ~200 new tests, 2522 total
+
+### 2026-02-21: Inventory Positioning Refactor
+- Replaced slot-indexed inventory array with item_id-keyed `inventory_entry` collection
+- Each `inventory_entry` has: `item_id`, `count`, `pos_x`, `pos_y`, `z_order`, `equipped_as`
+- Z-order layering for client rendering (auto-increment on add, compact on save)
+- All client-server protocol changed from slot indices to item_id references
+- Replaced `inventory_slot_update` with three new messages: `inventory_item_update`, `inventory_item_removed`, `inventory_weight_update`
+- Removed `slot` from `inventory_item_msg`, added `z_order`
+- Removed `swapped_to_inv_slot`/`shield_to_inv_slot` from equip response, `inventory_slot` from unequip/pickup response
+- All request structs (equip, drop, use_item, shop sell/repair, bank deposit, admin remove, upgrade, reposition) use `item_id` instead of slot index
+- Bank storage decoupled from inventory — standalone `bank_storage` class with `container_slot`
+- Weight system: `max_weight = str * 5 + level * 5`, tracked per-entity in `inventory_system`
+- Weight check on pickup; weight updates sent on pickup, drop, buy, sell, deposit, withdraw
+- DB migration: `z_order` column added to `items` table
+- Persistence: z_order loaded/saved, next_z_order restored on login
+- 2281 tests (no regressions), server binary + test binary compile clean
 
 ### 2026-02-16: Item Protocol Reconciliation
 - Renamed item attribute JSON keys from compact (`mt`/`mv`/`st`/`sv`/`cm`/`cq`) to readable names (`main_type`/`main_value`/`sub_type`/`sub_value`/`custom_made`/`custom_quality`)

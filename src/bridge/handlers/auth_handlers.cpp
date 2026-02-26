@@ -1243,11 +1243,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
         }
     }
 
-    // Fetch guild info and ECS entity ID for enter_game_response (player pointer may be out of scope)
+    // Fetch guild info, ECS entity ID, and equipment visuals for enter_game_response
+    // (player pointer may be out of scope after this block)
     std::string enter_guild_name;
     std::string enter_guild_tag;
     uint8_t enter_guild_rank = 0;
     uint32_t enter_entity_id = live_player_id.value;
+    network::equip_visual_msg weapon_vis, shield_vis, body_vis, pants_vis, head_vis, arms_vis, boots_vis, cape_vis;
     if (players_)
     {
         auto* plr = players_->get_player(live_player_id);
@@ -1259,6 +1261,16 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             // Use ECS entity ID so client entity ID matches all subsequent messages
             // (entity_hp_update, combat broadcasts, entity_spawn, etc.)
             enter_entity_id = plr->ecs_entity.id;
+
+            // Equipment visuals from player appearance state
+            weapon_vis = {plr->appearance.weapon.appr, plr->appearance.weapon.color};
+            shield_vis = {plr->appearance.shield.appr, plr->appearance.shield.color};
+            body_vis = {plr->appearance.body.appr, plr->appearance.body.color};
+            pants_vis = {plr->appearance.pants.appr, plr->appearance.pants.color};
+            head_vis = {plr->appearance.head.appr, plr->appearance.head.color};
+            arms_vis = {plr->appearance.arms.appr, plr->appearance.arms.color};
+            boots_vis = {plr->appearance.boots.appr, plr->appearance.boots.color};
+            cape_vis = {plr->appearance.cape.appr, plr->appearance.cape.color};
         }
     }
 
@@ -1293,7 +1305,15 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                                                                 .hunger_level = char_data.hunger_level,
                                                                                 .guild_name = enter_guild_name,
                                                                                 .guild_tag = enter_guild_tag,
-                                                                                .guild_rank = enter_guild_rank},
+                                                                                .guild_rank = enter_guild_rank,
+                                                                                .weapon_visual = weapon_vis,
+                                                                                .shield_visual = shield_vis,
+                                                                                .body_visual = body_vis,
+                                                                                .pants_visual = pants_vis,
+                                                                                .head_visual = head_vis,
+                                                                                .arms_visual = arms_vis,
+                                                                                .boots_visual = boots_vis,
+                                                                                .cape_visual = cape_vis},
                                        .inventory = {},  // inventory sent separately via v2 inventory_data
                                        .skills = skills_list,
                                        .spells = spells_list,

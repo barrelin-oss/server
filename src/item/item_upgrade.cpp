@@ -3,6 +3,7 @@
 
 #include "item/item_upgrade.h"
 
+#include <limits>
 #include <random>
 
 namespace hb::item
@@ -59,6 +60,19 @@ auto attempt_upgrade(item& target_item) -> upgrade_result
     {
         uint8_t new_level = static_cast<uint8_t>(std::min<int>(current_level + 1, max_upgrade_level));
         target_item.attribute.upgrade_level = new_level;
+
+        // Increase max durability on successful upgrade (legacy behavior)
+        // Custom-made items get +20%, non-custom get +15%
+        if (target_item.max_durability > 0)
+        {
+            double rate = target_item.attribute.custom_made ? 0.20 : 0.15;
+            double new_max = target_item.max_durability * (1.0 + rate);
+            // Clamp to int16_t max to prevent overflow
+            if (new_max > static_cast<double>(std::numeric_limits<int16_t>::max()))
+                new_max = static_cast<double>(target_item.max_durability);
+            target_item.max_durability = static_cast<int16_t>(new_max);
+        }
+
         return {.success = true, .new_level = new_level, .stone_consumed = true};
     }
 

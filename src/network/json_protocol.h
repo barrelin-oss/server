@@ -1630,6 +1630,15 @@ struct command_response_data
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
+// Equipment visual data for a single slot in entity spawns and character data
+struct equip_visual_msg
+{
+    int8_t appr{0};
+    int8_t color{0};
+    std::string name;   // Item name for tooltips
+    std::string rarity; // "common".."ancient"
+};
+
 // Character data message (full character info for entering game)
 struct character_data_msg
 {
@@ -1665,6 +1674,16 @@ struct character_data_msg
     std::string guild_tag;
     uint8_t guild_rank{0};
 
+    // Equipment visuals (appr values for rendering equipped items)
+    equip_visual_msg weapon_visual;
+    equip_visual_msg shield_visual;
+    equip_visual_msg body_visual;
+    equip_visual_msg pants_visual;
+    equip_visual_msg head_visual;
+    equip_visual_msg arms_visual;
+    equip_visual_msg boots_visual;
+    equip_visual_msg cape_visual;
+
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
@@ -1696,16 +1715,6 @@ struct inventory_item_msg
     std::optional<uint8_t> equipped_slot{};
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
-};
-
-// Visible entity for enter_game_response and entity_spawn messages
-// Equipment visual data for a single slot in entity spawns
-struct equip_visual_msg
-{
-    int8_t appr{0};
-    int8_t color{0};
-    std::string name;   // Item name for tooltips
-    std::string rarity; // "common".."ancient"
 };
 
 // Active buff info for entity spawns
@@ -3598,7 +3607,8 @@ struct item_upgrade_request_data
 
 // Equipment: visible equipment slot changed (broadcast to nearby)
 [[nodiscard]] auto make_equipment_change(
-    uint32_t entity_id, std::string_view slot, const nlohmann::json& item_json) -> nlohmann::json;
+    uint32_t entity_id, std::string_view slot, const nlohmann::json& item_json,
+    int8_t appr = 0, int8_t color = 0) -> nlohmann::json;
 
 // Ground: item appeared on map
 [[nodiscard]] auto make_ground_item_spawn_v2(

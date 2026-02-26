@@ -426,7 +426,23 @@ void game_handlers::broadcast_equipment_change(player_id pid, player::equip_slot
         }
     }
 
-    auto v2_msg = network::make_equipment_change(plr->ecs_entity.id, slot_to_name(slot), item_json);
+    // Get updated appearance for this slot (appearance is recalculated before this call)
+    int8_t appr_val = 0;
+    int8_t color_val = 0;
+    switch (slot)
+    {
+    case player::equip_slot::weapon: appr_val = plr->appearance.weapon.appr; color_val = plr->appearance.weapon.color; break;
+    case player::equip_slot::shield: appr_val = plr->appearance.shield.appr; color_val = plr->appearance.shield.color; break;
+    case player::equip_slot::body: appr_val = plr->appearance.body.appr; color_val = plr->appearance.body.color; break;
+    case player::equip_slot::pants: appr_val = plr->appearance.pants.appr; color_val = plr->appearance.pants.color; break;
+    case player::equip_slot::head: appr_val = plr->appearance.head.appr; color_val = plr->appearance.head.color; break;
+    case player::equip_slot::arms: appr_val = plr->appearance.arms.appr; color_val = plr->appearance.arms.color; break;
+    case player::equip_slot::boots: appr_val = plr->appearance.boots.appr; color_val = plr->appearance.boots.color; break;
+    case player::equip_slot::cape: appr_val = plr->appearance.cape.appr; color_val = plr->appearance.cape.color; break;
+    default: break;
+    }
+
+    auto v2_msg = network::make_equipment_change(plr->ecs_entity.id, slot_to_name(slot), item_json, appr_val, color_val);
     auto v2_str = v2_msg.dump();
 
     // Also build the v1 broadcast for backward compatibility

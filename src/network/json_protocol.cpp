@@ -1255,37 +1255,57 @@ auto command_response_data::to_json() const -> nlohmann::json
 
 auto character_data_msg::to_json() const -> nlohmann::json
 {
-    return nlohmann::json{{"id", id},
-                          {"name", name},
-                          {"level", level},
-                          {"class_type", class_type},
-                          {"nation", nation},
-                          {"gender", gender},
-                          {"map_name", map_name},
-                          {"pos_x", pos_x},
-                          {"pos_y", pos_y},
-                          {"hp", hp},
-                          {"hp_max", hp_max},
-                          {"mp", mp},
-                          {"mp_max", mp_max},
-                          {"sp", sp},
-                          {"sp_max", sp_max},
-                          {"gold", gold},
-                          {"str", str},
-                          {"dex", dex},
-                          {"vit", vit},
-                          {"int", int_},
-                          {"mag", mag},
-                          {"cha", cha},
-                          {"hair_style", hair_style},
-                          {"hair_color", hair_color},
-                          {"skin_color", skin_color},
-                          {"experience", experience},
-                          {"pk_count", pk_count},
-                          {"hunger_level", hunger_level},
-                          {"guild_name", guild_name},
-                          {"guild_tag", guild_tag},
-                          {"guild_rank", guild_rank}};
+    auto j = nlohmann::json{{"id", id},
+                            {"name", name},
+                            {"level", level},
+                            {"class_type", class_type},
+                            {"nation", nation},
+                            {"gender", gender},
+                            {"map_name", map_name},
+                            {"pos_x", pos_x},
+                            {"pos_y", pos_y},
+                            {"hp", hp},
+                            {"hp_max", hp_max},
+                            {"mp", mp},
+                            {"mp_max", mp_max},
+                            {"sp", sp},
+                            {"sp_max", sp_max},
+                            {"gold", gold},
+                            {"str", str},
+                            {"dex", dex},
+                            {"vit", vit},
+                            {"int", int_},
+                            {"mag", mag},
+                            {"cha", cha},
+                            {"hair_style", hair_style},
+                            {"hair_color", hair_color},
+                            {"skin_color", skin_color},
+                            {"experience", experience},
+                            {"pk_count", pk_count},
+                            {"hunger_level", hunger_level},
+                            {"guild_name", guild_name},
+                            {"guild_tag", guild_tag},
+                            {"guild_rank", guild_rank}};
+
+    // Equipment visuals
+    auto equip_to_json = [](const equip_visual_msg& v) -> nlohmann::json
+    {
+        nlohmann::json ej;
+        ej["appr"] = v.appr;
+        ej["color"] = v.color;
+        return ej;
+    };
+
+    j["equipment"] = nlohmann::json{{"weapon", equip_to_json(weapon_visual)},
+                                    {"shield", equip_to_json(shield_visual)},
+                                    {"body", equip_to_json(body_visual)},
+                                    {"pants", equip_to_json(pants_visual)},
+                                    {"head", equip_to_json(head_visual)},
+                                    {"arms", equip_to_json(arms_visual)},
+                                    {"boots", equip_to_json(boots_visual)},
+                                    {"cape", equip_to_json(cape_visual)}};
+
+    return j;
 }
 
 auto inventory_item_msg::to_json() const -> nlohmann::json
@@ -4671,11 +4691,12 @@ auto make_force_unequip(std::string_view slot, std::string_view reason) -> nlohm
 }
 
 auto make_equipment_change(
-    uint32_t entity_id, std::string_view slot, const nlohmann::json& item_json) -> nlohmann::json
+    uint32_t entity_id, std::string_view slot, const nlohmann::json& item_json,
+    int8_t appr, int8_t color) -> nlohmann::json
 {
     return nlohmann::json{
         {"type", "equipment_change"},
-        {"data", {{"entity_id", entity_id}, {"slot", std::string(slot)}, {"item", item_json}}}};
+        {"data", {{"entity_id", entity_id}, {"slot", std::string(slot)}, {"item", item_json}, {"appr", appr}, {"color", color}}}};
 }
 
 auto make_ground_item_spawn_v2(

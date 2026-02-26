@@ -127,18 +127,24 @@ struct combat_context
     damage_type type{damage_type::physical};
 
     // Attacker stats
-    int32_t attack_power{0};
+    int32_t attack_power{0};   // Fallback/unarmed damage (used when damage_max == 0)
     int32_t magic_power{0};
     int32_t hit_rate{0};
     int32_t critical_rate{0};
     int32_t critical_damage{0}; // Percentage (150 = 150%)
 
+    // Weapon dice range (for per-attack rolling, legacy system)
+    int32_t damage_min{0};  // Minimum dice roll result (dice_count + bonus)
+    int32_t damage_max{0};  // Maximum dice roll result (dice_count * sides + bonus)
+    int32_t strength{0};    // Attacker STR for per-roll multiplier: roll * (1 + STR/500)
+
     // Defender stats
-    int32_t defense{0};
+    int32_t defense{0};          // Armor absorption % (sum of equipped armor values, cap 80)
     int32_t magic_defense{0};
     int32_t dodge_rate{0};
     int32_t block_rate{0};
-    int32_t damage_reduction{0}; // Percentage
+    int32_t damage_reduction{0}; // Additional % reduction (enchantments, buffs)
+    int32_t vitality{0};         // Defender VIT for dice-based damage reduction
 
     // Positional
     bool is_backstab{false};

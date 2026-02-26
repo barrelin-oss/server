@@ -27,21 +27,21 @@ auto pickup_item(
 {
     if (!items || !inv || !world)
     {
-        return {.success = false, .error = "Required subsystems unavailable"};
+        return pickup_result::err(pickup_failure::subsystem_error);
     }
 
-    // 1. Check for ground items — no items is still a valid pickup attempt, just nothing to pick up
+    // 1. Check for ground items
     if (!world->has_ground_items(map, pos))
     {
         spdlog::trace("pickup_item: no ground items at map={} ({},{})", map.value, pos.x, pos.y);
-        return {.success = true};
+        return pickup_result::err(pickup_failure::no_items);
     }
 
     // 2. Check inventory capacity
     if (inv->is_full(player))
     {
         spdlog::debug("pickup_item: inventory full for player eid={}", player.value);
-        return {.success = true, .error = "Inventory full"};
+        return pickup_result::err(pickup_failure::inventory_full);
     }
 
     // 3. Remove the top-most item from ground
@@ -49,7 +49,7 @@ auto pickup_item(
     if (!item_id_opt.has_value())
     {
         spdlog::debug("pickup_item: remove_top_ground_item returned nullopt at map={} ({},{})", map.value, pos.x, pos.y);
-        return {.success = false, .error = "Item no longer available"};
+        return pickup_result::err(pickup_failure::item_unavailable);
     }
 
     auto picked_id = item_id_opt.value();
@@ -64,7 +64,7 @@ auto pickup_item(
         spdlog::debug("pickup_item: item '{}' weight={} exceeds carry limit, putting back", itm->name, itm->weight);
         // Put item back on ground
         world->add_ground_item(map, pos, picked_id);
-        return {.success = true, .error = "Too heavy to carry"};
+        return pickup_result::err(pickup_failure::too_heavy);
     }
 
     // 5. Determine placement position
@@ -79,7 +79,7 @@ auto pickup_item(
         spdlog::debug("pickup_item: add_item failed with result={}, putting item back", static_cast<int>(add_result));
         // Put item back on ground
         world->add_ground_item(map, pos, picked_id);
-        return {.success = false, .error = "Failed to add item to inventory"};
+        return pickup_result::err(pickup_failure::add_failed);
     }
 
     // 7. Set item owner
@@ -99,16 +99,14 @@ auto pickup_item(
         }
     }
 
-    return {
-        .success = true,
-        .error = {},
+    return pickup_result::ok({
         .picked_up = picked_id,
         .pos_x = place_x,
         .pos_y = place_y,
         .z_order = z_order,
         .new_weight = inv->get_current_weight(player),
         .max_weight = inv->get_max_weight(player),
-    };
+    });
 }
 
 auto drop_item(

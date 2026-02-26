@@ -4,6 +4,7 @@
 // Result types for item operations layer
 
 #include "core/types.h"
+#include "core/result.h"
 #include "item/special_ability.h"
 #include "player/equipment.h"
 
@@ -23,17 +24,27 @@ enum class force_unequip_reason : uint8_t
     armor_break = 2,
 };
 
-struct pickup_result
+enum class pickup_failure : uint8_t
 {
-    bool success{false};
-    std::string error;
-    item_id picked_up{};
-    int16_t pos_x{0};
-    int16_t pos_y{0};
-    int32_t z_order{0};
-    int32_t new_weight{0};
-    int32_t max_weight{0};
+    no_items,          // nothing on ground (silent)
+    inventory_full,
+    too_heavy,
+    item_unavailable,  // race condition — removed between check and pickup
+    add_failed,        // inventory::add_item returned non-success
+    subsystem_error,   // null subsystem pointer
 };
+
+struct pickup_success
+{
+    item_id picked_up;
+    int16_t pos_x;
+    int16_t pos_y;
+    int32_t z_order;
+    int32_t new_weight;
+    int32_t max_weight;
+};
+
+using pickup_result = hb::result<pickup_success, pickup_failure>;
 
 struct drop_result
 {

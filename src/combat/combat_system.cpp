@@ -75,12 +75,16 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result
     // Build combat context from entity stats
     combat_context ctx = build_combat_context(attack.attacker, attack.defender, attack.type);
 
-    // Override with base damage if provided
+    // Override with base damage if provided (e.g. spell damage, test scenarios)
     if (attack.base_damage > 0)
     {
         if (attack.type == damage_type::physical)
         {
             ctx.attack_power = attack.base_damage;
+            // Also override the dice range so the new damage path uses it
+            ctx.damage_min = attack.base_damage;
+            ctx.damage_max = attack.base_damage;
+            ctx.strength = 0; // No STR multiplier on explicit override
         }
         else
         {
@@ -260,13 +264,14 @@ auto combat_system::build_combat_context(hb::entity::entity attacker,
         if (auto* p = player_sys->get_player_by_entity(attacker))
         {
             attacker_is_player = true;
-            ctx.attack_power = p->computed.attack_power;
+            ctx.attack_power = p->computed.attack_power; // unarmed/fallback
             ctx.magic_power = p->computed.magic_power;
             ctx.hit_rate = p->computed.hit_rate;
             ctx.critical_rate = p->computed.critical_rate;
             ctx.critical_damage = p->computed.critical_damage;
+            ctx.strength = p->computed.strength;
 
-            // Read weapon enchantment from equipped weapon
+            // Read weapon dice range and enchantment from equipped weapon
             auto* item_sys = subsystems().get<item::item_system>();
             if (item_sys && p->equipment.has_equipped(player::equip_slot::weapon))
             {
@@ -276,7 +281,19 @@ auto combat_system::build_combat_context(hb::entity::entity attacker,
                 {
                     ctx.weapon_enchantment = wpn->attribute.main_type;
                     ctx.weapon_enchantment_value = wpn->attribute.main_value;
+                    if (wpn->damage_max > 0)
+                    {
+                        ctx.damage_min = wpn->damage_min;
+                        ctx.damage_max = wpn->damage_max;
+                    }
                 }
+            }
+
+            // Unarmed: 1d(STR/12), min 1
+            if (ctx.damage_max == 0)
+            {
+                ctx.damage_min = 1;
+                ctx.damage_max = std::max(1, static_cast<int32_t>(ctx.strength) / 12);
             }
         }
     }
@@ -285,8 +302,13 @@ auto combat_system::build_combat_context(hb::entity::entity attacker,
     {
         if (auto* n = npc_sys->get_npc(attacker))
         {
-            // Calculate attack power from dice (average damage)
-            ctx.attack_power = n->attack_dice * (n->attack_sides / 2 + 1) + n->attack_bonus;
+            // Populate dice range for per-attack rolling
+            if (n->attack_sides > 0)
+            {
+                ctx.damage_min = n->attack_dice + n->attack_bonus;
+                ctx.damage_max = n->attack_dice * n->attack_sides + n->attack_bonus;
+            }
+            ctx.attack_power = n->attack_dice * (n->attack_sides / 2 + 1) + n->attack_bonus; // fallback
             ctx.magic_power = ctx.attack_power; // NPCs use same for magic
             ctx.hit_rate = n->hit_rate;
             ctx.critical_rate = 5; // NPCs have lower base crit
@@ -316,6 +338,7 @@ auto combat_system::build_combat_context(hb::entity::entity attacker,
             ctx.dodge_rate = p->computed.dodge_rate;
             ctx.block_rate = 0; // TODO: Calculate from shield
             ctx.damage_reduction = p->computed.physical_resist;
+            ctx.vitality = p->computed.vitality;
         }
     }
 

@@ -323,6 +323,26 @@ auto item_system::populate_from_template(item& itm, item_id template_id) -> bool
     {
         itm.type = item_type::accessory;
     }
+    else if (tmpl_type_val == static_cast<int8_t>(hb::item_type::equip))
+    {
+        // Legacy generic equip type — infer weapon/armor/accessory from equip position
+        auto ep = static_cast<uint8_t>(tmpl->equip_pos);
+        constexpr auto right_hand = static_cast<uint8_t>(hb::item_equip_pos::right_hand);
+        constexpr auto two_hand   = static_cast<uint8_t>(hb::item_equip_pos::two_hand);
+        constexpr auto head       = static_cast<uint8_t>(hb::item_equip_pos::head);
+        constexpr auto body       = static_cast<uint8_t>(hb::item_equip_pos::body);
+        constexpr auto arms_pos   = static_cast<uint8_t>(hb::item_equip_pos::arms);
+        constexpr auto pants      = static_cast<uint8_t>(hb::item_equip_pos::pants);
+        constexpr auto boots      = static_cast<uint8_t>(hb::item_equip_pos::boots);
+        constexpr auto left_hand  = static_cast<uint8_t>(hb::item_equip_pos::left_hand);
+
+        if (ep == right_hand || ep == two_hand)
+            itm.type = item_type::weapon;
+        else if (ep == head || ep == body || ep == arms_pos || ep == pants || ep == boots || ep == left_hand)
+            itm.type = item_type::armor;
+        else
+            itm.type = item_type::accessory;
+    }
     else if (tmpl_type_val == static_cast<int8_t>(hb::item_type::potion) ||
              tmpl_type_val == static_cast<int8_t>(hb::item_type::scroll) ||
              tmpl_type_val == static_cast<int8_t>(hb::item_type::eat) ||

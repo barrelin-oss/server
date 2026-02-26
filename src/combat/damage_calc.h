@@ -1,7 +1,7 @@
 #pragma once
 
 // damage_calc.h
-// Damage calculation formulas
+// Damage calculation formulas (legacy dice-based system)
 
 #include "combat/combat_events.h"
 
@@ -21,6 +21,8 @@ inline auto& combat_rng()
 
 inline auto random_int(int min, int max) -> int
 {
+    if (min >= max)
+        return min;
     std::uniform_int_distribution<int> dist(min, max);
     return dist(combat_rng());
 }
@@ -36,25 +38,36 @@ inline auto random_percent() -> int
     return random_int(1, 100);
 }
 
-// Calculate base physical damage
-inline auto calc_physical_damage(int32_t attack_power, int32_t defense) -> int32_t
+// Roll weapon dice and apply STR multiplier.
+// Uses ctx.damage_min/damage_max for the dice range.
+// Falls back to ctx.attack_power if no weapon dice are set (damage_max == 0).
+inline auto calc_physical_damage(const combat_context& ctx) -> int32_t
 {
-    // Basic formula: damage = attack * (100 / (100 + defense))
-    // This gives diminishing returns on defense
-    if (defense < 0)
-        defense = 0;
+    int32_t damage;
 
-    float damage_reduction = 100.0f / (100.0f + static_cast<float>(defense));
-    int32_t damage = static_cast<int32_t>(static_cast<float>(attack_power) * damage_reduction);
+    if (ctx.damage_max > 0)
+    {
+        // Per-attack dice roll (legacy: iDice(throw, range) + bonus)
+        damage = random_int(std::max(1, ctx.damage_min), std::max(1, ctx.damage_max));
 
-    // Add some variance (90-110%)
-    float variance = random_float(0.9f, 1.1f);
-    damage = static_cast<int32_t>(static_cast<float>(damage) * variance);
+        // Apply STR multiplier: damage * (1 + STR / 500)
+        // Legacy: dTmp1 = STR / 5; damage += damage * dTmp1 / 100
+        if (ctx.strength > 0)
+        {
+            double str_bonus = static_cast<double>(ctx.strength) / 500.0;
+            damage = static_cast<int32_t>(damage * (1.0 + str_bonus));
+        }
+    }
+    else
+    {
+        // Fallback: unarmed or missing dice data
+        damage = ctx.attack_power;
+    }
 
     return std::max(0, damage);
 }
 
-// Calculate magic damage
+// Calculate magic damage (unchanged from original)
 inline auto calc_magic_damage(int32_t magic_power, int32_t magic_defense) -> int32_t
 {
     // Similar to physical but typically less affected by defense
@@ -70,13 +83,12 @@ inline auto calc_magic_damage(int32_t magic_power, int32_t magic_defense) -> int
     return std::max(0, damage);
 }
 
-// Calculate hit chance
+// Calculate hit chance (legacy: (hit_rate / defense_ratio) * 50, bounded 15-99%)
 inline auto calc_hit_chance(int32_t hit_rate, int32_t dodge_rate) -> int
 {
-    // Base 80% hit chance, modified by hit/dodge difference
-    int base_chance = 80;
-    int modifier = (hit_rate - dodge_rate) / 2;
-    return std::clamp(base_chance + modifier, 5, 95); // 5-95% range
+    int defense = std::max(1, dodge_rate);
+    int chance = static_cast<int>((static_cast<double>(hit_rate) / defense) * 50.0);
+    return std::clamp(chance, 15, 99);
 }
 
 // Calculate critical hit chance
@@ -96,11 +108,10 @@ inline auto calc_block_chance(int32_t block_rate) -> int
     return std::clamp(block_rate, 0, 50); // Max 50% block
 }
 
-// Apply damage reduction (from armor, buffs, etc.)
+// Apply percentage damage reduction (cap at 80%)
 inline auto apply_damage_reduction(int32_t damage, int32_t reduction_percent) -> int32_t
 {
     reduction_percent = std::clamp(reduction_percent, 0, 80); // Max 80% reduction
-    // Use integer math to avoid floating-point precision issues
     int32_t reduced = damage * (100 - reduction_percent) / 100;
     return std::max(0, reduced);
 }
@@ -112,7 +123,7 @@ inline auto apply_critical_damage(int32_t damage, int32_t crit_damage_percent) -
     return static_cast<int32_t>(static_cast<float>(damage) * multiplier);
 }
 
-// Calculate final damage with all modifiers
+// Calculate final damage with all modifiers (legacy dice-based system)
 inline auto calculate_final_damage(const combat_context& ctx) -> hit_result
 {
     hit_result result;
@@ -142,13 +153,12 @@ inline auto calculate_final_damage(const combat_context& ctx) -> hit_result
     int32_t damage = 0;
     if (ctx.type == damage_type::physical)
     {
-        int32_t effective_defense = ctx.ignore_defense ? 0 : ctx.defense;
-        damage = calc_physical_damage(ctx.attack_power, effective_defense);
+        damage = calc_physical_damage(ctx);
     }
     else if (ctx.type == damage_type::magic)
     {
-        int32_t effective_defense = ctx.ignore_defense ? 0 : ctx.magic_defense;
-        damage = calc_magic_damage(ctx.magic_power, effective_defense);
+        int32_t effective_mdef = ctx.ignore_defense ? 0 : ctx.magic_defense;
+        damage = calc_magic_damage(ctx.magic_power, effective_mdef);
     }
     else if (ctx.type == damage_type::pure)
     {
@@ -185,13 +195,36 @@ inline auto calculate_final_damage(const combat_context& ctx) -> hit_result
         }
     }
 
-    // Apply damage reduction
+    // VIT-based damage reduction (legacy: iDice(1, VIT/10) - 1)
+    // Only for physical damage; minimum 1 enforced below for player attacks.
+    if (ctx.type == damage_type::physical && ctx.vitality > 0)
+    {
+        int32_t vit_sides = ctx.vitality / 10;
+        if (vit_sides > 0)
+        {
+            damage -= random_int(0, vit_sides - 1);
+        }
+    }
+
+    // Armor absorption (ctx.defense is a % value from item config, cap 80%)
+    // Replaces the old 100/(100+defense) formula.
+    if (ctx.type == damage_type::physical && !ctx.ignore_defense && ctx.defense > 0)
+    {
+        damage = apply_damage_reduction(damage, std::min(ctx.defense, 80));
+    }
+
+    // Additional percentage reduction (enchantments, buffs, physical_resist)
     if (ctx.damage_reduction > 0)
     {
         damage = apply_damage_reduction(damage, ctx.damage_reduction);
     }
 
-    // Apply final multiplier
+    // Physical player damage is always at least 1 before immunity multiplier.
+    // Anti-physical immunity uses damage_multiplier=0 to override this floor.
+    if (ctx.type == damage_type::physical)
+        damage = std::max(1, damage);
+
+    // Apply final multiplier (0.0f = immunity, e.g. anti-physical mobs)
     damage = static_cast<int32_t>(static_cast<float>(damage) * ctx.damage_multiplier);
 
     result.final_damage = std::max(0, damage);

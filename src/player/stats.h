@@ -207,11 +207,23 @@ struct computed_stats
         max_hp = effective.max_hp() + mods.hp_bonus;
         max_mp = effective.max_mp() + mods.mp_bonus;
         max_sp = effective.max_sp() + mods.sp_bonus;
-        attack_power = effective.physical_attack() + mods.attack_power;
+        // attack_power here is a fallback / character-sheet display value only.
+        // Actual per-attack damage uses dice rolling in damage_calc.h:
+        //   Weapon:  random_int(damage_min, damage_max) * (1 + STR/500)
+        //   Unarmed: random_int(1, STR/12)
+        // Both paths read ctx.damage_min/damage_max set in build_combat_context.
+        if (mods.attack_power > 0)
+        {
+            attack_power = mods.attack_power; // weapon dice average (display only)
+        }
+        else
+        {
+            attack_power = std::max(1, effective.strength / 12); // unarmed average
+        }
         magic_power = effective.magic_attack() + mods.magic_power;
         defense = mods.defense;
         magic_defense = mods.magic_defense;
-        hit_rate = effective.hit_rate() + mods.hit_bonus;
+        hit_rate = effective.hit_rate() + mods.hit_bonus + effective.physical_attack();
         dodge_rate = effective.dodge_rate() + mods.dodge_bonus;
         critical_rate = 10 + mods.critical_rate;      // Base 10% crit
         critical_damage = 150 + mods.critical_damage; // Base 150% crit damage

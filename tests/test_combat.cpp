@@ -61,16 +61,28 @@ TEST(combat_context_test, initialization)
 
 TEST(damage_calc_test, physical_damage)
 {
-    int32_t damage = calc_physical_damage(100, 50);
+    // Weapon with 10-20 damage range, 30% armor (defense=30)
+    combat_context ctx;
+    ctx.type = damage_type::physical;
+    ctx.damage_min = 10;
+    ctx.damage_max = 20;
+    ctx.defense = 30;
+    int32_t damage = calc_physical_damage(ctx);
     EXPECT_GT(damage, 0);
-    EXPECT_LT(damage, 100); // Defense should reduce damage
+    EXPECT_LE(damage, 20); // Should not exceed dice max
 }
 
 TEST(damage_calc_test, physical_damage_no_defense)
 {
-    int32_t damage = calc_physical_damage(100, 0);
+    // Weapon with 10-20 damage range, no armor
+    combat_context ctx;
+    ctx.type = damage_type::physical;
+    ctx.damage_min = 10;
+    ctx.damage_max = 20;
+    ctx.defense = 0;
+    int32_t damage = calc_physical_damage(ctx);
     EXPECT_GT(damage, 0);
-    // Should be close to attack value with some variance
+    EXPECT_LE(damage, 20);
 }
 
 TEST(damage_calc_test, magic_damage)
@@ -81,9 +93,10 @@ TEST(damage_calc_test, magic_damage)
 
 TEST(damage_calc_test, hit_chance)
 {
+    // Legacy formula: (hit / defense) * 50, bounded 15-99%
     int chance = calc_hit_chance(100, 50);
-    EXPECT_GE(chance, 5);
-    EXPECT_LE(chance, 95);
+    EXPECT_GE(chance, 15);
+    EXPECT_LE(chance, 99);
 
     int high_hit = calc_hit_chance(200, 50);
     int low_hit = calc_hit_chance(50, 200);
@@ -431,13 +444,25 @@ TEST_F(combat_system_test, kill_increments_counters)
 
 TEST(damage_calc_test, zero_attack_power)
 {
-    int32_t damage = calc_physical_damage(0, 50);
+    // Fallback path: no weapon dice set, attack_power=0
+    combat_context ctx;
+    ctx.type = damage_type::physical;
+    ctx.attack_power = 0;
+    ctx.damage_min = 0;
+    ctx.damage_max = 0;
+    int32_t damage = calc_physical_damage(ctx);
     EXPECT_GE(damage, 0);
 }
 
 TEST(damage_calc_test, massive_defense)
 {
-    int32_t damage = calc_physical_damage(100, 10000);
+    // Defense is capped at 80%, so damage is never 0 from defense alone
+    combat_context ctx;
+    ctx.type = damage_type::physical;
+    ctx.damage_min = 10;
+    ctx.damage_max = 20;
+    ctx.defense = 10000; // Will be capped at 80%
+    int32_t damage = calc_physical_damage(ctx);
     EXPECT_GE(damage, 0); // Should not underflow
 }
 

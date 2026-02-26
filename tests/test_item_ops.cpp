@@ -159,9 +159,8 @@ TEST_F(item_ops_test, pickup_success)
     auto result = hb::item_ops::pickup_item(
         player_, test_map_, player_pos_, items_, inv_, world_);
 
-    EXPECT_TRUE(result.success);
-    EXPECT_EQ(result.picked_up, sword_id);
-    EXPECT_TRUE(result.error.empty());
+    EXPECT_TRUE(result.is_ok());
+    EXPECT_EQ(result.value().picked_up, sword_id);
 
     // Item should be in inventory now
     auto* inv = inv_->get_inventory(player_);
@@ -185,12 +184,12 @@ TEST_F(item_ops_test, pickup_returns_placement_info)
     auto result = hb::item_ops::pickup_item(
         player_, test_map_, player_pos_, items_, inv_, world_);
 
-    EXPECT_TRUE(result.success);
+    EXPECT_TRUE(result.is_ok());
     // Default placement is (30, 40)
-    EXPECT_EQ(result.pos_x, 30);
-    EXPECT_EQ(result.pos_y, 40);
+    EXPECT_EQ(result.value().pos_x, 30);
+    EXPECT_EQ(result.value().pos_y, 40);
     // z_order should be non-negative (first item = 0)
-    EXPECT_GE(result.z_order, 0);
+    EXPECT_GE(result.value().z_order, 0);
 }
 
 TEST_F(item_ops_test, pickup_empty_tile)
@@ -199,8 +198,8 @@ TEST_F(item_ops_test, pickup_empty_tile)
     auto result = hb::item_ops::pickup_item(
         player_, test_map_, player_pos_, items_, inv_, world_);
 
-    EXPECT_FALSE(result.success);
-    EXPECT_FALSE(result.error.empty());
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), hb::item_ops::pickup_failure::no_items);
 }
 
 TEST_F(item_ops_test, pickup_full_inventory)
@@ -220,8 +219,8 @@ TEST_F(item_ops_test, pickup_full_inventory)
     auto result = hb::item_ops::pickup_item(
         player_, test_map_, player_pos_, items_, inv_, world_);
 
-    EXPECT_FALSE(result.success);
-    EXPECT_FALSE(result.error.empty());
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), hb::item_ops::pickup_failure::inventory_full);
 
     // Item should still be on ground
     EXPECT_TRUE(world_->has_ground_items(test_map_, player_pos_));
@@ -239,8 +238,8 @@ TEST_F(item_ops_test, pickup_weight_limit)
     auto result = hb::item_ops::pickup_item(
         player_, test_map_, player_pos_, items_, inv_, world_);
 
-    EXPECT_FALSE(result.success);
-    EXPECT_NE(result.error.find("heavy"), std::string::npos);
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), hb::item_ops::pickup_failure::too_heavy);
 
     // Item should still be on ground (put back after weight check)
     EXPECT_TRUE(world_->has_ground_items(test_map_, player_pos_));
@@ -251,8 +250,8 @@ TEST_F(item_ops_test, pickup_null_subsystems)
     auto result = hb::item_ops::pickup_item(
         player_, test_map_, player_pos_, nullptr, inv_, world_);
 
-    EXPECT_FALSE(result.success);
-    EXPECT_FALSE(result.error.empty());
+    EXPECT_TRUE(result.is_err());
+    EXPECT_EQ(result.error(), hb::item_ops::pickup_failure::subsystem_error);
 }
 
 TEST_F(item_ops_test, pickup_multiple_items_takes_top)
@@ -266,9 +265,9 @@ TEST_F(item_ops_test, pickup_multiple_items_takes_top)
     auto result = hb::item_ops::pickup_item(
         player_, test_map_, player_pos_, items_, inv_, world_);
 
-    EXPECT_TRUE(result.success);
+    EXPECT_TRUE(result.is_ok());
     // Top item (last added) should be picked up
-    EXPECT_EQ(result.picked_up, sword2);
+    EXPECT_EQ(result.value().picked_up, sword2);
 
     // One item should remain on ground
     EXPECT_TRUE(world_->has_ground_items(test_map_, player_pos_));

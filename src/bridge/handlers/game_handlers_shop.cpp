@@ -184,32 +184,54 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     // Call item_ops
     auto result = item_ops::pickup_item(owner_eid, pickup_map, pickup_pos, item_, inventory_, world_);
 
-    if (!result.success)
+    if (result.is_err())
     {
-        if (msg.type == network::json_message_type::pickup_request)
+        using item_ops::pickup_failure;
+        switch (result.error())
         {
-            conn->send_raw(network::make_pickup_result(false).dump());
+        case pickup_failure::no_items:
+            // Silent — nothing to pick up
+            return;
+        case pickup_failure::inventory_full:
+            conn->send(network::make_chat_message_broadcast({
+                .channel = "system",
+                .sender_id = 0,
+                .sender_name = "",
+                .content = "Inventory full",
+                .flags = {"system"},
+            }));
+            if (msg.type == network::json_message_type::pickup_request)
+                conn->send_raw(network::make_pickup_result(false).dump());
+            else
+                send_error(conn_id, msg.seq, "pickup_failed", "Inventory full");
+            return;
+        case pickup_failure::too_heavy:
+            conn->send(network::make_chat_message_broadcast({
+                .channel = "system",
+                .sender_id = 0,
+                .sender_name = "",
+                .content = "Too heavy to carry",
+                .flags = {"system"},
+            }));
+            if (msg.type == network::json_message_type::pickup_request)
+                conn->send_raw(network::make_pickup_result(false).dump());
+            else
+                send_error(conn_id, msg.seq, "pickup_failed", "Too heavy to carry");
+            return;
+        case pickup_failure::item_unavailable:
+        case pickup_failure::add_failed:
+        case pickup_failure::subsystem_error:
+            if (msg.type == network::json_message_type::pickup_request)
+                conn->send_raw(network::make_pickup_result(false).dump());
+            else
+                send_error(conn_id, msg.seq, "pickup_failed", "Pickup failed");
+            return;
         }
-        else
-        {
-            send_error(conn_id, msg.seq, "pickup_failed", result.error);
-        }
-        return;
+        return; // unreachable, but satisfies compiler
     }
 
-    // Notify player if the pickup was blocked (too heavy, inventory full, etc.)
-    if (!result.error.empty())
-    {
-        conn->send(network::make_chat_message_broadcast({
-            .channel = "system",
-            .sender_id = 0,
-            .sender_name = "",
-            .content = result.error,
-            .flags = {"system"},
-        }));
-    }
-
-    auto picked_item_id = result.picked_up;
+    auto& pick = result.value();
+    auto picked_item_id = pick.picked_up;
     auto* itm = item_->get_item(picked_item_id);
     std::string item_name = itm ? itm->name : "Unknown";
 
@@ -227,7 +249,7 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     if (itm)
     {
         conn->send_raw(
-            network::make_inventory_item_add(*itm, result.pos_x, result.pos_y, result.z_order).dump());
+            network::make_inventory_item_add(*itm, pick.pos_x, pick.pos_y, pick.z_order).dump());
     }
 
     // Broadcast pickup animation to nearby players (always — the action was confirmed)
@@ -239,7 +261,7 @@ void game_handlers::handle_player_pickup(connection_id conn_id, const network::j
     {
         // Send weight update (v2)
         conn->send_raw(
-            network::make_inventory_weight_update_v2(result.new_weight, result.max_weight).dump());
+            network::make_inventory_weight_update_v2(pick.new_weight, pick.max_weight).dump());
 
         // Broadcast item removal (v2) to visible players
         std::string map_name;

@@ -68,9 +68,27 @@ auto pickup_item(
     }
 
     // 5. Determine placement position
-    //    Default position (30, 40); consumables use the same default.
+    //    Stack on the highest-z-order item of the same template, or default (30, 40).
     int16_t place_x = 30;
     int16_t place_y = 40;
+    if (itm)
+    {
+        auto* inv_data = inv->get_inventory(player);
+        if (inv_data)
+        {
+            int32_t best_z = -1;
+            for (const auto& e : inv_data->items())
+            {
+                auto* existing = items->get_item(e.item);
+                if (existing && existing->template_id == itm->template_id && e.z_order > best_z)
+                {
+                    best_z = e.z_order;
+                    place_x = e.pos_x;
+                    place_y = e.pos_y;
+                }
+            }
+        }
+    }
 
     // 6. Add to inventory
     auto add_result = inv->add_item(player, picked_id, itm ? itm->count : 1, place_x, place_y);

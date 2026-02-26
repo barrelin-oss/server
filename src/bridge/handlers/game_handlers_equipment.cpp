@@ -292,6 +292,8 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
     // Parse request — support both v1 (player_unequip_request) and v2 (unequip_request) formats
     player::equip_slot slot{};
     std::string slot_name;
+    std::optional<int16_t> bag_pos_x;
+    std::optional<int16_t> bag_pos_y;
 
     if (msg.type == network::json_message_type::unequip_request)
     {
@@ -304,6 +306,8 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
         }
         auto& data = data_result.value();
         slot_name = data.slot;
+        bag_pos_x = data.pos_x;
+        bag_pos_y = data.pos_y;
         auto slot_opt = parse_equip_slot(data.slot);
         if (!slot_opt)
         {
@@ -367,6 +371,21 @@ void game_handlers::handle_player_unequip(connection_id conn_id, const network::
     // Recalculate stats and appearance
     players_->recalculate_equipment_modifiers(pid);
     players_->recalculate_appearance(pid);
+
+    // Reposition item in bag if drop coordinates were provided
+    if (bag_pos_x && bag_pos_y)
+    {
+        auto* inv_data = inventory_->get_inventory(owner_eid);
+        if (inv_data)
+        {
+            auto* entry = inv_data->get_item(result.unequipped);
+            if (entry)
+            {
+                entry->pos_x = *bag_pos_x;
+                entry->pos_y = *bag_pos_y;
+            }
+        }
+    }
 
     // Send v2 ack
     conn->send_raw(network::make_unequip_result(true, slot_name).dump());

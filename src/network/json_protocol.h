@@ -3665,6 +3665,8 @@ struct equip_request_data
 struct unequip_request_data
 {
     std::string slot;
+    std::optional<int16_t> pos_x;
+    std::optional<int16_t> pos_y;
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<unequip_request_data, std::string>;
 };

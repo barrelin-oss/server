@@ -4837,6 +4837,10 @@ auto unequip_request_data::from_json(const nlohmann::json& j) -> result<unequip_
             return result<unequip_request_data, std::string>::err("Missing or invalid 'slot'");
         }
         data.slot = j["slot"].get<std::string>();
+        if (j.contains("pos_x") && j["pos_x"].is_number())
+            data.pos_x = j["pos_x"].get<int16_t>();
+        if (j.contains("pos_y") && j["pos_y"].is_number())
+            data.pos_y = j["pos_y"].get<int16_t>();
         return result<unequip_request_data, std::string>::ok(std::move(data));
     }
     catch (const nlohmann::json::exception& e)

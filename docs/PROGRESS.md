@@ -452,7 +452,10 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
-### 2026-08-30: Bot scale phase (10 → 50), perf fixes, city habitability
+### 2026-08-30: Mage bots, magic entity-id fixes, starting spells, regen-aware potion use
+- magic_system.cpp: fixed 20 occurrences of resolving players via `get_player(player_id{entity.id})` — ECS entity ids are NOT player ids, so mana deduction, range checks, INT scaling and player-target effects were silently skipped (infinite mana; Magic-Missile dealt 4 instead of 17). All now use `get_player_by_entity`. Same bug class previously fixed in loot gold; codebase-wide audit spawned as a follow-up task.
+- Starting spells: on first login (magic_data defaults to `'[]'`), players are granted every spell they qualify for by INT/MAG (`auth_handlers.cpp`); persisted on next save. TODO: replace with a purchase/learning flow.
+- Bot AI: mage role (2 per party, INT 20/MAG 14, class_type 1) — Magic-Missile at range, self-Heal, BluePotion for mana, melee fallback; combat awareness (recent damage or adjacent mob) gates potion use; out-of-combat "resting" state waits for natural regen (HP ~1d(VIT)/5s, MP ~1d(MAG)×0.25/5s) instead of drinking potions.
 - Perf: `find_aggro_target` now resolves players via O(1) `get_player_by_entity` (was a full player scan per entity in aggro range, per NPC, per 100ms); `get_players_who_can_see` skips the far-admin scan unless any player has `sees_all` (new `player_system::set_sees_all` + incremental counter; gm_commands updated — never write `player::sees_all` directly)
 - Map loading: `.amd` extension check is now case-insensitive (`ARESDEN.AMD`/`ELVINE.AMD` were silently skipped — those maps never existed at runtime); map names normalized to lowercase at load so name lookups ("aresden") work
 - New characters now start in their nation's town (aresden/elvine; neutral → default) — `map_name` added to the create-character INSERT

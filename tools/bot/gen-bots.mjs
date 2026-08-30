@@ -25,24 +25,25 @@ for (let i = 1; i <= n; i++) {
             if ((j <= half) === (i <= half)) invites.push(pad(j));
         }
     }
+    // 2 magos por party de 5 (posicoes 4 e 5); o resto guerreiro
+    const isMage = (i - 1) % partySize >= 3;
+    const stats = isMage
+        ? { strength: 10, dexterity: 10, vitality: 12, intelligence: 20, magic: 14, charisma: 4 }
+        : { strength: 14, dexterity: 12, vitality: 14, intelligence: 10, magic: 10, charisma: 10 };
     bots.push({
         username: name.toLowerCase(),
         password: "hbx_bot_dev_2026",
+        role: isMage ? "mage" : "warrior",
         party: isLeader ? { invites } : { leader: pad(realLeader) },
         character: {
             name,
-            class_type: 0,
+            class_type: isMage ? 1 : 0,
             nation,
             gender: 1 + (i % 2),
             hair_style: i % 8,
             hair_color: i % 16,
             skin_color: i % 3,
-            strength: 14,
-            dexterity: 12,
-            vitality: 14,
-            intelligence: 10,
-            magic: 10,
-            charisma: 10,
+            ...stats,
         },
     });
 }

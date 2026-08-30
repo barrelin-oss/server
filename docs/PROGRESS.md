@@ -452,6 +452,11 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-08-30: Crafting/fishing potion references fixed — zero registry warnings at boot
+- recipes.yaml alchemy results remapped to this item set by function: HealthPotion→RedPotion, ManaPotion→BluePotion, RevitalizingPotion→GreenPotion, Big variants likewise (results are referenced by name)
+- fishing.yaml rare catch SuperPowerGreenPotion→SuperGreenPotion (391), display name aligned
+- Last 7 startup registry warnings eliminated — the boot is now fully clean (0 warnings, 0 errors)
+
 ### 2026-08-30: Final 7 legacy magic types — spell cycle closed (66/66 loadable)
 - Added the last missing `magic_type` values: `sp_down_area` (5), `sp_up_area` (7), `create` (10), `possession` (15), `tremor` (22)
 - Staminar-Drain drains SP directly (effect1 average, area); Celebrating-Light (type 5, zero dice) loads as a harmless visual cast

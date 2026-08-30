@@ -1343,17 +1343,9 @@ auto npc_system::find_aggro_target(const npc& npc_ref) -> entity::entity
         if (!player_sys)
             continue;
 
-        // Find player by ecs_entity index
-        player::player* p = nullptr;
-        player_sys->for_each_player(
-            [&](player_id, player::player& player)
-            {
-                if (player.ecs_entity.index() == entry.entity.index())
-                {
-                    p = &player;
-                }
-            });
-
+        // O(1) lookup via the ecs-index map (was a full for_each_player scan per entity,
+        // every 100ms per NPC — quadratic with many players)
+        player::player* p = player_sys->get_player_by_entity(entry.entity);
         if (!p)
             continue;
 

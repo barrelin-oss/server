@@ -1,4 +1,4 @@
-# shops.yaml
+﻿# shops.yaml
 # NPC shop configurations
 # buy_categories: item_category values the shop will purchase from players
 # repair_categories: item_category values the shop can repair
@@ -19,18 +19,18 @@ shops:
     buy_categories: [10, 11, 12, 13, 14, 30, 31, 32, 99]
     repair_categories: [11, 12, 13, 14]
     items:
-      - { item_id: 308, count: 1 }   # HealthPotion
-      - { item_id: 309, count: 1 }   # ManaPotion
-      - { item_id: 310, count: 1 }   # StaminaPotion
+      - { item_id: 91, count: 1 }    # RedPotion (HP)
+      - { item_id: 93, count: 1 }    # BluePotion (MP)
+      - { item_id: 95, count: 1 }    # GreenPotion (SP)
 
   ShopKeeper-E:
     type: general
     buy_categories: [10, 11, 12, 13, 14, 30, 31, 32, 99]
     repair_categories: [11, 12, 13, 14]
     items:
-      - { item_id: 308, count: 1 }   # HealthPotion
-      - { item_id: 309, count: 1 }   # ManaPotion
-      - { item_id: 310, count: 1 }   # StaminaPotion
+      - { item_id: 91, count: 1 }    # RedPotion (HP)
+      - { item_id: 93, count: 1 }    # BluePotion (MP)
+      - { item_id: 95, count: 1 }    # GreenPotion (SP)
 
   # Blacksmiths - buy/sell/repair weapons and armor
   Gandlf:

@@ -10,8 +10,11 @@
 #include <ixwebsocket/IXHttpClient.h>
 #include <nlohmann/json.hpp>
 
+#include "platform/posix_time_compat.h"
+
 #include <algorithm>
 #include <cctype>
+#include <ctime>
 #include <iomanip>
 #include <sstream>
 
@@ -783,14 +786,21 @@ auto auth_system::create_character(account_id id, const character_create_info& i
     int32_t max_mp = initial_stats.max_mp();
     int32_t max_sp = initial_stats.max_sp();
 
+    // New characters start in their nation's town (neutral characters use 'default')
+    std::string start_map = "default";
+    if (info.nation == 1)
+        start_map = "aresden";
+    else if (info.nation == 2)
+        start_map = "elvine";
+
     // Insert character
     auto db_result = database_->execute_params(
         R"(INSERT INTO characters
            (account_id, name, class_type, nation, gender, hair_style, hair_color, skin_color,
             underwear_color, strength, dexterity, vitality, intelligence, magic, charisma,
-            hp, hp_max, mp, mp_max, sp, sp_max)
+            hp, hp_max, mp, mp_max, sp, sp_max, map_name)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-                   $16, $17, $18, $19, $20, $21)
+                   $16, $17, $18, $19, $20, $21, $22)
            RETURNING id)",
         static_cast<int>(id.value),
         info.name,
@@ -812,8 +822,8 @@ auto auth_system::create_character(account_id id, const character_create_info& i
         max_mp,
         max_mp, // mp = mp_max
         max_sp,
-        max_sp // sp = sp_max
-    );
+        max_sp, // sp = sp_max
+        start_map);
 
     if (db_result.is_err())
     {

@@ -318,7 +318,9 @@ void application::initialize()
                                    .session_max_duration = server_cfg.auth.session_max_duration,
                                    .allow_registration = server_cfg.auth.allow_registration,
                                    .max_login_attempts = server_cfg.auth.max_login_attempts,
-                                   .lockout_duration = server_cfg.auth.lockout_duration};
+                                   .lockout_duration = server_cfg.auth.lockout_duration,
+                                   .max_registration_attempts = server_cfg.auth.max_registration_attempts,
+                                   .registration_cooldown = server_cfg.auth.registration_cooldown};
         auth_sys.set_config(auth_cfg);
         auth_sys.set_database(&db_sys);
         auth_sys.set_forum_config(server_cfg.forum_auth);
@@ -969,7 +971,10 @@ void application::load_maps()
             continue;
 
         auto path = entry.path();
-        if (path.extension() != ".amd")
+        // Case-insensitive extension check — legacy files ship as both .amd and .AMD
+        auto ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+        if (ext != ".amd")
             continue;
 
         auto result = world->load_map(path);

@@ -182,6 +182,16 @@ enum class json_message_type
     dialog_choice_request,
     dialog_choice_response,
 
+    // Party
+    party_invite_request,
+    party_invite_response,
+    party_invite_notice,
+    party_accept_request,
+    party_accept_response,
+    party_leave_request,
+    party_leave_response,
+    party_update,
+
     // Crafting - manufacturing
     manufacture_list_request,
     manufacture_list_response,
@@ -757,6 +767,22 @@ enum class json_message_type
         return "dialog_choice_request";
     case json_message_type::dialog_choice_response:
         return "dialog_choice_response";
+    case json_message_type::party_invite_request:
+        return "party_invite_request";
+    case json_message_type::party_invite_response:
+        return "party_invite_response";
+    case json_message_type::party_invite_notice:
+        return "party_invite_notice";
+    case json_message_type::party_accept_request:
+        return "party_accept_request";
+    case json_message_type::party_accept_response:
+        return "party_accept_response";
+    case json_message_type::party_leave_request:
+        return "party_leave_request";
+    case json_message_type::party_leave_response:
+        return "party_leave_response";
+    case json_message_type::party_update:
+        return "party_update";
     case json_message_type::manufacture_list_request:
         return "manufacture_list_request";
     case json_message_type::manufacture_list_response:
@@ -2510,6 +2536,36 @@ struct dialog_choice_request_data
 
     [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<dialog_choice_request_data, std::string>;
 };
+
+// === Party messages ===
+
+// Invite a player (by character name) to the sender's party.
+// Creates the party implicitly when the sender is not in one.
+struct party_invite_request_data
+{
+    std::string target_name;
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<party_invite_request_data, std::string>;
+};
+
+// Accept (or decline) a pending party invite.
+struct party_accept_request_data
+{
+    uint32_t party_id{0};
+    bool accept{true};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<party_accept_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_party_invite_response(uint32_t seq, bool success, uint32_t party_id, std::string_view error)
+    -> json_message;
+[[nodiscard]] auto make_party_invite_notice(uint32_t party_id, std::string_view inviter_name) -> json_message;
+[[nodiscard]] auto make_party_accept_response(uint32_t seq, bool success, uint32_t party_id, std::string_view error)
+    -> json_message;
+[[nodiscard]] auto make_party_leave_response(uint32_t seq, bool success) -> json_message;
+[[nodiscard]] auto make_party_update(uint32_t party_id,
+                                     std::string_view leader_name,
+                                     const std::vector<std::string>& member_names) -> json_message;
 
 // === NPC Interaction response builders ===
 

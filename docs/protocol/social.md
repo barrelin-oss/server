@@ -1,6 +1,102 @@
-# Social (Friends)
+# Social (Friends & Party)
 
 [← Back to Protocol Index](../JSON_PROTOCOL.md)
+
+## Party System
+
+Parties share kill experience among eligible members on the same map (default mode: `equal_split`,
+see `social::exp_mode`). Max 8 members; invites expire after 60 seconds.
+
+### `party_invite_request`
+
+**Direction:** Client → Server
+
+Invite a player (by character name) to the sender's party. If the sender is not in a party, one is
+created implicitly and the sender becomes its leader.
+
+```json
+{
+  "type": "party_invite_request",
+  "seq": 300,
+  "data": { "target_name": "OtherPlayer" }
+}
+```
+
+### `party_invite_response`
+
+**Direction:** Server → Client (same `seq`)
+
+```json
+{ "type": "party_invite_response", "seq": 300, "data": { "success": true, "party_id": 1 } }
+```
+
+On failure, `data` is `{ "success": false, "error": "<code>" }` with codes:
+`player_not_found`, `already_in_party`, `party_full`, `not_leader`, `party_not_found`.
+
+### `party_invite_notice`
+
+**Direction:** Server → Client (broadcast to invitee, `seq: 0`)
+
+Sent to the invited player when an invite is issued.
+
+```json
+{ "type": "party_invite_notice", "seq": 0, "data": { "party_id": 1, "inviter_name": "Leader" } }
+```
+
+### `party_accept_request`
+
+**Direction:** Client → Server
+
+Accept (or decline, with `"accept": false`) a pending invite.
+
+```json
+{
+  "type": "party_accept_request",
+  "seq": 301,
+  "data": { "party_id": 1, "accept": true }
+}
+```
+
+### `party_accept_response`
+
+**Direction:** Server → Client (same `seq`)
+
+```json
+{ "type": "party_accept_response", "seq": 301, "data": { "success": true, "party_id": 1 } }
+```
+
+Failure codes: `no_pending_invite`, `invite_expired`, `party_full`, `already_in_party`,
+`party_not_found`.
+
+### `party_leave_request`
+
+**Direction:** Client → Server
+
+```json
+{ "type": "party_leave_request", "seq": 302, "data": {} }
+```
+
+Response: `party_leave_response` with `{ "success": bool }`.
+
+### `party_update`
+
+**Direction:** Server → Client (broadcast to all party members, `seq: 0`)
+
+Sent whenever party membership changes (member joined or left).
+
+```json
+{
+  "type": "party_update",
+  "seq": 0,
+  "data": {
+    "party_id": 1,
+    "leader_name": "Leader",
+    "members": ["Leader", "Member2", "Member3"]
+  }
+}
+```
+
+---
 
 ## Friend System
 

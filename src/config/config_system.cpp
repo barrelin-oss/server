@@ -205,6 +205,10 @@ auto config_system::load_yaml_config(const std::filesystem::path& path) -> resul
             server_config_.auth.max_characters_per_account = yaml_get<uint32_t>(auth, "max_characters", 4);
             server_config_.auth.allow_registration = yaml_get<bool>(auth, "allow_registration", true);
             server_config_.auth.session_duration = std::chrono::seconds{yaml_get<int>(auth, "session_timeout", 3600)};
+            server_config_.auth.max_registration_attempts =
+                yaml_get<uint32_t>(auth, "max_registration_attempts", 3);
+            server_config_.auth.registration_cooldown =
+                std::chrono::seconds{yaml_get<int>(auth, "registration_cooldown", 3600)};
         }
 
         // Forum auth section

@@ -86,9 +86,12 @@ auto world_subsystem::load_map(const std::filesystem::path& path) -> result<map_
     auto new_map = std::make_unique<map>();
 
     // TODO: Parse map file header to get config
-    // For now, use filename as map name
+    // For now, use filename as map name — normalized to lowercase so lookups by
+    // name ("aresden", "elvine") work regardless of the .amd file's casing
     map_config config;
-    config.name = path.stem().string();
+    auto stem = path.stem().string();
+    std::transform(stem.begin(), stem.end(), stem.begin(), [](unsigned char c) { return std::tolower(c); });
+    config.name = std::move(stem);
     config.width = 700; // Default Helbreath map size
     config.height = 550;
 

@@ -2,6 +2,7 @@
 // Heldenian warfare subsystem implementation
 
 #include "war/heldenian/heldenian_system.h"
+#include "platform/posix_time_compat.h"
 #include "war/war_system.h"
 #include "player/player_system.h"
 #include "player/player.h"

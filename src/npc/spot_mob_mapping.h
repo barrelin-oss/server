@@ -40,6 +40,10 @@ inline auto spot_mob_type_to_name(int type) -> std::optional<std::string_view>
         return "Amphis";
     case 23:
         return "Clay-Golem";
+    case 15:
+        return "ShopKeeper-W";
+    case 19:
+        return "Gandlf";
     case 24:
         return "Guard-Aresden";
     case 25:

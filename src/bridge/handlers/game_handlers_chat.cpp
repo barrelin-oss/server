@@ -3,6 +3,7 @@
 
 // Include platform header first to define NOMINMAX before Windows headers
 #include "platform/platform.h"
+#include "platform/posix_time_compat.h"
 
 #include "bridge/handlers/game_handlers.h"
 #include "bridge/handlers/broadcast_util.h"
@@ -1091,6 +1092,201 @@ void game_handlers::send_guild_command_update(player_id pid)
     if (!changes.empty())
     {
         conn->send(network::make_command_availability_update(changes));
+    }
+}
+
+// ========== Party ==========
+
+namespace
+{
+
+auto party_result_name(social::party_result r) -> std::string_view
+{
+    switch (r)
+    {
+    case social::party_result::success:
+        return "success";
+    case social::party_result::party_not_found:
+        return "party_not_found";
+    case social::party_result::player_not_member:
+        return "player_not_member";
+    case social::party_result::not_leader:
+        return "not_leader";
+    case social::party_result::party_full:
+        return "party_full";
+    case social::party_result::already_in_party:
+        return "already_in_party";
+    case social::party_result::no_pending_invite:
+        return "no_pending_invite";
+    case social::party_result::cannot_kick_self:
+        return "cannot_kick_self";
+    case social::party_result::invite_expired:
+        return "invite_expired";
+    }
+    return "unknown";
+}
+
+} // namespace
+
+void game_handlers::handle_party_invite(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    if (!social_ || !players_)
+    {
+        send_error(conn_id, msg.seq, "internal_error", "Party system unavailable");
+        return;
+    }
+
+    auto data_result = network::party_invite_request_data::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto pid = conn->player();
+    auto* target = players_->get_player_by_name(data_result.value().target_name);
+    if (!target)
+    {
+        conn->send(network::make_party_invite_response(msg.seq, false, 0, "player_not_found"));
+        return;
+    }
+
+    // Cria a party implicitamente quando o convidante ainda não tem uma
+    auto party = social_->get_player_party(pid);
+    if (!party.is_valid())
+    {
+        auto created = social_->create_party(pid);
+        if (created.is_err())
+        {
+            conn->send(network::make_party_invite_response(msg.seq, false, 0, party_result_name(created.error())));
+            return;
+        }
+        party = created.value();
+    }
+
+    auto invite_result = social_->invite_to_party(pid, target->id);
+    if (invite_result != social::party_result::success)
+    {
+        conn->send(network::make_party_invite_response(msg.seq, false, 0, party_result_name(invite_result)));
+        return;
+    }
+
+    conn->send(network::make_party_invite_response(msg.seq, true, party.value, ""));
+
+    // Notifica o convidado (se online) com o party_id para aceitar
+    if (auto* self = players_->get_player(pid))
+    {
+        if (auto* target_conn = ws_server_ ? ws_server_->get_connection(target->connection) : nullptr)
+        {
+            if (target_conn->is_open())
+            {
+                target_conn->send(network::make_party_invite_notice(party.value, self->name));
+            }
+        }
+    }
+}
+
+void game_handlers::handle_party_accept(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    if (!social_)
+    {
+        send_error(conn_id, msg.seq, "internal_error", "Party system unavailable");
+        return;
+    }
+
+    auto data_result = network::party_accept_request_data::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+
+    auto& data = data_result.value();
+    auto pid = conn->player();
+    auto party = social::party_id{data.party_id};
+
+    auto result = data.accept ? social_->accept_party_invite(pid, party) : social_->decline_party_invite(pid, party);
+    if (result != social::party_result::success)
+    {
+        conn->send(network::make_party_accept_response(msg.seq, false, 0, party_result_name(result)));
+        return;
+    }
+
+    conn->send(network::make_party_accept_response(msg.seq, true, data.party_id, ""));
+    if (data.accept)
+    {
+        broadcast_party_update(data.party_id);
+    }
+}
+
+void game_handlers::handle_party_leave(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    if (!social_)
+    {
+        send_error(conn_id, msg.seq, "internal_error", "Party system unavailable");
+        return;
+    }
+
+    auto pid = conn->player();
+    auto party = social_->get_player_party(pid);
+    auto result = social_->leave_party(pid);
+    conn->send(network::make_party_leave_response(msg.seq, result == social::party_result::success));
+
+    if (result == social::party_result::success && party.is_valid())
+    {
+        broadcast_party_update(party.value);
+    }
+}
+
+void game_handlers::broadcast_party_update(uint32_t party_id_value)
+{
+    if (!social_ || !players_ || !ws_server_)
+        return;
+
+    auto* party = social_->get_party(social::party_id{party_id_value});
+    if (!party)
+        return;
+
+    std::string leader_name;
+    std::vector<std::string> member_names;
+    member_names.reserve(party->members.size());
+    for (const auto& member : party->members)
+    {
+        auto* plr = players_->get_player(member.player);
+        if (!plr)
+            continue;
+        member_names.push_back(plr->name);
+        if (member.player == party->leader)
+        {
+            leader_name = plr->name;
+        }
+    }
+
+    auto update = network::make_party_update(party_id_value, leader_name, member_names);
+    for (const auto& member : party->members)
+    {
+        auto* plr = players_->get_player(member.player);
+        if (!plr)
+            continue;
+        if (auto* conn = ws_server_->get_connection(plr->connection))
+        {
+            if (conn->is_open())
+            {
+                conn->send(update);
+            }
+        }
     }
 }
 

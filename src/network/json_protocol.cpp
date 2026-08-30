@@ -154,6 +154,14 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"bank_withdraw_response", json_message_type::bank_withdraw_response},
     {"dialog_choice_request", json_message_type::dialog_choice_request},
     {"dialog_choice_response", json_message_type::dialog_choice_response},
+    {"party_invite_request", json_message_type::party_invite_request},
+    {"party_invite_response", json_message_type::party_invite_response},
+    {"party_invite_notice", json_message_type::party_invite_notice},
+    {"party_accept_request", json_message_type::party_accept_request},
+    {"party_accept_response", json_message_type::party_accept_response},
+    {"party_leave_request", json_message_type::party_leave_request},
+    {"party_leave_response", json_message_type::party_leave_response},
+    {"party_update", json_message_type::party_update},
     {"manufacture_list_request", json_message_type::manufacture_list_request},
     {"manufacture_list_response", json_message_type::manufacture_list_response},
     {"manufacture_request", json_message_type::manufacture_request},
@@ -2572,6 +2580,79 @@ auto dialog_choice_request_data::from_json(const nlohmann::json& j) -> result<di
         data.choice_index = static_cast<int16_t>(j["choice_index"].get<int>());
     }
     return result<dialog_choice_request_data, std::string>::ok(std::move(data));
+}
+
+// === Party: request parsing and builders ===
+
+auto party_invite_request_data::from_json(const nlohmann::json& j) -> result<party_invite_request_data, std::string>
+{
+    party_invite_request_data data;
+    if (!j.contains("target_name") || !j["target_name"].is_string())
+    {
+        return result<party_invite_request_data, std::string>::err("Missing target_name");
+    }
+    data.target_name = j["target_name"].get<std::string>();
+    return result<party_invite_request_data, std::string>::ok(std::move(data));
+}
+
+auto party_accept_request_data::from_json(const nlohmann::json& j) -> result<party_accept_request_data, std::string>
+{
+    party_accept_request_data data;
+    if (!j.contains("party_id") || !j["party_id"].is_number())
+    {
+        return result<party_accept_request_data, std::string>::err("Missing party_id");
+    }
+    data.party_id = j["party_id"].get<uint32_t>();
+    if (j.contains("accept") && j["accept"].is_boolean())
+    {
+        data.accept = j["accept"].get<bool>();
+    }
+    return result<party_accept_request_data, std::string>::ok(std::move(data));
+}
+
+auto make_party_invite_response(uint32_t seq, bool success, uint32_t party_id, std::string_view error) -> json_message
+{
+    nlohmann::json data{{"success", success}};
+    if (success)
+        data["party_id"] = party_id;
+    else
+        data["error"] = std::string(error);
+    return json_message{.type = json_message_type::party_invite_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_party_invite_notice(uint32_t party_id, std::string_view inviter_name) -> json_message
+{
+    return json_message{.type = json_message_type::party_invite_notice,
+                        .seq = 0,
+                        .data = nlohmann::json{{"party_id", party_id}, {"inviter_name", std::string(inviter_name)}}};
+}
+
+auto make_party_accept_response(uint32_t seq, bool success, uint32_t party_id, std::string_view error) -> json_message
+{
+    nlohmann::json data{{"success", success}};
+    if (success)
+        data["party_id"] = party_id;
+    else
+        data["error"] = std::string(error);
+    return json_message{.type = json_message_type::party_accept_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_party_leave_response(uint32_t seq, bool success) -> json_message
+{
+    return json_message{.type = json_message_type::party_leave_response,
+                        .seq = seq,
+                        .data = nlohmann::json{{"success", success}}};
+}
+
+auto make_party_update(uint32_t party_id,
+                       std::string_view leader_name,
+                       const std::vector<std::string>& member_names) -> json_message
+{
+    return json_message{.type = json_message_type::party_update,
+                        .seq = 0,
+                        .data = nlohmann::json{{"party_id", party_id},
+                                               {"leader_name", std::string(leader_name)},
+                                               {"members", member_names}}};
 }
 
 // === NPC Interaction: builder implementations ===

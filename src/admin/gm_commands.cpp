@@ -682,7 +682,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
 
                 if (value == "all")
                 {
-                    target->sees_all = true;
+                    players->set_sees_all(target->id, true);
                     target->gm_view_override = true;
                     if (send)
                     {
@@ -699,7 +699,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
 
                 if (value == "reset")
                 {
-                    target->sees_all = false;
+                    players->set_sees_all(target->id, false);
                     target->gm_view_override = false;
                     target->visibility_radius_x = network::min_visibility_radius;
                     target->visibility_radius_y = network::min_visibility_radius;
@@ -735,7 +735,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
                         return command_result::error("Radii must be between 1 and " +
                                                      std::to_string(network::max_visibility_radius));
                     }
-                    target->sees_all = false;
+                    players->set_sees_all(target->id, false);
                     target->gm_view_override = true;
                     target->visibility_radius_x = static_cast<int16_t>(rx);
                     target->visibility_radius_y = static_cast<int16_t>(ry);
@@ -769,7 +769,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
                                                  std::to_string(network::max_visibility_radius));
                 }
 
-                target->sees_all = false;
+                players->set_sees_all(target->id, false);
                 target->gm_view_override = true;
                 target->visibility_radius_x = static_cast<int16_t>(radius);
                 target->visibility_radius_y = static_cast<int16_t>(radius);

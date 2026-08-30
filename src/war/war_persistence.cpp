@@ -2,6 +2,7 @@
 // Database operations for war history and participant rewards
 
 #include "war/war_persistence.h"
+#include "platform/posix_time_compat.h"
 #include "database/database_system.h"
 #include "core/logger.h"
 

@@ -77,7 +77,7 @@ All messages follow a common envelope structure:
 | Chat | [protocol/chat.md](protocol/chat.md) | Chat messages, commands |
 | Crafting | [protocol/crafting.md](protocol/crafting.md) | Manufacturing, alchemy, mining, fishing |
 | Guild | [protocol/guild.md](protocol/guild.md) | Guild management, ranks, invites |
-| Social | [protocol/social.md](protocol/social.md) | Friend system |
+| Social | [protocol/social.md](protocol/social.md) | Friend system, party (invite/accept/leave/update) |
 | War | [protocol/war.md](protocol/war.md) | Crusade, Heldenian, Apocalypse, force recall, rewards |
 | Commands | [protocol/commands.md](protocol/commands.md) | Command list, availability updates |
 | Admin | [ADMIN_PROTOCOL.md](ADMIN_PROTOCOL.md) | Admin web tool (32 request/response pairs) |

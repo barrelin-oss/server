@@ -6,6 +6,11 @@ project(hgserver
     LANGUAGES CXX
 )
 
+# Windows: stop windows.h from defining min/max macros (they clobber std::min/std::max)
+if(WIN32)
+    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+
 # Output directories - all binaries go to bin/
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR}/bin)

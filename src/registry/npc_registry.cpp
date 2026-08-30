@@ -215,6 +215,10 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path) -> result<s
             npc.min_bravery = static_cast<int16_t>(node["min_bravery"].as<int>());
         if (node["exp"])
             npc.exp_reward = node["exp"].as<int32_t>();
+        if (node["gold_min"])
+            npc.gold_min = node["gold_min"].as<int32_t>();
+        if (node["gold_max"])
+            npc.gold_max = node["gold_max"].as<int32_t>();
         if (node["attack_dice"])
             npc.attack_dice = static_cast<int16_t>(node["attack_dice"].as<int>());
         if (node["attack_sides"])

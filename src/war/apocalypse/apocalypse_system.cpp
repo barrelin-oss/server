@@ -2,6 +2,7 @@
 // Apocalypse gate-toggle event implementation
 
 #include "war/apocalypse/apocalypse_system.h"
+#include "platform/posix_time_compat.h"
 #include "network/json_protocol.h"
 #include "core/logger.h"
 

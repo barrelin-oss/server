@@ -613,6 +613,17 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         handle_command(conn_id, msg);
         return true;
 
+    // Party
+    case network::json_message_type::party_invite_request:
+        handle_party_invite(conn_id, msg);
+        return true;
+    case network::json_message_type::party_accept_request:
+        handle_party_accept(conn_id, msg);
+        return true;
+    case network::json_message_type::party_leave_request:
+        handle_party_leave(conn_id, msg);
+        return true;
+
     // View range
     case network::json_message_type::set_view_range:
         handle_set_view_range(conn_id, msg);

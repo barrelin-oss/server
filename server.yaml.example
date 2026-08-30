@@ -31,6 +31,10 @@ auth:
   max_characters: 4
   allow_registration: true
   session_timeout: 3600
+  # Registration rate limit per IP (defaults: 3 attempts per 3600s).
+  # Raise for dev/bot environments that create accounts in bulk.
+  max_registration_attempts: 3
+  registration_cooldown: 3600
 
 # Logging Configuration
 # Levels: trace, debug, info, warn, error, critical, off

@@ -1,0 +1,1155 @@
+{
+  "server": "ws://127.0.0.1:2848",
+  "bots": [
+    {
+      "username": "bot01",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot02",
+          "Bot03",
+          "Bot04",
+          "Bot05"
+        ]
+      },
+      "character": {
+        "name": "Bot01",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 1,
+        "hair_color": 1,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot02",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot01"
+      },
+      "character": {
+        "name": "Bot02",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 2,
+        "hair_color": 2,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot03",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot01"
+      },
+      "character": {
+        "name": "Bot03",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 3,
+        "hair_color": 3,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot04",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot01"
+      },
+      "character": {
+        "name": "Bot04",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 4,
+        "hair_color": 4,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot05",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot01"
+      },
+      "character": {
+        "name": "Bot05",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 5,
+        "hair_color": 5,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot06",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot07",
+          "Bot08",
+          "Bot09",
+          "Bot10"
+        ]
+      },
+      "character": {
+        "name": "Bot06",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 6,
+        "hair_color": 6,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot07",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot06"
+      },
+      "character": {
+        "name": "Bot07",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 7,
+        "hair_color": 7,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot08",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot06"
+      },
+      "character": {
+        "name": "Bot08",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 0,
+        "hair_color": 8,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot09",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot06"
+      },
+      "character": {
+        "name": "Bot09",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 1,
+        "hair_color": 9,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot10",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot06"
+      },
+      "character": {
+        "name": "Bot10",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 2,
+        "hair_color": 10,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot11",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot12",
+          "Bot13",
+          "Bot14",
+          "Bot15"
+        ]
+      },
+      "character": {
+        "name": "Bot11",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 3,
+        "hair_color": 11,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot12",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot11"
+      },
+      "character": {
+        "name": "Bot12",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 4,
+        "hair_color": 12,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot13",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot11"
+      },
+      "character": {
+        "name": "Bot13",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 5,
+        "hair_color": 13,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot14",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot11"
+      },
+      "character": {
+        "name": "Bot14",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 6,
+        "hair_color": 14,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot15",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot11"
+      },
+      "character": {
+        "name": "Bot15",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 7,
+        "hair_color": 15,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot16",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot17",
+          "Bot18",
+          "Bot19",
+          "Bot20"
+        ]
+      },
+      "character": {
+        "name": "Bot16",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 0,
+        "hair_color": 0,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot17",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot16"
+      },
+      "character": {
+        "name": "Bot17",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 1,
+        "hair_color": 1,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot18",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot16"
+      },
+      "character": {
+        "name": "Bot18",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 2,
+        "hair_color": 2,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot19",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot16"
+      },
+      "character": {
+        "name": "Bot19",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 3,
+        "hair_color": 3,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot20",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot16"
+      },
+      "character": {
+        "name": "Bot20",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 4,
+        "hair_color": 4,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot21",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot22",
+          "Bot23",
+          "Bot24",
+          "Bot25"
+        ]
+      },
+      "character": {
+        "name": "Bot21",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 5,
+        "hair_color": 5,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot22",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot21"
+      },
+      "character": {
+        "name": "Bot22",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 6,
+        "hair_color": 6,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot23",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot21"
+      },
+      "character": {
+        "name": "Bot23",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 7,
+        "hair_color": 7,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot24",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot21"
+      },
+      "character": {
+        "name": "Bot24",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 1,
+        "hair_style": 0,
+        "hair_color": 8,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot25",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot21"
+      },
+      "character": {
+        "name": "Bot25",
+        "class_type": 0,
+        "nation": 1,
+        "gender": 2,
+        "hair_style": 1,
+        "hair_color": 9,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot26",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot27",
+          "Bot28",
+          "Bot29",
+          "Bot30"
+        ]
+      },
+      "character": {
+        "name": "Bot26",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 2,
+        "hair_color": 10,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot27",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot26"
+      },
+      "character": {
+        "name": "Bot27",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 3,
+        "hair_color": 11,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot28",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot26"
+      },
+      "character": {
+        "name": "Bot28",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 4,
+        "hair_color": 12,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot29",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot26"
+      },
+      "character": {
+        "name": "Bot29",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 5,
+        "hair_color": 13,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot30",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot26"
+      },
+      "character": {
+        "name": "Bot30",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 6,
+        "hair_color": 14,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot31",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot32",
+          "Bot33",
+          "Bot34",
+          "Bot35"
+        ]
+      },
+      "character": {
+        "name": "Bot31",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 7,
+        "hair_color": 15,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot32",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot31"
+      },
+      "character": {
+        "name": "Bot32",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 0,
+        "hair_color": 0,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot33",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot31"
+      },
+      "character": {
+        "name": "Bot33",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 1,
+        "hair_color": 1,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot34",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot31"
+      },
+      "character": {
+        "name": "Bot34",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 2,
+        "hair_color": 2,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot35",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot31"
+      },
+      "character": {
+        "name": "Bot35",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 3,
+        "hair_color": 3,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot36",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot37",
+          "Bot38",
+          "Bot39",
+          "Bot40"
+        ]
+      },
+      "character": {
+        "name": "Bot36",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 4,
+        "hair_color": 4,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot37",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot36"
+      },
+      "character": {
+        "name": "Bot37",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 5,
+        "hair_color": 5,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot38",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot36"
+      },
+      "character": {
+        "name": "Bot38",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 6,
+        "hair_color": 6,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot39",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot36"
+      },
+      "character": {
+        "name": "Bot39",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 7,
+        "hair_color": 7,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot40",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot36"
+      },
+      "character": {
+        "name": "Bot40",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 0,
+        "hair_color": 8,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot41",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot42",
+          "Bot43",
+          "Bot44",
+          "Bot45"
+        ]
+      },
+      "character": {
+        "name": "Bot41",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 1,
+        "hair_color": 9,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot42",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot41"
+      },
+      "character": {
+        "name": "Bot42",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 2,
+        "hair_color": 10,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot43",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot41"
+      },
+      "character": {
+        "name": "Bot43",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 3,
+        "hair_color": 11,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot44",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot41"
+      },
+      "character": {
+        "name": "Bot44",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 4,
+        "hair_color": 12,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot45",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot41"
+      },
+      "character": {
+        "name": "Bot45",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 5,
+        "hair_color": 13,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot46",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "invites": [
+          "Bot47",
+          "Bot48",
+          "Bot49",
+          "Bot50"
+        ]
+      },
+      "character": {
+        "name": "Bot46",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 6,
+        "hair_color": 14,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot47",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot46"
+      },
+      "character": {
+        "name": "Bot47",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 7,
+        "hair_color": 15,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot48",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot46"
+      },
+      "character": {
+        "name": "Bot48",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 0,
+        "hair_color": 0,
+        "skin_color": 0,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot49",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot46"
+      },
+      "character": {
+        "name": "Bot49",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 2,
+        "hair_style": 1,
+        "hair_color": 1,
+        "skin_color": 1,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    },
+    {
+      "username": "bot50",
+      "password": "hbx_bot_dev_2026",
+      "party": {
+        "leader": "Bot46"
+      },
+      "character": {
+        "name": "Bot50",
+        "class_type": 0,
+        "nation": 2,
+        "gender": 1,
+        "hair_style": 2,
+        "hair_color": 2,
+        "skin_color": 2,
+        "strength": 14,
+        "dexterity": 12,
+        "vitality": 14,
+        "intelligence": 10,
+        "magic": 10,
+        "charisma": 10
+      }
+    }
+  ]
+}

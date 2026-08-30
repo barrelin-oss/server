@@ -359,6 +359,12 @@ private:
     void handle_chat_message(connection_id conn_id, const network::json_message& msg);
     void handle_command(connection_id conn_id, const network::json_message& msg);
 
+    // Party
+    void handle_party_invite(connection_id conn_id, const network::json_message& msg);
+    void handle_party_accept(connection_id conn_id, const network::json_message& msg);
+    void handle_party_leave(connection_id conn_id, const network::json_message& msg);
+    void broadcast_party_update(uint32_t party_id_value);
+
     // View range
     void handle_set_view_range(connection_id conn_id, const network::json_message& msg);
 

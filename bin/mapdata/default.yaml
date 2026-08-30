@@ -1,0 +1,17 @@
+# Map config for 'default' — dev/bot testing map
+# npc_type uses legacy spot-mob codes (see src/npc/spot_mob_mapping.h):
+#   10 = Slime, 14 = Orc, 16 = Giant-Ant, 15 = ShopKeeper-W, 19 = Gandlf
+
+name: "Default"
+
+initial_points:
+  - { id: 0, x: 85, y: 85 }
+
+spawners:
+  # Densidade para ~10 bots caçando simultaneamente (faixa 55-115 testada como andável)
+  - { id: 1, type: 0, x1: 60, y1: 60, x2: 110, y2: 110, npc_type: 10, max_count: 30 }
+  - { id: 2, type: 0, x1: 55, y1: 55, x2: 115, y2: 115, npc_type: 16, max_count: 15 }
+  - { id: 3, type: 0, x1: 60, y1: 60, x2: 110, y2: 110, npc_type: 14, max_count: 10 }
+  # Mercadores (fixos, 1 de cada): loja geral (poções) e ferreiro (armas/reparo)
+  - { id: 4, type: 0, x1: 82, y1: 80, x2: 82, y2: 80, npc_type: 15, max_count: 1 }
+  - { id: 5, type: 0, x1: 88, y1: 80, x2: 88, y2: 80, npc_type: 19, max_count: 1 }

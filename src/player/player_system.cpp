@@ -113,6 +113,15 @@ auto player_system::create_player(const player_create_info& info) -> result<play
     return result<player_id, std::string>::ok(id);
 }
 
+void player_system::set_sees_all(player_id id, bool enabled)
+{
+    auto* p = get_player(id);
+    if (!p || p->sees_all == enabled)
+        return;
+    p->sees_all = enabled;
+    sees_all_count_ += enabled ? 1 : -1;
+}
+
 void player_system::remove_player(player_id id)
 {
     auto it = players_.find(id);
@@ -120,6 +129,8 @@ void player_system::remove_player(player_id id)
         return;
 
     auto& p = *it->second;
+    if (p.sees_all)
+        --sees_all_count_;
 
     // Remove active spell effects
     auto* effect_sys = subsystems().get<effect::effect_system>();
@@ -1201,11 +1212,16 @@ auto player_system::get_players_who_can_see(map_id map, const hb::world::positio
         }
     }
 
-    // Find sees_all admins on this map who are beyond the spatial query range
-    auto far_admins = find_players_if(
-        [&](const player& p)
-        { return p.sees_all && p.current_map == map && pos.chebyshev_distance(p.pos) > max_visibility; });
-    result.insert(result.end(), far_admins.begin(), far_admins.end());
+    // Find sees_all admins on this map who are beyond the spatial query range.
+    // Guarded by the incremental counter: in the common case (no admins in view mode)
+    // this skips a full scan of every player on every broadcast.
+    if (sees_all_count_ > 0)
+    {
+        auto far_admins = find_players_if(
+            [&](const player& p)
+            { return p.sees_all && p.current_map == map && pos.chebyshev_distance(p.pos) > max_visibility; });
+        result.insert(result.end(), far_admins.begin(), far_admins.end());
+    }
 
     return result;
 }

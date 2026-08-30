@@ -342,15 +342,20 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
     auto drop = npc::generate_kill_loot(*loot_registry_, n.sprite_id, n.gold_min, n.gold_max, n.has_owner());
 
     // Award gold directly to killer
-    if (drop.gold > 0 && inventory_)
+    // killer is an ECS entity — resolve to player_id first (inventory buckets and
+    // connections are keyed by player_id, not by ecs entity id)
+    std::optional<player_id> killer_pid;
+    if (players_)
+        killer_pid = players_->get_player_id_by_entity(killer);
+    if (drop.gold > 0 && inventory_ && killer_pid)
     {
-        auto killer_entity = entity_id{killer.id};
+        auto killer_entity = entity_id{killer_pid->value};
         inventory_->add_gold(killer_entity, drop.gold);
 
         // Send gold_update to killer
         if (ws_server_)
         {
-            if (auto* killer_conn = ws_server_->get_connection_by_player(player_id{killer.id}))
+            if (auto* killer_conn = ws_server_->get_connection_by_player(*killer_pid))
             {
                 killer_conn->send(network::make_gold_update({
                     .gold = static_cast<int64_t>(inventory_->get_gold(killer_entity)),
@@ -362,7 +367,7 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
         // Audit gold loot
         if (audit_)
         {
-            if (auto* plr = players_ ? players_->get_player(player_id{killer.id}) : nullptr)
+            if (auto* plr = players_ ? players_->get_player(*killer_pid) : nullptr)
             {
                 std::string map_str;
                 if (auto* map = world_->get_map(npc_map))

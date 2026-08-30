@@ -2,6 +2,7 @@
 // Force recall system implementation
 
 #include "war/force_recall/force_recall_system.h"
+#include "platform/posix_time_compat.h"
 #include "network/json_protocol.h"
 #include "core/logger.h"
 

@@ -2,6 +2,7 @@
 // Crusade warfare subsystem implementation
 
 #include "war/crusade/crusade_system.h"
+#include "platform/posix_time_compat.h"
 #include "war/war_system.h"
 #include "war/war_persistence.h"
 #include "war/force_recall/force_recall_system.h"

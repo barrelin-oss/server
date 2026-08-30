@@ -450,6 +450,21 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-08-30: Bot scale phase (10 → 50), perf fixes, city habitability
+- Perf: `find_aggro_target` now resolves players via O(1) `get_player_by_entity` (was a full player scan per entity in aggro range, per NPC, per 100ms); `get_players_who_can_see` skips the far-admin scan unless any player has `sees_all` (new `player_system::set_sees_all` + incremental counter; gm_commands updated — never write `player::sees_all` directly)
+- Map loading: `.amd` extension check is now case-insensitive (`ARESDEN.AMD`/`ELVINE.AMD` were silently skipped — those maps never existed at runtime); map names normalized to lowercase at load so name lookups ("aresden") work
+- New characters now start in their nation's town (aresden/elvine; neutral → default) — `map_name` added to the create-character INSERT
+- Auth: registration rate limit configurable via `server.yaml` (`auth.max_registration_attempts`, `auth.registration_cooldown`) — the hardcoded 3/hour per IP blocked bulk bot account creation
+- `mapdata/aresden.yaml` + `mapdata/elvine.yaml`: initial points, mob spawners and merchants in areas validated by the new `tools/bot/scan-map.mjs` (.amd walkability scanner); `default.yaml` densified
+- `tools/bot/gen-bots.mjs` generates N bots split half Aresden / half Elvine, parties of 5 per nation; bot client retries account creation with backoff on rate_limited
+
+### 2026-08-30: Party protocol (JSON), loot gold fixes, bot infrastructure
+- New JSON party messages: `party_invite_request/response`, `party_invite_notice`, `party_accept_request/response`, `party_leave_request/response`, `party_update` — handlers in `game_handlers_chat.cpp`, documented in `docs/protocol/social.md` (legacy binary `party_operation` remains unused by the WS protocol)
+- Fixed loot gold being credited to the ECS entity id instead of the resolved `player_id` (phantom inventory; `gold_update` sent to wrong connection) — `game_handlers_npc.cpp`
+- `npc_registry` YAML loader now parses `gold_min`/`gold_max`; added values for tier-1/2 mobs in `npcs.yaml`; fixed `npcs.yaml` `exp_dice:` → `exp:` key mismatch (mobs gave 0 XP). Remaining known key mismatches: `defense_ratio` vs `defense`, `size` vs `body_size`
+- New spot-mob codes 15 (`ShopKeeper-W`) and 19 (`Gandlf`) for map spawners; `mapdata/default.yaml` created (mob spawners + merchants + initial point); `shops.yaml` potion item ids corrected (308/309/310 → 91/93/95)
+- Headless bot client (`tools/bot/`): login, hunt/combat/flee/respawn, loot, shopping (buy/sell/repair/equip), party formation; runs N bots per process (`node bot.mjs all`)
+
 ### 2026-08-30: Experience Gain Notification (`experience_update`)
 - New server→client message `experience_update` sent whenever a player gains XP (solo/party NPC kill XP, crusade rewards, login reward delivery)
 - Carries `experience_gained`, new total `experience`, and `level`; on level-up also `levels_gained`, new `max_hp`/`max_mp`/`max_sp`, and unspent `stat_points`

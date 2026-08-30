@@ -70,6 +70,11 @@ public:
     auto create_player(const player_create_info& info) -> result<player_id, std::string>;
     void remove_player(player_id id);
 
+    // Toggle admin "sees everything on map" mode; keeps the internal sees_all counter
+    // consistent so broadcast visibility queries can skip the far-admin scan when zero.
+    // Always use this instead of writing player::sees_all directly.
+    void set_sees_all(player_id id, bool enabled);
+
     // Player access
     [[nodiscard]] auto get_player(player_id id) -> player*;
     [[nodiscard]] auto get_player(player_id id) const -> const player*;
@@ -256,6 +261,7 @@ private:
     uint32_t next_id_{1};
 
     std::unordered_map<player_id, std::unique_ptr<player>> players_;
+    int sees_all_count_{0}; // players with sees_all enabled (see set_sees_all)
     std::unordered_map<std::string, player_id> name_to_id_;
     std::unordered_map<connection_id, player_id> connection_to_id_;
     std::unordered_map<session_id, player_id> session_to_id_;

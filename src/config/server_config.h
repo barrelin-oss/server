@@ -48,6 +48,8 @@ struct auth_config
     bool allow_registration = true;
     uint32_t max_login_attempts = 5;
     std::chrono::seconds lockout_duration{300}; // 5 minutes
+    uint32_t max_registration_attempts = 3;
+    std::chrono::seconds registration_cooldown{3600}; // 1 hour
 };
 
 // Forum authentication configuration (external PHP auth)

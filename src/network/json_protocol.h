@@ -160,6 +160,10 @@ enum class json_message_type
     spell_list_update,
     experience_update,
 
+    // Dynamic objects - ground fields (server -> client)
+    dynamic_object_spawn,
+    dynamic_object_removed,
+
     // NPC interaction - shops
     shop_buy_request,
     shop_buy_response,
@@ -735,6 +739,10 @@ enum class json_message_type
         return "spell_list_update";
     case json_message_type::experience_update:
         return "experience_update";
+    case json_message_type::dynamic_object_spawn:
+        return "dynamic_object_spawn";
+    case json_message_type::dynamic_object_removed:
+        return "dynamic_object_removed";
     case json_message_type::shop_buy_request:
         return "shop_buy_request";
     case json_message_type::shop_buy_response:
@@ -2411,10 +2419,34 @@ struct experience_update_data
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
+// Dynamic ground-field object appeared (broadcast to visible players)
+struct dynamic_object_spawn_data
+{
+    uint16_t object_id{0};
+    uint8_t object_type{0}; // dynamic_object_type value (1=fire, 8=icestorm, 9=spike, 10-12=poison cloud)
+    int16_t x{0};
+    int16_t y{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
+// Dynamic ground-field object expired/removed (broadcast to visible players)
+struct dynamic_object_removed_data
+{
+    uint16_t object_id{0};
+    uint8_t object_type{0};
+    int16_t x{0};
+    int16_t y{0};
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
 // Equipment message builders
 [[nodiscard]] auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message;
 [[nodiscard]] auto make_stat_update(const stat_update_data& data) -> json_message;
 [[nodiscard]] auto make_experience_update(const experience_update_data& data) -> json_message;
+[[nodiscard]] auto make_dynamic_object_spawn(const dynamic_object_spawn_data& data) -> json_message;
+[[nodiscard]] auto make_dynamic_object_removed(const dynamic_object_removed_data& data) -> json_message;
 
 // Spell list update - sends full known spell list to client
 [[nodiscard]] auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message;

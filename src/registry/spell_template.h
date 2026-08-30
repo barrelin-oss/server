@@ -94,6 +94,13 @@ struct spell_template
     int16_t mag_scaling{0}; // Per 10 MAG
     int16_t sp_drain{0};    // Stamina drained from targets (damage_area_sp_down, from effect2 dice)
 
+    // Ground-field spells (create_dynamic): effect3 carries the dynamic object type and
+    // placement half-extents; field_power feeds poison-cloud damage/poison level
+    int16_t dynamic_type{0};
+    int16_t dynamic_rx{0};
+    int16_t dynamic_ry{0};
+    int16_t field_power{0};
+
     // Effect duration
     duration_ms effect_duration{0};
 

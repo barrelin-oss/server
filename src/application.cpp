@@ -34,6 +34,7 @@
 
 // Game subsystems
 #include "world/world_subsystem.h"
+#include "world/dynamic_object_system.h"
 #include "entity/entity_manager.h"
 #include "player/player_system.h"
 #include "npc/npc_system.h"
@@ -238,6 +239,7 @@ void application::initialize()
 
     // Register game subsystems
     subsystems().create_subsystem<world::world_subsystem>();
+    subsystems().create_subsystem<world::dynamic_object_system>();
     subsystems().create_subsystem<entity::entity_manager>();
     subsystems().create_subsystem<player::player_system>();
     subsystems().create_subsystem<npc::npc_system>();
@@ -1733,6 +1735,15 @@ void application::load_game_configs()
                         case magic_type::ice_linear:
                             ms.category = magic::spell_category::attack;
                             ms.target_type = magic::spell_target::line;
+                            break;
+                        case magic_type::create_dynamic:
+                            // Ground-field spells (Spike-Field, Ice-Storm, Cloud-Kill)
+                            ms.category = magic::spell_category::special;
+                            ms.target_type = magic::spell_target::ground;
+                            ms.dynamic_type = reg_spell.dynamic_type;
+                            ms.dynamic_rx = reg_spell.dynamic_rx;
+                            ms.dynamic_ry = reg_spell.dynamic_ry;
+                            ms.field_power = reg_spell.field_power;
                             break;
                         case magic_type::poison:
                         case magic_type::ice:

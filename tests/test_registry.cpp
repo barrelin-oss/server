@@ -584,17 +584,34 @@ TEST_F(registry_test, magic_registry_legacy_damage_types)
                                  "    name: Spike-Field\n"
                                  "    type: 14\n"
                                  "    mana_cost: 56\n"
+                                 "    duration: 30\n"
                                  "    effect1: { dice: 2, sides: 8, bonus: 0 }\n"
-                                 "    int_req: 56\n");
+                                 "    effect3: { dice: 9, sides: 2, bonus: 2 }\n"
+                                 "    int_req: 56\n"
+                                 "  - id: 99\n"
+                                 "    name: BrokenField\n"
+                                 "    type: 14\n"
+                                 "    mana_cost: 10\n"
+                                 "    int_req: 10\n");
 
     magic_registry registry;
     registry.initialize();
 
     auto result = registry.load_from_file(path);
     ASSERT_TRUE(result.is_ok()) << result.error();
-    // Type 14 (create_dynamic) is skipped until the dynamic object subsystem exists
-    EXPECT_EQ(result.value(), 5);
-    EXPECT_EQ(registry.get(spell_id{54}), nullptr);
+    // Type 14 (create_dynamic) loads when effect3 provides the object type;
+    // BrokenField (no effect3) is skipped
+    EXPECT_EQ(result.value(), 6);
+    EXPECT_EQ(registry.get(spell_id{99}), nullptr);
+
+    const auto* field = registry.get(spell_id{54});
+    ASSERT_NE(field, nullptr);
+    EXPECT_EQ(field->type, magic_type::create_dynamic);
+    EXPECT_TRUE(field->is_offensive);
+    EXPECT_EQ(field->dynamic_type, 9); // spike
+    EXPECT_EQ(field->dynamic_rx, 2);
+    EXPECT_EQ(field->dynamic_ry, 2);
+    EXPECT_EQ(field->effect_duration.count(), 30000);
 
     const auto* linear = registry.get(spell_id{70});
     ASSERT_NE(linear, nullptr);

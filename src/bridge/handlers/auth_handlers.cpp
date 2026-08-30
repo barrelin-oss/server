@@ -1394,6 +1394,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 bridge::send_visible_ground_items(
                     conn, player->current_map, player->pos, rx, ry, world_, item_, item_registry_);
             }
+
+            // Send visible ground fields (spikes, ice storms, poison clouds)
+            {
+                int rx = player->visibility_radius_x > 0 ? player->visibility_radius_x : 20;
+                int ry = player->visibility_radius_y > 0 ? player->visibility_radius_y : 15;
+                bridge::send_visible_dynamic_objects(conn, player->current_map, player->pos, rx, ry);
+            }
         }
     }
 

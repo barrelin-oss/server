@@ -532,6 +532,72 @@ Server confirms or rejects spell cast.
 
 ---
 
+## Dynamic Object Messages (Ground Fields)
+
+Ground-field spells (`create_dynamic`, type 14: Spike-Field, Ice-Storm, Cloud-Kill) place temporary objects on map tiles. The server broadcasts their lifecycle to visible players and re-sends visible objects on game entry and teleport.
+
+Field behavior is server-side (legacy semantics): fire fields tick 1d6 fire damage in 3x3, ice storms tick 3d3+5 ice damage in 5x5 and apply freeze, poison clouds tick 1d6/1d8 in 3x3 and apply poison, spikes deal 2d4 when an entity steps on their tile. Ticks run every ~1s. The client only needs to render the objects.
+
+### `dynamic_object_spawn`
+
+Broadcast to visible players when a ground-field object appears. Also sent per visible object after `enter_game` and teleport (same shape, direct to the player).
+
+**Server Broadcast:**
+```json
+{
+  "type": "dynamic_object_spawn",
+  "seq": 0,
+  "data": {
+    "object_id": 17,
+    "object_type": 9,
+    "x": 120,
+    "y": 85
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `object_id` | uint16 | Unique object id (per server run) |
+| `object_type` | uint8 | Object type (see table below) |
+| `x` | int16 | Tile X |
+| `y` | int16 | Tile Y |
+
+**Object types:**
+
+| Value | Type | Source |
+|-------|------|--------|
+| 1 | Fire field | (reserved: Wall-of-Fire family) |
+| 8 | Ice storm | Ice-Storm spell |
+| 9 | Spike trap | Spike-Field spell (one object per tile, 5x5) |
+| 10 | Poison cloud (begin) | Cloud-Kill spell |
+| 11 | Poison cloud (loop) | (animation variant) |
+| 12 | Poison cloud (end) | (animation variant) |
+| 13 | Crusade fire (visual only) | Crusade effects |
+| 14 | Fire variant | (reserved) |
+
+### `dynamic_object_removed`
+
+Broadcast to visible players when a ground-field object expires or is removed.
+
+**Server Broadcast:**
+```json
+{
+  "type": "dynamic_object_removed",
+  "seq": 0,
+  "data": {
+    "object_id": 17,
+    "object_type": 9,
+    "x": 120,
+    "y": 85
+  }
+}
+```
+
+Fields are identical to `dynamic_object_spawn`.
+
+---
+
 ## Skill Messages
 
 ### `player_skill_request`

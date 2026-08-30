@@ -9,6 +9,7 @@
 #include "combat/combat_system.h"
 #include "effect/effect_system.h"
 #include "world/world_subsystem.h"
+#include "world/dynamic_object_system.h"
 #include "perf/perf_stats.h"
 
 #include <chrono>
@@ -634,6 +635,73 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster,
         }
     }
 
+    // Ground-field spells spawn dynamic objects instead of targeting entities
+    if (spell.spell_type == magic_type::create_dynamic)
+    {
+        auto* dos = subsystems().get<world::dynamic_object_system>();
+        if (!dos)
+        {
+            result.success = false;
+            return result;
+        }
+
+        // Resolve target position: clicked ground, or target entity's tile
+        hb::world::position field_pos{};
+        bool has_pos = false;
+        if (target.has_position())
+        {
+            field_pos = target.target_pos;
+            has_pos = true;
+        }
+        else if (target.has_entity() && player_sys)
+        {
+            if (auto* tp = player_sys->get_player_by_entity(target.target))
+            {
+                field_pos = tp->pos;
+                has_pos = true;
+            }
+            else if (auto* npc_sys = subsystems().get<npc::npc_system>())
+            {
+                if (auto* n = npc_sys->get_npc(target.target))
+                {
+                    field_pos = n->pos;
+                    has_pos = true;
+                }
+            }
+        }
+
+        map_id caster_map{};
+        if (player_sys)
+        {
+            if (auto* cp = player_sys->get_player_by_entity(caster))
+                caster_map = cp->current_map;
+        }
+
+        if (!has_pos || !caster_map.is_valid())
+        {
+            result.success = false;
+            return result;
+        }
+
+        int spawned = dos->spawn_field(caster,
+                                       static_cast<dynamic_object_type>(spell.dynamic_type),
+                                       caster_map,
+                                       field_pos,
+                                       spell.dynamic_rx,
+                                       spell.dynamic_ry,
+                                       spell.duration_ms,
+                                       spell.field_power);
+        result.success = spawned > 0;
+        LOG_DEBUG(magic,
+                  "Entity {} cast field spell '{}' at ({},{}): {} objects",
+                  caster.id,
+                  spell.name,
+                  field_pos.x,
+                  field_pos.y,
+                  spawned);
+        return result;
+    }
+
     // Get targets for AOE and line spells
     std::vector<hb::entity::entity> targets;
     if (spell.is_aoe())
@@ -1042,9 +1110,10 @@ auto magic_system::find_line_targets(hb::entity::entity caster,
 
     // Players on the line (enemies only; safe zones protect PvP targets)
     player_sys->for_each_player(
-        [&](player_id id, const player::player& p)
+        [&](player_id /*id*/, const player::player& p)
         {
-            if (id.value == caster.id)
+            // ECS entity ids are the canonical target handles (never player ids)
+            if (p.ecs_entity.id == caster.id)
                 return;
             if (p.current_map != caster_map || !on_line(p.pos))
                 return;
@@ -1058,7 +1127,7 @@ auto magic_system::find_line_targets(hb::entity::entity caster,
                         return;
                 }
             }
-            targets.push_back(hb::entity::entity{id.value, 0});
+            targets.push_back(p.ecs_entity);
         });
 
     // NPCs on the line

@@ -138,6 +138,8 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"stat_update", json_message_type::stat_update},
     {"spell_list_update", json_message_type::spell_list_update},
     {"experience_update", json_message_type::experience_update},
+    {"dynamic_object_spawn", json_message_type::dynamic_object_spawn},
+    {"dynamic_object_removed", json_message_type::dynamic_object_removed},
     {"shop_buy_request", json_message_type::shop_buy_request},
     {"shop_buy_response", json_message_type::shop_buy_response},
     {"shop_sell_request", json_message_type::shop_sell_request},
@@ -2972,6 +2974,26 @@ auto experience_update_data::to_json() const -> nlohmann::json
 auto make_experience_update(const experience_update_data& data) -> json_message
 {
     return json_message{.type = json_message_type::experience_update, .seq = 0, .data = data.to_json()};
+}
+
+auto dynamic_object_spawn_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"object_id", object_id}, {"object_type", object_type}, {"x", x}, {"y", y}};
+}
+
+auto dynamic_object_removed_data::to_json() const -> nlohmann::json
+{
+    return nlohmann::json{{"object_id", object_id}, {"object_type", object_type}, {"x", x}, {"y", y}};
+}
+
+auto make_dynamic_object_spawn(const dynamic_object_spawn_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::dynamic_object_spawn, .seq = 0, .data = data.to_json()};
+}
+
+auto make_dynamic_object_removed(const dynamic_object_removed_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::dynamic_object_removed, .seq = 0, .data = data.to_json()};
 }
 
 // === Inventory Reposition ===

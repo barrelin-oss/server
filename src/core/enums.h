@@ -278,7 +278,12 @@ enum class dynamic_object_type : uint8_t
     aresden_flag1 = 6,
     elvine_flag1 = 7,
     icestorm = 8,
-    spike = 9
+    spike = 9,
+    pcloud_begin = 10, // Poison cloud (formation animation)
+    pcloud_loop = 11,  // Poison cloud (sustained animation)
+    pcloud_end = 12,   // Poison cloud (dissipation animation)
+    fire2 = 13,        // Crusade visual effect (no damage)
+    fire3 = 14         // Fire variant (same behavior as fire)
 };
 
 // Item log types

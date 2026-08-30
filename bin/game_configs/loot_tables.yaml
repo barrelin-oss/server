@@ -27,15 +27,10 @@ pools:
     - { item: 780, weight: 100 }    # RedCandy
     - { item: 781, weight: 100 }    # BlueCandy
     - { item: 782, weight: 100 }    # GreenCandy
-    - { item: 970, weight: 100 }    # CritCandy
     - { item: 391, weight: 20 }     # SuperGreenPotion
     - { item: 650, weight: 20 }     # Zemstone of Sacrifice
-    - { item: 656, weight: 20 }     # Xelima Stone
-    - { item: 657, weight: 20 }     # Merien Stone
-    - { item: 868, weight: 20 }     # AncientTablet(LU)
-    - { item: 869, weight: 20 }     # AncientTablet(LD)
-    - { item: 870, weight: 20 }     # AncientTablet(RU)
-    - { item: 871, weight: 20 }     # AncientTablet(RD)
+    - { item: 656, weight: 20 }     # StoneOfXelima
+    - { item: 657, weight: 20 }     # StoneOfMerien
     - { item: 651, weight: 4 }      # GreenBall
     - { item: 652, weight: 4 }      # RedBall
     - { item: 653, weight: 4 }      # YellowBall
@@ -52,7 +47,7 @@ pools:
     - { item: 12, weight: 1 }       # MainGauche
     - { item: 15, weight: 1 }       # Gradius
     - { item: 65, weight: 1 }       # SexonAxe
-    - { item: 62, weight: 1 }       # Tomahawk
+    - { item: 62, weight: 1 }       # Tomahoc
     - { item: 23, weight: 1 }       # Sabre
     - { item: 31, weight: 1 }       # Esterk
 
@@ -73,38 +68,35 @@ pools:
     - { item: 31, weight: 1 }       # Esterk
     - { item: 34, weight: 1 }       # Rapier
     - { item: 72, weight: 1 }       # WarAxe+1
-    - { item: 844, weight: 1 }      # BlackShadowSword
+    - { item: 926, weight: 1 }      # BlackShadowSword
 
   melee_tier6:  # Ogre, WereWolf, Stalker, Dark-Elf, Ice-Golem, Minotaurus
     - { item: 47, weight: 1 }       # Claymore+1
     - { item: 51, weight: 1 }       # GreatSword+1
     - { item: 55, weight: 1 }       # Flameberge+1
-    - { item: 34, weight: 1 }       # GiantSword
-    - { item: 74, weight: 1 }       # GoldenAxe
-    - { item: 848, weight: 1 }      # HolyBlade
-    - { item: 924, weight: 1 }      # MageSword
+    - { item: 46, weight: 1 }       # GiantSword
+    - { item: 74, weight: 1 }       # 4BladeGoldenAxe
+    - { item: 924, weight: 1 }      # StormBringer
 
   melee_tier7:  # Liche, Frost, Barlog, Centaurus, Nizie
     - { item: 47, weight: 1 }       # Claymore+1
     - { item: 50, weight: 1 }       # GreatSword
-    - { item: 54, weight: 1 }       # Flameberge+1
-    - { item: 74, weight: 1 }       # GoldenAxe
-    - { item: 850, weight: 1 }      # KlonessAxe
-    - { item: 923, weight: 1 }      # BMageSword
+    - { item: 55, weight: 1 }       # Flameberge+1
+    - { item: 74, weight: 1 }       # 4BladeGoldenAxe
+    - { item: 929, weight: 1 }      # KlonessAxe
+    - { item: 923, weight: 1 }      # The_Devastator
 
   melee_tier8:  # Demon, Unicorn, Hellclaw, Tigerworm, Gagoyle
     - { item: 50, weight: 1 }       # GreatSword
     - { item: 560, weight: 1 }      # BattleAxe
     - { item: 615, weight: 1 }      # GiantSword
     - { item: 56, weight: 1 }       # Flameberge+2
-    - { item: 846, weight: 1 }      # The_Devastator
+    - { item: 923, weight: 1 }      # The_Devastator
 
   melee_tier9:  # Mountain-Giant
     - { item: 55, weight: 1 }       # Flameberge+1
     - { item: 615, weight: 1 }      # GiantSword
     - { item: 761, weight: 1 }      # BattleHammer
-    - { item: 762, weight: 1 }      # GiantBattleHammer
-    - { item: 857, weight: 1 }      # I.M.C Manual
 
   melee_tier10:  # Ettin, MasterMage-Orc, Giant-Lizard
     - { item: 50, weight: 1 }       # GreatSword
@@ -113,16 +105,14 @@ pools:
     - { item: 56, weight: 1 }       # Flameberge+2
     - { item: 615, weight: 1 }      # GiantSword
     - { item: 761, weight: 1 }      # BattleHammer
-    - { item: 762, weight: 1 }      # GiantBattleHammer
-    - { item: 843, weight: 1 }      # BarbarianHammer
-    - { item: 853, weight: 1 }      # E.S.W Manual
+    - { item: 928, weight: 1 }      # BarbarianHammer
 
   # === Wand tiers ===
   wand_tier2:
-    - { item: 258, weight: 1 }      # MagicWand(MS20)
+    - { item: 256, weight: 1 }      # MagicWand(MS20)
 
   wand_tier4:
-    - { item: 257, weight: 1 }      # MagicWand(MS20)
+    - { item: 256, weight: 1 }      # MagicWand(MS20)
 
   wand_tier7:
     - { item: 256, weight: 1 }      # MagicWand(MS20)
@@ -144,7 +134,7 @@ pools:
     - { item: 472, weight: 1 }      # Hauberk(W)
     - { item: 461, weight: 1 }      # ChainHose(M)
     - { item: 482, weight: 1 }      # ChainHose(W)
-    - { item: 86, weight: 1 }       # KnightShield
+    - { item: 86, weight: 1 }       # KiteShield
 
   armor_tier5:  # Cyclops, Troll, Beholder, etc.
     - { item: 455, weight: 1 }      # LeatherArmor(M)
@@ -183,7 +173,7 @@ pools:
     - { item: 482, weight: 1 }      # ChainHose(W)
     - { item: 458, weight: 1 }      # PlateMail(M)
     - { item: 478, weight: 1 }      # PlateMail(W)
-    - { item: 86, weight: 1 }       # KnightShield
+    - { item: 86, weight: 1 }       # KiteShield
     - { item: 87, weight: 1 }       # TowerShield
     - { item: 600, weight: 1 }      # Helm(M)
     - { item: 602, weight: 1 }      # Helm(W)
@@ -192,13 +182,13 @@ pools:
 
   armor_tier8:  # Demon, Unicorn, Hellclaw, Tigerworm, Gagoyle
     - { item: 402, weight: 1 }      # Cape
-    - { item: 451, weight: 1 }      # Boots
-    - { item: 926, weight: 1 }      # ShieldOfFaith
-    - { item: 927, weight: 1 }      # ShieldOfBrave
+    - { item: 451, weight: 1 }      # LongBoots
+    - { item: 926, weight: 1 }      # BlackShadowSword
+    - { item: 927, weight: 1 }      # DragonSword
 
   armor_tier9:  # Mountain-Giant
     - { item: 402, weight: 1 }      # Cape
-    - { item: 451, weight: 1 }      # Boots
+    - { item: 451, weight: 1 }      # LongBoots
 
   armor_tier10:  # Ettin, MasterMage-Orc, Giant-Lizard
     - { item: 457, weight: 1 }      # ScaleMail(M)
@@ -210,11 +200,11 @@ pools:
   # These are from bGetItemNameWhenDeleteNpc - items dropped when NPC corpse despawns
 
   skeleton_rares:  # sprite 11 - ring pool
-    - { item: 334, weight: 30 }     # SapphireRing
-    - { item: 336, weight: 30 }     # AmethystRing
+    - { item: 334, weight: 30 }     # LuckyGoldRing
+    - { item: 336, weight: 30 }     # SapphireRing
     - { item: 335, weight: 20 }     # EmeraldRing
     - { item: 337, weight: 20 }     # RubyRing
-    - { item: 333, weight: 10 }     # DiamondRing
+    - { item: 333, weight: 10 }     # PlatinumRing
     - { item: 634, weight: 5 }      # RingofWizard
     - { item: 635, weight: 2 }      # RingofMage
 
@@ -223,47 +213,44 @@ pools:
     - { item: 308, weight: 30 }     # MagicNecklace MS10
     - { item: 305, weight: 15 }     # MagicNecklace DM+1
     - { item: 300, weight: 15 }     # MagicNecklace RM10
-    - { item: 632, weight: 5 }      # KnecklaceOfStoneGolem
+    - { item: 647, weight: 5 }      # KnecklaceOfStoneGolem
     - { item: 637, weight: 3 }      # KnecklaceOfLightPro
     - { item: 638, weight: 2 }      # KnecklaceOfFirePro
 
   orc_rares:  # sprite 14 (Orc), 17 (Scorpion), 57 (Giant-Frog) - ring pool (same as skeleton)
-    - { item: 334, weight: 30 }     # SapphireRing
-    - { item: 336, weight: 30 }     # AmethystRing
+    - { item: 334, weight: 30 }     # LuckyGoldRing
+    - { item: 336, weight: 30 }     # SapphireRing
     - { item: 335, weight: 20 }     # EmeraldRing
     - { item: 337, weight: 20 }     # RubyRing
-    - { item: 333, weight: 10 }     # DiamondRing
+    - { item: 333, weight: 10 }     # PlatinumRing
     - { item: 634, weight: 5 }      # RingofWizard
     - { item: 635, weight: 2 }      # RingofMage
 
   zombie_rares:  # sprite 18 (Zombie), 22 (Amphis) - sword pool
     - { item: 613, weight: 30 }     # SwordOfMedusa
-    - { item: 639, weight: 20 }     # StormBringer
-    - { item: 641, weight: 10 }     # SpecialSword
-    - { item: 640, weight: 5 }      # KnecklaceOfSufferent
+    - { item: 924, weight: 20 }     # StormBringer
+    - { item: 641, weight: 10 }     # NecklaceOfMedusa
+    - { item: 640, weight: 5 }      # NecklaceOfSufferent
 
   clay_golem_rares:  # sprite 23 - wand/mail pool
-    - { item: 738, weight: 30 }     # BerserkWand MS.20
-    - { item: 621, weight: 20 }     # XelimaArmor(M)
-    - { item: 622, weight: 20 }     # XelimaArmor(W)
-    - { item: 647, weight: 10 }     # NecklaceOfStoneGolem
+    - { item: 738, weight: 30 }     # MasterWandMS30
+    - { item: 621, weight: 20 }     # MerienPlateMail(M)
+    - { item: 622, weight: 20 }     # MerienPlateMail(W)
+    - { item: 647, weight: 10 }     # KnecklaceOfStoneGolem
 
   troll_rares:  # sprite 28 - ring pool (same structure)
-    - { item: 334, weight: 30 }     # SapphireRing
-    - { item: 336, weight: 30 }     # AmethystRing
+    - { item: 334, weight: 30 }     # LuckyGoldRing
+    - { item: 336, weight: 30 }     # SapphireRing
     - { item: 335, weight: 20 }     # EmeraldRing
     - { item: 337, weight: 20 }     # RubyRing
-    - { item: 333, weight: 10 }     # DiamondRing
+    - { item: 333, weight: 10 }     # PlatinumRing
     - { item: 634, weight: 5 }      # RingofWizard
     - { item: 635, weight: 2 }      # RingofMage
 
   liche_rares:  # sprite 30 - magic drops
-    - { item: 852, weight: 30 }     # SSS Manual
     - { item: 380, weight: 20 }     # IceStormManual
-    - { item: 853, weight: 15 }     # E.S.W Manual
     - { item: 643, weight: 10 }     # KnecklaceOfIceEle
-    - { item: 648, weight: 5 }      # KnecklaceOfSufferent
-    - { item: 734, weight: 3 }      # RingOfArcmage
+    - { item: 734, weight: 3 }      # RingOfArchMage
 
   demon_rares:  # sprite 31 - magic drops
     - { item: 382, weight: 25 }     # BloodyShockW.Manual
@@ -273,23 +260,20 @@ pools:
     - { item: 381, weight: 15 }     # MassFireStrikeManual
     - { item: 633, weight: 10 }     # RingofDemonpower
     - { item: 645, weight: 5 }      # KnecklaceOfEfreet
-    - { item: 616, weight: 3 }      # GiantSwordOfVengeance
+    - { item: 616, weight: 3 }      # DemonSlayer
 
   unicorn_rares:  # sprite 32 - shield/mail pool
     - { item: 620, weight: 30 }     # MerienShield
-    - { item: 621, weight: 25 }     # XelimaArmor(M)
-    - { item: 622, weight: 25 }     # XelimaArmor(W)
+    - { item: 621, weight: 25 }     # MerienPlateMail(M)
+    - { item: 622, weight: 25 }     # MerienPlateMail(W)
     - { item: 644, weight: 10 }     # KnecklaceOfAirEle
 
   werewolf_rares:  # sprite 33, 48 (Stalker) - manual pool
-    - { item: 852, weight: 30 }     # SSS Manual
-    - { item: 857, weight: 25 }     # I.M.C Manual
-    - { item: 853, weight: 25 }     # E.S.W Manual
     - { item: 620, weight: 10 }     # MerienShield
 
   hellclaw_rares:  # sprite 49 - 100% drop from own pool
     - { item: 308, weight: 5000 }   # MagicNecklace MS10
-    - { item: 259, weight: 5000 }   # MagicWand M.Shield
+    - { item: 259, weight: 5000 }   # WandMShield
     - { item: 337, weight: 3000 }   # RubyRing
     - { item: 335, weight: 2000 }   # EmeraldRing
     - { item: 300, weight: 2500 }   # MagicNecklace RM10
@@ -298,7 +282,7 @@ pools:
     - { item: 634, weight: 700 }    # RingofWizard
     - { item: 635, weight: 144 }    # RingofMage
     - { item: 614, weight: 78 }     # SwordofIceElemental
-    - { item: 640, weight: 39 }     # KnecklaceOfSufferent
+    - { item: 640, weight: 39 }     # NecklaceOfSufferent
     - { item: 637, weight: 20 }     # KnecklaceOfLightPro
     - { item: 620, weight: 10 }     # MerienShield
     - { item: 644, weight: 5 }      # KnecklaceOfAirEle
@@ -314,7 +298,6 @@ pools:
     - { item: 492, weight: 313 }    # BloodRapier
     - { item: 490, weight: 156 }    # BloodSword
     - { item: 491, weight: 78 }     # BloodAxe
-    - { item: 947, weight: 39 }     # DragonWand MS40
     - { item: 643, weight: 20 }     # KnecklaceOfIceEle
     - { item: 612, weight: 10 }     # XelimaRapier
     - { item: 610, weight: 6 }      # XelimaBlade
@@ -329,62 +312,53 @@ pools:
     - { item: 381, weight: 15 }     # MassFireStrikeManual
     - { item: 633, weight: 10 }     # RingofDemonpower
     - { item: 645, weight: 5 }      # KnecklaceOfEfreet
-    - { item: 630, weight: 3 }      # RingoftheXelima
+    - { item: 630, weight: 3 }      # RingOfXelima
     - { item: 631, weight: 2 }      # RingoftheAbaddon
     - { item: 735, weight: 5 }      # RingOfDragonpower
-    - { item: 20, weight: 2 }       # Excaliber
+    - { item: 20, weight: 2 }       # Excalibur
 
   beholder_rares:  # sprite 53 - IceStormManual only
     - { item: 380, weight: 1 }      # IceStormManual
 
   darkelf_rares:  # sprite 54 - equipment
-    - { item: 618, weight: 30 }     # XelimaBoots
-    - { item: 958, weight: 25 }     # XelimaHelm
-    - { item: 956, weight: 25 }     # XelimaCap
-    - { item: 957, weight: 20 }     # XelimaHat
+    - { item: 618, weight: 30 }     # DarkElfBow
 
   ettin_rares:  # sprite 59 - ring/magic
     - { item: 735, weight: 40 }     # RingOfDragonpower
-    - { item: 853, weight: 35 }     # E.S.W Manual
     - { item: 382, weight: 25 }     # BloodyShockW.Manual
 
   frost_rares:  # sprite 63, 79 (Nizie) - ice weapons
-    - { item: 943, weight: 40 }     # IceAxe
-    - { item: 942, weight: 35 }     # IceHammer
-    - { item: 732, weight: 25 }     # IceStaff
+    - { item: 732, weight: 25 }     # MasterWandMS20
 
   barlog_rares:  # sprite 70 - magic
     - { item: 382, weight: 40 }     # BloodyShockW.Manual
     - { item: 381, weight: 35 }     # MassFireStrikeManual
-    - { item: 732, weight: 25 }     # IceStaff
+    - { item: 732, weight: 25 }     # MasterWandMS20
 
   centaurus_rares:  # sprite 71 - magic
     - { item: 735, weight: 55 }     # RingOfDragonpower
-    - { item: 732, weight: 45 }     # IceStaff
+    - { item: 732, weight: 45 }     # MasterWandMS20
 
   clawturt_rares:  # sprite 72 - magic
     - { item: 735, weight: 40 }     # RingOfDragonpower
-    - { item: 732, weight: 30 }     # IceStaff
-    - { item: 853, weight: 30 }     # E.S.W Manual
+    - { item: 732, weight: 30 }     # MasterWandMS20
 
   crayfish_rares:  # sprite 74 - magic
     - { item: 735, weight: 40 }     # RingOfDragonpower
-    - { item: 732, weight: 30 }     # IceStaff
+    - { item: 732, weight: 30 }     # MasterWandMS20
     - { item: 382, weight: 30 }     # BloodyShockW.Manual
 
   lizard_rares:  # sprite 75 - magic
     - { item: 735, weight: 40 }     # RingOfDragonpower
-    - { item: 853, weight: 35 }     # E.S.W Manual
     - { item: 382, weight: 25 }     # BloodyShockW.Manual
 
   mastermage_rares:  # sprite 77 - magic
     - { item: 735, weight: 40 }     # RingOfDragonpower
-    - { item: 853, weight: 35 }     # E.S.W Manual
     - { item: 382, weight: 25 }     # BloodyShockW.Manual
 
   minotaurus_rares:  # sprite 78 - magic
     - { item: 735, weight: 40 }     # RingOfDragonpower
-    - { item: 732, weight: 30 }     # IceStaff
+    - { item: 732, weight: 30 }     # MasterWandMS20
     - { item: 382, weight: 30 }     # BloodyShockW.Manual
 
   # === Boss multi-drop pools (on_despawn with multi_drop) ===
@@ -398,33 +372,30 @@ pools:
     # Secondary tier
     - { item: 642, weight: 8 }      # KnecklaceOfIcePro
     - { item: 643, weight: 5 }      # KnecklaceOfIceEle
-    - { item: 943, weight: 10 }     # IceAxe
-    - { item: 734, weight: 7 }      # RingOfArcmage
-    - { item: 942, weight: 8 }      # IceHammer
-    - { item: 738, weight: 8 }      # BerserkWand MS.20
+    - { item: 734, weight: 7 }      # RingOfArchMage
+    - { item: 738, weight: 8 }      # MasterWandMS30
     # Common tier
     - { item: 95, weight: 80 }      # GreenPotion
     - { item: 92, weight: 40 }      # BigRedPotion
     - { item: 94, weight: 30 }      # BigBluePotion
     - { item: 650, weight: 15 }     # Zemstone of Sacrifice
-    - { item: 334, weight: 20 }     # SapphireRing
+    - { item: 336, weight: 20 }     # SapphireRing
     - { item: 335, weight: 15 }     # EmeraldRing
     - { item: 337, weight: 15 }     # RubyRing
 
   fire_wyvern_multi:  # sprite 73 (Fire-Wyvern) - fire themed
     # Rare tier
-    - { item: 860, weight: 2 }      # NecklaceOfXelima
-    - { item: 630, weight: 3 }      # RingoftheXelima
-    - { item: 738, weight: 3 }      # BerserkWand MS.20
+    - { item: 630, weight: 3 }      # RingOfXelima
+    - { item: 738, weight: 3 }      # MasterWandMS30
     - { item: 735, weight: 3 }      # RingOfDragonpower
-    - { item: 20, weight: 3 }       # Excaliber
+    - { item: 20, weight: 3 }       # Excalibur
     - { item: 382, weight: 3 }      # BloodyShockW.Manual
     - { item: 381, weight: 3 }      # MassFireStrikeManual
     # Secondary tier
     - { item: 645, weight: 10 }     # KnecklaceOfEfreet
     - { item: 638, weight: 8 }      # KnecklaceOfFirePro
     - { item: 636, weight: 5 }      # RingofGrandMage
-    - { item: 734, weight: 7 }      # RingOfArcmage
+    - { item: 734, weight: 7 }      # RingOfArchMage
     - { item: 634, weight: 7 }      # RingofWizard
     - { item: 290, weight: 5 }      # Flameberge+3 LLF
     - { item: 490, weight: 5 }      # BloodSword
@@ -435,18 +406,15 @@ pools:
     - { item: 92, weight: 40 }      # BigRedPotion
     - { item: 94, weight: 30 }      # BigBluePotion
     - { item: 650, weight: 15 }     # Zemstone of Sacrifice
-    - { item: 334, weight: 15 }     # SapphireRing
+    - { item: 336, weight: 15 }     # SapphireRing
     - { item: 335, weight: 10 }     # EmeraldRing
     - { item: 337, weight: 10 }     # RubyRing
 
   abaddon_multi:  # sprite 81 (Abaddon) - final boss
     # Rare tier
-    - { item: 20, weight: 5 }       # Excaliber
-    - { item: 647, weight: 5 }      # NecklaceOfStoneGolem
-    - { item: 860, weight: 5 }      # NecklaceOfXelima
-    - { item: 936, weight: 5 }      # MerienHat
+    - { item: 20, weight: 5 }       # Excalibur
+    - { item: 647, weight: 5 }      # KnecklaceOfStoneGolem
     - { item: 631, weight: 3 }      # RingoftheAbaddon
-    - { item: 937, weight: 3 }      # MerienHelm
     # Secondary tier
     - { item: 650, weight: 20 }     # Zemstone of Sacrifice
     - { item: 490, weight: 10 }     # BloodSword
@@ -459,13 +427,12 @@ pools:
     - { item: 638, weight: 8 }      # KnecklaceOfFirePro
     - { item: 382, weight: 8 }      # BloodyShockW.Manual
     - { item: 381, weight: 8 }      # MassFireStrikeManual
-    - { item: 259, weight: 8 }      # MagicWand M.Shield
-    - { item: 947, weight: 5 }      # DragonWand MS40
+    - { item: 259, weight: 8 }      # WandMShield
     # Common tier
     - { item: 95, weight: 80 }      # GreenPotion
     - { item: 92, weight: 40 }      # BigRedPotion
     - { item: 94, weight: 30 }      # BigBluePotion
-    - { item: 334, weight: 20 }     # SapphireRing
+    - { item: 336, weight: 20 }     # SapphireRing
     - { item: 335, weight: 15 }     # EmeraldRing
     - { item: 337, weight: 15 }     # RubyRing
 

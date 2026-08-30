@@ -39,8 +39,8 @@ shops:
     repair_categories: [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15]
     items:
       - { item_id: 1 }    # Dagger
-      - { item_id: 2 }    # ShortSword
-      - { item_id: 3 }    # MainGauche
+      - { item_id: 8 }    # ShortSword
+      - { item_id: 12 }   # MainGauche
 
   William:
     type: blacksmith
@@ -48,5 +48,5 @@ shops:
     repair_categories: [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15]
     items:
       - { item_id: 1 }    # Dagger
-      - { item_id: 2 }    # ShortSword
-      - { item_id: 3 }    # MainGauche
+      - { item_id: 8 }    # ShortSword
+      - { item_id: 12 }   # MainGauche

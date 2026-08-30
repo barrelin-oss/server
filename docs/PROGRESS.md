@@ -431,7 +431,7 @@ Priority order for remaining work toward a playable game:
 9. ~~**War Mechanics**~~ - ✅ Crusade, Heldenian, Apocalypse battle logic with DB persistence and admin API
 10. ~~**Guild Persistence**~~ - ✅ Guilds and members persist to PostgreSQL, guild info on login
 11. **Dynamic ground-field spells** - `create_dynamic` (type 14: Spike-Field, Ice-Storm, Cloud-Kill) needs a dynamic object subsystem (spawn/tick/expiry + client protocol)
-12. **Missing item IDs in configs** - 22 item IDs referenced by loot pools and ShopKeeper-E/W don't exist in items.yaml (309, 310, 648, 762, 843-871 range, 947, 956-958, 970)
+12. ~~**Missing item IDs in configs**~~ - ✅ Loot/shop references audited: remapped to real IDs where the intended item exists, removed entries for items absent from this item set
 
 ---
 
@@ -466,6 +466,14 @@ Priority order for remaining work toward a playable game:
 - `npc_registry` YAML loader now parses `gold_min`/`gold_max`; added values for tier-1/2 mobs in `npcs.yaml`; fixed `npcs.yaml` `exp_dice:` → `exp:` key mismatch (mobs gave 0 XP). Remaining known key mismatches: `defense_ratio` vs `defense`, `size` vs `body_size`
 - New spot-mob codes 15 (`ShopKeeper-W`) and 19 (`Gandlf`) for map spawners; `mapdata/default.yaml` created (mob spawners + merchants + initial point); `shops.yaml` potion item ids corrected (308/309/310 → 91/93/95)
 - Headless bot client (`tools/bot/`): login, hunt/combat/flee/respawn, loot, shopping (buy/sell/repair/equip), party formation; runs N bots per process (`node bot.mjs all`)
+
+### 2026-08-30: Loot table and shop item reference audit
+- Full audit of loot_tables.yaml/shops.yaml against items.yaml (the tables were authored against a different item numbering — comments named the intended items)
+- Remapped 16 references whose intended item exists under another ID (BlackShadowSword→926, The_Devastator→923, BarbarianHammer→928, KlonessAxe→929, StormBringer→924, GiantSword→46, Flameberge+1→55, MagicWand(MS20)→256, KnecklaceOfStoneGolem→647, SapphireRing→336 ×3, MagicWand tiers, etc.)
+- Removed 32 pool entries whose intended item does not exist in this item set (AncientTablets, CritCandy, SSS/E.S.W/I.M.C manuals, XelimaCap/Hat/Helm, NecklaceOfXelima, DragonWand MS40, HolyBlade, GiantBattleHammer) — including placeholder junk drops (Tomato/Hoe/Garlic/Carrot standing in for Ice/Merien gear in boss pools)
+- Rewrote ~50 stale comments to the real item names (behavior unchanged)
+- Fixed silent wrong-item bugs in shops.yaml: ShopKeeper-E/W now sell RedPotion/BluePotion/GreenPotion (91/93/95) instead of MagicNecklace(MS10) + 2 missing IDs; Gandlf/William now sell ShortSword(8)/MainGauche(12) instead of Dagger variants (2/3)
+- Startup validation warnings (375+ per boot) eliminated; 2522 tests pass
 
 ### 2026-08-30: Legacy magic types restored (12 spells re-enabled)
 - Extended `magic_type` enum with legacy HBX Magic.cfg values: `create_dynamic` (14), `damage_linear` (19), `damage_area_no_center` (21), `damage_area_sp_down` (25), `armor_break` (26), `ice_linear` (27)

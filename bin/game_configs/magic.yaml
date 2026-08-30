@@ -1321,7 +1321,9 @@ magic:
     attribute: 2
   - id: 76
     name: Cancellation
-    type: 21
+    # Legacy cfg had a placeholder row copied from Lightning-Strike (type 21);
+    # corrected to the real cancellation type
+    type: 28
     delay: 0
     duration: 0
     mana_cost: 90
@@ -1345,7 +1347,9 @@ magic:
     attribute: 2
   - id: 77
     name: Illusion-Movement
-    type: 21
+    # Legacy cfg had a placeholder row copied from Lightning-Strike (type 21);
+    # corrected to the confusion/illusion type
+    type: 16
     delay: 0
     duration: 0
     mana_cost: 90
@@ -1537,7 +1541,9 @@ magic:
     attribute: 4
   - id: 95
     name: Mass-Illusion-Movement
-    type: 21
+    # Legacy cfg had a placeholder row copied from Lightning-Strike (type 21);
+    # corrected to the confusion/illusion type
+    type: 16
     delay: 0
     duration: 0
     mana_cost: 90
@@ -1561,7 +1567,9 @@ magic:
     attribute: 2
   - id: 94
     name: Resurrection
-    type: 21
+    # Legacy cfg had a placeholder row copied from Lightning-Strike (type 21);
+    # corrected to the real resurrection type
+    type: 32
     delay: 0
     duration: 0
     mana_cost: 90

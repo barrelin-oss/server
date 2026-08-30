@@ -179,11 +179,17 @@ enum class magic_type : uint8_t
     protection = 11,
     hold_paralyze = 12,
     invisibility = 13,
+    create_dynamic = 14,        // Persistent ground fields (Spike-Field, Ice-Storm, Cloud-Kill) — pending implementation
     confusion = 16,
     poison = 17,
     berserk = 18,
+    damage_linear = 19,         // Line damage from caster toward target (Bloody-Shock-Wave)
     polymorph = 20,
+    damage_area_no_center = 21, // Area damage without center-spot hit (Energy-Strike, Meteor-Strike)
     ice = 23,
+    damage_area_sp_down = 25,   // Area damage + stamina drain (Earthworm-Strike)
+    armor_break = 26,           // Area damage that ignores defense (Armor-Break); HBX Magic.cfg numbering
+    ice_linear = 27,            // Line ice damage (Blizzard); HBX Magic.cfg numbering
     cancellation = 28,
     inhibition = 29,
     resurrection = 32

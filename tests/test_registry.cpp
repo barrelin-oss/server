@@ -543,6 +543,86 @@ TEST_F(registry_test, magic_registry_by_type)
     EXPECT_EQ(heal_spells.size(), 1);
 }
 
+TEST_F(registry_test, magic_registry_legacy_damage_types)
+{
+    auto path = create_test_file("magic.yaml",
+                                 "magic:\n"
+                                 "  - id: 70\n"
+                                 "    name: Bloody-Shock-Wave\n"
+                                 "    type: 19\n"
+                                 "    mana_cost: 120\n"
+                                 "    effect1: { dice: 8, sides: 8, bonus: 50 }\n"
+                                 "    int_req: 105\n"
+                                 "  - id: 60\n"
+                                 "    name: Energy-Strike\n"
+                                 "    type: 21\n"
+                                 "    mana_cost: 65\n"
+                                 "    range2: 2\n"
+                                 "    effect1: { dice: 7, sides: 6, bonus: 17 }\n"
+                                 "    int_req: 67\n"
+                                 "  - id: 64\n"
+                                 "    name: Earthworm-Strike\n"
+                                 "    type: 25\n"
+                                 "    mana_cost: 80\n"
+                                 "    range2: 2\n"
+                                 "    effect1: { dice: 7, sides: 6, bonus: 17 }\n"
+                                 "    effect2: { dice: 7, sides: 6, bonus: 17 }\n"
+                                 "    int_req: 97\n"
+                                 "  - id: 66\n"
+                                 "    name: Armor-Break\n"
+                                 "    type: 26\n"
+                                 "    mana_cost: 90\n"
+                                 "    effect1: { dice: 7, sides: 6, bonus: 17 }\n"
+                                 "    int_req: 97\n"
+                                 "  - id: 91\n"
+                                 "    name: Blizzard\n"
+                                 "    type: 27\n"
+                                 "    mana_cost: 170\n"
+                                 "    effect1: { dice: 10, sides: 10, bonus: 16 }\n"
+                                 "    int_req: 195\n"
+                                 "  - id: 54\n"
+                                 "    name: Spike-Field\n"
+                                 "    type: 14\n"
+                                 "    mana_cost: 56\n"
+                                 "    effect1: { dice: 2, sides: 8, bonus: 0 }\n"
+                                 "    int_req: 56\n");
+
+    magic_registry registry;
+    registry.initialize();
+
+    auto result = registry.load_from_file(path);
+    ASSERT_TRUE(result.is_ok()) << result.error();
+    // Type 14 (create_dynamic) is skipped until the dynamic object subsystem exists
+    EXPECT_EQ(result.value(), 5);
+    EXPECT_EQ(registry.get(spell_id{54}), nullptr);
+
+    const auto* linear = registry.get(spell_id{70});
+    ASSERT_NE(linear, nullptr);
+    EXPECT_EQ(linear->type, magic_type::damage_linear);
+    EXPECT_TRUE(linear->is_offensive);
+
+    const auto* nospot = registry.get(spell_id{60});
+    ASSERT_NE(nospot, nullptr);
+    EXPECT_EQ(nospot->type, magic_type::damage_area_no_center);
+    EXPECT_TRUE(nospot->is_offensive);
+
+    const auto* spdown = registry.get(spell_id{64});
+    ASSERT_NE(spdown, nullptr);
+    EXPECT_EQ(spdown->type, magic_type::damage_area_sp_down);
+    EXPECT_TRUE(spdown->is_offensive);
+    EXPECT_EQ(spdown->sp_drain, 7 * 7 / 2 + 17); // 7d6+17 average = 41
+
+    const auto* armor = registry.get(spell_id{66});
+    ASSERT_NE(armor, nullptr);
+    EXPECT_EQ(armor->type, magic_type::armor_break);
+    EXPECT_TRUE(armor->is_offensive);
+
+    const auto* ice_line = registry.get(spell_id{91});
+    ASSERT_NE(ice_line, nullptr);
+    EXPECT_EQ(ice_line->type, magic_type::ice_linear);
+    EXPECT_TRUE(ice_line->is_offensive);
+}
+
 TEST_F(registry_test, magic_registry_damage_calculation)
 {
     auto path = create_test_file("magic.yaml",

@@ -34,11 +34,17 @@ auto is_valid_magic_type(int val) -> bool
     case 11:
     case 12:
     case 13:
+    case 14:
     case 16:
     case 17:
     case 18:
+    case 19:
     case 20:
+    case 21:
     case 23:
+    case 25:
+    case 26:
+    case 27:
     case 28:
     case 29:
     case 32:
@@ -124,6 +130,14 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
             }
             spell.type = static_cast<magic_type>(type_val);
         }
+
+        // Ground-field spells (create_dynamic) need the dynamic object subsystem, which
+        // is not implemented yet — skip them without counting as data errors.
+        if (spell.type == magic_type::create_dynamic)
+        {
+            LOG_INFO(magic, "Spell {}: create_dynamic (ground fields) pending implementation, skipping", spell.name);
+            continue;
+        }
         spell.mana_cost = static_cast<int16_t>(node["mana_cost"].as<int>(0));
         spell.cast_time_ms = static_cast<int16_t>(node["delay"].as<int>(0));
         spell.int_req = static_cast<int16_t>(node["int_req"].as<int>(0));
@@ -150,6 +164,16 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
             spell.effects.push_back(se);
         }
 
+        // effect2 carries the stamina-drain dice for damage_area_sp_down spells
+        if (spell.type == magic_type::damage_area_sp_down && node["effect2"])
+        {
+            auto e = node["effect2"];
+            int dice = e["dice"].as<int>(0);
+            int sides = e["sides"].as<int>(0);
+            int bonus = e["bonus"].as<int>(0);
+            spell.sp_drain = static_cast<int16_t>(dice * (sides + 1) / 2 + bonus);
+        }
+
         // Determine offensive/targeting from type
         switch (spell.type)
         {
@@ -157,6 +181,11 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
         case magic_type::damage_area:
         case magic_type::poison:
         case magic_type::ice:
+        case magic_type::damage_linear:
+        case magic_type::damage_area_no_center:
+        case magic_type::damage_area_sp_down:
+        case magic_type::armor_break:
+        case magic_type::ice_linear:
             spell.is_offensive = true;
             break;
         case magic_type::hp_up_spot:

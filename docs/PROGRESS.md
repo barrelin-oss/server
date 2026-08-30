@@ -430,6 +430,8 @@ Priority order for remaining work toward a playable game:
 8. ~~**Crafting System**~~ - ✅ Manufacturing (83 recipes) + alchemy (80+38 recipes) with YAML configs
 9. ~~**War Mechanics**~~ - ✅ Crusade, Heldenian, Apocalypse battle logic with DB persistence and admin API
 10. ~~**Guild Persistence**~~ - ✅ Guilds and members persist to PostgreSQL, guild info on login
+11. **Dynamic ground-field spells** - `create_dynamic` (type 14: Spike-Field, Ice-Storm, Cloud-Kill) needs a dynamic object subsystem (spawn/tick/expiry + client protocol)
+12. **Missing item IDs in configs** - 22 item IDs referenced by loot pools and ShopKeeper-E/W don't exist in items.yaml (309, 310, 648, 762, 843-871 range, 947, 956-958, 970)
 
 ---
 
@@ -464,6 +466,17 @@ Priority order for remaining work toward a playable game:
 - `npc_registry` YAML loader now parses `gold_min`/`gold_max`; added values for tier-1/2 mobs in `npcs.yaml`; fixed `npcs.yaml` `exp_dice:` → `exp:` key mismatch (mobs gave 0 XP). Remaining known key mismatches: `defense_ratio` vs `defense`, `size` vs `body_size`
 - New spot-mob codes 15 (`ShopKeeper-W`) and 19 (`Gandlf`) for map spawners; `mapdata/default.yaml` created (mob spawners + merchants + initial point); `shops.yaml` potion item ids corrected (308/309/310 → 91/93/95)
 - Headless bot client (`tools/bot/`): login, hunt/combat/flee/respawn, loot, shopping (buy/sell/repair/equip), party formation; runs N bots per process (`node bot.mjs all`)
+
+### 2026-08-30: Legacy magic types restored (12 spells re-enabled)
+- Extended `magic_type` enum with legacy HBX Magic.cfg values: `create_dynamic` (14), `damage_linear` (19), `damage_area_no_center` (21), `damage_area_sp_down` (25), `armor_break` (26), `ice_linear` (27)
+- Spells that previously failed to load now work: Bloody-Shock-Wave, Energy-Strike, Lightning-Strike, Meteor-Strike, Mass-Magic-Missile, Earthworm-Strike, Armor-Break, Blizzard (+ corrected Cancellation, Illusion-Movement, Mass-Illusion-Movement, Resurrection)
+- New line-targeting (`find_line_targets`): Bresenham trace from caster toward target, up to 12 tiles, with faction/safe-zone filters (types 19/27)
+- `damage_area_sp_down` drains SP from player targets (amount from effect2 dice, parsed into `sp_drain`)
+- `armor_break` deals pure damage via `deal_pure_damage` (ignores defense) — `ignores_defense` flag now honored in the attack path
+- Cancellation remapped from utility stub to offensive dispel (debuff category, removes target's active effects)
+- Fixed 4 placeholder rows in magic.yaml (copied from Lightning-Strike in the original Magic.cfg): Cancellation→type 28, Resurrection→32, Illusion-Movement/Mass-Illusion-Movement→16
+- `create_dynamic` (Spike-Field, Ice-Storm, Cloud-Kill) accepted in the enum but spells skipped at load with an info message — pending dynamic ground-object subsystem
+- New test `magic_registry_legacy_damage_types`; 2522 tests pass
 
 ### 2026-08-30: Experience Gain Notification (`experience_update`)
 - New server→client message `experience_update` sent whenever a player gains XP (solo/party NPC kill XP, crusade rewards, login reward delivery)

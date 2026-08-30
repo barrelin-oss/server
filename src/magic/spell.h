@@ -104,6 +104,7 @@ struct spell_template
     int32_t base_damage{0};
     int32_t base_heal{0};
     int16_t effect_value{0}; // Generic effect magnitude
+    int16_t sp_drain{0};     // Stamina drained from each target hit (damage_area_sp_down)
 
     // Scaling
     int16_t int_scaling{0}; // % of INT added to damage/heal

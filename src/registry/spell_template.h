@@ -92,6 +92,7 @@ struct spell_template
     int16_t base_damage{0};
     int16_t int_scaling{0}; // Per 10 INT
     int16_t mag_scaling{0}; // Per 10 MAG
+    int16_t sp_drain{0};    // Stamina drained from targets (damage_area_sp_down, from effect2 dice)
 
     // Effect duration
     duration_ms effect_duration{0};

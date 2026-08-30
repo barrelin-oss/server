@@ -13,6 +13,7 @@
 
 #include <chrono>
 #include <algorithm>
+#include <cstdlib>
 #include <random>
 
 namespace hb::magic
@@ -633,11 +634,15 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster,
         }
     }
 
-    // Get targets for AOE spells
+    // Get targets for AOE and line spells
     std::vector<hb::entity::entity> targets;
     if (spell.is_aoe())
     {
         targets = find_aoe_targets(caster, spell, target);
+    }
+    else if (spell.target_type == spell_target::line)
+    {
+        targets = find_line_targets(caster, spell, target);
     }
     else if (target.has_entity())
     {
@@ -660,8 +665,25 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster,
         {
             if (combat_sys)
             {
-                // Deal magic damage through combat system
-                combat_sys->deal_damage(t, result.damage_dealt, damage_type, caster);
+                if (spell.ignores_defense)
+                {
+                    // Armor-break spells bypass target defense entirely
+                    combat_sys->deal_pure_damage(t, result.damage_dealt, caster);
+                }
+                else
+                {
+                    // Deal magic damage through combat system
+                    combat_sys->deal_damage(t, result.damage_dealt, damage_type, caster);
+                }
+            }
+
+            // Stamina drain (damage_area_sp_down spells, e.g. Earthworm-Strike)
+            if (spell.sp_drain > 0 && player_sys)
+            {
+                if (auto* tp = player_sys->get_player(player_id{t.id}))
+                {
+                    tp->sp = std::max(0, tp->sp - static_cast<int32_t>(spell.sp_drain));
+                }
             }
             result.affected_targets.push_back(t);
         }
@@ -927,6 +949,136 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
     return targets;
 }
 
+auto magic_system::find_line_targets(hb::entity::entity caster,
+                                     const spell_template& /*spell*/,
+                                     const cast_target& target) const -> std::vector<hb::entity::entity>
+{
+    std::vector<hb::entity::entity> targets;
+
+    auto* player_sys = subsystems().get<player::player_system>();
+    auto* npc_sys = subsystems().get<npc::npc_system>();
+    if (!player_sys)
+        return targets;
+
+    const auto* caster_player = player_sys->get_player(player_id{caster.id});
+    if (!caster_player)
+        return targets;
+
+    hb::world::position start = caster_player->pos;
+    map_id caster_map = caster_player->current_map;
+
+    // Resolve line endpoint: clicked position, or target entity position
+    hb::world::position end{};
+    bool has_end = false;
+    if (target.has_position())
+    {
+        end = target.target_pos;
+        has_end = true;
+    }
+    else if (target.has_entity())
+    {
+        if (auto* tp = player_sys->get_player(player_id{target.target.id}))
+        {
+            end = tp->pos;
+            has_end = true;
+        }
+        else if (npc_sys)
+        {
+            if (auto* n = npc_sys->get_npc(target.target))
+            {
+                end = n->pos;
+                has_end = true;
+            }
+        }
+    }
+
+    if (!has_end || !caster_map.is_valid() || (end.x == start.x && end.y == start.y))
+    {
+        return targets;
+    }
+
+    // Trace tiles along the line from caster (exclusive) toward the endpoint,
+    // continuing past it up to one screen unit (12 tiles) as legacy linear spells do
+    constexpr int max_line_tiles = 12;
+    std::vector<hb::world::position> line_tiles;
+    {
+        int x = start.x;
+        int y = start.y;
+        int dx = std::abs(end.x - x);
+        int dy = -std::abs(end.y - y);
+        int sx = x < end.x ? 1 : -1;
+        int sy = y < end.y ? 1 : -1;
+        int err = dx + dy;
+        while (static_cast<int>(line_tiles.size()) < max_line_tiles)
+        {
+            if (x == end.x && y == end.y)
+                break;
+            int e2 = 2 * err;
+            if (e2 >= dy)
+            {
+                err += dy;
+                x += sx;
+            }
+            if (e2 <= dx)
+            {
+                err += dx;
+                y += sy;
+            }
+            line_tiles.push_back(hb::world::position{static_cast<int16_t>(x), static_cast<int16_t>(y)});
+        }
+    }
+
+    auto on_line = [&](const hb::world::position& p)
+    {
+        for (const auto& t : line_tiles)
+        {
+            if (t.x == p.x && t.y == p.y)
+                return true;
+        }
+        return false;
+    };
+
+    auto* world = subsystems().get<world::world_subsystem>();
+
+    // Players on the line (enemies only; safe zones protect PvP targets)
+    player_sys->for_each_player(
+        [&](player_id id, const player::player& p)
+        {
+            if (id.value == caster.id)
+                return;
+            if (p.current_map != caster_map || !on_line(p.pos))
+                return;
+            if (p.faction == caster_player->faction)
+                return;
+            if (world)
+            {
+                if (auto* m = world->get_map(p.current_map))
+                {
+                    if (m->is_safe_zone(p.pos))
+                        return;
+                }
+            }
+            targets.push_back(hb::entity::entity{id.value, 0});
+        });
+
+    // NPCs on the line
+    if (npc_sys)
+    {
+        for (auto npc_entity : npc_sys->get_npcs_in_range(caster_map, start, max_line_tiles))
+        {
+            if (auto* n = npc_sys->get_npc(npc_entity))
+            {
+                if (on_line(n->pos))
+                {
+                    targets.push_back(npc_entity);
+                }
+            }
+        }
+    }
+
+    return targets;
+}
+
 auto magic_system::element_to_damage_type(spell_element element) const -> combat::damage_type
 {
     switch (element)
@@ -1005,6 +1157,14 @@ void magic_system::apply_debuff(hb::entity::entity caster, hb::entity::entity ta
     {
         effect_sys->remove_effects_by_group(target, magic_type::poison);
         LOG_DEBUG(magic, "Cure removed poison from entity {}", target.id);
+        return;
+    }
+
+    // Cancellation (type 28) dispels the target's active effects instead of applying one
+    if (spell.spell_type == magic_type::cancellation)
+    {
+        effect_sys->remove_all_effects(target);
+        LOG_DEBUG(magic, "Cancellation removed all effects from entity {}", target.id);
         return;
     }
 

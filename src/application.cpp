@@ -1695,8 +1695,24 @@ void application::load_game_configs()
                             ms.target_type = magic::spell_target::single_enemy;
                             break;
                         case magic_type::damage_area:
+                        case magic_type::damage_area_no_center:
                             ms.category = magic::spell_category::attack;
                             ms.target_type = magic::spell_target::aoe_enemy;
+                            break;
+                        case magic_type::damage_area_sp_down:
+                            ms.category = magic::spell_category::attack;
+                            ms.target_type = magic::spell_target::aoe_enemy;
+                            ms.sp_drain = reg_spell.sp_drain;
+                            break;
+                        case magic_type::armor_break:
+                            ms.category = magic::spell_category::attack;
+                            ms.target_type = magic::spell_target::aoe_enemy;
+                            ms.ignores_defense = true;
+                            break;
+                        case magic_type::damage_linear:
+                        case magic_type::ice_linear:
+                            ms.category = magic::spell_category::attack;
+                            ms.target_type = magic::spell_target::line;
                             break;
                         case magic_type::poison:
                         case magic_type::ice:
@@ -1731,9 +1747,13 @@ void application::load_game_configs()
                             break;
                         case magic_type::teleport:
                         case magic_type::summon:
-                        case magic_type::cancellation:
                             ms.category = magic::spell_category::utility;
                             ms.target_type = magic::spell_target::self;
+                            break;
+                        case magic_type::cancellation:
+                            // Offensive dispel: strips the target's active effects
+                            ms.category = magic::spell_category::debuff;
+                            ms.target_type = magic::spell_target::single_enemy;
                             break;
                         case magic_type::sp_up_spot:
                             ms.category = magic::spell_category::healing;

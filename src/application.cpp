@@ -326,6 +326,26 @@ void application::initialize()
         auth_sys.set_forum_config(server_cfg.forum_auth);
     }
 
+    // Configure player system (regen pacing from server.yaml; other fields keep defaults)
+    {
+        auto* player_sys = subsystems().get<player::player_system>();
+        if (player_sys)
+        {
+            player::player_system_config pcfg;
+            pcfg.regen_tick_ms = server_cfg.regen.tick_ms;
+            pcfg.legacy_hp_interval_ms = server_cfg.regen.hp_interval_ms;
+            pcfg.legacy_mp_interval_ms = server_cfg.regen.mp_interval_ms;
+            pcfg.legacy_sp_interval_ms = server_cfg.regen.sp_interval_ms;
+            player_sys->set_config(pcfg);
+            LOG_INFO(general,
+                     "Regen config: tick {}ms, HP/MP/SP intervals {}/{}/{}ms",
+                     pcfg.regen_tick_ms,
+                     pcfg.legacy_hp_interval_ms,
+                     pcfg.legacy_mp_interval_ms,
+                     pcfg.legacy_sp_interval_ms);
+        }
+    }
+
     // Configure inventory system
     {
         auto* inv_sys = subsystems().get<inventory::inventory_system>();

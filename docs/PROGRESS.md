@@ -452,6 +452,16 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-08-30: Sweep of ECS-entity vs player_id confusion (`get_player(player_id{entity.id})`)
+- Full `src/` sweep for the recurring bug class where an ECS entity id (from the shared `entity_manager`) was cast to `player_id` (or vice versa). Entity ids and player ids are NOT interchangeable — the lookup returns nullptr (or the wrong player) and `if (auto* p = ...)`-guarded blocks are silently skipped. Standard fix: `player_system::get_player_by_entity(entity)` (O(1), const overload available)
+- `magic_system.cpp`: 21 sites fixed — mana/HP/SP deduction, silenced/level/stat checks, range checks, safe-zone PvP checks, damage/heal scaling, SP drain, resurrection/heal targets, debuff resist rolls. `find_aoe_targets`/`find_line_targets` no longer fabricate `entity{player_id.value, 0}` for hit players — they push the real `p.ecs_entity` (fabricated handles broke downstream `combat_system::deal_damage` and the spell broadcast, which resolve via the real ECS index)
+- `application.cpp`: effect ticks (heal / mana_drain / mana_restore) resolved players by entity id cast to `player_id` — periodic heal/mana effects on players never applied
+- `game_handlers_combat.cpp`: `on_spell_cast` broadcast resolved caster/targets with the bad cast (spell visuals never showed target positions for players); respawn invulnerability was keyed on `entity{pid.value}` so it never matched the real defender entity — 3s respawn protection was silently inert
+- `player_system::remove_player`: active spell effects were removed for `entity{p.id.value}` instead of `p.ecs_entity` — effects leaked in the effect system on logout
+- `wave4_handlers.cpp` (legacy binary path): attack + spell cast fabricated caster/target entities from `ctx.player.value`; now resolve the player's real `ecs_entity` (their spell-knowledge/cooldown lookups could never match the JSON path's keys)
+- Legitimate patterns confirmed and left untouched: admin API `get_player(player_id{req.player_id})` (wire value IS a player id); inventory/trade/crafting `entity_id{pid.value}` keying (consistent at creation and access); spatial-index `entity_id{ecs_entity.index()}`
+- Tests updated to the real-entity convention (`test_magic.cpp`, `test_safe_zone.cpp`, `test_melee_pve.cpp`): fixtures now resolve `ecs_entity` instead of fabricating `entity(pid.value)` — the old form only passed because test fixtures spawn no NPCs, so both counters coincided
+
 ### 2026-08-30: Bot scale phase (10 → 50), perf fixes, city habitability
 - Perf: `find_aggro_target` now resolves players via O(1) `get_player_by_entity` (was a full player scan per entity in aggro range, per NPC, per 100ms); `get_players_who_can_see` skips the far-admin scan unless any player has `sees_all` (new `player_system::set_sees_all` + incremental counter; gm_commands updated — never write `player::sees_all` directly)
 - Map loading: `.amd` extension check is now case-insensitive (`ARESDEN.AMD`/`ELVINE.AMD` were silently skipped — those maps never existed at runtime); map names normalized to lowercase at load so name lookups ("aresden") work

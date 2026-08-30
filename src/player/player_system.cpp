@@ -136,7 +136,7 @@ void player_system::remove_player(player_id id)
     auto* effect_sys = subsystems().get<effect::effect_system>();
     if (effect_sys && p.ecs_entity.is_valid())
     {
-        effect_sys->remove_all_effects(entity::entity{p.id.value});
+        effect_sys->remove_all_effects(p.ecs_entity);
     }
 
     // Remove from spatial index

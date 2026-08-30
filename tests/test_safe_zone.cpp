@@ -92,6 +92,9 @@ protected:
         return pid;
     }
 
+    // Resolve the real ECS entity handle for a player (player_id values are NOT entity ids)
+    auto ecs(player_id pid) -> entity::entity { return player_sys_->get_player(pid)->ecs_entity; }
+
     player::player_system* player_sys_{};
     world::world_subsystem* world_{};
     combat::combat_system* combat_{};
@@ -104,8 +107,8 @@ TEST_F(safe_zone_combat_test, pvp_blocked_when_attacker_in_safe_zone)
     auto p1 = create_player_at({15, 15}); // In safe zone
     auto p2 = create_player_at({50, 50}); // Outside safe zone
 
-    entity::entity e1(p1.value);
-    entity::entity e2(p2.value);
+    auto e1 = ecs(p1);
+    auto e2 = ecs(p2);
 
     EXPECT_FALSE(combat_->can_attack(e1, e2));
 }
@@ -115,8 +118,8 @@ TEST_F(safe_zone_combat_test, pvp_blocked_when_defender_in_safe_zone)
     auto p1 = create_player_at({50, 50}); // Outside safe zone
     auto p2 = create_player_at({15, 15}); // In safe zone
 
-    entity::entity e1(p1.value);
-    entity::entity e2(p2.value);
+    auto e1 = ecs(p1);
+    auto e2 = ecs(p2);
 
     EXPECT_FALSE(combat_->can_attack(e1, e2));
 }
@@ -126,8 +129,8 @@ TEST_F(safe_zone_combat_test, pvp_blocked_when_both_in_safe_zone)
     auto p1 = create_player_at({12, 12}); // In safe zone
     auto p2 = create_player_at({18, 18}); // In safe zone
 
-    entity::entity e1(p1.value);
-    entity::entity e2(p2.value);
+    auto e1 = ecs(p1);
+    auto e2 = ecs(p2);
 
     EXPECT_FALSE(combat_->can_attack(e1, e2));
 }
@@ -137,8 +140,8 @@ TEST_F(safe_zone_combat_test, pvp_allowed_when_neither_in_safe_zone)
     auto p1 = create_player_at({50, 50}); // Outside safe zone
     auto p2 = create_player_at({60, 60}); // Outside safe zone
 
-    entity::entity e1(p1.value);
-    entity::entity e2(p2.value);
+    auto e1 = ecs(p1);
+    auto e2 = ecs(p2);
 
     EXPECT_TRUE(combat_->can_attack(e1, e2));
 }
@@ -148,7 +151,7 @@ TEST_F(safe_zone_combat_test, player_vs_npc_allowed_in_safe_zone)
     // PvE should always be allowed even in safe zones
     auto p1 = create_player_at({15, 15}); // In safe zone
 
-    entity::entity player_e(p1.value);
+    auto player_e = ecs(p1);
     entity::entity npc_e(9999u); // Not a player ID
 
     EXPECT_TRUE(combat_->can_attack(player_e, npc_e));
@@ -159,7 +162,7 @@ TEST_F(safe_zone_combat_test, npc_vs_player_allowed_in_safe_zone)
     // NPC attacking a player in safe zone should be allowed
     auto p1 = create_player_at({15, 15}); // In safe zone
 
-    entity::entity player_e(p1.value);
+    auto player_e = ecs(p1);
     entity::entity npc_e(9999u); // Not a player ID
 
     EXPECT_TRUE(combat_->can_attack(npc_e, player_e));
@@ -252,6 +255,9 @@ protected:
         return pid;
     }
 
+    // Resolve the real ECS entity handle for a player (player_id values are NOT entity ids)
+    auto ecs(player_id pid) -> entity::entity { return player_sys_->get_player(pid)->ecs_entity; }
+
     player::player_system* player_sys_{};
     world::world_subsystem* world_{};
     magic::magic_system* magic_{};
@@ -264,8 +270,8 @@ TEST_F(safe_zone_magic_test, offensive_spell_blocked_on_player_in_safe_zone)
     auto caster = create_player_at({50, 50}); // Outside safe zone
     auto target = create_player_at({15, 15}); // In safe zone
 
-    entity::entity caster_e(caster.value);
-    entity::entity target_e(target.value);
+    auto caster_e = ecs(caster);
+    auto target_e = ecs(target);
 
     // Learn the spell
     magic_->learn_spell(caster_e, spell_id(1));
@@ -282,8 +288,8 @@ TEST_F(safe_zone_magic_test, offensive_spell_blocked_when_caster_in_safe_zone)
     auto caster = create_player_at({15, 15}); // In safe zone
     auto target = create_player_at({50, 50}); // Outside
 
-    entity::entity caster_e(caster.value);
-    entity::entity target_e(target.value);
+    auto caster_e = ecs(caster);
+    auto target_e = ecs(target);
 
     magic_->learn_spell(caster_e, spell_id(1));
 
@@ -299,8 +305,8 @@ TEST_F(safe_zone_magic_test, buff_spell_allowed_in_safe_zone)
     auto caster = create_player_at({15, 15}); // In safe zone
     auto target = create_player_at({16, 16}); // Also in safe zone
 
-    entity::entity caster_e(caster.value);
-    entity::entity target_e(target.value);
+    auto caster_e = ecs(caster);
+    auto target_e = ecs(target);
 
     magic_->learn_spell(caster_e, spell_id(2));
 
@@ -314,7 +320,7 @@ TEST_F(safe_zone_magic_test, buff_spell_allowed_in_safe_zone)
 TEST_F(safe_zone_magic_test, offensive_spell_on_npc_allowed_in_safe_zone)
 {
     auto caster = create_player_at({15, 15}); // In safe zone
-    entity::entity caster_e(caster.value);
+    auto caster_e = ecs(caster);
     entity::entity npc_e(9999u); // Not a player
 
     magic_->learn_spell(caster_e, spell_id(1));

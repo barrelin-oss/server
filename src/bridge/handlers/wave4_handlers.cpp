@@ -141,9 +141,10 @@ auto handle_attack_target(const handler_context& ctx, entity_id target_id) -> ha
         return handle_result::not_handled;
     }
 
-    // Check if we can attack
-    auto attacker_entity = entity::entity{ctx.player.value, 0}; // Player entity
-    auto target_entity = entity::entity{target_id.value, 0};
+    // Check if we can attack — use the real ECS entity handles (ids on the wire
+    // are full entity ids; player_id values are NOT entity ids)
+    auto attacker_entity = attacker->ecs_entity;
+    auto target_entity = entity::entity{target_id.value};
 
     if (!combat->can_attack(attacker_entity, target_entity))
     {
@@ -213,10 +214,23 @@ auto handle_cast_spell(const handler_context& ctx, spell_id spell, entity_id tar
         return handle_result::not_handled;
     }
 
-    auto caster = entity::entity{ctx.player.value, 0};
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (!player_sys)
+    {
+        return handle_result::not_handled;
+    }
+
+    auto* caster_player = player_sys->get_player(ctx.player);
+    if (!caster_player)
+    {
+        return handle_result::not_handled;
+    }
+
+    // Use the real ECS entity handle — player_id values are NOT entity ids
+    auto caster = caster_player->ecs_entity;
 
     // Build cast target
-    magic::cast_target cast_target{.target = entity::entity{target.value, 0}, .target_pos = world::position{0, 0}};
+    magic::cast_target cast_target{.target = entity::entity{target.value}, .target_pos = world::position{0, 0}};
 
     // Attempt instant cast
     auto result = magic->instant_cast(caster, spell, cast_target);

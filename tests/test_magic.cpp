@@ -703,6 +703,9 @@ protected:
         return pid;
     }
 
+    // Resolve the real ECS entity handle for a player (player_id values are NOT entity ids)
+    auto ecs(player_id pid) -> hb::entity::entity { return player_sys_->get_player(pid)->ecs_entity; }
+
     hb::player::player_system* player_sys_{};
     hb::world::world_subsystem* world_{};
     hb::magic::magic_system* magic_{};
@@ -715,8 +718,8 @@ TEST_F(magic_aoe_test, aoe_spell_excludes_caster)
     auto caster_pid = create_player_at({50, 50}, hb::faction::aresden);
     auto enemy_pid = create_player_at({52, 50}, hb::faction::elvine);
 
-    entity caster_e(caster_pid.value);
-    entity enemy_e(enemy_pid.value);
+    auto caster_e = ecs(caster_pid);
+    auto enemy_e = ecs(enemy_pid);
 
     magic_->learn_spell(caster_e, hb::spell_id(1));
 
@@ -735,9 +738,9 @@ TEST_F(magic_aoe_test, aoe_spell_excludes_caster)
     bool caster_hit = false;
     for (auto& t : effect.affected_targets)
     {
-        if (t.id == enemy_pid.value)
+        if (t == enemy_e)
             enemy_hit = true;
-        if (t.id == caster_pid.value)
+        if (t == caster_e)
             caster_hit = true;
     }
     EXPECT_TRUE(enemy_hit);
@@ -750,7 +753,7 @@ TEST_F(magic_aoe_test, aoe_spell_skips_same_faction)
     auto ally_pid = create_player_at({51, 50}, hb::faction::aresden);
     auto enemy_pid = create_player_at({52, 50}, hb::faction::elvine);
 
-    entity caster_e(caster_pid.value);
+    auto caster_e = ecs(caster_pid);
 
     magic_->learn_spell(caster_e, hb::spell_id(1));
 
@@ -765,9 +768,9 @@ TEST_F(magic_aoe_test, aoe_spell_skips_same_faction)
     bool enemy_hit = false;
     for (auto& t : effect.affected_targets)
     {
-        if (t.id == ally_pid.value)
+        if (t == ecs(ally_pid))
             ally_hit = true;
-        if (t.id == enemy_pid.value)
+        if (t == ecs(enemy_pid))
             enemy_hit = true;
     }
     EXPECT_FALSE(ally_hit) << "Same-faction ally should not be hit by enemy AOE";
@@ -780,7 +783,7 @@ TEST_F(magic_aoe_test, aoe_spell_center_from_position)
     auto far_enemy = create_player_at({50, 50}, hb::faction::elvine);
     auto near_enemy = create_player_at({22, 10}, hb::faction::elvine);
 
-    entity caster_e(caster_pid.value);
+    auto caster_e = ecs(caster_pid);
 
     magic_->learn_spell(caster_e, hb::spell_id(1));
 
@@ -796,9 +799,9 @@ TEST_F(magic_aoe_test, aoe_spell_center_from_position)
     bool far_hit = false;
     for (auto& t : effect.affected_targets)
     {
-        if (t.id == near_enemy.value)
+        if (t == ecs(near_enemy))
             near_hit = true;
-        if (t.id == far_enemy.value)
+        if (t == ecs(far_enemy))
             far_hit = true;
     }
     EXPECT_TRUE(near_hit) << "Enemy within AOE radius should be hit";
@@ -810,8 +813,8 @@ TEST_F(magic_aoe_test, range_check_blocks_distant_target)
     auto caster_pid = create_player_at({10, 10});
     auto enemy_pid = create_player_at({80, 80}); // ~140 manhattan distance
 
-    entity caster_e(caster_pid.value);
-    entity enemy_e(enemy_pid.value);
+    auto caster_e = ecs(caster_pid);
+    auto enemy_e = ecs(enemy_pid);
 
     magic_->learn_spell(caster_e, hb::spell_id(2)); // range=1 (12 tiles)
 
@@ -827,8 +830,8 @@ TEST_F(magic_aoe_test, range_check_allows_close_target)
     auto caster_pid = create_player_at({50, 50});
     auto enemy_pid = create_player_at({55, 50}); // 5 tiles manhattan
 
-    entity caster_e(caster_pid.value);
-    entity enemy_e(enemy_pid.value);
+    auto caster_e = ecs(caster_pid);
+    auto enemy_e = ecs(enemy_pid);
 
     magic_->learn_spell(caster_e, hb::spell_id(2)); // range=1 (12 tiles)
 
@@ -843,7 +846,7 @@ TEST_F(magic_aoe_test, range_check_with_position_target)
 {
     auto caster_pid = create_player_at({50, 50});
 
-    entity caster_e(caster_pid.value);
+    auto caster_e = ecs(caster_pid);
 
     magic_->learn_spell(caster_e, hb::spell_id(1)); // range=2 (24 tiles)
 
@@ -861,7 +864,7 @@ TEST_F(magic_aoe_test, range_check_with_position_target)
 TEST_F(magic_aoe_test, self_target_blocked_for_offensive_spell)
 {
     auto caster_pid = create_player_at({50, 50});
-    entity caster_e(caster_pid.value);
+    auto caster_e = ecs(caster_pid);
 
     magic_->learn_spell(caster_e, hb::spell_id(2));
 
@@ -877,8 +880,8 @@ TEST_F(magic_aoe_test, mana_deducted_on_instant_cast)
     auto caster_pid = create_player_at({50, 50}, hb::faction::aresden);
     auto enemy_pid = create_player_at({52, 50}, hb::faction::elvine);
 
-    entity caster_e(caster_pid.value);
-    entity enemy_e(enemy_pid.value);
+    auto caster_e = ecs(caster_pid);
+    auto enemy_e = ecs(enemy_pid);
 
     magic_->learn_spell(caster_e, hb::spell_id(1)); // mana_cost = 20
 

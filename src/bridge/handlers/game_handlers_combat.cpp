@@ -1044,8 +1044,7 @@ void game_handlers::execute_respawn(player_id pid, const std::string& map_name, 
     player->mp = player->computed.max_mp / 2;
 
     // Set 3-second invulnerability
-    entity::entity player_entity{pid.value};
-    combat_->set_invulnerable(player_entity, 3000);
+    combat_->set_invulnerable(player->ecs_entity, 3000);
 
     // Execute teleport to spawn
     execute_player_teleport(pid, player->connection, 0, map_name, pos, world::direction::south);
@@ -1289,7 +1288,7 @@ void game_handlers::on_spell_cast(entity::entity caster,
         return; // Failed casts aren't visible
 
     // Find caster position - could be player or NPC
-    auto* caster_player = players_->get_player(player_id{caster.id});
+    auto* caster_player = players_->get_player_by_entity(caster);
     if (!caster_player)
         return; // Only handle player casters for now
 
@@ -1312,7 +1311,7 @@ void game_handlers::on_spell_cast(entity::entity caster,
             uint32_t target_eid = target_ent.id;
 
             // Try to get target position from player or NPC
-            if (auto* tp = players_->get_player(player_id{target_ent.id}))
+            if (auto* tp = players_->get_player_by_entity(target_ent))
             {
                 tx = tp->pos.x;
                 ty = tp->pos.y;
@@ -1320,7 +1319,7 @@ void game_handlers::on_spell_cast(entity::entity caster,
             }
             else if (npc_)
             {
-                if (auto* tn = npc_->get_npc(entity::entity{target_ent.id}))
+                if (auto* tn = npc_->get_npc(target_ent))
                 {
                     tx = tn->pos.x;
                     ty = tn->pos.y;
@@ -1361,7 +1360,7 @@ void game_handlers::on_spell_cast(entity::entity caster,
             int16_t ty = caster_pos.y;
             uint32_t target_eid = target_ent.id;
 
-            if (auto* tp = players_->get_player(player_id{target_ent.id}))
+            if (auto* tp = players_->get_player_by_entity(target_ent))
             {
                 tx = tp->pos.x;
                 ty = tp->pos.y;
@@ -1391,7 +1390,7 @@ void game_handlers::on_spell_cast(entity::entity caster,
             int16_t ty = caster_pos.y;
             uint32_t target_eid = target_ent.id;
 
-            if (auto* tp = players_->get_player(player_id{target_ent.id}))
+            if (auto* tp = players_->get_player_by_entity(target_ent))
             {
                 tx = tp->pos.x;
                 ty = tp->pos.y;

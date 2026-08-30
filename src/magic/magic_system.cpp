@@ -170,7 +170,7 @@ auto magic_system::can_cast(hb::entity::entity caster,
     auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys)
     {
-        if (auto* p = player_sys->get_player(player_id{caster.id}))
+        if (auto* p = player_sys->get_player_by_entity(caster))
         {
             // Check if silenced
             if (p->has_status(player::player_status::silenced))
@@ -203,7 +203,7 @@ auto magic_system::can_cast(hb::entity::entity caster,
     // Original Helbreath: range is in screen units (1 unit = 12 tiles)
     if (spell->range > 0 && player_sys)
     {
-        auto* caster_player = player_sys->get_player(player_id{caster.id});
+        auto* caster_player = player_sys->get_player_by_entity(caster);
         if (caster_player)
         {
             int16_t max_tile_range = spell->range * 12;
@@ -218,7 +218,7 @@ auto magic_system::can_cast(hb::entity::entity caster,
             else if (target.has_entity())
             {
                 // Look up target position from player or NPC
-                if (auto* tp = player_sys->get_player(player_id{target.target.id}))
+                if (auto* tp = player_sys->get_player_by_entity(target.target))
                 {
                     target_pos = tp->pos;
                     has_target_pos = true;
@@ -256,16 +256,16 @@ auto magic_system::can_cast(hb::entity::entity caster,
     // Safe zone blocks offensive PvP spells only
     if (spell->is_offensive() && target.has_entity())
     {
-        bool caster_is_player = player_sys && player_sys->get_player(player_id{caster.id}) != nullptr;
-        bool target_is_player = player_sys && player_sys->get_player(player_id{target.target.id}) != nullptr;
+        bool caster_is_player = player_sys && player_sys->get_player_by_entity(caster) != nullptr;
+        bool target_is_player = player_sys && player_sys->get_player_by_entity(target.target) != nullptr;
 
         if (caster_is_player && target_is_player)
         {
             auto* world = subsystems().get<world::world_subsystem>();
             if (world)
             {
-                auto* caster_p = player_sys->get_player(player_id{caster.id});
-                auto* target_p = player_sys->get_player(player_id{target.target.id});
+                auto* caster_p = player_sys->get_player_by_entity(caster);
+                auto* target_p = player_sys->get_player_by_entity(target.target);
 
                 if (caster_p && target_p)
                 {
@@ -488,7 +488,7 @@ auto magic_system::calculate_damage(hb::entity::entity caster, spell_id spell_id
     auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys)
     {
-        if (auto* p = player_sys->get_player(player_id{caster.id}))
+        if (auto* p = player_sys->get_player_by_entity(caster))
         {
             // Apply INT scaling
             if (spell->int_scaling > 0)
@@ -528,7 +528,7 @@ auto magic_system::calculate_heal(hb::entity::entity caster, spell_id spell_id) 
     auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys)
     {
-        if (auto* p = player_sys->get_player(player_id{caster.id}))
+        if (auto* p = player_sys->get_player_by_entity(caster))
         {
             // Healing scales with INT and MAG
             if (spell->int_scaling > 0)
@@ -596,7 +596,7 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster,
     auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys)
     {
-        if (auto* p = player_sys->get_player(player_id{caster.id}))
+        if (auto* p = player_sys->get_player_by_entity(caster))
         {
             int32_t mana_cost = calculate_mana_cost(caster, spell.id);
             if (!p->spend_mp(mana_cost))
@@ -680,7 +680,7 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster,
             // Stamina drain (damage_area_sp_down spells, e.g. Earthworm-Strike)
             if (spell.sp_drain > 0 && player_sys)
             {
-                if (auto* tp = player_sys->get_player(player_id{t.id}))
+                if (auto* tp = player_sys->get_player_by_entity(t))
                 {
                     tp->sp = std::max(0, tp->sp - static_cast<int32_t>(spell.sp_drain));
                 }
@@ -701,7 +701,7 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster,
         {
             if (player_sys)
             {
-                auto* target_player = player_sys->get_player(player_id{t.id});
+                auto* target_player = player_sys->get_player_by_entity(t);
                 if (target_player && is_resurrection && target_player->is_dead())
                 {
                     // Resurrect: restore HP directly (apply_heal skips dead players)
@@ -712,10 +712,10 @@ auto magic_system::apply_spell_effect(hb::entity::entity caster,
 
                     LOG_INFO(general, "Entity {} resurrected player {} with {} HP", caster.id, t.id, target_player->hp);
                 }
-                else
+                else if (target_player)
                 {
                     // Normal healing (skips dead players internally)
-                    player_sys->apply_heal(player_id{t.id}, result.heal_applied);
+                    player_sys->apply_heal(target_player->id, result.heal_applied);
                 }
             }
             result.affected_targets.push_back(t);
@@ -812,7 +812,7 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
         // Look up target entity position from players or NPCs
         if (player_sys)
         {
-            if (auto* p = player_sys->get_player(player_id{target.target.id}))
+            if (auto* p = player_sys->get_player_by_entity(target.target))
             {
                 center = p->pos;
                 has_center = true;
@@ -837,7 +837,7 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
     map_id caster_map{};
     if (player_sys)
     {
-        if (auto* p = player_sys->get_player(player_id{caster.id}))
+        if (auto* p = player_sys->get_player_by_entity(caster))
         {
             caster_map = p->current_map;
         }
@@ -852,7 +852,7 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
     int16_t radius = spell.aoe_radius > 0 ? spell.aoe_radius : 3;
 
     // Check if caster is a player (for safe zone PvP filtering)
-    bool caster_is_player = player_sys && player_sys->get_player(player_id{caster.id}) != nullptr;
+    bool caster_is_player = player_sys && player_sys->get_player_by_entity(caster) != nullptr;
     auto* world = subsystems().get<world::world_subsystem>();
 
     // Get players in range
@@ -861,10 +861,10 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
         if (player_sys)
         {
             player_sys->for_each_player(
-                [&](player_id id, const player::player& p)
+                [&](player_id /*id*/, const player::player& p)
                 {
                     // Never hit the caster with their own offensive AOE
-                    if (id.value == caster.id)
+                    if (p.ecs_entity == caster)
                     {
                         return;
                     }
@@ -873,7 +873,7 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
                         // For enemy AOE, skip allies (same faction)
                         if (spell.target_type == spell_target::aoe_enemy)
                         {
-                            auto* caster_player = player_sys->get_player(player_id{caster.id});
+                            auto* caster_player = player_sys->get_player_by_entity(caster);
                             if (caster_player && p.faction == caster_player->faction)
                             {
                                 return; // Skip allies
@@ -890,7 +890,7 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
                                 }
                             }
                         }
-                        targets.push_back(hb::entity::entity{id.value, 0});
+                        targets.push_back(p.ecs_entity);
                     }
                 });
         }
@@ -901,14 +901,14 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
         if (player_sys)
         {
             player_sys->for_each_player(
-                [&](player_id id, const player::player& p)
+                [&](player_id /*id*/, const player::player& p)
                 {
                     if (p.current_map == caster_map && p.pos.manhattan_distance(center) <= radius)
                     {
                         // For ally AOE, only include same faction
                         if (spell.target_type == spell_target::aoe_ally)
                         {
-                            auto* caster_player = player_sys->get_player(player_id{caster.id});
+                            auto* caster_player = player_sys->get_player_by_entity(caster);
                             if (caster_player && p.faction != caster_player->faction)
                             {
                                 return; // Skip enemies
@@ -918,7 +918,7 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
                         bool already_added = false;
                         for (const auto& t : targets)
                         {
-                            if (t.id == id.value)
+                            if (t == p.ecs_entity)
                             {
                                 already_added = true;
                                 break;
@@ -926,7 +926,7 @@ auto magic_system::find_aoe_targets(hb::entity::entity caster,
                         }
                         if (!already_added)
                         {
-                            targets.push_back(hb::entity::entity{id.value, 0});
+                            targets.push_back(p.ecs_entity);
                         }
                     }
                 });
@@ -960,7 +960,7 @@ auto magic_system::find_line_targets(hb::entity::entity caster,
     if (!player_sys)
         return targets;
 
-    const auto* caster_player = player_sys->get_player(player_id{caster.id});
+    const auto* caster_player = player_sys->get_player_by_entity(caster);
     if (!caster_player)
         return targets;
 
@@ -977,7 +977,7 @@ auto magic_system::find_line_targets(hb::entity::entity caster,
     }
     else if (target.has_entity())
     {
-        if (auto* tp = player_sys->get_player(player_id{target.target.id}))
+        if (auto* tp = player_sys->get_player_by_entity(target.target))
         {
             end = tp->pos;
             has_end = true;
@@ -1042,9 +1042,9 @@ auto magic_system::find_line_targets(hb::entity::entity caster,
 
     // Players on the line (enemies only; safe zones protect PvP targets)
     player_sys->for_each_player(
-        [&](player_id id, const player::player& p)
+        [&](player_id /*id*/, const player::player& p)
         {
-            if (id.value == caster.id)
+            if (p.ecs_entity == caster)
                 return;
             if (p.current_map != caster_map || !on_line(p.pos))
                 return;
@@ -1058,7 +1058,7 @@ auto magic_system::find_line_targets(hb::entity::entity caster,
                         return;
                 }
             }
-            targets.push_back(hb::entity::entity{id.value, 0});
+            targets.push_back(p.ecs_entity);
         });
 
     // NPCs on the line
@@ -1172,7 +1172,7 @@ void magic_system::apply_debuff(hb::entity::entity caster, hb::entity::entity ta
     auto* player_sys = subsystems().get<player::player_system>();
     if (player_sys)
     {
-        if (auto* p = player_sys->get_player(player_id{target.id}))
+        if (auto* p = player_sys->get_player_by_entity(target))
         {
             thread_local std::mt19937 rng{std::random_device{}()};
             std::uniform_int_distribution<int> dist(0, 99);

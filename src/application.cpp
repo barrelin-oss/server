@@ -1105,13 +1105,16 @@ void application::wire_effect_system()
             case spell_effect_type::heal:
                 if (player_sys)
                 {
-                    player_sys->apply_heal(player_id{target.id}, eff.magnitude);
+                    if (auto* p = player_sys->get_player_by_entity(target))
+                    {
+                        player_sys->apply_heal(p->id, eff.magnitude);
+                    }
                 }
                 break;
             case spell_effect_type::mana_drain:
                 if (player_sys)
                 {
-                    if (auto* p = player_sys->get_player(player_id{target.id}))
+                    if (auto* p = player_sys->get_player_by_entity(target))
                     {
                         p->spend_mp(eff.magnitude);
                     }
@@ -1120,7 +1123,7 @@ void application::wire_effect_system()
             case spell_effect_type::mana_restore:
                 if (player_sys)
                 {
-                    if (auto* p = player_sys->get_player(player_id{target.id}))
+                    if (auto* p = player_sys->get_player_by_entity(target))
                     {
                         p->heal_mp(eff.magnitude);
                     }

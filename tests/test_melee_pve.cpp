@@ -280,7 +280,7 @@ TEST_F(melee_pve_combat_test, player_can_attack_npc_at_melee_range)
     int32_t initial_hp = n->hp;
 
     hb::combat::attack_event attack;
-    attack.attacker = hb::entity::entity(pid.value);
+    attack.attacker = player_sys_->get_player(pid)->ecs_entity;
     attack.defender = npc_eid;
     attack.type = hb::combat::damage_type::physical;
     attack.base_damage = 50;
@@ -302,7 +302,7 @@ TEST_F(melee_pve_combat_test, npc_death_yields_rewards)
     ASSERT_NE(n, nullptr);
 
     hb::combat::attack_event attack;
-    attack.attacker = hb::entity::entity(pid.value);
+    attack.attacker = player_sys_->get_player(pid)->ecs_entity;
     attack.defender = npc_eid;
     attack.type = hb::combat::damage_type::physical;
     attack.base_damage = 10000;
@@ -328,7 +328,7 @@ TEST_F(melee_pve_combat_test, npc_not_killed_by_zero_damage)
     ASSERT_NE(n, nullptr);
 
     hb::combat::attack_event attack;
-    attack.attacker = hb::entity::entity(pid.value);
+    attack.attacker = player_sys_->get_player(pid)->ecs_entity;
     attack.defender = npc_eid;
     attack.type = hb::combat::damage_type::physical;
     attack.base_damage = 0;

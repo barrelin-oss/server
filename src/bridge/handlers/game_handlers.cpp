@@ -19,6 +19,7 @@
 #include "network/websocket_server.h"
 #include "player/player_system.h"
 #include "world/world_subsystem.h"
+#include "world/dynamic_object_system.h"
 #include "social/social_system.h"
 #include "combat/combat_system.h"
 #include "combat/combat_events.h"
@@ -127,6 +128,34 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                    { send_hunger_update(pid, new_level); });
         players_->on_experience_gain([this](player_id pid, int64_t exp_gained, int levels_gained)
                                      { send_experience_update(pid, exp_gained, levels_gained); });
+    }
+
+    // Register dynamic object broadcasts (ground fields: spikes, ice storms, poison clouds)
+    if (players_ && ws_server_)
+    {
+        if (auto* dos = subsystems().get<world::dynamic_object_system>())
+        {
+            dos->set_on_spawn_callback(
+                [this](const world::dynamic_object& obj)
+                {
+                    network::dynamic_object_spawn_data data{.object_id = obj.id,
+                                                            .object_type = static_cast<uint8_t>(obj.type),
+                                                            .x = obj.pos.x,
+                                                            .y = obj.pos.y};
+                    broadcast_to_visible(
+                        players_, ws_server_, obj.map, obj.pos, network::make_dynamic_object_spawn(data));
+                });
+            dos->set_on_remove_callback(
+                [this](const world::dynamic_object& obj)
+                {
+                    network::dynamic_object_removed_data data{.object_id = obj.id,
+                                                              .object_type = static_cast<uint8_t>(obj.type),
+                                                              .x = obj.pos.x,
+                                                              .y = obj.pos.y};
+                    broadcast_to_visible(
+                        players_, ws_server_, obj.map, obj.pos, network::make_dynamic_object_removed(data));
+                });
+        }
     }
 
     // Register skill level-up callback — broadcast to visible players

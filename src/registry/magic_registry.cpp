@@ -28,19 +28,24 @@ auto is_valid_magic_type(int val) -> bool
     case 2:
     case 3:
     case 4:
+    case 5:
     case 6:
+    case 7:
     case 8:
     case 9:
+    case 10:
     case 11:
     case 12:
     case 13:
     case 14:
+    case 15:
     case 16:
     case 17:
     case 18:
     case 19:
     case 20:
     case 21:
+    case 22:
     case 23:
     case 25:
     case 26:
@@ -131,13 +136,6 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
             spell.type = static_cast<magic_type>(type_val);
         }
 
-        // Ground-field spells (create_dynamic) need the dynamic object subsystem, which
-        // is not implemented yet — skip them without counting as data errors.
-        if (spell.type == magic_type::create_dynamic)
-        {
-            LOG_INFO(magic, "Spell {}: create_dynamic (ground fields) pending implementation, skipping", spell.name);
-            continue;
-        }
         spell.mana_cost = static_cast<int16_t>(node["mana_cost"].as<int>(0));
         spell.cast_time_ms = static_cast<int16_t>(node["delay"].as<int>(0));
         spell.int_req = static_cast<int16_t>(node["int_req"].as<int>(0));
@@ -174,6 +172,34 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
             spell.sp_drain = static_cast<int16_t>(dice * (sides + 1) / 2 + bonus);
         }
 
+        // Ground-field spells: effect3 carries {dynamic object type, radius x, radius y}
+        // (legacy Magic.cfg effect10/11/12 columns). Spike-Field: 9 2 2; Ice-Storm: 8 1 0;
+        // Cloud-Kill: 10 2 2. field_power comes from effect1 (Cloud-Kill stores the poison
+        // level in effect1 "sides" with zero dice: "0 40 0").
+        if (spell.type == magic_type::create_dynamic)
+        {
+            if (node["effect3"])
+            {
+                auto e = node["effect3"];
+                spell.dynamic_type = static_cast<int16_t>(e["dice"].as<int>(0));
+                spell.dynamic_rx = static_cast<int16_t>(e["sides"].as<int>(0));
+                spell.dynamic_ry = static_cast<int16_t>(e["bonus"].as<int>(0));
+            }
+            if (node["effect1"])
+            {
+                auto e = node["effect1"];
+                int dice = e["dice"].as<int>(0);
+                int sides = e["sides"].as<int>(0);
+                spell.field_power = static_cast<int16_t>(dice == 0 ? sides : spell.base_damage);
+            }
+            if (spell.dynamic_type == 0)
+            {
+                LOG_WARN(magic, "Spell {}: create_dynamic without effect3 object type, skipping", spell.name);
+                ++errors;
+                continue;
+            }
+        }
+
         // Determine offensive/targeting from type
         switch (spell.type)
         {
@@ -186,14 +212,22 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
         case magic_type::damage_area_sp_down:
         case magic_type::armor_break:
         case magic_type::ice_linear:
+        case magic_type::create_dynamic:
+        case magic_type::sp_down_area:
+        case magic_type::tremor:
             spell.is_offensive = true;
             break;
         case magic_type::hp_up_spot:
         case magic_type::sp_up_spot:
+        case magic_type::sp_up_area:
         case magic_type::resurrection:
             spell.is_offensive = false;
             spell.can_hit_ally = true;
             spell.can_hit_enemy = false;
+            break;
+        case magic_type::create:
+        case magic_type::possession:
+            spell.is_offensive = false;
             break;
         default:
             break;

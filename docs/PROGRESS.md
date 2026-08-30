@@ -430,7 +430,7 @@ Priority order for remaining work toward a playable game:
 8. ~~**Crafting System**~~ - ✅ Manufacturing (83 recipes) + alchemy (80+38 recipes) with YAML configs
 9. ~~**War Mechanics**~~ - ✅ Crusade, Heldenian, Apocalypse battle logic with DB persistence and admin API
 10. ~~**Guild Persistence**~~ - ✅ Guilds and members persist to PostgreSQL, guild info on login
-11. **Dynamic ground-field spells** - `create_dynamic` (type 14: Spike-Field, Ice-Storm, Cloud-Kill) needs a dynamic object subsystem (spawn/tick/expiry + client protocol)
+11. ~~**Dynamic ground-field spells**~~ - ✅ `dynamic_object_system` with spawn/tick/expiry, spike step triggers, freeze/poison effects, and `dynamic_object_spawn/removed` protocol
 12. ~~**Missing item IDs in configs**~~ - ✅ Loot/shop references audited: remapped to real IDs where the intended item exists, removed entries for items absent from this item set
 
 ---
@@ -461,6 +461,37 @@ Priority order for remaining work toward a playable game:
 - `wave4_handlers.cpp` (legacy binary path): attack + spell cast fabricated caster/target entities from `ctx.player.value`; now resolve the player's real `ecs_entity` (their spell-knowledge/cooldown lookups could never match the JSON path's keys)
 - Legitimate patterns confirmed and left untouched: admin API `get_player(player_id{req.player_id})` (wire value IS a player id); inventory/trade/crafting `entity_id{pid.value}` keying (consistent at creation and access); spatial-index `entity_id{ecs_entity.index()}`
 - Tests updated to the real-entity convention (`test_magic.cpp`, `test_safe_zone.cpp`, `test_melee_pve.cpp`): fixtures now resolve `ecs_entity` instead of fabricating `entity(pid.value)` — the old form only passed because test fixtures spawn no NPCs, so both counters coincided
+- Note: overlaps with the helbreathx-52 fixes below (20 magic_system lookup sites, on_spell_cast caster, healing apply_heal pid) were resolved in favor of master on merge; this audit's remaining delta is the AOE/line target fabrication, calculate damage/heal scaling, SP drain, debuff resists, effect ticks in application.cpp, respawn invulnerability, logout effect cleanup, wave4 legacy handlers, and the test fixtures
+
+### 2026-08-30: Crafting/fishing potion references fixed — zero registry warnings at boot
+- recipes.yaml alchemy results remapped to this item set by function: HealthPotion→RedPotion, ManaPotion→BluePotion, RevitalizingPotion→GreenPotion, Big variants likewise (results are referenced by name)
+- fishing.yaml rare catch SuperPowerGreenPotion→SuperGreenPotion (391), display name aligned
+- Last 7 startup registry warnings eliminated — the boot is now fully clean (0 warnings, 0 errors)
+
+### 2026-08-30: Final 7 legacy magic types — spell cycle closed (66/66 loadable)
+- Added the last missing `magic_type` values: `sp_down_area` (5), `sp_up_area` (7), `create` (10), `possession` (15), `tremor` (22)
+- Staminar-Drain drains SP directly (effect1 average, area); Celebrating-Light (type 5, zero dice) loads as a harmless visual cast
+- Staminar-Recovery / Great-Staminar-Recov. restore SP (area, allies) — healing path now branches on `sp_up_spot`/`sp_up_area` to restore SP instead of HP (fixes sp_up_spot which previously "healed" HP)
+- Create-Food drops a random basic food (Baguette/Meat/Fish) at the caster's feet via item_ops + ground item broadcast (bridge on_spell_cast)
+- Tremor is area earthquake damage (3d4+3); legacy knockback not ported (documented)
+- Possession accepted as a no-op: legacy claimed ground-item ownership, which the modern server doesn't have
+- Also fixed two more entity-id-as-player-id lookups found while wiring: `on_spell_cast` caster resolution (game_handlers_combat.cpp) and the healing `apply_heal` pid (magic_system.cpp)
+- New registry test; 2531 tests pass. Every spell in magic.yaml now loads (0 "invalid magic_type" warnings)
+
+### 2026-08-30: Mage bots, magic entity-id fixes, starting spells, regen-aware potion use
+- magic_system.cpp: fixed 20 occurrences of resolving players via `get_player(player_id{entity.id})` — ECS entity ids are NOT player ids, so mana deduction, range checks, INT scaling and player-target effects were silently skipped (infinite mana; Magic-Missile dealt 4 instead of 17). All now use `get_player_by_entity`. Same bug class previously fixed in loot gold; codebase-wide audit spawned as a follow-up task.
+- Starting spells: on first login (magic_data defaults to `'[]'`), players are granted every spell they qualify for by INT/MAG (`auth_handlers.cpp`); persisted on next save. TODO: replace with a purchase/learning flow.
+- Bot AI: mage role (2 per party, INT 20/MAG 14, class_type 1) — Magic-Missile at range, self-Heal, BluePotion for mana, melee fallback; combat awareness (recent damage or adjacent mob) gates potion use; out-of-combat "resting" state waits for natural regen (HP ~1d(VIT)/5s, MP ~1d(MAG)×0.25/5s) instead of drinking potions.
+
+### 2026-08-30: Dynamic ground-field subsystem (Spike-Field, Ice-Storm, Cloud-Kill)
+- New `world::dynamic_object_system` (src/world/dynamic_object_system.*): spawn/tick/expiry of temporary tile objects, modernized from legacy CDynamicObject (docs/legacy/16_dynamic_objects.md)
+- Legacy effect semantics: fire 3x3 1d6/tick; ice storm 5x5 3d3+5/tick + freeze (20s); poison cloud 3x3 1d6 (power<20) or 1d8/tick + poison; spikes 2d4 on step (movement-triggered, never hurt their owner); 1s tick; damage attributed to the caster
+- `create_dynamic` (type 14) spells now load and cast: effect3 carries {object type, radius x, radius y} (Spike-Field 9/2/2 → 25 traps in 5x5; Ice-Storm 8; Cloud-Kill 10, power 40 from effect1)
+- Spawn validation: walkable tile, not safe zone, one object per tile; fields cannot exist in safe zones and their area damage skips players standing in one
+- New protocol broadcasts `dynamic_object_spawn` / `dynamic_object_removed` (documented in docs/protocol/combat.md); visible fields re-sent on enter_game and teleport
+- Spike trigger wired into the movement handler; spawn/remove broadcasts wired via callbacks in game_handlers
+- 8 new tests (`dynamic_object_test`), registry test updated; 2530 tests pass
+- Not ported (out of scope, documented): weather shortening fire duration, fire↔ice mutual duration reduction, coal fire-spreading, NPC-move spike triggers
 
 ### 2026-08-30: Bot scale phase (10 → 50), perf fixes, city habitability
 - Perf: `find_aggro_target` now resolves players via O(1) `get_player_by_entity` (was a full player scan per entity in aggro range, per NPC, per 100ms); `get_players_who_can_see` skips the far-admin scan unless any player has `sees_all` (new `player_system::set_sees_all` + incremental counter; gm_commands updated — never write `player::sees_all` directly)

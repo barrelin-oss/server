@@ -14,10 +14,14 @@
 > lia `gold_min/gold_max`; `npcs.yaml` usava `exp_dice:`/loja com item ids errados; spot codes de
 > mercadores (15/19) para spawners de mapa. Ver PROGRESS.md 2026-08-30.
 >
-> **Pendências:** magias (Fase 3), auto-alocação de stat points no level-up, chaves ainda divergentes
-> em npcs.yaml (`defense_ratio` vs `defense`, `size` vs `body_size`), equip responde ack v2 sem eco de
-> seq (bot usa fire-and-forget), remover LOG_INFO temporário "loot roll" em game_handlers_npc.cpp
-> antes de escalar, Fase 6 (escala 10 → 50 → 200 + correções O(n) da Fase 0).
+> **Escala atual (decisão de 2026-08-30): manter 50 bots** — 25 em Aresden, 25 em Elvine, 10 parties
+> de 5. Subida para 200 adiada por decisão do usuário. Antes de retomar a subida: perfilar o
+> crescimento de memória do hgserver (~800 MB com 50 bots + 220 mobs; suspeita: fan-out de broadcasts
+> por conexão) e dividir os bots em múltiplos processos Node.
+>
+> **Pendências:** magias (Fase 3 — sessão paralela restaurou 12 magias, integrar na IA após merge),
+> auto-alocação de stat points no level-up, chaves ainda divergentes em npcs.yaml (`defense_ratio` vs
+> `defense`, `size` vs `body_size`), equip responde ack v2 sem eco de seq (bot usa fire-and-forget).
 > **Objetivo:** ~200 bots 100% autônomos no mapa: upam, tomam poção automática, usam magias, formam party, matam inimigos, compram itens e reparam equipamentos.
 
 ## Premissas verificadas no código (2026-08-30)

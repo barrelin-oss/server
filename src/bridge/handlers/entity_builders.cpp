@@ -6,6 +6,8 @@
 #include "platform/platform.h"
 
 #include "bridge/handlers/entity_builders.h"
+#include "world/dynamic_object_system.h"
+#include "core/subsystem.h"
 #include "player/player.h"
 #include "player/player_system.h"
 #include "npc/npc.h"
@@ -507,6 +509,29 @@ void send_visible_ground_items(network::ws_connection* conn,
 
             conn->send(network::make_ground_item_spawn(data));
         }
+    }
+}
+
+void send_visible_dynamic_objects(network::ws_connection* conn,
+                                  map_id map,
+                                  const world::position& pos,
+                                  int radius_x,
+                                  int radius_y)
+{
+    if (!conn || !conn->is_open())
+        return;
+
+    auto* dos = subsystems().get<world::dynamic_object_system>();
+    if (!dos)
+        return;
+
+    for (const auto* obj : dos->objects_in_area(map, pos, radius_x, radius_y))
+    {
+        network::dynamic_object_spawn_data data{.object_id = obj->id,
+                                                .object_type = static_cast<uint8_t>(obj->type),
+                                                .x = obj->pos.x,
+                                                .y = obj->pos.y};
+        conn->send(network::make_dynamic_object_spawn(data));
     }
 }
 

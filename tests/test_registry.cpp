@@ -584,17 +584,34 @@ TEST_F(registry_test, magic_registry_legacy_damage_types)
                                  "    name: Spike-Field\n"
                                  "    type: 14\n"
                                  "    mana_cost: 56\n"
+                                 "    duration: 30\n"
                                  "    effect1: { dice: 2, sides: 8, bonus: 0 }\n"
-                                 "    int_req: 56\n");
+                                 "    effect3: { dice: 9, sides: 2, bonus: 2 }\n"
+                                 "    int_req: 56\n"
+                                 "  - id: 99\n"
+                                 "    name: BrokenField\n"
+                                 "    type: 14\n"
+                                 "    mana_cost: 10\n"
+                                 "    int_req: 10\n");
 
     magic_registry registry;
     registry.initialize();
 
     auto result = registry.load_from_file(path);
     ASSERT_TRUE(result.is_ok()) << result.error();
-    // Type 14 (create_dynamic) is skipped until the dynamic object subsystem exists
-    EXPECT_EQ(result.value(), 5);
-    EXPECT_EQ(registry.get(spell_id{54}), nullptr);
+    // Type 14 (create_dynamic) loads when effect3 provides the object type;
+    // BrokenField (no effect3) is skipped
+    EXPECT_EQ(result.value(), 6);
+    EXPECT_EQ(registry.get(spell_id{99}), nullptr);
+
+    const auto* field = registry.get(spell_id{54});
+    ASSERT_NE(field, nullptr);
+    EXPECT_EQ(field->type, magic_type::create_dynamic);
+    EXPECT_TRUE(field->is_offensive);
+    EXPECT_EQ(field->dynamic_type, 9); // spike
+    EXPECT_EQ(field->dynamic_rx, 2);
+    EXPECT_EQ(field->dynamic_ry, 2);
+    EXPECT_EQ(field->effect_duration.count(), 30000);
 
     const auto* linear = registry.get(spell_id{70});
     ASSERT_NE(linear, nullptr);
@@ -621,6 +638,77 @@ TEST_F(registry_test, magic_registry_legacy_damage_types)
     ASSERT_NE(ice_line, nullptr);
     EXPECT_EQ(ice_line->type, magic_type::ice_linear);
     EXPECT_TRUE(ice_line->is_offensive);
+}
+
+TEST_F(registry_test, magic_registry_utility_and_stamina_types)
+{
+    auto path = create_test_file("magic.yaml",
+                                 "magic:\n"
+                                 "  - id: 2\n"
+                                 "    name: Create-Food\n"
+                                 "    type: 10\n"
+                                 "    mana_cost: 18\n"
+                                 "    int_req: 18\n"
+                                 "  - id: 11\n"
+                                 "    name: Staminar-Drain\n"
+                                 "    type: 5\n"
+                                 "    mana_cost: 14\n"
+                                 "    range2: 3\n"
+                                 "    effect1: { dice: 4, sides: 6, bonus: 10 }\n"
+                                 "    int_req: 22\n"
+                                 "  - id: 23\n"
+                                 "    name: Staminar-Recovery\n"
+                                 "    type: 7\n"
+                                 "    mana_cost: 20\n"
+                                 "    range2: 3\n"
+                                 "    effect1: { dice: 4, sides: 8, bonus: 8 }\n"
+                                 "    int_req: 20\n"
+                                 "  - id: 26\n"
+                                 "    name: Possession\n"
+                                 "    type: 15\n"
+                                 "    mana_cost: 25\n"
+                                 "    int_req: 26\n"
+                                 "  - id: 38\n"
+                                 "    name: Tremor\n"
+                                 "    type: 22\n"
+                                 "    mana_cost: 34\n"
+                                 "    range2: 2\n"
+                                 "    effect1: { dice: 3, sides: 4, bonus: 3 }\n"
+                                 "    int_req: 33\n");
+
+    magic_registry registry;
+    registry.initialize();
+
+    auto result = registry.load_from_file(path);
+    ASSERT_TRUE(result.is_ok()) << result.error();
+    EXPECT_EQ(result.value(), 5);
+
+    const auto* create = registry.get(spell_id{2});
+    ASSERT_NE(create, nullptr);
+    EXPECT_EQ(create->type, magic_type::create);
+    EXPECT_FALSE(create->is_offensive);
+
+    const auto* drain = registry.get(spell_id{11});
+    ASSERT_NE(drain, nullptr);
+    EXPECT_EQ(drain->type, magic_type::sp_down_area);
+    EXPECT_TRUE(drain->is_offensive);
+    EXPECT_EQ(drain->base_damage, 4 * 7 / 2 + 10); // 4d6+10 average = 24
+
+    const auto* recov = registry.get(spell_id{23});
+    ASSERT_NE(recov, nullptr);
+    EXPECT_EQ(recov->type, magic_type::sp_up_area);
+    EXPECT_FALSE(recov->is_offensive);
+    EXPECT_TRUE(recov->can_hit_ally);
+
+    const auto* possession = registry.get(spell_id{26});
+    ASSERT_NE(possession, nullptr);
+    EXPECT_EQ(possession->type, magic_type::possession);
+    EXPECT_FALSE(possession->is_offensive);
+
+    const auto* tremor = registry.get(spell_id{38});
+    ASSERT_NE(tremor, nullptr);
+    EXPECT_EQ(tremor->type, magic_type::tremor);
+    EXPECT_TRUE(tremor->is_offensive);
 }
 
 TEST_F(registry_test, magic_registry_damage_calculation)

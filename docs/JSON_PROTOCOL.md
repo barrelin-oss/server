@@ -70,7 +70,7 @@ All messages follow a common envelope structure:
 | Authentication | [protocol/auth.md](protocol/auth.md) | Login, accounts, characters, game entry |
 | Player State | [protocol/player.md](protocol/player.md) | Game state objects, entity visibility, stat updates, experience/level-up updates, view mode |
 | Movement | [protocol/movement.md](protocol/movement.md) | Movement, teleportation |
-| Combat | [protocol/combat.md](protocol/combat.md) | Attacks, damage, death, magic, skills, combat mode, action broadcasts |
+| Combat | [protocol/combat.md](protocol/combat.md) | Attacks, damage, death, magic, skills, combat mode, action broadcasts, ground-field dynamic objects |
 | Items (v2) | [protocol/items-v2.md](protocol/items-v2.md) | Inventory, equipment, ground items, trade, shop, bank, loot |
 | Items (v1, deprecated) | [protocol/items.md](protocol/items.md) | Legacy item protocol (superseded by v2) |
 | NPCs | [protocol/npc.md](protocol/npc.md) | NPC spawn/movement/death, interaction, shops, banking, dialog |

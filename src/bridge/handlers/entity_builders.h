@@ -83,6 +83,13 @@ void send_visible_ground_items(network::ws_connection* conn,
                                const item::item_system* items,
                                const item_registry* item_reg);
 
+// Send dynamic_object_spawn per visible ground field (spikes, ice storms, poison clouds)
+void send_visible_dynamic_objects(network::ws_connection* conn,
+                                  map_id map,
+                                  const world::position& pos,
+                                  int radius_x,
+                                  int radius_y);
+
 // Send map_teleporters for a map
 void send_map_teleporters(network::ws_connection* conn, const world::map& map);
 

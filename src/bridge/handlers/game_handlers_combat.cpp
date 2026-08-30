@@ -13,6 +13,7 @@
 #include "npc/npc.h"
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
+#include "item/item_ops.h"
 #include "item/item_effect.h"
 #include "item/special_ability.h"
 #include "registry/item_registry.h"
@@ -27,6 +28,7 @@
 #include "core/logger.h"
 #include "perf/perf_stats.h"
 
+#include <array>
 #include <random>
 
 namespace hb::bridge
@@ -1287,7 +1289,7 @@ void game_handlers::on_spell_cast(entity::entity caster,
     if (!result.success)
         return; // Failed casts aren't visible
 
-    // Find caster position - could be player or NPC
+    // Find caster position - could be player or NPC (resolve via ECS entity, not player id)
     auto* caster_player = players_->get_player_by_entity(caster);
     if (!caster_player)
         return; // Only handle player casters for now
@@ -1296,6 +1298,25 @@ void game_handlers::on_spell_cast(entity::entity caster,
     auto caster_pos = caster_player->pos;
     auto caster_eid = caster_player->ecs_entity.id;
     auto dmg_type = std::string(spell_element_to_damage_type_string(spell.element));
+
+    // Create-Food (type 10): drop a basic food item at the caster's feet
+    if (spell.spell_type == magic_type::create && item_ && world_)
+    {
+        static constexpr std::array<uint32_t, 3> food_templates{98, 99, 100}; // Baguette, Meat, Fish
+        thread_local std::mt19937 rng{std::random_device{}()};
+        std::uniform_int_distribution<size_t> dist(0, food_templates.size() - 1);
+        auto template_id = item_id{food_templates[dist(rng)]};
+
+        auto create_result = item_->create_from_template(template_id, 1);
+        if (create_result.is_ok())
+        {
+            auto dropped = create_result.value();
+            item_ops::drop_loot(dropped, caster_map, caster_pos.x, caster_pos.y, item_, world_);
+            broadcast_ground_item_spawn(caster_map, caster_pos, dropped);
+            LOG_DEBUG(bridge, "Create-Food: player {} created item {} at ({},{})",
+                      caster_player->id.value, dropped.value, caster_pos.x, caster_pos.y);
+        }
+    }
 
     // Determine broadcast based on spell category
     switch (spell.category)

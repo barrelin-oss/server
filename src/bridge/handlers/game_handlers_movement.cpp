@@ -5,6 +5,7 @@
 #include "network/websocket_server.h"
 #include "player/player_system.h"
 #include "world/world_subsystem.h"
+#include "world/dynamic_object_system.h"
 #include "npc/npc_system.h"
 #include "npc/npc.h"
 #include "item/item_system.h"
@@ -126,6 +127,12 @@ void game_handlers::handle_player_move(connection_id conn_id, const network::jso
 
         // Update entity visibility for all affected players
         update_entity_visibility(pid, old_pos, target_pos);
+
+        // Spike traps trigger when stepped on (ECS entity id, never the player id)
+        if (auto* dos = subsystems().get<world::dynamic_object_system>())
+        {
+            dos->on_entity_step(player->ecs_entity, player->current_map, target_pos);
+        }
 
         LOG_DEBUG(bridge,
                   "Player {} {} to ({}, {})",
@@ -535,6 +542,13 @@ void game_handlers::execute_player_teleport(player_id pid,
             conn, teleport_result.new_map, resolved_pos,
             player->visibility_radius_x, player->visibility_radius_y,
             world_, item_, item_registry_);
+
+        // Send visible ground fields at destination
+        bridge::send_visible_dynamic_objects(conn,
+                                             teleport_result.new_map,
+                                             resolved_pos,
+                                             player->visibility_radius_x,
+                                             player->visibility_radius_y);
 
         // Send environment update for destination map
         if (scheduler_)

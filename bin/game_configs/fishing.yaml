@@ -18,6 +18,6 @@ fish_types:
 
   # Rare items (non-fish)
   - { type_id: 10, name: "Power Green Potion", item: PowerGreenPotion, difficulty: 40, lifespan_min: 25, visual_type: 3, weight: 3 }
-  - { type_id: 11, name: "Super Power Green Potion", item: SuperPowerGreenPotion, difficulty: 60, lifespan_min: 25, visual_type: 3, weight: 2 }
+  - { type_id: 11, name: "Super Green Potion", item: SuperGreenPotion, difficulty: 60, lifespan_min: 25, visual_type: 3, weight: 2 }
   - { type_id: 90, name: "Ruby", item: Ruby, difficulty: 50, lifespan_min: 25, visual_type: 3, weight: 1 }
   - { type_id: 95, name: "Diamond", item: Diamond, difficulty: 50, lifespan_min: 25, visual_type: 3, weight: 1 }

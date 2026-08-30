@@ -34,6 +34,7 @@
 
 // Game subsystems
 #include "world/world_subsystem.h"
+#include "world/dynamic_object_system.h"
 #include "entity/entity_manager.h"
 #include "player/player_system.h"
 #include "npc/npc_system.h"
@@ -238,6 +239,7 @@ void application::initialize()
 
     // Register game subsystems
     subsystems().create_subsystem<world::world_subsystem>();
+    subsystems().create_subsystem<world::dynamic_object_system>();
     subsystems().create_subsystem<entity::entity_manager>();
     subsystems().create_subsystem<player::player_system>();
     subsystems().create_subsystem<npc::npc_system>();
@@ -324,6 +326,26 @@ void application::initialize()
         auth_sys.set_config(auth_cfg);
         auth_sys.set_database(&db_sys);
         auth_sys.set_forum_config(server_cfg.forum_auth);
+    }
+
+    // Configure player system (regen pacing from server.yaml; other fields keep defaults)
+    {
+        auto* player_sys = subsystems().get<player::player_system>();
+        if (player_sys)
+        {
+            player::player_system_config pcfg;
+            pcfg.regen_tick_ms = server_cfg.regen.tick_ms;
+            pcfg.legacy_hp_interval_ms = server_cfg.regen.hp_interval_ms;
+            pcfg.legacy_mp_interval_ms = server_cfg.regen.mp_interval_ms;
+            pcfg.legacy_sp_interval_ms = server_cfg.regen.sp_interval_ms;
+            player_sys->set_config(pcfg);
+            LOG_INFO(general,
+                     "Regen config: tick {}ms, HP/MP/SP intervals {}/{}/{}ms",
+                     pcfg.regen_tick_ms,
+                     pcfg.legacy_hp_interval_ms,
+                     pcfg.legacy_mp_interval_ms,
+                     pcfg.legacy_sp_interval_ms);
+        }
     }
 
     // Configure inventory system
@@ -1717,6 +1739,15 @@ void application::load_game_configs()
                             ms.category = magic::spell_category::attack;
                             ms.target_type = magic::spell_target::line;
                             break;
+                        case magic_type::create_dynamic:
+                            // Ground-field spells (Spike-Field, Ice-Storm, Cloud-Kill)
+                            ms.category = magic::spell_category::special;
+                            ms.target_type = magic::spell_target::ground;
+                            ms.dynamic_type = reg_spell.dynamic_type;
+                            ms.dynamic_rx = reg_spell.dynamic_rx;
+                            ms.dynamic_ry = reg_spell.dynamic_ry;
+                            ms.field_power = reg_spell.field_power;
+                            break;
                         case magic_type::poison:
                         case magic_type::ice:
                             ms.category = magic::spell_category::attack;
@@ -1736,6 +1767,26 @@ void application::load_game_configs()
                         case magic_type::inhibition:
                             ms.category = magic::spell_category::debuff;
                             ms.target_type = magic::spell_target::single_enemy;
+                            break;
+                        case magic_type::sp_down_area:
+                            // Area stamina drain (Staminar-Drain; Celebrating-Light has zero dice)
+                            ms.category = magic::spell_category::debuff;
+                            ms.target_type = magic::spell_target::aoe_enemy;
+                            break;
+                        case magic_type::sp_up_area:
+                            // Area stamina recovery (Staminar-Recovery family)
+                            ms.category = magic::spell_category::healing;
+                            ms.target_type = magic::spell_target::aoe_ally;
+                            break;
+                        case magic_type::tremor:
+                            // Earthquake area damage (legacy knockback not ported)
+                            ms.category = magic::spell_category::attack;
+                            ms.target_type = magic::spell_target::aoe_enemy;
+                            break;
+                        case magic_type::create:
+                        case magic_type::possession:
+                            ms.category = magic::spell_category::utility;
+                            ms.target_type = magic::spell_target::self;
                             break;
                         case magic_type::confusion:
                             ms.category = magic::spell_category::debuff;

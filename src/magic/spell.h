@@ -106,6 +106,12 @@ struct spell_template
     int16_t effect_value{0}; // Generic effect magnitude
     int16_t sp_drain{0};     // Stamina drained from each target hit (damage_area_sp_down)
 
+    // Ground-field spells (create_dynamic)
+    int16_t dynamic_type{0}; // dynamic_object_type to spawn
+    int16_t dynamic_rx{0};   // Placement half-extent X (spike fields)
+    int16_t dynamic_ry{0};   // Placement half-extent Y (spike fields)
+    int16_t field_power{0};  // Spell power (poison cloud damage tier / poison level)
+
     // Scaling
     int16_t int_scaling{0}; // % of INT added to damage/heal
     int16_t mag_scaling{0}; // % of MAG added to effect

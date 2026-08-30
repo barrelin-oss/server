@@ -173,19 +173,24 @@ enum class magic_type : uint8_t
     hp_up_spot = 2,
     damage_area = 3,
     sp_down_spot = 4,
+    sp_down_area = 5,           // Area stamina drain (Staminar-Drain; Celebrating-Light is a zero-dice visual)
     sp_up_spot = 6,
+    sp_up_area = 7,             // Area stamina recovery (Staminar-Recovery, Great-Staminar-Recov.)
     teleport = 8,
     summon = 9,
+    create = 10,                // Item creation (Create-Food)
     protection = 11,
     hold_paralyze = 12,
     invisibility = 13,
-    create_dynamic = 14,        // Persistent ground fields (Spike-Field, Ice-Storm, Cloud-Kill) — pending implementation
+    create_dynamic = 14,        // Persistent ground fields (Spike-Field, Ice-Storm, Cloud-Kill)
+    possession = 15,            // Legacy ground-item ownership claim (no-op: modern items are unowned)
     confusion = 16,
     poison = 17,
     berserk = 18,
     damage_linear = 19,         // Line damage from caster toward target (Bloody-Shock-Wave)
     polymorph = 20,
     damage_area_no_center = 21, // Area damage without center-spot hit (Energy-Strike, Meteor-Strike)
+    tremor = 22,                // Earthquake area damage (Tremor); legacy knockback not ported
     ice = 23,
     damage_area_sp_down = 25,   // Area damage + stamina drain (Earthworm-Strike)
     armor_break = 26,           // Area damage that ignores defense (Armor-Break); HBX Magic.cfg numbering
@@ -278,7 +283,12 @@ enum class dynamic_object_type : uint8_t
     aresden_flag1 = 6,
     elvine_flag1 = 7,
     icestorm = 8,
-    spike = 9
+    spike = 9,
+    pcloud_begin = 10, // Poison cloud (formation animation)
+    pcloud_loop = 11,  // Poison cloud (sustained animation)
+    pcloud_end = 12,   // Poison cloud (dissipation animation)
+    fire2 = 13,        // Crusade visual effect (no damage)
+    fire3 = 14         // Fire variant (same behavior as fire)
 };
 
 // Item log types

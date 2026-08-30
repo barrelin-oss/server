@@ -36,6 +36,16 @@ auth:
   max_registration_attempts: 3
   registration_cooldown: 3600
 
+# Natural regeneration pacing. Amounts follow the legacy formulas
+# (HP: 1d(VIT) min VIT/2, MP: 1d(MAG), SP: 1d(VIT/3)); each *_interval_ms says
+# how long one full roll takes, smoothed over tick_ms slices. Larger = slower.
+# Classic-strict servers may prefer 30000/60000-style intervals.
+regen:
+  tick_ms: 5000
+  hp_interval_ms: 15000
+  mp_interval_ms: 20000
+  sp_interval_ms: 10000
+
 # Logging Configuration
 # Levels: trace, debug, info, warn, error, critical, off
 logging:

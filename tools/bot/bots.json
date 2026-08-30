@@ -4,6 +4,7 @@
     {
       "username": "bot01",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot02",
@@ -31,6 +32,7 @@
     {
       "username": "bot02",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot01"
       },
@@ -53,6 +55,7 @@
     {
       "username": "bot03",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot01"
       },
@@ -75,50 +78,53 @@
     {
       "username": "bot04",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot01"
       },
       "character": {
         "name": "Bot04",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 1,
         "hair_style": 4,
         "hair_color": 4,
         "skin_color": 1,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot05",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot01"
       },
       "character": {
         "name": "Bot05",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 2,
         "hair_style": 5,
         "hair_color": 5,
         "skin_color": 2,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot06",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot07",
@@ -146,6 +152,7 @@
     {
       "username": "bot07",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot06"
       },
@@ -168,6 +175,7 @@
     {
       "username": "bot08",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot06"
       },
@@ -190,50 +198,53 @@
     {
       "username": "bot09",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot06"
       },
       "character": {
         "name": "Bot09",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 2,
         "hair_style": 1,
         "hair_color": 9,
         "skin_color": 0,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot10",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot06"
       },
       "character": {
         "name": "Bot10",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 1,
         "hair_style": 2,
         "hair_color": 10,
         "skin_color": 1,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot11",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot12",
@@ -261,6 +272,7 @@
     {
       "username": "bot12",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot11"
       },
@@ -283,6 +295,7 @@
     {
       "username": "bot13",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot11"
       },
@@ -305,50 +318,53 @@
     {
       "username": "bot14",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot11"
       },
       "character": {
         "name": "Bot14",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 1,
         "hair_style": 6,
         "hair_color": 14,
         "skin_color": 2,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot15",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot11"
       },
       "character": {
         "name": "Bot15",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 2,
         "hair_style": 7,
         "hair_color": 15,
         "skin_color": 0,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot16",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot17",
@@ -376,6 +392,7 @@
     {
       "username": "bot17",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot16"
       },
@@ -398,6 +415,7 @@
     {
       "username": "bot18",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot16"
       },
@@ -420,50 +438,53 @@
     {
       "username": "bot19",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot16"
       },
       "character": {
         "name": "Bot19",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 2,
         "hair_style": 3,
         "hair_color": 3,
         "skin_color": 1,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot20",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot16"
       },
       "character": {
         "name": "Bot20",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 1,
         "hair_style": 4,
         "hair_color": 4,
         "skin_color": 2,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot21",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot22",
@@ -491,6 +512,7 @@
     {
       "username": "bot22",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot21"
       },
@@ -513,6 +535,7 @@
     {
       "username": "bot23",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot21"
       },
@@ -535,50 +558,53 @@
     {
       "username": "bot24",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot21"
       },
       "character": {
         "name": "Bot24",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 1,
         "hair_style": 0,
         "hair_color": 8,
         "skin_color": 0,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot25",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot21"
       },
       "character": {
         "name": "Bot25",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 1,
         "gender": 2,
         "hair_style": 1,
         "hair_color": 9,
         "skin_color": 1,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot26",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot27",
@@ -606,6 +632,7 @@
     {
       "username": "bot27",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot26"
       },
@@ -628,6 +655,7 @@
     {
       "username": "bot28",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot26"
       },
@@ -650,50 +678,53 @@
     {
       "username": "bot29",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot26"
       },
       "character": {
         "name": "Bot29",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 2,
         "hair_style": 5,
         "hair_color": 13,
         "skin_color": 2,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot30",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot26"
       },
       "character": {
         "name": "Bot30",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 1,
         "hair_style": 6,
         "hair_color": 14,
         "skin_color": 0,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot31",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot32",
@@ -721,6 +752,7 @@
     {
       "username": "bot32",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot31"
       },
@@ -743,6 +775,7 @@
     {
       "username": "bot33",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot31"
       },
@@ -765,50 +798,53 @@
     {
       "username": "bot34",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot31"
       },
       "character": {
         "name": "Bot34",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 1,
         "hair_style": 2,
         "hair_color": 2,
         "skin_color": 1,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot35",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot31"
       },
       "character": {
         "name": "Bot35",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 2,
         "hair_style": 3,
         "hair_color": 3,
         "skin_color": 2,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot36",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot37",
@@ -836,6 +872,7 @@
     {
       "username": "bot37",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot36"
       },
@@ -858,6 +895,7 @@
     {
       "username": "bot38",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot36"
       },
@@ -880,50 +918,53 @@
     {
       "username": "bot39",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot36"
       },
       "character": {
         "name": "Bot39",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 2,
         "hair_style": 7,
         "hair_color": 7,
         "skin_color": 0,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot40",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot36"
       },
       "character": {
         "name": "Bot40",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 1,
         "hair_style": 0,
         "hair_color": 8,
         "skin_color": 1,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot41",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot42",
@@ -951,6 +992,7 @@
     {
       "username": "bot42",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot41"
       },
@@ -973,6 +1015,7 @@
     {
       "username": "bot43",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot41"
       },
@@ -995,50 +1038,53 @@
     {
       "username": "bot44",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot41"
       },
       "character": {
         "name": "Bot44",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 1,
         "hair_style": 4,
         "hair_color": 12,
         "skin_color": 2,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot45",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot41"
       },
       "character": {
         "name": "Bot45",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 2,
         "hair_style": 5,
         "hair_color": 13,
         "skin_color": 0,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot46",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "invites": [
           "Bot47",
@@ -1066,6 +1112,7 @@
     {
       "username": "bot47",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot46"
       },
@@ -1088,6 +1135,7 @@
     {
       "username": "bot48",
       "password": "hbx_bot_dev_2026",
+      "role": "warrior",
       "party": {
         "leader": "Bot46"
       },
@@ -1110,45 +1158,47 @@
     {
       "username": "bot49",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot46"
       },
       "character": {
         "name": "Bot49",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 2,
         "hair_style": 1,
         "hair_color": 1,
         "skin_color": 1,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     },
     {
       "username": "bot50",
       "password": "hbx_bot_dev_2026",
+      "role": "mage",
       "party": {
         "leader": "Bot46"
       },
       "character": {
         "name": "Bot50",
-        "class_type": 0,
+        "class_type": 1,
         "nation": 2,
         "gender": 1,
         "hair_style": 2,
         "hair_color": 2,
         "skin_color": 2,
-        "strength": 14,
-        "dexterity": 12,
-        "vitality": 14,
-        "intelligence": 10,
-        "magic": 10,
-        "charisma": 10
+        "strength": 10,
+        "dexterity": 10,
+        "vitality": 12,
+        "intelligence": 20,
+        "magic": 14,
+        "charisma": 4
       }
     }
   ]

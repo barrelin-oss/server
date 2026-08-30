@@ -108,6 +108,7 @@ set(PROTOCOL_SOURCES
 set(WORLD_SOURCES
     src/world/map.cpp
     src/world/world_subsystem.cpp
+    src/world/dynamic_object_system.cpp
 )
 
 set(ENTITY_SOURCES
@@ -358,6 +359,7 @@ add_executable(hgserver_tests
     tests/test_item.cpp
     tests/test_combat.cpp
     tests/test_magic.cpp
+    tests/test_dynamic_objects.cpp
     tests/test_inventory.cpp
     tests/test_bank_storage.cpp
     tests/test_skill.cpp

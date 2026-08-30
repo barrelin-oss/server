@@ -817,16 +817,49 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
             }
 
             // Deserialize and apply magic (spell knowledge)
+            std::vector<magic::spell_knowledge> known_spells;
             if (!char_data.magic_data.empty())
             {
-                auto spells = auth::deserialize_magic(char_data.magic_data);
-                if (!spells.empty())
+                known_spells = auth::deserialize_magic(char_data.magic_data);
+            }
+            if (!known_spells.empty())
+            {
+                auto* magic_sys = subsystems().get<magic::magic_system>();
+                if (magic_sys)
                 {
-                    auto* magic_sys = subsystems().get<magic::magic_system>();
-                    if (magic_sys)
+                    magic_sys->set_player_spells(player->ecs_entity, std::move(known_spells));
+                    LOG_DEBUG(bridge, "Loaded magic data for player {}", live_player_id.value);
+                }
+            }
+            else
+            {
+                // First login (no persisted spells — magic_data defaults to '[]'): grant the
+                // spells this character already qualifies for by INT/MAG. Persisted on the
+                // next save like any learned spell. TODO: replace with a purchase/learning flow.
+                auto* magic_sys = subsystems().get<magic::magic_system>();
+                if (magic_sys)
+                {
+                    int granted = 0;
+                    auto int_stat = player->base.intelligence;
+                    auto mag_stat = player->base.magic;
+                    magic_sys->for_each_spell(
+                        [&](auto grant_sid, const auto& tmpl)
+                        {
+                            if (tmpl.int_requirement > 0 && tmpl.int_requirement <= int_stat &&
+                                tmpl.mag_requirement <= mag_stat)
+                            {
+                                magic_sys->learn_spell(player->ecs_entity, grant_sid);
+                                ++granted;
+                            }
+                        });
+                    if (granted > 0)
                     {
-                        magic_sys->set_player_spells(player->ecs_entity, std::move(spells));
-                        LOG_DEBUG(bridge, "Loaded magic data for player {}", live_player_id.value);
+                        LOG_INFO(bridge,
+                                 "Granted {} starting spells to '{}' (INT {}, MAG {})",
+                                 granted,
+                                 player->name,
+                                 int_stat,
+                                 mag_stat);
                     }
                 }
             }
@@ -1360,6 +1393,13 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                 int ry = player->visibility_radius_y > 0 ? player->visibility_radius_y : 15;
                 bridge::send_visible_ground_items(
                     conn, player->current_map, player->pos, rx, ry, world_, item_, item_registry_);
+            }
+
+            // Send visible ground fields (spikes, ice storms, poison clouds)
+            {
+                int rx = player->visibility_radius_x > 0 ? player->visibility_radius_x : 20;
+                int ry = player->visibility_radius_y > 0 ? player->visibility_radius_y : 15;
+                bridge::send_visible_dynamic_objects(conn, player->current_map, player->pos, rx, ry);
             }
         }
     }

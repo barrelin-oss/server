@@ -40,6 +40,22 @@ const AI = {
     repairThreshold: 0.5,
     shopCooldownMs: 30000,
     safeShoppingDist: 5,
+    // magia (Fase 3 — magos)
+    castCooldownMs: 1500,
+    selfHealHpThreshold: 0.6,
+    // descanso (regen natural: HP ~0.6/s, MP ~0.37/s — pot so em combate)
+    combatMemoryMs: 5000,
+    restHpLow: 0.5,
+    restHpOk: 0.8,
+    restMpLow: 0.3,
+    restMpOk: 0.4,
+};
+
+// Metadados mínimos das spells que a IA usa (ids do magic.yaml).
+// range: o servidor usa unidades de tela (1 = 12 tiles); usamos 10 por folga.
+const SPELLS = {
+    magicMissile: { id: 0, name: "Magic-Missile", mana: 8, range: 10 },
+    heal: { id: 1, name: "Heal", mana: 15, self: true },
 };
 
 class BotClient {
@@ -75,6 +91,14 @@ class BotClient {
         this.partyId = 0;
         this.partyMembers = [];
         this.lastPartyAction = 0;
+
+        // magia (Fase 3 — magos)
+        this.spells = new Set(); // spell_ids conhecidos
+        this.lastCast = 0;
+
+        // descanso / percepcao de combate
+        this.lastDamageAt = 0;
+        this.resting = false;
     }
 
     // ---------- rede ----------
@@ -176,6 +200,7 @@ class BotClient {
             }
             case "entity_hp_update":
                 if (d.entity_id === this.me.entityId) {
+                    if (d.hp < this.me.hp) this.lastDamageAt = Date.now();
                     this.me.hp = d.hp;
                     this.me.maxHp = d.hp_max;
                 } else {
@@ -269,6 +294,14 @@ class BotClient {
                 break;
             case "inventory_weight_update":
                 break; // silencioso
+            case "mp_update":
+                this.me.mp = d.mp ?? d.value ?? this.me.mp;
+                if (d.mp_max) this.me.maxMp = d.mp_max;
+                break;
+            case "spell_list_update":
+                for (const s of d.spells ?? []) this.spells.add(s.spell_id ?? s);
+                if (d.spell_id !== undefined) this.spells.add(d.spell_id);
+                break;
             case "equip_result":
                 if (d.success && this.pendingEquipId) {
                     this.equipment.weapon = this.pendingEquipId;
@@ -369,7 +402,7 @@ class BotClient {
         const list = await this.request("get_characters_request");
         if (!list.data.success) throw new Error("get_characters falhou");
         const existing = (list.data.characters ?? []).find((c) => c.name === want.name);
-        if (existing && existing.nation === want.nation) {
+        if (existing && existing.nation === want.nation && existing.class_type === want.class_type) {
             this.log(`personagem '${existing.name}' já existe (id=${existing.id}, level=${existing.level})`);
             return existing.id;
         }
@@ -396,8 +429,11 @@ class BotClient {
         // character.id no enter_game_response é o entity id (ecs_entity.id) - ver auth_handlers.cpp:1263
         this.me = {
             entityId: c.id, x: c.pos_x, y: c.pos_y, dir: 4,
-            hp: c.hp, maxHp: c.hp_max, level: c.level, gold: c.gold, exp: c.experience, map: c.map_name,
+            hp: c.hp, maxHp: c.hp_max, mp: c.mp ?? 0, maxMp: c.mp_max ?? 1,
+            level: c.level, gold: c.gold, exp: c.experience, map: c.map_name,
         };
+        this.spells = new Set((res.data.spells ?? []).map((s) => s.spell_id));
+        if (this.isMage()) this.log(`mago com ${this.spells.size} spells, MP ${this.me.mp}/${this.me.maxMp}`);
         for (const e of res.data.world?.entities ?? []) {
             this.entities.set(e.entity_id, {
                 type: e.type, name: e.name, x: e.x, y: e.y,
@@ -429,6 +465,7 @@ class BotClient {
         if (this.busy || this.state !== "in_game" || !this.alive) return;
         this.busy = true;
         try {
+            await this.selfHeal();
             this.autoPotion();
             if (!this.combatMode) {
                 const res = await this.request("combat_mode_change_request");
@@ -439,6 +476,7 @@ class BotClient {
                 await this.fleeAndRecover();
                 return;
             }
+            if (this.restingTick()) return;
             await this.equipBestWeapon();
             await this.partyTick();
             if (await this.shoppingTick()) return;
@@ -457,14 +495,59 @@ class BotClient {
     }
 
     autoPotion() {
-        if (this.me.hp / this.me.maxHp >= AI.potionHpThreshold) return;
-        const potion = [...this.inventory.values()].find(
-            (it) => (it.type === "potion" || /potion/i.test(it.name)) && /red|health|heal|hp/i.test(it.name)
-        ) ?? [...this.inventory.values()].find((it) => it.type === "potion");
-        if (potion) {
-            this.log(`HP baixo (${this.me.hp}/${this.me.maxHp}) - usando ${potion.name}`);
-            this.send("use_item_request", { item_id: potion.item_id });
+        // Fora de combate o regen natural e de graca — poção so quando ha pressa.
+        const fighting = this.inCombat();
+        if (this.me.hp / this.me.maxHp < AI.potionHpThreshold && fighting) {
+            const potion = [...this.inventory.values()].find((it) => /red.?potion/i.test(it.name));
+            if (potion) {
+                this.log(`HP baixo em combate (${this.me.hp}/${this.me.maxHp}) - usando ${potion.name}`);
+                this.send("use_item_request", { item_id: potion.item_id });
+                return;
+            }
         }
+        if (this.isMage()) {
+            const blues = this.mpPotions();
+            const total = blues.reduce((n, it) => n + (it.count ?? 1), 0);
+            // Em combate: mana e uptime — bebe quando nao da para castar.
+            // Fora de combate: so bebe com estoque folgado; senao descansa.
+            const inCombatNeed = fighting && this.me.mp < SPELLS.magicMissile.mana;
+            const idleTopUp = !fighting && this.me.mp / this.me.maxMp < 0.25 && total > 3;
+            if ((inCombatNeed || idleTopUp) && blues.length > 0) {
+                this.log(`MP baixo (${this.me.mp}/${this.me.maxMp}${fighting ? ", em combate" : ""}) - usando ${blues[0].name}`);
+                this.send("use_item_request", { item_id: blues[0].item_id });
+            }
+        }
+    }
+
+    inCombat() {
+        return this.nearestMonsterDist() <= 2 || Date.now() - this.lastDamageAt < AI.combatMemoryMs;
+    }
+
+    // Descanso fora de combate: fica parado e deixa o regen natural repor HP/MP
+    // em vez de gastar poção. Interrompido na hora se algum mob atacar.
+    restingTick() {
+        const hpPct = this.me.hp / this.me.maxHp;
+        const mpPct = this.isMage() ? this.me.mp / this.me.maxMp : 1;
+        if (this.resting) {
+            const done = hpPct >= AI.restHpOk && mpPct >= AI.restMpOk;
+            if (done || this.inCombat()) {
+                this.resting = false;
+                this.log(`descanso encerrado (HP ${this.me.hp}/${this.me.maxHp}, MP ${this.me.mp}/${this.me.maxMp})`);
+                return false;
+            }
+            return true; // parado, regenerando
+        }
+        const needs = hpPct < AI.restHpLow || mpPct < AI.restMpLow;
+        if (needs && !this.inCombat()) {
+            this.resting = true;
+            this.log(`descansando para regenerar (HP ${this.me.hp}/${this.me.maxHp}, MP ${this.me.mp}/${this.me.maxMp})`);
+            return true;
+        }
+        return false;
+    }
+
+    mpPotions() {
+        return [...this.inventory.values()].filter((it) => /blue.?potion/i.test(it.name));
     }
 
     pickTarget() {
@@ -519,6 +602,15 @@ class BotClient {
             this.targetId = target.id;
             this.log(`alvo: ${target.name} (dist ${target.dist})`);
         }
+        // Mago: cast à distância enquanto tiver mana; melee só como fallback
+        if (this.isMage() && this.knowsSpell(SPELLS.magicMissile.id) && this.me.mp >= SPELLS.magicMissile.mana) {
+            if (target.dist <= SPELLS.magicMissile.range) {
+                await this.castSpell(SPELLS.magicMissile, target);
+                return;
+            }
+            await this.stepTowards(target);
+            return;
+        }
         if (target.dist <= 1) {
             if (Date.now() - this.lastAttack < AI.attackCooldownMs) return;
             this.lastAttack = Date.now();
@@ -538,6 +630,58 @@ class BotClient {
         } else {
             await this.stepTowards(target);
         }
+    }
+
+    // ---------- magia ----------
+
+    isMage() {
+        return this.cfg.role === "mage";
+    }
+
+    knowsSpell(id) {
+        return this.spells.has(id);
+    }
+
+    async castSpell(spell, target) {
+        if (Date.now() - this.lastCast < AI.castCooldownMs) return;
+        this.lastCast = Date.now();
+        const req = {
+            x: this.me.x, y: this.me.y,
+            direction: target ? Math.max(0, dirTo(this.me, target)) : this.me.dir,
+            spell_id: spell.id,
+            timestamp: Date.now(),
+        };
+        if (spell.self) {
+            req.target_type = "player";
+            req.target_id = this.me.entityId;
+        } else {
+            req.target_type = "npc";
+            req.target_id = target.id;
+            req.target_x = target.x;
+            req.target_y = target.y;
+        }
+        const res = await this.request("player_magic_request", req);
+        if (res.data.success && res.data.result) {
+            const r = res.data.result;
+            if (r.caster_mp !== undefined) this.me.mp = r.caster_mp;
+            if (r.damage > 0) this.log(`${spell.name} em ${target?.name ?? "si"}: ${r.damage} de dano (MP ${this.me.mp})`);
+            if (r.heal > 0) this.log(`${spell.name}: +${r.heal} HP (MP ${this.me.mp})`);
+        } else {
+            // Falha de cast: o MP local pode estar defasado (o servidor só o informa em
+            // sucesso). Zera para forçar poção azul / fallback melee até um mp_update real.
+            this.me.mp = 0;
+            if (res.data.error && res.data.error !== "not_enough_mana") {
+                this.log(`cast de ${spell.name} falhou: ${res.data.error}`);
+            }
+        }
+    }
+
+    // Cura própria do mago: mais barata que poção e regenera com o MP
+    async selfHeal() {
+        if (!this.isMage() || !this.knowsSpell(SPELLS.heal.id)) return false;
+        if (this.me.hp / this.me.maxHp >= AI.selfHealHpThreshold || this.me.mp < SPELLS.heal.mana) return false;
+        await this.castSpell(SPELLS.heal, null);
+        return true;
     }
 
     async lootNearby(maxDist) {
@@ -668,6 +812,10 @@ class BotClient {
     // Decide se há motivo para ir à loja. Retorna { merchantRe, reason }.
     shoppingNeed() {
         const potions = this.hpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
+        const mpPots = this.mpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
+        if (this.isMage() && mpPots < 2 && this.me.gold >= 100) {
+            return { merchantRe: /shopkeeper/i, reason: `comprar pocoes de mana (tem ${mpPots})` };
+        }
         if (potions < AI.minPotions && this.me.gold >= 100) {
             return { merchantRe: /shopkeeper/i, reason: `comprar poções (tem ${potions}, ouro ${this.me.gold})` };
         }
@@ -795,6 +943,25 @@ class BotClient {
                 if (buy.data.success) {
                     this.me.gold = buy.data.gold_remaining;
                     this.log(`comprou ${buy.data.count}x ${buy.data.item_name} por ${buy.data.price_paid} de ouro`);
+                }
+            }
+        }
+        // 5) pocoes de mana para magos
+        if (this.isMage()) {
+            const blueEntry = catalog.find((c) => /blue.?potion/i.test(c.name));
+            if (blueEntry) {
+                const haveBlue = this.mpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
+                const wantBlue = Math.max(0, 4 - haveBlue);
+                const afford = blueEntry.price > 0 ? Math.floor(this.me.gold / blueEntry.price) : wantBlue;
+                const countBlue = Math.min(wantBlue, afford);
+                if (countBlue > 0) {
+                    const buy = await this.request("shop_buy_request", {
+                        npc_entity_id: merchant.id, item_template_id: blueEntry.template_id, count: countBlue,
+                    });
+                    if (buy.data.success) {
+                        this.me.gold = buy.data.gold_remaining;
+                        this.log(`comprou ${buy.data.count}x ${buy.data.item_name} por ${buy.data.price_paid} de ouro`);
+                    }
                 }
             }
         }

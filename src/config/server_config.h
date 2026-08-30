@@ -52,6 +52,16 @@ struct auth_config
     std::chrono::seconds registration_cooldown{3600}; // 1 hour
 };
 
+// Player regeneration configuration (amounts follow the legacy formulas;
+// the interval says how long a "full roll" takes — larger = slower regen)
+struct regen_config
+{
+    int32_t tick_ms = 5000;         // How often regen is processed for everyone
+    int32_t hp_interval_ms = 15000; // Full HP roll (1d(VIT), min VIT/2) per this interval
+    int32_t mp_interval_ms = 20000; // Full MP roll (1d(MAG)) per this interval
+    int32_t sp_interval_ms = 10000; // Full SP roll (1d(VIT/3)) per this interval
+};
+
 // Forum authentication configuration (external PHP auth)
 struct forum_auth_config
 {
@@ -114,6 +124,9 @@ struct server_config
 
     // Forum authentication configuration
     forum_auth_config forum_auth;
+
+    // Player regeneration configuration
+    regen_config regen;
 
     // Auto-save configuration
     auto_save_config auto_save;

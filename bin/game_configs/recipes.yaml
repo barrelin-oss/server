@@ -1,6 +1,6 @@
 alchemy_recipes:
   - id: 1
-    result: HealthPotion
+    result: RedPotion       # was HealthPotion (not in this item set); RedPotion is the HP potion
     skill_limit: 20
     difficulty: 10
     ingredients:
@@ -11,7 +11,7 @@ alchemy_recipes:
       - item_id: 191
         count: 1
   - id: 2
-    result: ManaPotion
+    result: BluePotion      # was ManaPotion; BluePotion is the MP potion
     skill_limit: 20
     difficulty: 10
     ingredients:
@@ -22,7 +22,7 @@ alchemy_recipes:
       - item_id: 189
         count: 1
   - id: 3
-    result: RevitalizingPotion
+    result: GreenPotion     # was RevitalizingPotion; GreenPotion is the SP potion
     skill_limit: 20
     difficulty: 10
     ingredients:
@@ -46,7 +46,7 @@ alchemy_recipes:
       - item_id: 190
         count: 2
   - id: 5
-    result: BigHealthPotion
+    result: BigRedPotion    # was BigHealthPotion
     skill_limit: 40
     difficulty: 20
     ingredients:
@@ -59,7 +59,7 @@ alchemy_recipes:
       - item_id: 191
         count: 1
   - id: 6
-    result: BigManaPotion
+    result: BigBluePotion   # was BigManaPotion
     skill_limit: 40
     difficulty: 20
     ingredients:
@@ -72,7 +72,7 @@ alchemy_recipes:
       - item_id: 189
         count: 1
   - id: 7
-    result: BigRevPotion
+    result: BigGreenPotion  # was BigRevPotion
     skill_limit: 40
     difficulty: 20
     ingredients:

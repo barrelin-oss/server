@@ -211,6 +211,15 @@ auto config_system::load_yaml_config(const std::filesystem::path& path) -> resul
                 std::chrono::seconds{yaml_get<int>(auth, "registration_cooldown", 3600)};
         }
 
+        // Regen section
+        if (auto regen = config["regen"])
+        {
+            server_config_.regen.tick_ms = yaml_get<int>(regen, "tick_ms", 5000);
+            server_config_.regen.hp_interval_ms = yaml_get<int>(regen, "hp_interval_ms", 15000);
+            server_config_.regen.mp_interval_ms = yaml_get<int>(regen, "mp_interval_ms", 20000);
+            server_config_.regen.sp_interval_ms = yaml_get<int>(regen, "sp_interval_ms", 10000);
+        }
+
         // Forum auth section
         if (auto forum = config["forum_auth"])
         {

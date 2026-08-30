@@ -311,6 +311,7 @@ void player_system::add_experience(player_id id, int64_t amount)
     if (!p)
         return;
 
+    int64_t previous_exp = p->experience.experience;
     int levels_gained = p->experience.add_experience(amount);
     if (levels_gained > 0)
     {
@@ -321,6 +322,14 @@ void player_system::add_experience(player_id id, int64_t amount)
         p->recalculate_stats();
 
         LOG_INFO(general, "Player '{}' leveled up to {}", p->name, p->experience.level);
+    }
+
+    // Notify listeners (e.g., bridge sends experience_update to the client).
+    // No-op at max level, where add_experience leaves experience unchanged.
+    int64_t gained = p->experience.experience - previous_exp;
+    if (gained > 0 && experience_callback_)
+    {
+        experience_callback_(id, gained, levels_gained);
     }
 }
 

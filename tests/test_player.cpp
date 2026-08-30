@@ -318,6 +318,48 @@ TEST_F(player_system_test, add_experience)
     EXPECT_GT(p->experience.level, 1);
 }
 
+TEST_F(player_system_test, add_experience_fires_gain_callback)
+{
+    player_create_info info;
+    info.name = "ExpCallbackPlayer";
+
+    auto result = system_.create_player(info);
+    auto id = result.value();
+
+    hb::player_id cb_id{};
+    int64_t cb_gained = 0;
+    int cb_levels = 0;
+    int cb_calls = 0;
+    system_.on_experience_gain(
+        [&](hb::player_id pid, int64_t gained, int levels)
+        {
+            cb_id = pid;
+            cb_gained = gained;
+            cb_levels = levels;
+            ++cb_calls;
+        });
+
+    // Small gain, no level-up
+    system_.add_experience(id, 10);
+    EXPECT_EQ(cb_calls, 1);
+    EXPECT_EQ(cb_id, id);
+    EXPECT_EQ(cb_gained, 10);
+    EXPECT_EQ(cb_levels, 0);
+
+    // Gain enough to level up
+    int64_t to_level_5 = exp_table.exp_for_level(5) - system_.get_player(id)->experience.experience;
+    system_.add_experience(id, to_level_5);
+    EXPECT_EQ(cb_calls, 2);
+    EXPECT_EQ(cb_gained, to_level_5);
+    EXPECT_GT(cb_levels, 0);
+
+    // At max level, no experience is credited and the callback must not fire
+    auto* p = system_.get_player(id);
+    p->experience.level = max_level;
+    system_.add_experience(id, 1000);
+    EXPECT_EQ(cb_calls, 2);
+}
+
 TEST_F(player_system_test, status_effects)
 {
     player_create_info info;

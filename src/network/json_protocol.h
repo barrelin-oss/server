@@ -158,6 +158,7 @@ enum class json_message_type
     equipment_change_broadcast,
     stat_update,
     spell_list_update,
+    experience_update,
 
     // NPC interaction - shops
     shop_buy_request,
@@ -722,6 +723,8 @@ enum class json_message_type
         return "stat_update";
     case json_message_type::spell_list_update:
         return "spell_list_update";
+    case json_message_type::experience_update:
+        return "experience_update";
     case json_message_type::shop_buy_request:
         return "shop_buy_request";
     case json_message_type::shop_buy_response:
@@ -2364,9 +2367,28 @@ struct stat_update_data
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
 
+// Experience update sent to a player whenever they gain experience.
+// Level-up fields are present only when the gain caused one or more level-ups.
+struct experience_update_data
+{
+    int64_t experience_gained{0};
+    int64_t experience{0};
+    uint8_t level{0};
+
+    // Present only on level-up
+    std::optional<int32_t> levels_gained;
+    std::optional<int32_t> max_hp;
+    std::optional<int32_t> max_mp;
+    std::optional<int32_t> max_sp;
+    std::optional<int16_t> stat_points; // Total unspent stat points after the award
+
+    [[nodiscard]] auto to_json() const -> nlohmann::json;
+};
+
 // Equipment message builders
 [[nodiscard]] auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data) -> json_message;
 [[nodiscard]] auto make_stat_update(const stat_update_data& data) -> json_message;
+[[nodiscard]] auto make_experience_update(const experience_update_data& data) -> json_message;
 
 // Spell list update - sends full known spell list to client
 [[nodiscard]] auto make_spell_list_update(const std::vector<known_spell_msg>& spells) -> json_message;

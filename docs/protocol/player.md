@@ -242,6 +242,58 @@ Sent to a player after equipment changes to reflect updated computed stats.
 
 ---
 
+### `experience_update`
+
+Sent to a player whenever they gain experience (NPC kill XP — solo or party share — crusade rewards, login reward delivery, etc.). Level-up fields are present only when the gain caused one or more level-ups.
+
+**Server Message (no level-up):**
+```json
+{
+  "type": "experience_update",
+  "seq": 0,
+  "data": {
+    "experience_gained": 250,
+    "experience": 45780,
+    "level": 12
+  }
+}
+```
+
+**Server Message (level-up):**
+```json
+{
+  "type": "experience_update",
+  "seq": 0,
+  "data": {
+    "experience_gained": 250,
+    "experience": 45780,
+    "level": 13,
+    "levels_gained": 1,
+    "max_hp": 380,
+    "max_mp": 215,
+    "max_sp": 260,
+    "stat_points": 3
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `experience_gained` | int64 | Experience credited by this gain |
+| `experience` | int64 | New total experience |
+| `level` | uint8 | Current level (already reflects any level-up) |
+| `levels_gained` | int32? | Levels gained by this XP award (present only on level-up) |
+| `max_hp` | int32? | New maximum HP after recalculation (present only on level-up) |
+| `max_mp` | int32? | New maximum MP after recalculation (present only on level-up) |
+| `max_sp` | int32? | New maximum SP after recalculation (present only on level-up) |
+| `stat_points` | int16? | Total unspent stat points after the award of 3 per level (present only on level-up) |
+
+**Notes:**
+- Not sent when the player is at max level (no experience is credited).
+- Experience *loss* (death penalty) is not reported by this message; the client learns of it via full `stat_update` messages.
+
+---
+
 ### `spell_list_update`
 
 Sent to a player when their known spell list changes (e.g., after learning a new spell or equipment changes that affect available spells). Contains the full list of known spells.

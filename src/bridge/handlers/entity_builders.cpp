@@ -2,6 +2,9 @@
 // Helper functions to build visible_entity_msg for player and NPC spawns,
 // and shared functions for sending entity data on login/teleport.
 
+// Include platform header first to define NOMINMAX before Windows headers
+#include "platform/platform.h"
+
 #include "bridge/handlers/entity_builders.h"
 #include "player/player.h"
 #include "player/player_system.h"

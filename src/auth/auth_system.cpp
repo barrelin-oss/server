@@ -30,7 +30,11 @@ auto parse_pg_timestamp(const std::string& ts) -> std::optional<std::chrono::sys
     {
         return std::nullopt;
     }
+#ifdef _WIN32
+    auto time_t_val = _mkgmtime(&tm_val);
+#else
     auto time_t_val = timegm(&tm_val);
+#endif
     if (time_t_val == static_cast<time_t>(-1))
     {
         return std::nullopt;
@@ -1340,7 +1344,11 @@ auto auth_system::ban_account(account_id id,
     {
         auto time_t_val = std::chrono::system_clock::to_time_t(*expires);
         std::tm tm_val{};
+#ifdef _WIN32
+        gmtime_s(&tm_val, &time_t_val);
+#else
         gmtime_r(&time_t_val, &tm_val);
+#endif
         std::ostringstream oss;
         oss << std::put_time(&tm_val, "%Y-%m-%d %H:%M:%S+00");
 

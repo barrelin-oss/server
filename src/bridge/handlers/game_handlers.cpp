@@ -125,6 +125,8 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                            { send_vitals_update(pid, hp, mp, sp); });
         players_->on_hunger_change([this](player_id pid, int8_t, int8_t new_level)
                                    { send_hunger_update(pid, new_level); });
+        players_->on_experience_gain([this](player_id pid, int64_t exp_gained, int levels_gained)
+                                     { send_experience_update(pid, exp_gained, levels_gained); });
     }
 
     // Register skill level-up callback — broadcast to visible players
@@ -1019,6 +1021,40 @@ void game_handlers::send_vitals_update(player_id pid, int32_t hp, int32_t mp, in
         .sp = sp,
     };
     conn->send(network::make_stat_update(data));
+}
+
+// ========== Experience Update ==========
+
+void game_handlers::send_experience_update(player_id pid, int64_t exp_gained, int levels_gained)
+{
+    if (!players_ || !ws_server_)
+        return;
+
+    auto* player = players_->get_player(pid);
+    if (!player || player->connection.value == 0)
+        return;
+
+    auto* conn = ws_server_->get_connection(player->connection);
+    if (!conn || !conn->is_open())
+        return;
+
+    network::experience_update_data data
+    {
+        .experience_gained = exp_gained,
+        .experience = player->experience.experience,
+        .level = player->experience.level,
+    };
+
+    if (levels_gained > 0)
+    {
+        data.levels_gained = levels_gained;
+        data.max_hp = player->computed.max_hp;
+        data.max_mp = player->computed.max_mp;
+        data.max_sp = player->computed.max_sp;
+        data.stat_points = player->stats_pts.available;
+    }
+
+    conn->send(network::make_experience_update(data));
 }
 
 // ========== Hunger Update ==========

@@ -450,6 +450,12 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-08-30: Experience Gain Notification (`experience_update`)
+- New server→client message `experience_update` sent whenever a player gains XP (solo/party NPC kill XP, crusade rewards, login reward delivery)
+- Carries `experience_gained`, new total `experience`, and `level`; on level-up also `levels_gained`, new `max_hp`/`max_mp`/`max_sp`, and unspent `stat_points`
+- Added `experience_gain_callback` to `player_system` (fired from `add_experience` only when XP actually changes; no-op at max level), wired in `game_handlers` — covers all `add_experience` call sites automatically
+- Documented in `docs/protocol/player.md` and `docs/JSON_PROTOCOL.md`; updated stale "no explicit message" note in `docs/protocol/items.md`
+
 ### 2026-02-22: Item System v2 Redesign
 - Rewrote item_template struct to match legacy .cfg format 1:1 (raw effect_type + effect_value1-6)
 - Rewrote item_template YAML loader for 1:1 field mapping

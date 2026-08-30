@@ -3282,7 +3282,11 @@ TEST_F(crusade_system_test, different_day_allows_start)
     auto now = std::chrono::system_clock::now();
     auto time_t_now = std::chrono::system_clock::to_time_t(now);
     std::tm local_tm{};
+#ifdef _WIN32
+    localtime_s(&local_tm, &time_t_now);
+#else
     localtime_r(&time_t_now, &local_tm);
+#endif
 
     if (local_tm.tm_wday == 6)
     {

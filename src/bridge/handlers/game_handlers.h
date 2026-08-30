@@ -352,6 +352,9 @@ private:
     void send_stat_update(connection_id conn_id, const player::player& plr);
     void send_full_stat_update(connection_id conn_id, const player::player& plr);
 
+    // Experience
+    void send_experience_update(player_id pid, int64_t exp_gained, int levels_gained);
+
     // Chat
     void handle_chat_message(connection_id conn_id, const network::json_message& msg);
     void handle_command(connection_id conn_id, const network::json_message& msg);

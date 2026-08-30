@@ -68,7 +68,7 @@ All messages follow a common envelope structure:
 |----------|------|-------------|
 | System | [protocol/system.md](protocol/system.md) | ping, pong, error |
 | Authentication | [protocol/auth.md](protocol/auth.md) | Login, accounts, characters, game entry |
-| Player State | [protocol/player.md](protocol/player.md) | Game state objects, entity visibility, stat updates, view mode |
+| Player State | [protocol/player.md](protocol/player.md) | Game state objects, entity visibility, stat updates, experience/level-up updates, view mode |
 | Movement | [protocol/movement.md](protocol/movement.md) | Movement, teleportation |
 | Combat | [protocol/combat.md](protocol/combat.md) | Attacks, damage, death, magic, skills, combat mode, action broadcasts |
 | Items (v2) | [protocol/items-v2.md](protocol/items-v2.md) | Inventory, equipment, ground items, trade, shop, bank, loot |

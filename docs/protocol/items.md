@@ -1196,11 +1196,11 @@ Gold is added directly to the killer's inventory via `add_gold()`. **No message 
 
 Each loot item that drops on the ground generates a [Ground Item Object](#ground-item-object) broadcast with `reason: "drop"`.
 
-### 4. Experience award (NO explicit message)
+### 4. Experience award: `experience_update`
 
-Experience is added internally. If the player levels up, stat recalculation occurs and subsequent `stat_update` messages may include `level` and `experience`.
+Each player credited with kill XP (the killer, or each eligible party member) receives an [`experience_update`](player.md#experience_update) message with the amount gained, new total, and level. On level-up it also carries the new `max_hp`/`max_mp`/`max_sp` and unspent `stat_points`.
 
-*Source: `game_handlers_npc.cpp` death callback and `game_handlers_combat.cpp` kill reward logic*
+*Source: `game_handlers_npc.cpp` death callback and `game_handlers_combat.cpp` kill reward logic; message sent via `player_system` experience-gain callback in `game_handlers.cpp`*
 
 ---
 

@@ -1,3 +1,6 @@
+// Include platform header first to define NOMINMAX before Windows headers
+#include "platform/platform.h"
+
 #include "bridge/handlers/broadcast_util.h"
 
 #include "network/websocket_server.h"

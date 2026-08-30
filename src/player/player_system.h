@@ -204,6 +204,10 @@ public:
     void on_hunger_change(hunger_change_callback callback) { hunger_callback_ = std::move(callback); }
     void restore_hunger(player_id id, int8_t amount);
 
+    // Experience gain notification (fired from add_experience when experience actually changes)
+    using experience_gain_callback = std::function<void(player_id, int64_t exp_gained, int levels_gained)>;
+    void on_experience_gain(experience_gain_callback callback) { experience_callback_ = std::move(callback); }
+
     // Iteration
     template<typename Func>
         requires std::invocable<Func, player_id, player&>
@@ -265,6 +269,7 @@ private:
     // Callbacks
     regen_callback regen_callback_;
     hunger_change_callback hunger_callback_;
+    experience_gain_callback experience_callback_;
 };
 
 } // namespace hb::player

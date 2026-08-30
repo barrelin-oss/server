@@ -137,6 +137,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"equipment_change_broadcast", json_message_type::equipment_change_broadcast},
     {"stat_update", json_message_type::stat_update},
     {"spell_list_update", json_message_type::spell_list_update},
+    {"experience_update", json_message_type::experience_update},
     {"shop_buy_request", json_message_type::shop_buy_request},
     {"shop_buy_response", json_message_type::shop_buy_response},
     {"shop_sell_request", json_message_type::shop_sell_request},
@@ -2867,6 +2868,29 @@ auto make_equipment_change_broadcast(const equipment_change_broadcast_data& data
 auto make_stat_update(const stat_update_data& data) -> json_message
 {
     return json_message{.type = json_message_type::stat_update, .seq = 0, .data = data.to_json()};
+}
+
+auto experience_update_data::to_json() const -> nlohmann::json
+{
+    auto j = nlohmann::json{{"experience_gained", experience_gained}, {"experience", experience}, {"level", level}};
+
+    if (levels_gained)
+        j["levels_gained"] = *levels_gained;
+    if (max_hp)
+        j["max_hp"] = *max_hp;
+    if (max_mp)
+        j["max_mp"] = *max_mp;
+    if (max_sp)
+        j["max_sp"] = *max_sp;
+    if (stat_points)
+        j["stat_points"] = *stat_points;
+
+    return j;
+}
+
+auto make_experience_update(const experience_update_data& data) -> json_message
+{
+    return json_message{.type = json_message_type::experience_update, .seq = 0, .data = data.to_json()};
 }
 
 // === Inventory Reposition ===

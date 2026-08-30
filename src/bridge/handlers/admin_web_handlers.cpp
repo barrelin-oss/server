@@ -1,6 +1,9 @@
 // admin_web_handlers.cpp
 // Admin web tool handler implementations
 
+// Include platform header first to define NOMINMAX before Windows headers
+#include "platform/platform.h"
+
 #include "bridge/handlers/admin_web_handlers.h"
 #include "core/logger.h"
 #include <algorithm>

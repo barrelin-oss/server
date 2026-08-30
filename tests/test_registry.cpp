@@ -640,6 +640,77 @@ TEST_F(registry_test, magic_registry_legacy_damage_types)
     EXPECT_TRUE(ice_line->is_offensive);
 }
 
+TEST_F(registry_test, magic_registry_utility_and_stamina_types)
+{
+    auto path = create_test_file("magic.yaml",
+                                 "magic:\n"
+                                 "  - id: 2\n"
+                                 "    name: Create-Food\n"
+                                 "    type: 10\n"
+                                 "    mana_cost: 18\n"
+                                 "    int_req: 18\n"
+                                 "  - id: 11\n"
+                                 "    name: Staminar-Drain\n"
+                                 "    type: 5\n"
+                                 "    mana_cost: 14\n"
+                                 "    range2: 3\n"
+                                 "    effect1: { dice: 4, sides: 6, bonus: 10 }\n"
+                                 "    int_req: 22\n"
+                                 "  - id: 23\n"
+                                 "    name: Staminar-Recovery\n"
+                                 "    type: 7\n"
+                                 "    mana_cost: 20\n"
+                                 "    range2: 3\n"
+                                 "    effect1: { dice: 4, sides: 8, bonus: 8 }\n"
+                                 "    int_req: 20\n"
+                                 "  - id: 26\n"
+                                 "    name: Possession\n"
+                                 "    type: 15\n"
+                                 "    mana_cost: 25\n"
+                                 "    int_req: 26\n"
+                                 "  - id: 38\n"
+                                 "    name: Tremor\n"
+                                 "    type: 22\n"
+                                 "    mana_cost: 34\n"
+                                 "    range2: 2\n"
+                                 "    effect1: { dice: 3, sides: 4, bonus: 3 }\n"
+                                 "    int_req: 33\n");
+
+    magic_registry registry;
+    registry.initialize();
+
+    auto result = registry.load_from_file(path);
+    ASSERT_TRUE(result.is_ok()) << result.error();
+    EXPECT_EQ(result.value(), 5);
+
+    const auto* create = registry.get(spell_id{2});
+    ASSERT_NE(create, nullptr);
+    EXPECT_EQ(create->type, magic_type::create);
+    EXPECT_FALSE(create->is_offensive);
+
+    const auto* drain = registry.get(spell_id{11});
+    ASSERT_NE(drain, nullptr);
+    EXPECT_EQ(drain->type, magic_type::sp_down_area);
+    EXPECT_TRUE(drain->is_offensive);
+    EXPECT_EQ(drain->base_damage, 4 * 7 / 2 + 10); // 4d6+10 average = 24
+
+    const auto* recov = registry.get(spell_id{23});
+    ASSERT_NE(recov, nullptr);
+    EXPECT_EQ(recov->type, magic_type::sp_up_area);
+    EXPECT_FALSE(recov->is_offensive);
+    EXPECT_TRUE(recov->can_hit_ally);
+
+    const auto* possession = registry.get(spell_id{26});
+    ASSERT_NE(possession, nullptr);
+    EXPECT_EQ(possession->type, magic_type::possession);
+    EXPECT_FALSE(possession->is_offensive);
+
+    const auto* tremor = registry.get(spell_id{38});
+    ASSERT_NE(tremor, nullptr);
+    EXPECT_EQ(tremor->type, magic_type::tremor);
+    EXPECT_TRUE(tremor->is_offensive);
+}
+
 TEST_F(registry_test, magic_registry_damage_calculation)
 {
     auto path = create_test_file("magic.yaml",

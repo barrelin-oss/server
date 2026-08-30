@@ -28,19 +28,24 @@ auto is_valid_magic_type(int val) -> bool
     case 2:
     case 3:
     case 4:
+    case 5:
     case 6:
+    case 7:
     case 8:
     case 9:
+    case 10:
     case 11:
     case 12:
     case 13:
     case 14:
+    case 15:
     case 16:
     case 17:
     case 18:
     case 19:
     case 20:
     case 21:
+    case 22:
     case 23:
     case 25:
     case 26:
@@ -208,14 +213,21 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
         case magic_type::armor_break:
         case magic_type::ice_linear:
         case magic_type::create_dynamic:
+        case magic_type::sp_down_area:
+        case magic_type::tremor:
             spell.is_offensive = true;
             break;
         case magic_type::hp_up_spot:
         case magic_type::sp_up_spot:
+        case magic_type::sp_up_area:
         case magic_type::resurrection:
             spell.is_offensive = false;
             spell.can_hit_ally = true;
             spell.can_hit_enemy = false;
+            break;
+        case magic_type::create:
+        case magic_type::possession:
+            spell.is_offensive = false;
             break;
         default:
             break;

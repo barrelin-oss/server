@@ -1765,6 +1765,26 @@ void application::load_game_configs()
                             ms.category = magic::spell_category::debuff;
                             ms.target_type = magic::spell_target::single_enemy;
                             break;
+                        case magic_type::sp_down_area:
+                            // Area stamina drain (Staminar-Drain; Celebrating-Light has zero dice)
+                            ms.category = magic::spell_category::debuff;
+                            ms.target_type = magic::spell_target::aoe_enemy;
+                            break;
+                        case magic_type::sp_up_area:
+                            // Area stamina recovery (Staminar-Recovery family)
+                            ms.category = magic::spell_category::healing;
+                            ms.target_type = magic::spell_target::aoe_ally;
+                            break;
+                        case magic_type::tremor:
+                            // Earthquake area damage (legacy knockback not ported)
+                            ms.category = magic::spell_category::attack;
+                            ms.target_type = magic::spell_target::aoe_enemy;
+                            break;
+                        case magic_type::create:
+                        case magic_type::possession:
+                            ms.category = magic::spell_category::utility;
+                            ms.target_type = magic::spell_target::self;
+                            break;
                         case magic_type::confusion:
                             ms.category = magic::spell_category::debuff;
                             // Confusion/Mass-Illusion are area debuffs

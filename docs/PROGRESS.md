@@ -452,6 +452,16 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-08-30: Final 7 legacy magic types — spell cycle closed (66/66 loadable)
+- Added the last missing `magic_type` values: `sp_down_area` (5), `sp_up_area` (7), `create` (10), `possession` (15), `tremor` (22)
+- Staminar-Drain drains SP directly (effect1 average, area); Celebrating-Light (type 5, zero dice) loads as a harmless visual cast
+- Staminar-Recovery / Great-Staminar-Recov. restore SP (area, allies) — healing path now branches on `sp_up_spot`/`sp_up_area` to restore SP instead of HP (fixes sp_up_spot which previously "healed" HP)
+- Create-Food drops a random basic food (Baguette/Meat/Fish) at the caster's feet via item_ops + ground item broadcast (bridge on_spell_cast)
+- Tremor is area earthquake damage (3d4+3); legacy knockback not ported (documented)
+- Possession accepted as a no-op: legacy claimed ground-item ownership, which the modern server doesn't have
+- Also fixed two more entity-id-as-player-id lookups found while wiring: `on_spell_cast` caster resolution (game_handlers_combat.cpp) and the healing `apply_heal` pid (magic_system.cpp)
+- New registry test; 2531 tests pass. Every spell in magic.yaml now loads (0 "invalid magic_type" warnings)
+
 ### 2026-08-30: Mage bots, magic entity-id fixes, starting spells, regen-aware potion use
 - magic_system.cpp: fixed 20 occurrences of resolving players via `get_player(player_id{entity.id})` — ECS entity ids are NOT player ids, so mana deduction, range checks, INT scaling and player-target effects were silently skipped (infinite mana; Magic-Missile dealt 4 instead of 17). All now use `get_player_by_entity`. Same bug class previously fixed in loot gold; codebase-wide audit spawned as a follow-up task.
 - Starting spells: on first login (magic_data defaults to `'[]'`), players are granted every spell they qualify for by INT/MAG (`auth_handlers.cpp`); persisted on next save. TODO: replace with a purchase/learning flow.

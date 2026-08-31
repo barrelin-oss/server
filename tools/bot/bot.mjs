@@ -37,6 +37,12 @@ const AI = {
     shopRange: 2,
     minPotions: 3,
     potionBuyCount: 5,
+    // comida: hunger 0 zera TODO o regen no servidor (player_system.cpp is_starving)
+    minFood: 3,
+    weaponMinGold: 60,
+    foodBuyCount: 6,
+    eatHungerThreshold: 60,
+    eatCooldownMs: 8000,
     repairThreshold: 0.5,
     shopCooldownMs: 30000,
     safeShoppingDist: 5,
@@ -49,6 +55,12 @@ const AI = {
     restHpOk: 0.8,
     restMpLow: 0.3,
     restMpOk: 0.4,
+    // Teto de descanso: se o regen nao vier (fome, bug de sync, servidor parado),
+    // o bot volta a cacar em vez de ficar parado para sempre.
+    restMaxMs: 60000,
+    restRetryMs: 30000,
+    // centro das cidades = pontos de respawn; alvo de emergencia p/ achar o mercador
+    townByNation: { 1: { x: 240, y: 220 }, 2: { x: 65, y: 205 } },
 };
 
 // Metadados mínimos das spells que a IA usa (ids do magic.yaml).
@@ -99,6 +111,12 @@ class BotClient {
         // descanso / percepcao de combate
         this.lastDamageAt = 0;
         this.resting = false;
+        this.restStartedAt = 0;
+        this.restBlockedUntil = 0;
+
+        // fome (bloqueia 100% do regen no servidor quando chega a 0)
+        this.hunger = 100;
+        this.lastEatAt = 0;
     }
 
     // ---------- rede ----------
@@ -247,8 +265,12 @@ class BotClient {
                 this.log(`teleportado para ${d.dest_map} (${d.dest_x},${d.dest_y})`);
                 break;
             case "stat_update":
+                // Fonte de verdade de HP/MP: o servidor manda isto a cada tick de regen
+                // (game_handlers.cpp send_vitals_update) e depois de pocao/comida.
                 if (d.max_hp) this.me.maxHp = d.max_hp;
                 if (d.hp !== undefined) this.me.hp = d.hp;
+                if (d.max_mp) this.me.maxMp = d.max_mp;
+                if (d.mp !== undefined) this.me.mp = d.mp;
                 if (d.gold !== undefined) this.me.gold = d.gold;
                 if (d.experience !== undefined) this.me.exp = d.experience;
                 if (d.level !== undefined && d.level !== this.me.level) {
@@ -262,13 +284,19 @@ class BotClient {
                 this.equipment = { ...(d.equipment_slots ?? {}) };
                 if (d.gold !== undefined) this.me.gold = d.gold;
                 break;
-            case "inventory_item_add":
-                this.inventory.set(d.item.item_id, d.item);
-                this.log(`loot: ${d.item.name} x${d.item.count}`);
+            case "inventory_item_add": {
+                const it = d.item ?? d;
+                if (it?.item_id === undefined) break;
+                this.inventory.set(it.item_id, it);
+                this.log(`loot: ${it.name} x${it.count}`);
                 break;
-            case "inventory_item_update":
-                this.inventory.set(d.item.item_id, d.item);
+            }
+            case "inventory_item_update": {
+                // v1 (json_protocol.cpp:3046) manda o item achatado; v2 manda {item:{...}}
+                const it = d.item ?? d;
+                if (it?.item_id !== undefined) this.inventory.set(it.item_id, it);
                 break;
+            }
             case "inventory_item_removed":
                 this.inventory.delete(d.item_id);
                 break;
@@ -343,8 +371,11 @@ class BotClient {
             case "pickup_result":
             case "skill_update":
             case "skill_progress":
-            case "environment_update":
             case "hunger_update":
+                this.hunger = d.level ?? this.hunger;
+                if (d.is_starving ?? d.starving) this.log(`FAMINTO (hunger ${this.hunger}) - regen bloqueado ate comer`);
+                break;
+            case "environment_update":
             case "combat_effect":
             case "combat_attack_broadcast":
             case "npc_attack":
@@ -432,6 +463,7 @@ class BotClient {
             hp: c.hp, maxHp: c.hp_max, mp: c.mp ?? 0, maxMp: c.mp_max ?? 1,
             level: c.level, gold: c.gold, exp: c.experience, map: c.map_name,
         };
+        if (c.hunger_level !== undefined) this.hunger = c.hunger_level;
         this.spells = new Set((res.data.spells ?? []).map((s) => s.spell_id));
         if (this.isMage()) this.log(`mago com ${this.spells.size} spells, MP ${this.me.mp}/${this.me.maxMp}`);
         for (const e of res.data.world?.entities ?? []) {
@@ -472,6 +504,19 @@ class BotClient {
                 this.combatMode = !!res.data.combat_mode;
                 return;
             }
+            // Faminto e sem comida: o regen esta 100% bloqueado no servidor, entao
+            // fugir nao recupera nada — a loja e a unica saida e vem antes da fuga.
+            // Se o mercador nao esta visivel, anda a procura dele em vez de congelar
+            // fugindo no mesmo lugar (fuga sem regen nao termina nunca).
+            if (this.hunger <= 0 && this.food().length === 0) {
+                if (await this.shoppingTick()) return;
+                if (!this.findMerchant(/shopkeeper/i)) {
+                    const town = AI.townByNation[this.cfg.character?.nation] ?? null;
+                    if (town) await this.stepTowards(town);
+                    else await this.wander();
+                    return;
+                }
+            }
             if (this.fleeing || this.me.hp / this.me.maxHp < AI.fleeHpThreshold) {
                 await this.fleeAndRecover();
                 return;
@@ -495,6 +540,7 @@ class BotClient {
     }
 
     autoPotion() {
+        this.autoEat();
         // Fora de combate o regen natural e de graca — poção so quando ha pressa.
         const fighting = this.inCombat();
         if (this.me.hp / this.me.maxHp < AI.potionHpThreshold && fighting) {
@@ -530,16 +576,22 @@ class BotClient {
         const mpPct = this.isMage() ? this.me.mp / this.me.maxMp : 1;
         if (this.resting) {
             const done = hpPct >= AI.restHpOk && mpPct >= AI.restMpOk;
-            if (done || this.inCombat()) {
+            // Se o regen nao chega (fome, sync quebrado), desiste em vez de travar parado.
+            const stalled = Date.now() - this.restStartedAt > AI.restMaxMs;
+            if (done || stalled || this.inCombat()) {
                 this.resting = false;
-                this.log(`descanso encerrado (HP ${this.me.hp}/${this.me.maxHp}, MP ${this.me.mp}/${this.me.maxMp})`);
+                this.restBlockedUntil = stalled ? Date.now() + AI.restRetryMs : 0;
+                const motivo = done ? "recuperado" : stalled ? "sem regen, voltando a cacar" : "interrompido";
+                this.log(`descanso encerrado [${motivo}] (HP ${this.me.hp}/${this.me.maxHp}, MP ${this.me.mp}/${this.me.maxMp})`);
                 return false;
             }
             return true; // parado, regenerando
         }
+        if (Date.now() < (this.restBlockedUntil ?? 0)) return false;
         const needs = hpPct < AI.restHpLow || mpPct < AI.restMpLow;
         if (needs && !this.inCombat()) {
             this.resting = true;
+            this.restStartedAt = Date.now();
             this.log(`descansando para regenerar (HP ${this.me.hp}/${this.me.maxHp}, MP ${this.me.mp}/${this.me.maxMp})`);
             return true;
         }
@@ -548,6 +600,22 @@ class BotClient {
 
     mpPotions() {
         return [...this.inventory.values()].filter((it) => /blue.?potion/i.test(it.name));
+    }
+
+    food() {
+        return [...this.inventory.values()].filter((it) => /meat|bread|food/i.test(it.name));
+    }
+
+    // Comer e a unica coisa que destrava o regen: com hunger 0 o servidor pula o
+    // tick inteiro (HP, MP e SP) em player_system.cpp:update_regeneration.
+    autoEat() {
+        if (this.hunger > AI.eatHungerThreshold) return;
+        if (Date.now() - this.lastEatAt < AI.eatCooldownMs) return;
+        const meal = this.food()[0];
+        if (!meal) return;
+        this.lastEatAt = Date.now();
+        this.log(`comendo ${meal.name} (hunger ${this.hunger})`);
+        this.send("use_item_request", { item_id: meal.item_id });
     }
 
     pickTarget() {
@@ -812,6 +880,16 @@ class BotClient {
     // Decide se há motivo para ir à loja. Retorna { merchantRe, reason }.
     shoppingNeed() {
         const potions = this.hpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
+        const meals = this.food().reduce((n, it) => n + (it.count ?? 1), 0);
+        // prioridade maxima: sem comida o regen fica travado e o bot para de funcionar
+        if (meals < AI.minFood && this.me.gold >= 10) {
+            return { merchantRe: /shopkeeper/i, reason: `comprar comida (tem ${meals}, hunger ${this.hunger})` };
+        }
+        // Arma antes de poção: sem arma o dano é ~1 e o bot nunca junta ouro nenhum.
+        // As mais baratas (Dagger/ShortSword/MainGauche) custam 50.
+        if (this.weapons().length === 0 && this.me.gold >= AI.weaponMinGold) {
+            return { merchantRe: /gandlf|william|blacksmith/i, reason: `comprar arma (ouro ${this.me.gold})` };
+        }
         const mpPots = this.mpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
         if (this.isMage() && mpPots < 2 && this.me.gold >= 100) {
             return { merchantRe: /shopkeeper/i, reason: `comprar pocoes de mana (tem ${mpPots})` };
@@ -822,9 +900,6 @@ class BotClient {
         const eq = this.equippedWeapon();
         if (eq && eq.max_durability > 0 && eq.durability / eq.max_durability < AI.repairThreshold && this.me.gold > 0) {
             return { merchantRe: /gandlf|william|blacksmith/i, reason: `reparar ${eq.name} (${eq.durability}/${eq.max_durability})` };
-        }
-        if (this.weapons().length === 0 && this.me.gold >= 200) {
-            return { merchantRe: /gandlf|william|blacksmith/i, reason: `comprar arma (ouro ${this.me.gold})` };
         }
         const junk = this.sellableJunk();
         if (junk.length >= 2) {
@@ -884,7 +959,11 @@ class BotClient {
             this.log(`interação com ${merchant.name} não abriu loja (${result.interaction_type ?? res.data.error})`);
             return;
         }
-        const catalog = result.interaction_data?.items ?? [];
+        const catalog = (result.interaction_data?.items ?? []).map((c) => ({
+            ...c,
+            // o servidor manda "item_id" no catalogo, mas shop_buy_request espera "item_template_id"
+            template_id: c.template_id ?? c.item_id,
+        }));
 
         // 1) vender armas sobressalentes (ferreiro compra)
         for (const junk of this.sellableJunk()) {
@@ -925,6 +1004,28 @@ class BotClient {
                 if (buy.data.success) {
                     this.me.gold = buy.data.gold_remaining;
                     this.log(`comprou ${buy.data.item_name} por ${buy.data.price_paid} de ouro`);
+                } else {
+                    this.log(`compra de ${affordable.name} falhou: ${buy.data.error ?? "?"}`);
+                }
+            }
+        }
+
+        // 4a) comprar comida — destrava o regen (hunger 0 = regen zero no servidor)
+        const foodEntry = catalog.find((c) => /meat|bread/i.test(c.name));
+        if (foodEntry) {
+            const haveFood = this.food().reduce((n, it) => n + (it.count ?? 1), 0);
+            const wantFood = Math.max(0, AI.foodBuyCount - haveFood);
+            const affordFood = foodEntry.price > 0 ? Math.floor(this.me.gold / foodEntry.price) : wantFood;
+            const countFood = Math.min(wantFood, affordFood);
+            if (countFood > 0) {
+                const buy = await this.request("shop_buy_request", {
+                    npc_entity_id: merchant.id, item_template_id: foodEntry.template_id, count: countFood,
+                });
+                if (buy.data.success) {
+                    this.me.gold = buy.data.gold_remaining;
+                    this.log(`comprou ${buy.data.count}x ${buy.data.item_name} por ${buy.data.price_paid} de ouro`);
+                } else {
+                    this.log(`compra falhou: ${buy.data.error ?? "?"}`);
                 }
             }
         }
@@ -943,6 +1044,8 @@ class BotClient {
                 if (buy.data.success) {
                     this.me.gold = buy.data.gold_remaining;
                     this.log(`comprou ${buy.data.count}x ${buy.data.item_name} por ${buy.data.price_paid} de ouro`);
+                } else {
+                    this.log(`compra falhou: ${buy.data.error ?? "?"}`);
                 }
             }
         }
@@ -961,6 +1064,8 @@ class BotClient {
                     if (buy.data.success) {
                         this.me.gold = buy.data.gold_remaining;
                         this.log(`comprou ${buy.data.count}x ${buy.data.item_name} por ${buy.data.price_paid} de ouro`);
+                    } else {
+                        this.log(`compra falhou: ${buy.data.error ?? "?"}`);
                     }
                 }
             }
@@ -973,7 +1078,8 @@ class BotClient {
         const potions = this.hpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
         this.log(
             `status: level ${this.me.level}, ${this.kills} kills, ` +
-                `HP ${this.me.hp}/${this.me.maxHp}, ouro ${this.me.gold}, pots ${potions}, ` +
+                `HP ${this.me.hp}/${this.me.maxHp}, MP ${this.me.mp}/${this.me.maxMp}, ` +
+                `ouro ${this.me.gold}, pots ${potions}, comida ${this.food().reduce((n, it) => n + (it.count ?? 1), 0)}, hunger ${this.hunger}, ` +
                 `arma ${eq ? `${eq.name} ${eq.durability}/${eq.max_durability}` : "nenhuma"}, ` +
                 `pos (${this.me.x},${this.me.y}), ${mobs} mobs, ${this.inventory.size} itens`
         );

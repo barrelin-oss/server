@@ -16,6 +16,7 @@
 
 #include <string>
 #include <array>
+#include <algorithm>
 #include <chrono>
 
 namespace hb::player
@@ -91,9 +92,17 @@ struct hunger_state
     [[nodiscard]] auto is_hungry() const -> bool { return level < 30; }
     [[nodiscard]] auto is_full() const -> bool { return level >= 100; }
 
-    void consume(int8_t amount) { level = std::min<int8_t>(100, level + amount); }
+    // Clampar em int: std::min<int8_t>(100, level + amount) converte a soma para int8_t
+    // ANTES de comparar, entao comer perto do cheio estourava (100+30 -> -126 = faminto).
+    void consume(int8_t amount)
+    {
+        level = static_cast<int8_t>(std::clamp(static_cast<int>(level) + static_cast<int>(amount), 0, 100));
+    }
 
-    void decay(int8_t amount) { level = std::max<int8_t>(0, level - amount); }
+    void decay(int8_t amount)
+    {
+        level = static_cast<int8_t>(std::clamp(static_cast<int>(level) - static_cast<int>(amount), 0, 100));
+    }
 };
 
 // Potion speed anti-cheat tracker

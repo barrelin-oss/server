@@ -36,6 +36,9 @@ const AI = {
     // economia (Fase 5)
     shopRange: 2,
     minPotions: 3,
+    minJunkToSell: 3,
+    brokeGold: 200,
+    maxSellPerVisit: 10,
     potionBuyCount: 5,
     // comida: hunger 0 zera TODO o regen no servidor (player_system.cpp is_starving)
     minFood: 3,
@@ -69,6 +72,37 @@ const SPELLS = {
     magicMissile: { id: 0, name: "Magic-Missile", mana: 8, range: 10 },
     heal: { id: 1, name: "Heal", mana: 15, self: true },
 };
+
+// O servidor manda itens em DOIS formatos incompativeis:
+//  A) serialize_item      -> type:"weapon", equip_pos:"weapon", price, damage_min/max
+//     usado por inventory_data e inventory_item_add
+//  B) inventory_item_msg  -> item_type:1 (legado), equip_pos:8 (legado), sem price/dano
+//     usado por inventory_item_update, que e como chega TODA compra de loja
+// Sem normalizar, uma arma comprada nunca satisfazia `it.type === "weapon"`, entao o bot
+// achava que continuava desarmado, recomprava a cada cooldown e nunca equipava.
+const LEGACY_EQUIP_POS = {
+    1: "head", 2: "body", 3: "arms", 4: "pants", 5: "boots",
+    6: "amulet", 7: "shield", 8: "weapon", 9: "twohand",
+    10: "ring_right", 11: "ring_left", 12: "cape",
+};
+const LEGACY_ITEM_TYPE = {
+    1: null, // equip generico: o tipo real vem do equip_pos
+    2: "consumable", 3: "consumable", 5: "consumable", 7: "consumable",
+    6: "material", 12: "material", 13: "weapon",
+};
+
+function inferItemType(raw) {
+    const ep = raw.equip_pos;
+    const slot = typeof ep === "number" ? LEGACY_EQUIP_POS[ep] : ep;
+    if (slot === "weapon" || slot === "twohand") return "weapon";
+    if (["head", "body", "arms", "pants", "boots", "shield"].includes(slot)) return "armor";
+    if (["amulet", "ring_left", "ring_right", "cape"].includes(slot)) return "accessory";
+    if (typeof raw.item_type === "number") {
+        const t = LEGACY_ITEM_TYPE[raw.item_type];
+        if (t) return t;
+    }
+    return undefined;
+}
 
 class BotClient {
     constructor(cfg, serverUrl) {
@@ -280,21 +314,18 @@ class BotClient {
                 break;
             case "inventory_data":
                 this.inventory.clear();
-                for (const entry of d.items ?? []) this.inventory.set(entry.item.item_id, entry.item);
+                for (const entry of d.items ?? []) this.mergeItem(entry.item);
                 this.equipment = { ...(d.equipment_slots ?? {}) };
                 if (d.gold !== undefined) this.me.gold = d.gold;
                 break;
             case "inventory_item_add": {
-                const it = d.item ?? d;
-                if (it?.item_id === undefined) break;
-                this.inventory.set(it.item_id, it);
-                this.log(`loot: ${it.name} x${it.count}`);
+                const it = this.mergeItem(d.item ?? d);
+                if (it) this.log(`loot: ${it.name} x${it.count}`);
                 break;
             }
             case "inventory_item_update": {
                 // v1 (json_protocol.cpp:3046) manda o item achatado; v2 manda {item:{...}}
-                const it = d.item ?? d;
-                if (it?.item_id !== undefined) this.inventory.set(it.item_id, it);
+                this.mergeItem(d.item ?? d);
                 break;
             }
             case "inventory_item_removed":
@@ -330,6 +361,26 @@ class BotClient {
                 for (const s of d.spells ?? []) this.spells.add(s.spell_id ?? s);
                 if (d.spell_id !== undefined) this.spells.add(d.spell_id);
                 break;
+            // Confirmacao real do equipamento. O bot so tratava "equip_result" (que chega
+            // raramente e sem eco de seq); os 83 equipment_change de um run caiam no default
+            // como broadcast desconhecido, entao this.equipment nunca era atualizado e o bot
+            // recomprava arma para sempre achando que estava desarmado.
+            case "equipment_change": {
+                if (d.entity_id !== undefined && d.entity_id !== this.me?.entityId) break;
+                const slot = d.slot;
+                if (!slot) break;
+                const itemId = d.item?.item_id ?? null;
+                if (itemId) {
+                    this.equipment[slot] = itemId;
+                    if (d.item) this.mergeItem({ ...d.item, item_id: itemId });
+                    if (slot === "weapon" || slot === "twohand") {
+                        this.log(`equipou ${d.item?.name ?? itemId} em ${slot}`);
+                    }
+                } else {
+                    delete this.equipment[slot];
+                }
+                break;
+            }
             case "equip_result":
                 if (d.success && this.pendingEquipId) {
                     this.equipment.weapon = this.pendingEquipId;
@@ -511,7 +562,7 @@ class BotClient {
             if (this.hunger <= 0 && this.food().length === 0) {
                 if (await this.shoppingTick()) return;
                 if (!this.findMerchant(/shopkeeper/i)) {
-                    const town = AI.townByNation[this.cfg.character?.nation] ?? null;
+                    const town = this.townCenter();
                     if (town) await this.stepTowards(town);
                     else await this.wander();
                     return;
@@ -846,16 +897,45 @@ class BotClient {
 
     // ---------- economia (Fase 5) ----------
 
+    // Funde com a entrada anterior: o formato B nao traz price nem dano, e perder
+    // esses campos quebraria sellableJunk (price) e equipBestWeapon (damage_max).
+    mergeItem(raw) {
+        if (!raw || raw.item_id === undefined) return null;
+        const prev = this.inventory.get(raw.item_id) ?? {};
+        const merged = { ...prev, ...raw };
+        if (typeof merged.type !== "string") {
+            const inferred = inferItemType(merged);
+            if (inferred) merged.type = inferred;
+        }
+        // equip_pos numerico -> nome do slot, para bater com o resto do codigo
+        if (typeof merged.equip_pos === "number") {
+            merged.equip_pos = LEGACY_EQUIP_POS[merged.equip_pos] ?? merged.equip_pos;
+        }
+        this.inventory.set(raw.item_id, merged);
+        return merged;
+    }
+
     hpPotions() {
         return [...this.inventory.values()].filter((it) => /red.?potion/i.test(it.name));
     }
 
     weapons() {
-        return [...this.inventory.values()].filter((it) => it.type === "weapon");
+        return [...this.inventory.values()].filter((it) => it.type === "weapon" && !this.isBroken(it));
+    }
+
+    // durability 0 = item_ops::equip_item recusa com "Item is broken"
+    isBroken(it) {
+        return (it.max_durability ?? 0) > 0 && (it.durability ?? 0) <= 0;
     }
 
     equippedWeapon() {
         return this.equipment.weapon ? this.inventory.get(this.equipment.weapon) : undefined;
+    }
+
+    // Centro da cidade da nacao do bot: onde ficam os mercadores. Usado quando o bot
+    // precisa comprar algo essencial e nenhum mercador esta no campo de visao.
+    townCenter() {
+        return AI.townByNation[this.cfg.character?.nation] ?? null;
     }
 
     findMerchant(nameRe) {
@@ -881,14 +961,26 @@ class BotClient {
     shoppingNeed() {
         const potions = this.hpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
         const meals = this.food().reduce((n, it) => n + (it.count ?? 1), 0);
+
+        // Pobre e com loot parado: converter em ouro vem antes de qualquer compra,
+        // senao o bot gasta os trocados em comida e nunca junta para a arma.
+        const stock = this.sellableJunk();
+        if (this.me.gold < AI.brokeGold && stock.length >= AI.minJunkToSell) {
+            const smithShare = stock.filter((it) => this.sellsAtBlacksmith(it)).length;
+            return {
+                merchantRe: smithShare * 2 >= stock.length ? /gandlf|william|blacksmith/i : /shopkeeper/i,
+                essential: true,
+                reason: `liquidar ${stock.length} itens (ouro ${this.me.gold})`,
+            };
+        }
         // prioridade maxima: sem comida o regen fica travado e o bot para de funcionar
         if (meals < AI.minFood && this.me.gold >= 10) {
-            return { merchantRe: /shopkeeper/i, reason: `comprar comida (tem ${meals}, hunger ${this.hunger})` };
+            return { merchantRe: /shopkeeper/i, essential: true, reason: `comprar comida (tem ${meals}, hunger ${this.hunger})` };
         }
         // Arma antes de poção: sem arma o dano é ~1 e o bot nunca junta ouro nenhum.
         // As mais baratas (Dagger/ShortSword/MainGauche) custam 50.
         if (this.weapons().length === 0 && this.me.gold >= AI.weaponMinGold) {
-            return { merchantRe: /gandlf|william|blacksmith/i, reason: `comprar arma (ouro ${this.me.gold})` };
+            return { merchantRe: /gandlf|william|blacksmith/i, essential: true, reason: `comprar arma (ouro ${this.me.gold})` };
         }
         const mpPots = this.mpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
         if (this.isMage() && mpPots < 2 && this.me.gold >= 100) {
@@ -902,19 +994,58 @@ class BotClient {
             return { merchantRe: /gandlf|william|blacksmith/i, reason: `reparar ${eq.name} (${eq.durability}/${eq.max_durability})` };
         }
         const junk = this.sellableJunk();
-        if (junk.length >= 2) {
-            return { merchantRe: /gandlf|william|blacksmith/i, reason: `vender ${junk.length} itens` };
+        if (junk.length >= AI.minJunkToSell) {
+            const smith = junk.filter((it) => this.sellsAtBlacksmith(it)).length;
+            const atSmith = smith * 2 >= junk.length; // maioria simples vai ao ferreiro
+            return {
+                merchantRe: atSmith ? /gandlf|william|blacksmith/i : /shopkeeper/i,
+                reason: `vender ${junk.length} itens (${smith} no ferreiro)`,
+            };
         }
         return null;
     }
 
-    // Armas extras (mantém a melhor por damage_max) - nunca vende a equipada.
+    // Ferreiro compra arma/armadura/escudo; o resto (acessorio, consumivel,
+    // material, gema) so tem comprador no shopkeeper geral - ver shops.yaml.
+    sellsAtBlacksmith(it) {
+        return it.type === "weapon" || it.type === "armor";
+    }
+
+    // Tudo que esta equipado, em qualquer slot - nunca entra na venda.
+    equippedIds() {
+        return new Set(Object.values(this.equipment ?? {}).filter((v) => typeof v === "number" && v > 0));
+    }
+
+    // Loot dispensavel. O bot acumulava 20-30 itens parados enquanto ficava sem ouro
+    // para comprar arma. Vende tudo que nao esta equipado e nao e reserva de consumo:
+    // guarda o equipado, a melhor arma reserva (so se nada estiver equipado) e o
+    // estoque de pocoes/comida ate os limites de compra. Nunca vende ouro nem quest.
     sellableJunk() {
-        const equippedId = this.equipment.weapon ?? 0;
-        const spares = this.weapons().filter((it) => it.item_id !== equippedId);
-        spares.sort((a, b) => (b.damage_max ?? 0) - (a.damage_max ?? 0));
-        // guarda a melhor reserva se não houver arma equipada; vende o resto
-        return equippedId ? spares : spares.slice(1);
+        const keep = this.equippedIds();
+
+        if (!this.equipment.weapon) {
+            const best = this.weapons().sort((a, b) => (b.damage_max ?? 0) - (a.damage_max ?? 0))[0];
+            if (best) keep.add(best.item_id);
+        }
+
+        // consumiveis ate o teto de estoque; o excedente vira ouro
+        const reserve = (list, limit) => {
+            let left = limit;
+            for (const it of list) {
+                if (left <= 0) break;
+                keep.add(it.item_id);
+                left -= it.count ?? 1;
+            }
+        };
+        reserve(this.hpPotions(), AI.potionBuyCount);
+        reserve(this.mpPotions(), this.isMage() ? 4 : 0);
+        reserve(this.food(), AI.foodBuyCount);
+
+        return [...this.inventory.values()].filter((it) => {
+            if (keep.has(it.item_id)) return false;
+            if (it.type === "gold" || it.type === "quest" || it.type === "none") return false;
+            return (it.price ?? 0) > 0;
+        });
     }
 
     // O servidor responde equip com um ack "equip_result" sem eco de seq —
@@ -922,7 +1053,9 @@ class BotClient {
     async equipBestWeapon() {
         if (this.equippedWeapon()) return;
         if (Date.now() - (this.lastEquipTry ?? 0) < 5000) return;
-        const best = this.weapons().sort((a, b) => (b.damage_max ?? 0) - (a.damage_max ?? 0))[0];
+        const best = this.weapons().sort(
+            (a, b) => (b.damage_max ?? 0) - (a.damage_max ?? 0) || (b.durability ?? 0) - (a.durability ?? 0)
+        )[0];
         if (!best) return;
         this.lastEquipTry = Date.now();
         this.pendingEquipId = best.item_id;
@@ -935,10 +1068,21 @@ class BotClient {
         const need = this.shoppingNeed();
         if (!need) return false;
         // só vai à loja sem mobs em cima (a não ser que esteja sem poção nenhuma)
+        // O guard de "nao comprar com mob em cima" nao vale para necessidade essencial:
+        // um bot com 12k de ouro e sem arma tem que ir comprar, mesmo com mobs por perto,
+        // senao em area densa ele nunca acha a janela e fica desarmado para sempre.
         const potions = this.hpPotions().length;
-        if (this.nearestMonsterDist() <= AI.safeShoppingDist && potions > 0) return false;
+        if (!need.essential && this.nearestMonsterDist() <= AI.safeShoppingDist && potions > 0) return false;
         const merchant = this.findMerchant(need.merchantRe);
-        if (!merchant) return false;
+        if (!merchant) {
+            // Sem arma o bot bate ~1 de dano; vale a viagem ate o ferreiro. O mesmo
+            // para comida. Antes ele so comprava se o mercador entrasse no campo de
+            // visao por acaso, entao juntava ouro e seguia sem arma para sempre.
+            const town = need.essential ? this.townCenter() : null;
+            if (!town) return false;
+            await this.stepTowards(town);
+            return true;
+        }
         if (merchant.dist > AI.shopRange) {
             await this.stepTowards(merchant);
             return true;
@@ -965,17 +1109,29 @@ class BotClient {
             template_id: c.template_id ?? c.item_id,
         }));
 
-        // 1) vender armas sobressalentes (ferreiro compra)
-        for (const junk of this.sellableJunk()) {
+        // 1) liquidar o loot que este mercador aceita
+        const isSmith = /gandlf|william|blacksmith/i.test(merchant.name ?? "");
+        const toSell = this.sellableJunk()
+            .filter((it) => this.sellsAtBlacksmith(it) === isSmith)
+            .slice(0, AI.maxSellPerVisit);
+        let earned = 0;
+        let soldCount = 0;
+        for (const junk of toSell) {
             const quote = await this.request("shop_sell_request", {
                 npc_entity_id: merchant.id, item_id: junk.item_id, count: junk.count ?? 1,
             });
-            if (!quote.data.success) continue;
+            if (!quote.data.success) continue; // inclui category_rejected: segue para o proximo
             const sold = await this.request("shop_sell_confirm_request", {
                 npc_entity_id: merchant.id, item_id: junk.item_id, count: junk.count ?? 1,
             });
-            if (sold.data.success) this.log(`vendeu ${junk.name} por ${quote.data.offered_price} de ouro`);
+            if (sold.data.success) {
+                earned += quote.data.offered_price ?? 0;
+                soldCount++;
+                this.inventory.delete(junk.item_id); // broadcast confirma; otimista p/ nao revender
+            }
         }
+        // o ouro so chega no broadcast inventory_gold_update; nao logar this.me.gold aqui (defasado)
+        if (soldCount > 0) this.log(`vendeu ${soldCount} itens por ${earned} de ouro`);
 
         // 2) reparar arma equipada
         const eq = this.equippedWeapon();

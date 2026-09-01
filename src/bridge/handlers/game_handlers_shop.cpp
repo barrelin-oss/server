@@ -695,6 +695,12 @@ void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_m
 
     auto new_item_id = create_result.value();
 
+    // create_from_template leaves owner unset (entity_id{}), and item_ops::equip_item
+    // rejects any item whose owner != player with "Item not owned by player". Without
+    // this, every weapon bought through the v1 shop path was impossible to equip.
+    // The v2 path gets this for free via item_ops::shop_buy -> set_owner.
+    item_->set_owner(new_item_id, owner_id);
+
     // Add to inventory
     auto add_result = inventory_->add_item(owner_id, new_item_id, count);
     if (add_result != inventory::inventory_result::success)

@@ -243,6 +243,10 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     auto result = item_ops::equip_item(owner_eid, target_item_id, target_slot, item_, inventory_, &plr->equipment);
     if (!result.success)
     {
+        // O motivo vinha sendo descartado: o cliente so recebia um ack false sem contexto,
+        // entao uma falha de equipar era indistinguivel de um pacote perdido.
+        LOG_WARN(bridge, "Player {} failed to equip item {} to slot {}: {}",
+                 pid.value, target_item_id.value, slot_name, result.error);
         conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }

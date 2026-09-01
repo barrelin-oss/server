@@ -148,6 +148,8 @@ class BotClient {
         this.restStartedAt = 0;
         this.restBlockedUntil = 0;
 
+        this.stats = { str: 0, dex: 0, int: 0, mag: 0 };
+
         // fome (bloqueia 100% do regen no servidor quando chega a 0)
         this.hunger = 100;
         this.lastEatAt = 0;
@@ -515,6 +517,7 @@ class BotClient {
             level: c.level, gold: c.gold, exp: c.experience, map: c.map_name,
         };
         if (c.hunger_level !== undefined) this.hunger = c.hunger_level;
+        this.stats = { str: c.str ?? 0, dex: c.dex ?? 0, int: c.int ?? 0, mag: c.mag ?? 0 };
         this.spells = new Set((res.data.spells ?? []).map((s) => s.spell_id));
         if (this.isMage()) this.log(`mago com ${this.spells.size} spells, MP ${this.me.mp}/${this.me.maxMp}`);
         for (const e of res.data.world?.entities ?? []) {
@@ -550,6 +553,7 @@ class BotClient {
         try {
             await this.selfHeal();
             this.autoPotion();
+            await this.equipBestWeapon();
             if (!this.combatMode) {
                 const res = await this.request("combat_mode_change_request");
                 this.combatMode = !!res.data.combat_mode;
@@ -573,7 +577,6 @@ class BotClient {
                 return;
             }
             if (this.restingTick()) return;
-            await this.equipBestWeapon();
             await this.partyTick();
             if (await this.shoppingTick()) return;
             if (await this.lootNearby(2)) return; // drop na porta: pega antes de continuar a luta
@@ -920,7 +923,22 @@ class BotClient {
     }
 
     weapons() {
-        return [...this.inventory.values()].filter((it) => it.type === "weapon" && !this.isBroken(it));
+        return [...this.inventory.values()].filter(
+            (it) => it.type === "weapon" && !this.isBroken(it) && this.canUse(it)
+        );
+    }
+
+    // Espelha item_effect.h check_requirements. Campos ausentes (schema B, sem
+    // *_req) contam como atendidos — so o level_limit costuma vir nesse formato.
+    canUse(it) {
+        const st = this.stats ?? { str: 0, dex: 0, int: 0, mag: 0 };
+        const lvlReq = it.level_req ?? it.level_limit ?? 0;
+        if (this.me.level < lvlReq) return false;
+        if (st.str < (it.str_req ?? 0)) return false;
+        if (st.dex < (it.dex_req ?? 0)) return false;
+        if (st.int < (it.int_req ?? 0)) return false;
+        if (st.mag < (it.mag_req ?? 0)) return false;
+        return true;
     }
 
     // durability 0 = item_ops::equip_item recusa com "Item is broken"
@@ -1150,8 +1168,12 @@ class BotClient {
         // 3) comprar arma se não tem nenhuma (a mais barata que conseguir pagar)
         if (this.weapons().length === 0) {
             const affordable = catalog
-                .filter((c) => (c.category ?? "").includes("weapon") || /sword|dagger|axe|gauche/i.test(c.name))
+                .filter((c) => (c.category ?? "") === 1 || /sword|dagger|axe|gauche/i.test(c.name))
                 .filter((c) => c.price <= this.me.gold)
+                // O catalogo expoe level_limit: a Dagger exige level 10 e a ShortSword
+                // nenhum, mas todas custam 50 — sem este filtro o bot comprava a Dagger,
+                // nao conseguia equipar, e repetia a compra a cada cooldown.
+                .filter((c) => this.me.level >= (c.level_limit ?? 0))
                 .sort((a, b) => a.price - b.price)[0];
             if (affordable) {
                 const buy = await this.request("shop_buy_request", {

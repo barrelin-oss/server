@@ -163,6 +163,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     // Check alive
     if (plr->is_dead())
     {
+        LOG_WARN(bridge, "Player {} equip rejected for item {}: player is dead", pid.value, target_item_id.value);
         conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
@@ -171,6 +172,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     auto trade_partner = inventory_->get_trade_partner(owner_eid);
     if (trade_partner.is_valid())
     {
+        LOG_WARN(bridge, "Player {} equip rejected for item {}: player is trading", pid.value, target_item_id.value);
         conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
@@ -179,6 +181,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     auto* itm = item_->get_item(target_item_id);
     if (!itm)
     {
+        LOG_WARN(bridge, "Player {} equip rejected for item {}: item not found in item_system", pid.value, target_item_id.value);
         conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
@@ -186,6 +189,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     // Validate item is equippable
     if (!itm->is_equipment() || itm->equip_position == item::equip_pos::none)
     {
+        LOG_WARN(bridge, "Player {} equip rejected for item {}: item is not equipment", pid.value, target_item_id.value);
         conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
@@ -193,6 +197,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
     // Validate target slot is compatible with item
     if (!player::is_valid_slot_for_item(itm->equip_position, target_slot))
     {
+        LOG_WARN(bridge, "Player {} equip rejected for item {}: slot does not match item equip_pos", pid.value, target_item_id.value);
         conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }
@@ -206,6 +211,7 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
                                         plr->computed.magic);
     if (!req.can_use())
     {
+        LOG_WARN(bridge, "Player {} equip rejected for item {}: stat/level requirements not met", pid.value, target_item_id.value);
         conn->send_raw(network::make_equip_result(false, slot_name).dump());
         return;
     }

@@ -392,6 +392,10 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
                         item_json["name"] = tmpl->name;
                         item_json["price"] = npc::calculate_buy_price(tmpl->price, 1, player->base.charisma);
                         item_json["base_price"] = tmpl->price;
+                        // Sem isto o cliente nao tem como saber que a Dagger exige level 10
+                        // e a ShortSword nao exige nada: compra a mais barata e nao consegue equipar.
+                        item_json["level_limit"] = tmpl->level_limit;
+                        item_json["category"] = tmpl->category;
                     }
                 }
                 items_array.push_back(std::move(item_json));
@@ -721,14 +725,30 @@ void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_m
 
         // Send inventory item update for the new item
         auto* bought_inv = inventory_->get_inventory(owner_id);
-        if (bought_inv)
+        if (!bought_inv)
+        {
+            LOG_WARN(bridge, "shop_buy: no inventory for owner {} - client never learns about item {}",
+                     owner_id.value, new_item_id.value);
+        }
+        else
         {
             auto* bought_entry = bought_inv->get_item(new_item_id);
-            if (bought_entry)
+            if (!bought_entry)
+            {
+                LOG_WARN(bridge, "shop_buy: item {} not found in inventory of {} right after add_item",
+                         new_item_id.value, owner_id.value);
+            }
+            else
             {
                 auto item_msg = network::build_inventory_item_msg(new_item_id, item_, item_registry_, bought_entry);
-                if (item_msg)
+                if (!item_msg)
+                {
+                    LOG_WARN(bridge, "shop_buy: could not build inventory_item_msg for item {}", new_item_id.value);
+                }
+                else
+                {
                     conn->send(network::make_inventory_item_update(*item_msg));
+                }
             }
         }
 

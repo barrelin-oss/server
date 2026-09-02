@@ -56,6 +56,13 @@ const AI = {
     // MAG nunca; depois DEX e prioridade e STR vem em segundo.
     // Mago: INT continua subindo (circulos altos e os campos de chao pedem 56/59/120).
     statIntTargetWarrior: 32,
+    // Magias que cada papel tenta aprender, em ordem de prioridade (ids do magic.yaml).
+    // O guerreiro sobe INT justamente ate Protection-From-Magic; Create-Food vem no
+    // caminho (int_req 18) e tira o custo de comprar comida.
+    spellsWanted: {
+        warrior: [2, 33],
+        mage: [0, 1, 2, 33, 32],
+    },
     statAllocCooldownMs: 1500,
 
     castCooldownMs: 1500,
@@ -713,6 +720,21 @@ class BotClient {
         );
     }
 
+    // Requisitos e precos reais vem do catalogo; aqui usamos os minimos conhecidos
+    // so para decidir se vale a viagem (o servidor valida de novo na hora).
+    pendingSpell() {
+        const wanted = AI.spellsWanted[this.isMage() ? "mage" : "warrior"] ?? [];
+        const minInt = { 0: 0, 1: 0, 2: 18, 32: 30, 33: 32 };
+        const minGold = { 0: 0, 1: 0, 2: 100, 32: 800, 33: 850 };
+        for (const sid of wanted) {
+            if (this.spells.has(sid)) continue;
+            if (this.stats.int < (minInt[sid] ?? 0)) continue;
+            if (this.me.gold < (minGold[sid] ?? 0)) continue;
+            return sid;
+        }
+        return null;
+    }
+
     mpPotions() {
         return [...this.inventory.values()].filter((it) => /blue.?potion/i.test(it.name));
     }
@@ -1085,6 +1107,12 @@ class BotClient {
         if (this.weapons().length === 0 && this.me.gold >= AI.weaponMinGold) {
             return { merchantRe: /gandlf|william|blacksmith/i, essential: true, reason: `comprar arma (ouro ${this.me.gold})` };
         }
+        // Magia ao alcance (INT e ouro suficientes) justifica a viagem: e o unico jeito
+        // de converter os pontos de INT alocados em algo util.
+        const spellGoal = this.pendingSpell();
+        if (spellGoal) {
+            return { merchantRe: /shopkeeper/i, reason: `aprender magia #${spellGoal}` };
+        }
         const mpPots = this.mpPotions().reduce((n, it) => n + (it.count ?? 1), 0);
         if (this.isMage() && mpPots < 2 && this.me.gold >= 100) {
             return { merchantRe: /shopkeeper/i, reason: `comprar pocoes de mana (tem ${mpPots})` };
@@ -1270,6 +1298,25 @@ class BotClient {
                 } else {
                     this.log(`compra de ${affordable.name} falhou: ${buy.data.error ?? "?"}`);
                 }
+            }
+        }
+
+        // 3b) aprender magias que este NPC ensina e o bot ja qualifica
+        const wanted = AI.spellsWanted[this.isMage() ? "mage" : "warrior"] ?? [];
+        for (const sid of wanted) {
+            const offer = (result.interaction_data?.spells ?? []).find((sp) => sp.spell_id === sid);
+            if (!offer || offer.known || this.spells.has(sid)) continue;
+            if (this.stats.int < (offer.int_req ?? 0) || this.stats.mag < (offer.mag_req ?? 0)) continue;
+            if (this.me.gold < (offer.cost ?? 0)) continue;
+            const res = await this.request("learn_spell_request", {
+                npc_entity_id: merchant.id, spell_id: sid,
+            });
+            if (res.data.success) {
+                this.spells.add(sid);
+                this.me.gold = res.data.gold ?? this.me.gold;
+                this.log(`aprendeu ${offer.name} por ${offer.cost} de ouro`);
+            } else if (res.data.error !== "requirements_not_met" && res.data.error !== "not_enough_gold") {
+                this.log(`aprender ${offer.name} falhou: ${res.data.error ?? "?"}`);
             }
         }
 

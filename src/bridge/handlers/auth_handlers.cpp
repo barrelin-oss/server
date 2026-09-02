@@ -1643,6 +1643,7 @@ void auth_handlers::save_player_state(player_id pid)
                         .id = itm->id.value,
                         .character_id = static_cast<int32_t>(player->character_id.value),
                         .template_id = itm->template_id.value,
+                        .name = itm->name,
                         .location = auth::item_location::inventory,
                         .slot = 0, // Slot is meaningless in entry-based inventory
                         .count = entry.count,
@@ -1697,6 +1698,7 @@ void auth_handlers::save_player_state(player_id pid)
                                 .id = itm->id.value,
                                 .character_id = static_cast<int32_t>(player->character_id.value),
                                 .template_id = itm->template_id.value,
+                                .name = itm->name,
                                 .location = auth::item_location::bank,
                                 .slot = flat_slot,
                                 .count = itm->count,

@@ -1207,17 +1207,18 @@ void auth_system::save_items(player_id char_id, const std::vector<item_row>& ite
     for (const auto& ir : items)
     {
         auto ins_result = database_->execute_params(
-            R"(INSERT INTO items (id, character_id, template_id, location, slot, count,
+            R"(INSERT INTO items (id, character_id, template_id, name, location, slot, count,
                                   durability, max_durability, color, bound_to,
                                   upgrade_level, main_enchant_type, main_enchant_value,
                                   sub_enchant_type, sub_enchant_value,
                                   custom_made, custom_quality, pos_x, pos_y, z_order,
                                   bank_page, bank_slot)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                       $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22))",
+                       $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23))",
             static_cast<int>(ir.id),
             static_cast<int>(ir.character_id),
             static_cast<int>(ir.template_id),
+            ir.name,
             static_cast<int>(ir.location),
             static_cast<int>(ir.slot),
             static_cast<int>(ir.count),

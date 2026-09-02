@@ -30,6 +30,7 @@ struct item_row
     uint32_t id{0};
     int32_t character_id{0};
     uint32_t template_id{0};
+    std::string name; // gravado no banco para inspecao; a fonte de verdade continua o template
     item_location location{item_location::inventory};
     int16_t slot{0};       // Legacy flat slot (deprecated for bank, kept for ordering)
     int16_t count{1};

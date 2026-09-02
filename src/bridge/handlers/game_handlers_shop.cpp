@@ -14,12 +14,15 @@
 #include "item/item_system.h"
 #include "item/item_ops.h"
 #include "item/item_serialization.h"
+#include "magic/magic_system.h"
 #include "crafting/manufacturing_system.h"
 #include "crafting/alchemy_system.h"
 #include "audit/item_audit_system.h"
 #include "core/subsystem.h"
 #include "core/logger.h"
 #include "perf/perf_stats.h"
+
+#include <algorithm>
 
 namespace hb::bridge
 {
@@ -402,6 +405,27 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
             }
             shop_data["items"] = std::move(items_array);
 
+            // Magias ensinaveis por este NPC. O cliente precisa do requisito e do preco
+            // para decidir; "known" evita oferecer o que o jogador ja sabe.
+            auto* magic_sys = subsystems().get<magic::magic_system>();
+            auto spells_array = nlohmann::json::array();
+            if (magic_sys)
+            {
+                for (auto sid : shop->spells)
+                {
+                    const auto* sp = magic_sys->get_spell(spell_id{sid});
+                    if (!sp)
+                        continue;
+                    spells_array.push_back({{"spell_id", sid},
+                                            {"name", sp->name},
+                                            {"int_req", sp->int_requirement},
+                                            {"mag_req", sp->mag_requirement},
+                                            {"cost", sp->gold_cost},
+                                            {"known", magic_sys->knows_spell(player->ecs_entity, spell_id{sid})}});
+                }
+            }
+            shop_data["spells"] = std::move(spells_array);
+
             network::interact_result_msg result{.success = true,
                                                 .target_id = data.target_id,
                                                 .interaction_type = "shop",
@@ -781,6 +805,107 @@ void game_handlers::handle_shop_buy(connection_id conn_id, const network::json_m
     }
 
     LOG_DEBUG(bridge, "Player {} bought {}x '{}' for {} gold", check.plr->id.value, count, tmpl->name, total_price);
+}
+
+// ========== Learn Spell ==========
+
+// Ate agora as magias so eram concedidas no primeiro login, por INT/MAG, com um TODO
+// em auth_handlers. Isso significava que subir INT depois nunca destravava nada.
+// Aqui o jogador troca ouro por magia num NPC que a ensine, com requisito e preco
+// vindos do magic.yaml.
+void game_handlers::handle_learn_spell(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    auto data_result = network::learn_spell_request_data::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    const auto& data = data_result.value();
+    const auto sid = spell_id{data.spell_id};
+
+    auto check = validate_npc_interaction(conn_id, msg.seq, data.npc_entity_id);
+    if (!check.valid)
+        return;
+
+    auto* magic_sys = subsystems().get<magic::magic_system>();
+    if (!magic_sys || !shop_registry_ || !inventory_)
+    {
+        send_error(conn_id, msg.seq, "internal_error", "Required systems unavailable");
+        return;
+    }
+
+    // O NPC ensina esta magia?
+    auto* shop = shop_registry_->get_shop(check.target_npc->name);
+    if (!shop || std::find(shop->spells.begin(), shop->spells.end(), data.spell_id) == shop->spells.end())
+    {
+        conn->send(network::make_learn_spell_response(msg.seq, false, data.spell_id, 0, "not_taught_here"));
+        return;
+    }
+
+    const auto* tmpl = magic_sys->get_spell(sid);
+    if (!tmpl)
+    {
+        conn->send(network::make_learn_spell_response(msg.seq, false, data.spell_id, 0, "unknown_spell"));
+        return;
+    }
+
+    auto owner_eid = entity_id(check.plr->id.value);
+    const auto gold = static_cast<int64_t>(inventory_->get_gold(owner_eid));
+
+    if (magic_sys->knows_spell(check.plr->ecs_entity, sid))
+    {
+        conn->send(network::make_learn_spell_response(msg.seq, false, data.spell_id, gold, "already_known"));
+        return;
+    }
+
+    if (check.plr->computed.intelligence < tmpl->int_requirement ||
+        check.plr->computed.magic < tmpl->mag_requirement)
+    {
+        conn->send(network::make_learn_spell_response(msg.seq, false, data.spell_id, gold, "requirements_not_met"));
+        return;
+    }
+
+    if (gold < tmpl->gold_cost)
+    {
+        conn->send(network::make_learn_spell_response(msg.seq, false, data.spell_id, gold, "not_enough_gold"));
+        return;
+    }
+
+    if (tmpl->gold_cost > 0)
+    {
+        inventory_->remove_gold(owner_eid, static_cast<int32_t>(tmpl->gold_cost));
+    }
+    magic_sys->learn_spell(check.plr->ecs_entity, sid);
+
+    const auto new_gold = static_cast<int64_t>(inventory_->get_gold(owner_eid));
+    conn->send(network::make_learn_spell_response(msg.seq, true, data.spell_id, new_gold, {}));
+    conn->send_raw(network::make_inventory_gold_update(static_cast<int32_t>(new_gold)).dump());
+
+    // Lista atualizada, para o cliente saber que pode castar
+    std::vector<network::known_spell_msg> known;
+    magic_sys->for_each_spell(
+        [&](auto each_sid, const auto&)
+        {
+            if (magic_sys->knows_spell(check.plr->ecs_entity, each_sid))
+            {
+                known.push_back({.spell_id = static_cast<uint16_t>(each_sid.value),
+                                 .level = magic_sys->get_spell_level(check.plr->ecs_entity, each_sid),
+                                 .total_casts = 0});
+            }
+        });
+    conn->send(network::make_spell_list_update(known));
+
+    LOG_INFO(bridge,
+             "Player {} learned '{}' from '{}' for {} gold",
+             check.plr->id.value,
+             tmpl->name,
+             check.target_npc->name,
+             tmpl->gold_cost);
 }
 
 void game_handlers::handle_shop_sell(connection_id conn_id, const network::json_message& msg)

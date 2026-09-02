@@ -99,6 +99,15 @@ auto shop_registry::load_from_file(const std::filesystem::path& path) -> result<
             }
         }
 
+        // Magias ensinaveis por este NPC (ids do magic.yaml)
+        if (node["spells"] && node["spells"].IsSequence())
+        {
+            for (const auto& sp : node["spells"])
+            {
+                shop.spells.push_back(static_cast<uint16_t>(sp.as<int>()));
+            }
+        }
+
         LOG_DEBUG(general,
                   "  Shop '{}': {} items for sale, {} buy categories",
                   npc_name,

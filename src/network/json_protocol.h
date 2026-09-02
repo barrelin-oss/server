@@ -482,6 +482,10 @@ enum class json_message_type
     available_commands,          // S->C: Full command list on enter_game
     command_availability_update, // S->C: Partial update when state changes
 
+    // Spell learning (gold -> spell, at an NPC that teaches it)
+    learn_spell_request,  // C->S: Ask to learn a spell from a nearby teacher
+    learn_spell_response, // S->C: Result plus remaining gold
+
     // Stat points (3 awarded per level, previously unspendable)
     stat_point_request,  // C->S: Spend one stat point on a stat
     stat_point_response, // S->C: Result plus remaining points
@@ -1271,6 +1275,10 @@ enum class json_message_type
         return "available_commands";
     case json_message_type::command_availability_update:
         return "command_availability_update";
+    case json_message_type::learn_spell_request:
+        return "learn_spell_request";
+    case json_message_type::learn_spell_response:
+        return "learn_spell_response";
     case json_message_type::stat_point_request:
         return "stat_point_request";
     case json_message_type::stat_point_response:
@@ -2482,6 +2490,17 @@ struct drop_item_request_data
 
 [[nodiscard]] auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view error = "") -> json_message;
 [[nodiscard]] auto make_inventory_item_update(const inventory_item_msg& item) -> json_message;
+
+struct learn_spell_request_data
+{
+    uint32_t npc_entity_id{0};
+    uint16_t spell_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<learn_spell_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_learn_spell_response(
+    uint32_t seq, bool success, uint16_t spell_id, int64_t gold, std::string_view error) -> json_message;
 
 // Stat point spending. stat: 0=str 1=dex 2=vit 3=int 4=mag 5=cha, matching
 // player_system::add_stat_point.

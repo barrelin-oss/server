@@ -773,6 +773,10 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         handle_player_use_item(conn_id, msg);
         return true;
 
+    case network::json_message_type::learn_spell_request:
+        handle_learn_spell(conn_id, msg);
+        return true;
+
     case network::json_message_type::stat_point_request:
         handle_stat_point(conn_id, msg);
         return true;

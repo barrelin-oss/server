@@ -34,6 +34,7 @@ struct shop_config
     std::vector<uint8_t> buy_categories;    // item_category values the shop will buy
     std::vector<uint8_t> repair_categories; // item_category values the shop can repair
     std::vector<shop_item_entry> items;     // items for sale
+    std::vector<uint16_t> spells;           // spell ids this NPC can teach (magic.yaml)
 };
 
 } // namespace hb::npc

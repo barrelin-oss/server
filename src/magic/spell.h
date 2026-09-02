@@ -120,6 +120,7 @@ struct spell_template
     int16_t level_requirement{0};
     int16_t int_requirement{0};
     int16_t mag_requirement{0};
+    int32_t gold_cost{0}; // preco cobrado pelo NPC que ensina
 
     // Effect system integration
     magic_type spell_type{};               // Magic type from YAML (effect group key)

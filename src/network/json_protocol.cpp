@@ -403,6 +403,8 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"player_use_item_response", json_message_type::player_use_item_response},
     {"available_commands", json_message_type::available_commands},
     {"command_availability_update", json_message_type::command_availability_update},
+    {"learn_spell_request", json_message_type::learn_spell_request},
+    {"learn_spell_response", json_message_type::learn_spell_response},
     {"stat_point_request", json_message_type::stat_point_request},
     {"stat_point_response", json_message_type::stat_point_response},
     {"combat_mode_change_request", json_message_type::combat_mode_change_request},
@@ -3044,6 +3046,40 @@ auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view
         j["error"] = std::string(error);
     }
     return json_message{.type = json_message_type::player_drop_item_response, .seq = seq, .data = j};
+}
+
+auto learn_spell_request_data::from_json(const nlohmann::json& j) -> result<learn_spell_request_data, std::string>
+{
+    try
+    {
+        learn_spell_request_data data;
+        if (!j.contains("npc_entity_id") || !j["npc_entity_id"].is_number())
+        {
+            return result<learn_spell_request_data, std::string>::err("Missing or invalid 'npc_entity_id'");
+        }
+        data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+        if (!j.contains("spell_id") || !j["spell_id"].is_number())
+        {
+            return result<learn_spell_request_data, std::string>::err("Missing or invalid 'spell_id'");
+        }
+        data.spell_id = j["spell_id"].get<uint16_t>();
+        return result<learn_spell_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<learn_spell_request_data, std::string>::err(e.what());
+    }
+}
+
+auto make_learn_spell_response(
+    uint32_t seq, bool success, uint16_t spell_id, int64_t gold, std::string_view error) -> json_message
+{
+    nlohmann::json data{{"success", success}, {"spell_id", spell_id}, {"gold", gold}};
+    if (!error.empty())
+    {
+        data["error"] = std::string(error);
+    }
+    return json_message{.type = json_message_type::learn_spell_response, .seq = seq, .data = std::move(data)};
 }
 
 auto stat_point_request_data::from_json(const nlohmann::json& j) -> result<stat_point_request_data, std::string>

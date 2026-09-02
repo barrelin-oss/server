@@ -1707,6 +1707,7 @@ void application::load_game_configs()
                         ms.int_scaling = reg_spell.int_scaling;
                         ms.mag_scaling = reg_spell.mag_scaling;
                         ms.int_requirement = reg_spell.int_req;
+                        ms.gold_cost = reg_spell.gold_cost;
                         ms.level_requirement = reg_spell.mag_level_req;
                         ms.spell_type = reg_spell.type;
                         ms.duration_ms = static_cast<int32_t>(reg_spell.effect_duration.count());

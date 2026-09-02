@@ -79,6 +79,7 @@ struct spell_template
 
     // Requirements
     int16_t int_req{0};
+    int32_t gold_cost{0}; // preco para aprender (campo "cost" do magic.yaml)
     int16_t mag_level_req{0};
     int16_t staff_required{0}; // 0 = any, >0 = specific staff type
 

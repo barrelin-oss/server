@@ -139,6 +139,7 @@ auto magic_registry::load_from_file(const std::filesystem::path& path) -> result
         spell.mana_cost = static_cast<int16_t>(node["mana_cost"].as<int>(0));
         spell.cast_time_ms = static_cast<int16_t>(node["delay"].as<int>(0));
         spell.int_req = static_cast<int16_t>(node["int_req"].as<int>(0));
+        spell.gold_cost = node["cost"].as<int>(0);
         spell.range = static_cast<int16_t>(node["range1"].as<int>(0));
         spell.area_radius = static_cast<int16_t>(node["range2"].as<int>(0));
 

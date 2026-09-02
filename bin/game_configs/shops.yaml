@@ -25,6 +25,9 @@ shops:
       - { item_id: 93, count: 1 }    # BluePotion (MP)
       - { item_id: 95, count: 1 }    # GreenPotion (SP)
       - { item_id: 99, count: 1 }    # Meat (comida: repoe fome + hp_stock)
+    # Magias ensinaveis. Requisito (int_req/mag_req) e preco (cost) vem do magic.yaml.
+    # 0=Magic-Missile 1=Heal 2=Create-Food 32=Invisibility 33=Protection-From-Magic
+    spells: [0, 1, 2, 32, 33]
 
   ShopKeeper-E:
     type: general
@@ -35,6 +38,9 @@ shops:
       - { item_id: 93, count: 1 }    # BluePotion (MP)
       - { item_id: 95, count: 1 }    # GreenPotion (SP)
       - { item_id: 99, count: 1 }    # Meat (comida: repoe fome + hp_stock)
+    # Magias ensinaveis. Requisito (int_req/mag_req) e preco (cost) vem do magic.yaml.
+    # 0=Magic-Missile 1=Heal 2=Create-Food 32=Invisibility 33=Protection-From-Magic
+    spells: [0, 1, 2, 32, 33]
 
   # Blacksmiths - buy/sell/repair weapons and armor
   Gandlf:

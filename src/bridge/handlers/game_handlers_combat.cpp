@@ -1106,6 +1106,52 @@ auto game_handlers::get_respawn_position(const std::string& map_name) -> world::
 
 // ========== Combat Mode Change ==========
 
+// ========== Stat Points ==========
+
+// player_system::add_stat_point ja existia com os indices certos, mas nenhum caminho
+// chegava ate ele: era codigo morto e os 3 pontos por nivel ficavam presos para sempre.
+void game_handlers::handle_stat_point(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+
+    auto data_result = network::stat_point_request_data::from_json(msg.data);
+    if (data_result.is_err())
+    {
+        send_error(conn_id, msg.seq, "invalid_request", data_result.error());
+        return;
+    }
+    const auto stat = data_result.value().stat;
+
+    auto pid = conn->player();
+    auto* plr = players_->get_player(pid);
+    if (!plr)
+    {
+        send_error(conn_id, msg.seq, "invalid_player", "Player not found");
+        return;
+    }
+
+    if (plr->stats_pts.available <= 0)
+    {
+        conn->send(network::make_stat_point_response(msg.seq, false, stat, 0, "no_points_available"));
+        return;
+    }
+
+    players_->add_stat_point(pid, stat);
+
+    // Re-fetch: add_stat_point recalculates derived stats.
+    plr = players_->get_player(pid);
+    const int16_t remaining = plr ? plr->stats_pts.available : 0;
+    conn->send(network::make_stat_point_response(msg.seq, true, stat, remaining, {}));
+
+    if (plr)
+    {
+        send_stat_update(conn_id, *plr);
+        LOG_DEBUG(bridge, "Player {} spent a stat point on {} ({} left)", pid.value, stat, remaining);
+    }
+}
+
 void game_handlers::handle_combat_mode_change(connection_id conn_id, const network::json_message& msg)
 {
     auto* conn = require_in_game(conn_id, msg.seq);

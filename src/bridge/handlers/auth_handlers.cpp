@@ -1335,6 +1335,7 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                                                                                 .skin_color = char_data.skin_color,
                                                                                 .experience = char_data.experience,
                                                                                 .pk_count = char_data.pk_count,
+                                                                                .stat_points = char_data.stat_points_available,
                                                                                 .hunger_level = char_data.hunger_level,
                                                                                 .guild_name = enter_guild_name,
                                                                                 .guild_tag = enter_guild_tag,

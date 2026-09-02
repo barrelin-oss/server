@@ -773,6 +773,10 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         handle_player_use_item(conn_id, msg);
         return true;
 
+    case network::json_message_type::stat_point_request:
+        handle_stat_point(conn_id, msg);
+        return true;
+
     // Combat mode
     case network::json_message_type::combat_mode_change_request:
         handle_combat_mode_change(conn_id, msg);

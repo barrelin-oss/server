@@ -482,6 +482,10 @@ enum class json_message_type
     available_commands,          // S->C: Full command list on enter_game
     command_availability_update, // S->C: Partial update when state changes
 
+    // Stat points (3 awarded per level, previously unspendable)
+    stat_point_request,  // C->S: Spend one stat point on a stat
+    stat_point_response, // S->C: Result plus remaining points
+
     // Combat mode
     combat_mode_change_request,   // C->S: Toggle combat mode
     combat_mode_change_response,  // S->C: Confirm combat mode change
@@ -1267,6 +1271,10 @@ enum class json_message_type
         return "available_commands";
     case json_message_type::command_availability_update:
         return "command_availability_update";
+    case json_message_type::stat_point_request:
+        return "stat_point_request";
+    case json_message_type::stat_point_response:
+        return "stat_point_response";
     case json_message_type::combat_mode_change_request:
         return "combat_mode_change_request";
     case json_message_type::combat_mode_change_response:
@@ -1706,6 +1714,7 @@ struct character_data_msg
     int16_t skin_color;
     int64_t experience;
     int32_t pk_count;
+    int16_t stat_points{0}; // pontos por gastar; sem isto o cliente so descobre no proximo level up
     int32_t hunger_level;
     std::string guild_name;
     std::string guild_tag;
@@ -2473,6 +2482,18 @@ struct drop_item_request_data
 
 [[nodiscard]] auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view error = "") -> json_message;
 [[nodiscard]] auto make_inventory_item_update(const inventory_item_msg& item) -> json_message;
+
+// Stat point spending. stat: 0=str 1=dex 2=vit 3=int 4=mag 5=cha, matching
+// player_system::add_stat_point.
+struct stat_point_request_data
+{
+    int16_t stat{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<stat_point_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_stat_point_response(
+    uint32_t seq, bool success, int16_t stat, int16_t remaining, std::string_view error) -> json_message;
 [[nodiscard]] auto make_inventory_item_removed(uint32_t item_id) -> json_message;
 [[nodiscard]] auto make_inventory_weight_update(int32_t current_weight, int32_t max_weight) -> json_message;
 [[nodiscard]] auto make_bank_slot_update(int16_t page, int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;

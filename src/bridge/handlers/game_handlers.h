@@ -304,6 +304,7 @@ private:
     void handle_player_use_item(connection_id conn_id, const network::json_message& msg);
 
     // Combat mode
+    void handle_stat_point(connection_id conn_id, const network::json_message& msg);
     void handle_combat_mode_change(connection_id conn_id, const network::json_message& msg);
 
     // Item upgrade

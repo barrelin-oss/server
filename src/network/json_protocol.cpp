@@ -403,6 +403,8 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"player_use_item_response", json_message_type::player_use_item_response},
     {"available_commands", json_message_type::available_commands},
     {"command_availability_update", json_message_type::command_availability_update},
+    {"stat_point_request", json_message_type::stat_point_request},
+    {"stat_point_response", json_message_type::stat_point_response},
     {"combat_mode_change_request", json_message_type::combat_mode_change_request},
     {"combat_mode_change_response", json_message_type::combat_mode_change_response},
     {"combat_mode_change_broadcast", json_message_type::combat_mode_change_broadcast},
@@ -1293,6 +1295,7 @@ auto character_data_msg::to_json() const -> nlohmann::json
                             {"skin_color", skin_color},
                             {"experience", experience},
                             {"pk_count", pk_count},
+                            {"stat_points", stat_points},
                             {"hunger_level", hunger_level},
                             {"guild_name", guild_name},
                             {"guild_tag", guild_tag},
@@ -3041,6 +3044,39 @@ auto make_player_drop_item_response(uint32_t seq, bool success, std::string_view
         j["error"] = std::string(error);
     }
     return json_message{.type = json_message_type::player_drop_item_response, .seq = seq, .data = j};
+}
+
+auto stat_point_request_data::from_json(const nlohmann::json& j) -> result<stat_point_request_data, std::string>
+{
+    try
+    {
+        stat_point_request_data data;
+        if (!j.contains("stat") || !j["stat"].is_number())
+        {
+            return result<stat_point_request_data, std::string>::err("Missing or invalid 'stat'");
+        }
+        data.stat = j["stat"].get<int16_t>();
+        if (data.stat < 0 || data.stat > 5)
+        {
+            return result<stat_point_request_data, std::string>::err("'stat' out of range (0-5)");
+        }
+        return result<stat_point_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<stat_point_request_data, std::string>::err(e.what());
+    }
+}
+
+auto make_stat_point_response(
+    uint32_t seq, bool success, int16_t stat, int16_t remaining, std::string_view error) -> json_message
+{
+    nlohmann::json data{{"success", success}, {"stat", stat}, {"points_remaining", remaining}};
+    if (!error.empty())
+    {
+        data["error"] = std::string(error);
+    }
+    return json_message{.type = json_message_type::stat_point_response, .seq = seq, .data = std::move(data)};
 }
 
 auto make_inventory_item_update(const inventory_item_msg& item) -> json_message

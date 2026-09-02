@@ -172,6 +172,8 @@ class BotClient {
 
         this.stats = { str: 0, dex: 0, int: 0, mag: 0 };
         this.statPoints = 0;
+        this.swings = 0; // golpes que o servidor chegou a rolar (resolved)
+        this.hits = 0;
         this.lastStatAlloc = 0;
 
         // fome (bloqueia 100% do regen no servidor quando chega a 0)
@@ -852,9 +854,17 @@ class BotClient {
                 target_id: target.id,
                 timestamp: Date.now(),
             });
-            if (res.data.success && res.data.result?.hit) {
-                const r = res.data.result;
-                this.log(`acertou ${target.name}: ${r.damage} de dano${r.critical ? " (CRÍTICO)" : ""} - HP alvo ${r.target_hp}/${r.target_hp_max}`);
+            const r = res.data.result;
+            // So conta quando o servidor rolou o ataque: hit=false tambem cobre
+            // recusas (fora de alcance, alvo morto), que nao sao erro de mira.
+            if (r?.resolved) {
+                this.swings++;
+                if (r.hit) {
+                    this.hits++;
+                        this.log(`acertou ${target.name}: ${r.damage} de dano${r.critical ? " (CRÍTICO)" : ""} - HP alvo ${r.target_hp}/${r.target_hp_max}`);
+                } else {
+                    this.log(`errou ${target.name}${r.dodged ? " (esquiva)" : ""}`);
+                }
             }
         } else {
             await this.stepTowards(target);
@@ -1391,6 +1401,7 @@ class BotClient {
                 `HP ${this.me.hp}/${this.me.maxHp}, MP ${this.me.mp}/${this.me.maxMp}, ` +
                 `ouro ${this.me.gold}, pots ${potions}, comida ${this.food().reduce((n, it) => n + (it.count ?? 1), 0)}, hunger ${this.hunger}, ` +
                 `arma ${eq ? `${eq.name} ${eq.durability}/${eq.max_durability}` : "nenhuma"}, ` +
+                `acerto ${this.swings ? Math.round((this.hits / this.swings) * 100) : 0}% (${this.hits}/${this.swings}), ` +
                 `pos (${this.me.x},${this.me.y}), ${mobs} mobs, ${this.inventory.size} itens`
         );
     }

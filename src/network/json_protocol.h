@@ -1839,6 +1839,11 @@ struct visible_entity_msg
 struct attack_result_msg
 {
     bool hit{false};
+    // hit=false cobre tanto um golpe que errou quanto dezenas de recusas (fora de
+    // alcance, alvo morto, rapido demais). Sem separar os dois, o cliente nao consegue
+    // medir taxa de acerto nenhuma. resolved=true significa que o ataque foi rolado.
+    bool resolved{false};
+    bool dodged{false}; // errou por esquiva do alvo (vs erro do atacante)
     bool critical{false};
     int32_t damage{0};
     uint32_t target_id{0};

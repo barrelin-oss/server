@@ -378,6 +378,8 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
 
     // Build response
     network::attack_result_msg result{.hit = combat_result.hit.is_hit(),
+                                      .resolved = true,
+                                      .dodged = combat_result.hit.is_dodged(),
                                       .critical = combat_result.hit.is_critical(),
                                       .damage = combat_result.hit.final_damage,
                                       .target_id = data.target_id,

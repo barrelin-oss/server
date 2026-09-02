@@ -1448,6 +1448,8 @@ auto visible_entity_msg::to_json() const -> nlohmann::json
 auto attack_result_msg::to_json() const -> nlohmann::json
 {
     auto j = nlohmann::json{{"hit", hit},
+                            {"resolved", resolved},
+                            {"dodged", dodged},
                             {"critical", critical},
                             {"damage", damage},
                             {"target_id", target_id},

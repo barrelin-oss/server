@@ -62,6 +62,11 @@ const AI = {
     // o bot volta a cacar em vez de ficar parado para sempre.
     restMaxMs: 60000,
     restRetryMs: 30000,
+    // Teto de fuga: fugir so recupera se o regen estiver rodando. Com fome, sem
+    // pocao ou com o servidor parado o HP nunca chega em recoverHpThreshold e o
+    // bot foge para sempre - mesmo deadlock que o descanso tinha.
+    fleeMaxMs: 45000,
+    fleeRetryMs: 20000,
     // centro das cidades = pontos de respawn; alvo de emergencia p/ achar o mercador
     townByNation: { 1: { x: 240, y: 220 }, 2: { x: 65, y: 205 } },
 };
@@ -147,6 +152,8 @@ class BotClient {
         this.resting = false;
         this.restStartedAt = 0;
         this.restBlockedUntil = 0;
+        this.fleeStartedAt = 0;
+        this.fleeBlockedUntil = 0;
 
         this.stats = { str: 0, dex: 0, int: 0, mag: 0 };
 
@@ -572,7 +579,7 @@ class BotClient {
                     return;
                 }
             }
-            if (this.fleeing || this.me.hp / this.me.maxHp < AI.fleeHpThreshold) {
+            if (this.shouldFlee()) {
                 await this.fleeAndRecover();
                 return;
             }
@@ -691,15 +698,39 @@ class BotClient {
         return best;
     }
 
+    // Nao reentra na fuga durante a carencia: sem isso o teto abaixo nao teria efeito,
+    // porque o HP baixo re-dispararia a fuga ja no tick seguinte.
+    shouldFlee() {
+        if (this.fleeing) return true;
+        if (Date.now() < this.fleeBlockedUntil) return false;
+        return this.me.hp / this.me.maxHp < AI.fleeHpThreshold;
+    }
+
     async fleeAndRecover() {
         if (!this.fleeing) {
             this.fleeing = true;
+            this.fleeStartedAt = Date.now();
             this.targetId = 0;
             this.log(`HP crítico (${this.me.hp}/${this.me.maxHp}) - fugindo para recuperar`);
         }
         if (this.me.hp / this.me.maxHp >= AI.recoverHpThreshold) {
             this.fleeing = false;
+            this.fleeBlockedUntil = 0;
             this.log(`recuperado (${this.me.hp}/${this.me.maxHp}) - voltando à caça`);
+            return;
+        }
+        // Teto: se o HP nao subiu no tempo esperado o regen esta travado e fugir nao
+        // resolve. Volta a agir - lutar, comer, ir a loja - em vez de circular sem fim.
+        // Se morrer, o respawn na cidade destrava de qualquer jeito.
+        if (Date.now() - this.fleeStartedAt > AI.fleeMaxMs) {
+            this.fleeing = false;
+            this.fleeBlockedUntil = Date.now() + AI.fleeRetryMs;
+            // Descanso e fuga sao a mesma espera por regen: sem bloquear os dois, o bot
+            // saia da fuga e caia no descanso no mesmo tick, e a carencia nao servia p/ nada.
+            this.restBlockedUntil = this.fleeBlockedUntil;
+            this.log(
+                `fuga encerrada [sem recuperacao em ${AI.fleeMaxMs / 1000}s] (HP ${this.me.hp}/${this.me.maxHp})`
+            );
             return;
         }
         // afasta-se do mob vivo mais próximo; se nenhum por perto, fica parado regenerando

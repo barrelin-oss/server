@@ -207,8 +207,14 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path) -> result<s
         // --- Raw cfg fields ---
         if (node["hit_dice"])
             npc.hit_dice = static_cast<int16_t>(node["hit_dice"].as<int>());
-        if (node["defense"])
-            npc.defense = static_cast<int16_t>(node["defense"].as<int>());
+        // O npcs.yaml e gerado por tools/convert a partir do .cfg legado. "defense_ratio"
+        // ali NAO e absorcao de dano: e o denominador da chance de acerto, que em
+        // damage_calc.h vira calc_hit_chance(hit_rate, dodge_rate). Como o registry nunca
+        // preenchia dodge_rate, ele ficava 0 -> max(1,0) -> todo golpe acertava no teto
+        // de 99%. npc.defense (uma % de absorcao com teto 80) nao tem fonte no formato
+        // legado e continua 0 de proposito.
+        if (node["defense_ratio"])
+            npc.dodge_rate = static_cast<int16_t>(node["defense_ratio"].as<int>());
         if (node["hit_ratio"])
             npc.hit_ratio = static_cast<int16_t>(node["hit_ratio"].as<int>());
         if (node["min_bravery"])
@@ -223,8 +229,8 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path) -> result<s
             npc.attack_dice = static_cast<int16_t>(node["attack_dice"].as<int>());
         if (node["attack_sides"])
             npc.attack_sides = static_cast<int16_t>(node["attack_sides"].as<int>());
-        if (node["body_size"])
-            npc.body_size = static_cast<int16_t>(node["body_size"].as<int>());
+        if (node["size"])
+            npc.body_size = static_cast<int16_t>(node["size"].as<int>());
         if (node["action_limit"])
             npc.action_limit = static_cast<int16_t>(node["action_limit"].as<int>());
         if (node["action_time"])

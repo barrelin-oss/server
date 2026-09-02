@@ -212,6 +212,9 @@ auto npc_system::spawn_npc(npc_id template_id,
         new_npc->attack_bonus = tmpl->attack_bonus;
         new_npc->defense = tmpl->defense;
         new_npc->hit_rate = tmpl->hit_rate;
+        // Sem isto o dodge_rate ficava 0 mesmo com o template preenchido, e
+        // calc_hit_chance caia em max(1,0) — todo ataque acertava no teto de 99%.
+        new_npc->dodge_rate = tmpl->dodge_rate;
         new_npc->magic_defense = tmpl->magic_resist;
 
         // Extended combat stats from cfg

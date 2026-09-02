@@ -50,6 +50,14 @@ const AI = {
     shopCooldownMs: 30000,
     safeShoppingDist: 5,
     // magia (Fase 3 — magos)
+    // Alocacao de status (3 pontos por nivel). Indices do servidor:
+    // 0=str 1=dex 2=vit 3=int 4=mag 5=cha.
+    // Guerreiro: INT so ate destravar Protection-From-Magic (int_req 32 no magic.yaml);
+    // MAG nunca; depois DEX e prioridade e STR vem em segundo.
+    // Mago: INT continua subindo (circulos altos e os campos de chao pedem 56/59/120).
+    statIntTargetWarrior: 32,
+    statAllocCooldownMs: 1500,
+
     castCooldownMs: 1500,
     selfHealHpThreshold: 0.6,
     // descanso (regen natural: HP ~0.6/s, MP ~0.37/s — pot so em combate)
@@ -156,6 +164,8 @@ class BotClient {
         this.fleeBlockedUntil = 0;
 
         this.stats = { str: 0, dex: 0, int: 0, mag: 0 };
+        this.statPoints = 0;
+        this.lastStatAlloc = 0;
 
         // fome (bloqueia 100% do regen no servidor quando chega a 0)
         this.hunger = 100;
@@ -355,6 +365,7 @@ class BotClient {
                 break;
             case "experience_update":
                 this.me.exp = d.experience;
+                if (d.stat_points !== undefined) this.statPoints = d.stat_points;
                 if (d.level && d.level !== this.me.level) {
                     this.me.level = d.level;
                     this.log(`LEVEL UP! agora level ${d.level}`);
@@ -365,6 +376,9 @@ class BotClient {
             case "mp_update":
                 this.me.mp = d.mp ?? d.value ?? this.me.mp;
                 if (d.mp_max) this.me.maxMp = d.mp_max;
+                break;
+            case "stat_point_response":
+                if (d.points_remaining !== undefined) this.statPoints = d.points_remaining;
                 break;
             case "spell_list_update":
                 for (const s of d.spells ?? []) this.spells.add(s.spell_id ?? s);
@@ -524,6 +538,7 @@ class BotClient {
             level: c.level, gold: c.gold, exp: c.experience, map: c.map_name,
         };
         if (c.hunger_level !== undefined) this.hunger = c.hunger_level;
+        if (c.stat_points !== undefined) this.statPoints = c.stat_points;
         this.stats = { str: c.str ?? 0, dex: c.dex ?? 0, int: c.int ?? 0, mag: c.mag ?? 0 };
         this.spells = new Set((res.data.spells ?? []).map((s) => s.spell_id));
         if (this.isMage()) this.log(`mago com ${this.spells.size} spells, MP ${this.me.mp}/${this.me.maxMp}`);
@@ -561,6 +576,7 @@ class BotClient {
             await this.selfHeal();
             this.autoPotion();
             await this.equipBestWeapon();
+            await this.allocateStatPoints();
             if (!this.combatMode) {
                 const res = await this.request("combat_mode_change_request");
                 this.combatMode = !!res.data.combat_mode;
@@ -657,6 +673,44 @@ class BotClient {
             return true;
         }
         return false;
+    }
+
+    // Qual status merece o proximo ponto. null = nada a fazer.
+    nextStatToRaise() {
+        const st = this.stats;
+        if (this.isMage()) {
+            // Mago vive de INT; MAG entra so para acompanhar o custo das magias.
+            return st.int <= st.mag * 3 ? 3 : 4;
+        }
+        // Guerreiro: INT ate o alvo e para. MAG nunca.
+        if (st.int < AI.statIntTargetWarrior) return 3;
+        // DEX e prioridade, STR em segundo — mantem STR em torno da metade de DEX.
+        return st.str * 2 < st.dex ? 0 : 1;
+    }
+
+    // Gasta os pontos acumulados (3 por nivel). Sem isto eles ficavam presos para
+    // sempre: o servidor nem tinha mensagem para gasta-los ate agora.
+    async allocateStatPoints() {
+        if (this.statPoints <= 0) return;
+        if (Date.now() - this.lastStatAlloc < AI.statAllocCooldownMs) return;
+        const stat = this.nextStatToRaise();
+        if (stat === null) return;
+        this.lastStatAlloc = Date.now();
+        const res = await this.request("stat_point_request", { stat });
+        if (!res.data.success) {
+            this.statPoints = res.data.points_remaining ?? 0;
+            if (res.data.error !== "no_points_available") {
+                this.log(`alocacao de status falhou: ${res.data.error ?? "?"}`);
+            }
+            return;
+        }
+        const names = ["STR", "DEX", "VIT", "INT", "MAG", "CHA"];
+        const key = ["str", "dex", "vit", "int", "mag", "cha"][stat];
+        if (key in this.stats) this.stats[key]++;
+        this.statPoints = res.data.points_remaining ?? 0;
+        this.log(
+            `+1 ${names[stat]} (STR ${this.stats.str} DEX ${this.stats.dex} INT ${this.stats.int} MAG ${this.stats.mag}) - ${this.statPoints} pontos restantes`
+        );
     }
 
     mpPotions() {

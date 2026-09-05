@@ -503,13 +503,18 @@ class BotClient {
                 this.pendingLoot = null;
                 break;
             }
-            case "use_item_result":
-            case "skill_update":
-            case "skill_progress":
             case "hunger_update":
+                // So esta mensagem fala de fome. skill_update/skill_progress tambem trazem
+                // 'level' (o nivel da skill) e, no mesmo case, viravam 'hunger 5': o bot se
+                // achava faminto, comia sem parar e gastava todo o ouro em carne (187 Meat
+                // contra 5 espadas numa corrida) - e o 6.2/6.3 do HANDOFF.
                 this.hunger = d.level ?? this.hunger;
                 if (d.is_starving ?? d.starving) this.log(`FAMINTO (hunger ${this.hunger}) - regen bloqueado ate comer`);
                 break;
+            case "use_item_result":
+            case "skill_update":
+            case "skill_progress":
+                break; // silenciosos
             case "environment_update":
             case "combat_effect":
             case "combat_attack_broadcast":

@@ -452,6 +452,10 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Bots read hunger from the wrong message (root of "starving bots" and "no weapon")
+- `hunger_update`, `skill_update` and `skill_progress` shared one `case` that did `this.hunger = d.level`, so every skill progress message (level 5, 8...) became "hunger 5". The bot then believed it was starving, ate constantly and spent its gold on food: run 4 had 187 Meat purchases against 5 swords, 10 of 30 warriors unarmed with about 20 gold each, while the server-side hunger actually drains 1 point per minute. HANDOFF items 6.2 (hunger 0) and 6.3 (rich bots without weapons) trace back to this
+- `hunger_update` now has its own case; the skill messages are silent
+
 ### 2026-09-04: Bots stop looping on loot they cannot carry
 - Once a bot hit its carry limit the server put the item back ("Too heavy to carry", `pickup_result` success=false) but the bot ignored that reply, deleted the ground item optimistically, saw it re-broadcast and tried again every 200 ms tick without ever fighting again. With respawn working, drops piled up and bots froze one by one: run 3 went 281 -> 151 -> 42 kills per 5 minutes with bots sitting at full HP next to 84 mobs
 - `pickup_result` failures now blacklist that ground item for `lootSkipMs`; two consecutive failures switch the bot to gold-only looting for `overweightMs`. `inventory_weight_update` is tracked: above `lootWeightCap` of max weight only gold is picked up, above `sellWeightRatio` the bot goes to sell whatever junk it has

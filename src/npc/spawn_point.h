@@ -19,7 +19,12 @@ struct spawn_point
     npc_id npc_type{};              // NPC template ID
     map_id map{};                   // Map to spawn on
     hb::world::position center{};   // Center of spawn area
-    int16_t radius{5};              // Spawn radius from center
+    int16_t radius{5};              // Spawn radius from center (square area; used when radius_x/y are 0)
+    // Half extents per axis for rectangular generators (mapdata spawner rects). With a
+    // single radius = max(w, h) / 2 a 50x70 rect spawned NPCs up to 10 tiles outside its
+    // narrow side, behind walls the players could not reach.
+    int16_t radius_x{0};
+    int16_t radius_y{0};
     int16_t max_count{1};           // Max spawned at once
     int32_t respawn_time_ms{60000}; // Respawn delay
 
@@ -68,9 +73,12 @@ struct spawn_point
     {
         // Generate random offset within spawn radius
         static thread_local std::mt19937 rng{std::random_device{}()};
-        std::uniform_int_distribution<int16_t> dist(-radius, radius);
-        int16_t offset_x = dist(rng);
-        int16_t offset_y = dist(rng);
+        const int16_t rx = radius_x > 0 ? radius_x : radius;
+        const int16_t ry = radius_y > 0 ? radius_y : radius;
+        std::uniform_int_distribution<int16_t> dist_x(static_cast<int16_t>(-rx), rx);
+        std::uniform_int_distribution<int16_t> dist_y(static_cast<int16_t>(-ry), ry);
+        int16_t offset_x = dist_x(rng);
+        int16_t offset_y = dist_y(rng);
         return hb::world::position{static_cast<int16_t>(center.x + offset_x),
                                    static_cast<int16_t>(center.y + offset_y)};
     }

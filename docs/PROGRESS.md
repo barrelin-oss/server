@@ -452,6 +452,11 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Rectangular spawners spawned NPCs outside their rect; NPC home is now the spawn tile
+- `application.cpp` turned a mapdata spawner rect into center + `radius = max(w, h) / 2`, and `spawn_point::get_spawn_position` sampled a square of that radius: a 50x70 rect spawned NPCs up to 10 tiles past its narrow sides, behind walls. Bots piled up at x=195-199 in Aresden (the walkable area starts at 200) trying to reach mobs that had been born there; with 200 bots that alone took the kill rate from 686 to 43 per 5 minutes. `spawn_point` now carries `radius_x`/`radius_y` and samples inside the rect (the square radius still applies when they are unset)
+- `npc_system::spawn_npc_at` set the NPC home (`ai_state.spawn_point`) to the rect center, so with `wander_range` 5 an NPC born near the edge of a 70-tile generator was already out of range and never wandered again. Home is now the tile it spawned on
+- Tests: `spawn_point_respawn_test` (inside-rect sampling, square fallback)
+
 ### 2026-09-05: WebSocket server capped at 128 clients (ixwebsocket default), found by the 200-bot run
 - `ix::WebSocketServer` was built with port and host only, so it kept the library defaults: `maxConnections = 128` and a TCP backlog of 5. `websocket.max_connections: 2000` in server.yaml never reached it, and the 129th client was dropped during the handshake (close 1006) with nothing in the server log. Bots 129-200 of the scale test all died that way
 - The server now passes `config_.max_connections` and a backlog of 256 to the library and logs both at startup

@@ -409,7 +409,10 @@ auto npc_system::spawn_npc_at(spawn_point& spawn) -> result<entity::entity, std:
         if (npc_ptr)
         {
             npc_ptr->spawn = &spawn;
-            npc_ptr->ai_state.spawn_point = spawn.center;
+            // Home is where it spawned: wander_range/chase_range are measured from here.
+            // With the rect center as home, an NPC born near the edge of a 70-tile
+            // generator was already past wander_range and never moved again.
+            npc_ptr->ai_state.spawn_point = pos;
         }
     }
 

@@ -1079,6 +1079,8 @@ void application::register_spawn_points()
                 sp.center = {static_cast<int16_t>((spawner.area.min_x + spawner.area.max_x) / 2),
                              static_cast<int16_t>((spawner.area.min_y + spawner.area.max_y) / 2)};
                 sp.radius = static_cast<int16_t>(std::max(spawner.area.width(), spawner.area.height()) / 2);
+                sp.radius_x = static_cast<int16_t>(spawner.area.width() / 2);
+                sp.radius_y = static_cast<int16_t>(spawner.area.height() / 2);
                 sp.max_count = spawner.max_count;
                 // Vinha cravado em 60s e nunca era configuravel. Lento demais para uma
                 // area com 25 bots cacando: a populacao drenava e nao voltava.

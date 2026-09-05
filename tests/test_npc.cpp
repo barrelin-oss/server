@@ -858,3 +858,33 @@ TEST(spawn_point_respawn_test, clear_pending_returns_to_initial_stock_behaviour)
     sp.clear_pending();
     EXPECT_TRUE(sp.can_spawn());
 }
+
+TEST(spawn_point_respawn_test, rectangular_generator_spawns_inside_its_rect)
+{
+    hb::npc::spawn_point sp;
+    sp.center = {230, 220};
+    sp.radius = 35;   // max(w, h) / 2 of a 50x70 rect: the old square sampling
+    sp.radius_x = 25; // 205..255
+    sp.radius_y = 35; // 185..255
+    for (int i = 0; i < 500; ++i)
+    {
+        auto p = sp.get_spawn_position();
+        EXPECT_GE(p.x, 205);
+        EXPECT_LE(p.x, 255);
+        EXPECT_GE(p.y, 185);
+        EXPECT_LE(p.y, 255);
+    }
+}
+
+TEST(spawn_point_respawn_test, square_radius_still_applies_when_half_extents_unset)
+{
+    hb::npc::spawn_point sp;
+    sp.center = {100, 100};
+    sp.radius = 3;
+    for (int i = 0; i < 200; ++i)
+    {
+        auto p = sp.get_spawn_position();
+        EXPECT_LE(std::abs(p.x - 100), 3);
+        EXPECT_LE(std::abs(p.y - 100), 3);
+    }
+}

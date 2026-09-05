@@ -33,6 +33,11 @@ struct npc_system_config
     uint32_t max_npcs{10000};
     int32_t ai_update_interval_ms{100};
     int32_t spawn_check_interval_ms{1000};
+    // Legacy MobGenerator: maps with random_mob_generator enabled are topped up with
+    // free-roaming mobs of the map level, a few per check, up to the map cap.
+    int32_t random_mob_check_interval_ms{5000};
+    int32_t random_mob_cap{150};  // upper bound for any map (legacy maximum-object goes up to 600)
+    int32_t random_mob_batch{5};  // spawned per check per map, so a map fills over a minute rather than at once
     int32_t corpse_check_interval_ms{5000};
     int32_t corpse_linger_ms{15000};
     bool enable_ai{true};
@@ -176,6 +181,7 @@ public:
 
 private:
     void update_spawns(float delta_time);
+    void update_random_mobs(float delta_time);
     void update_all_ai(float delta_time);
     void update_corpses(float delta_time);
     void process_ai_state(npc& npc_ref);
@@ -223,6 +229,7 @@ private:
 
     float ai_accumulator_{0.0f};
     float spawn_accumulator_{0.0f};
+    float random_mob_accumulator_{0.0f};
     float corpse_accumulator_{0.0f};
 
     // Event callbacks

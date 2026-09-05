@@ -1,0 +1,56 @@
+# Convertido de MapData/huntzone2.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "huntzone2"
+# location: aresden
+level_limit: 20
+random_mob_generator:
+  enabled: true
+  level: 16
+  max_mobs: 350
+initial_points:
+  - { id: 1, x: 44, y: 90 }
+  - { id: 2, x: 109, y: 99 }
+  - { id: 3, x: 149, y: 150 }
+teleports:
+  - { src_x: 66, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 67, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 68, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 69, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 70, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 71, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 72, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 73, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 74, src_y: 20, dest_map: "aresden", dest_x: 32, dest_y: 274, direction: 1 }
+  - { src_x: 103, src_y: 107, dest_map: "aresdend1", dest_x: 97, dest_y: 87, direction: 1 }
+  - { src_x: 104, src_y: 107, dest_map: "aresdend1", dest_x: 97, dest_y: 87, direction: 1 }
+  - { src_x: 104, src_y: 106, dest_map: "aresdend1", dest_x: 97, dest_y: 87, direction: 1 }
+  - { src_x: 179, src_y: 100, dest_map: "huntzone4", dest_x: 23, dest_y: 93, direction: 1 }
+  - { src_x: 179, src_y: 101, dest_map: "huntzone4", dest_x: 23, dest_y: 93, direction: 1 }
+  - { src_x: 179, src_y: 102, dest_map: "huntzone4", dest_x: 23, dest_y: 93, direction: 1 }
+  - { src_x: 179, src_y: 103, dest_map: "huntzone4", dest_x: 23, dest_y: 93, direction: 1 }
+  - { src_x: 179, src_y: 104, dest_map: "huntzone4", dest_x: 23, dest_y: 93, direction: 1 }
+  - { src_x: 109, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 110, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 111, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 112, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 113, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 114, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 115, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 116, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 117, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 118, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 119, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 120, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 121, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+  - { src_x: 122, src_y: 179, dest_map: "areuni", dest_x: 85, dest_y: 23, direction: 1 }
+waypoints:
+  - { id: 0, x: 55, y: 94 }
+  - { id: 1, x: 113, y: 76 }
+  - { id: 2, x: 156, y: 104 }
+  - { id: 3, x: 187, y: 140 }
+  - { id: 4, x: 161, y: 164 }
+  - { id: 5, x: 135, y: 169 }
+  - { id: 6, x: 109, y: 191 }
+  - { id: 7, x: 98, y: 162 }
+  - { id: 8, x: 64, y: 137 }
+  - { id: 9, x: 198, y: 105 }

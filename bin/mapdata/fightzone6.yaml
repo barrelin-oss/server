@@ -1,0 +1,19 @@
+# Convertido de MapData/fightzone6.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "fightzone6"
+# location: fightzone6
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 70, y: 37 }
+  - { id: 2, x: 43, y: 53 }
+waypoints:
+  - { id: 0, x: 30, y: 30 }
+  - { id: 1, x: 30, y: 30 }
+  - { id: 2, x: 30, y: 30 }
+  - { id: 3, x: 30, y: 30 }
+  - { id: 4, x: 30, y: 30 }
+  - { id: 5, x: 30, y: 30 }
+  - { id: 6, x: 30, y: 30 }
+  - { id: 7, x: 30, y: 30 }
+  - { id: 8, x: 30, y: 30 }
+  - { id: 9, x: 30, y: 30 }

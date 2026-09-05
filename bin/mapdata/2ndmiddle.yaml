@@ -1,0 +1,56 @@
+# Convertido de MapData/2ndmiddle.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "2ndmiddle"
+# location: 2ndmiddle
+upper_level_limit: 120
+random_mob_generator:
+  enabled: true
+  level: 8
+  max_mobs: 400
+initial_points:
+  - { id: 1, x: 125, y: 125 }
+safe_zones:
+  - { left: 115, top: 18, right: 135, bottom: 25 }
+  - { left: 130, top: 224, right: 150, bottom: 233 }
+spawners:
+  - { id: 1, type: 0, x1: 112, y1: 110, x2: 139, y2: 137, npc_type: 13, npc_name: "Cyclops", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 112, y1: 110, x2: 139, y2: 137, npc_type: 28, npc_name: "Troll", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 38, y1: 157, x2: 73, y2: 173, npc_type: 17, npc_name: "Scorpion", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 45, y1: 85, x2: 66, y2: 100, npc_type: 17, npc_name: "Scorpion", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 81, y1: 198, x2: 100, y2: 210, npc_type: 11, npc_name: "Skeleton", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 152, y1: 51, x2: 167, y2: 67, npc_type: 11, npc_name: "Skeleton", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 47, y1: 38, x2: 63, y2: 57, npc_type: 14, npc_name: "Orc", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 8, type: 0, x1: 167, y1: 179, x2: 185, y2: 200, npc_type: 14, npc_name: "Orc", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 9, type: 0, x1: 192, y1: 107, x2: 217, y2: 122, npc_type: 23, npc_name: "Clay-Golem", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 10, type: 0, x1: 192, y1: 144, x2: 218, y2: 162, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 11, type: 0, x1: 109, y1: 63, x2: 141, y2: 83, npc_type: 18, npc_name: "Zombie", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 12, type: 0, x1: 126, y1: 193, x2: 150, y2: 210, npc_type: 18, npc_name: "Zombie", max_count: 10, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 135, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 136, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 137, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 138, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 139, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 140, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 141, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 142, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 143, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 144, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 145, src_y: 228, dest_map: "arefarm", dest_x: 120, dest_y: 25, direction: 5 }
+  - { src_x: 121, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 122, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 123, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 124, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 125, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 126, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 127, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 128, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 129, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 130, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+  - { src_x: 131, src_y: 21, dest_map: "elvfarm", dest_x: 160, dest_y: 227, direction: 1 }
+waypoints:
+  - { id: 0, x: 75, y: 75 }
+  - { id: 1, x: 75, y: 200 }
+  - { id: 2, x: 200, y: 200 }
+  - { id: 3, x: 200, y: 75 }
+  - { id: 4, x: 125, y: 125 }

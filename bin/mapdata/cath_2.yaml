@@ -1,0 +1,22 @@
+# Convertido de MapData/cath_2.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "cath_2"
+# location: elvine
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 64, y: 45 }
+teleports:
+  - { src_x: 38, src_y: 39, dest_map: "elvine", dest_x: 135, dest_y: 80, direction: 4 }
+  - { src_x: 37, src_y: 40, dest_map: "elvine", dest_x: 135, dest_y: 80, direction: 4 }
+  - { src_x: 37, src_y: 39, dest_map: "elvine", dest_x: 135, dest_y: 80, direction: 4 }
+waypoints:
+  - { id: 1, x: 60, y: 50 }
+  - { id: 2, x: 60, y: 50 }
+  - { id: 3, x: 60, y: 50 }
+  - { id: 4, x: 60, y: 50 }
+  - { id: 5, x: 60, y: 50 }
+  - { id: 6, x: 60, y: 50 }
+  - { id: 7, x: 60, y: 50 }
+  - { id: 8, x: 60, y: 50 }
+  - { id: 9, x: 60, y: 50 }
+  - { id: 10, x: 60, y: 50 }

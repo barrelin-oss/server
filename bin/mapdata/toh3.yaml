@@ -1,0 +1,47 @@
+# Convertido de MapData/toh3.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "toh3"
+# location: toh3
+level_limit: 180
+fixed_day_mode: true
+random_mob_generator:
+  enabled: true
+  level: 15
+  max_mobs: 180
+initial_points:
+  - { id: 1, x: 93, y: 40 }
+  - { id: 2, x: 147, y: 32 }
+safe_zones:
+  - { left: 89, top: 36, right: 97, bottom: 44 }
+  - { left: 143, top: 28, right: 151, bottom: 36 }
+spawners:
+  - { id: 1, type: 0, x1: 82, y1: 195, x2: 94, y2: 205, npc_type: 56, npc_name: "Cat", max_count: 1, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 82, y1: 195, x2: 94, y2: 205, npc_type: 53, npc_name: "Beholder", max_count: 2, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 82, y1: 195, x2: 94, y2: 205, npc_type: 55, npc_name: "Rabbit", max_count: 3, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 82, y1: 195, x2: 94, y2: 205, npc_type: 54, npc_name: "Dark-Elf", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 35, y1: 265, x2: 45, y2: 275, npc_type: 56, npc_name: "Cat", max_count: 1, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 35, y1: 265, x2: 45, y2: 275, npc_type: 53, npc_name: "Beholder", max_count: 6, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 35, y1: 265, x2: 45, y2: 275, npc_type: 55, npc_name: "Rabbit", max_count: 6, respawn_time_ms: 15000 }
+  - { id: 8, type: 0, x1: 35, y1: 265, x2: 45, y2: 275, npc_type: 54, npc_name: "Dark-Elf", max_count: 1, respawn_time_ms: 15000 }
+  - { id: 9, type: 0, x1: 225, y1: 248, x2: 235, y2: 257, npc_type: 56, npc_name: "Cat", max_count: 1, respawn_time_ms: 15000 }
+  - { id: 10, type: 0, x1: 225, y1: 248, x2: 235, y2: 257, npc_type: 53, npc_name: "Beholder", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 11, type: 0, x1: 225, y1: 248, x2: 235, y2: 257, npc_type: 55, npc_name: "Rabbit", max_count: 4, respawn_time_ms: 15000 }
+  - { id: 12, type: 0, x1: 225, y1: 248, x2: 235, y2: 257, npc_type: 54, npc_name: "Dark-Elf", max_count: 1, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 93, src_y: 38, dest_map: "toh2", dest_x: 101, dest_y: 270, direction: 5 }
+  - { src_x: 94, src_y: 38, dest_map: "toh2", dest_x: 101, dest_y: 270, direction: 5 }
+  - { src_x: 94, src_y: 39, dest_map: "toh2", dest_x: 101, dest_y: 270, direction: 5 }
+  - { src_x: 147, src_y: 30, dest_map: "toh2", dest_x: 251, dest_y: 240, direction: 5 }
+  - { src_x: 148, src_y: 30, dest_map: "toh2", dest_x: 251, dest_y: 240, direction: 5 }
+  - { src_x: 148, src_y: 31, dest_map: "toh2", dest_x: 251, dest_y: 240, direction: 5 }
+waypoints:
+  - { id: 0, x: 81, y: 50 }
+  - { id: 1, x: 156, y: 66 }
+  - { id: 2, x: 260, y: 40 }
+  - { id: 3, x: 85, y: 119 }
+  - { id: 4, x: 138, y: 155 }
+  - { id: 5, x: 260, y: 142 }
+  - { id: 6, x: 86, y: 197 }
+  - { id: 7, x: 44, y: 262 }
+  - { id: 8, x: 167, y: 239 }
+  - { id: 9, x: 226, y: 252 }

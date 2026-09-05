@@ -1,0 +1,93 @@
+# Convertido de MapData/middled1x.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "middled1x"
+# location: middled1x
+fixed_day_mode: true
+max_mineral: 30
+random_mob_generator:
+  enabled: true
+  level: 5
+  max_mobs: 150
+initial_points:
+  - { id: 1, x: 70, y: 108 }
+safe_zones:
+  - { left: 64, top: 75, right: 79, bottom: 113 }
+teleports:
+  - { src_x: 67, src_y: 106, dest_map: "middleland", dest_x: 198, dest_y: 233, direction: 5 }
+  - { src_x: 68, src_y: 106, dest_map: "middleland", dest_x: 198, dest_y: 233, direction: 5 }
+  - { src_x: 68, src_y: 105, dest_map: "middleland", dest_x: 198, dest_y: 233, direction: 5 }
+  - { src_x: 69, src_y: 105, dest_map: "middleland", dest_x: 198, dest_y: 233, direction: 5 }
+mineral_points:
+  - { id: 0, x: 34, y: 32 }
+  - { id: 1, x: 35, y: 32 }
+  - { id: 2, x: 37, y: 30 }
+  - { id: 3, x: 40, y: 31 }
+  - { id: 4, x: 27, y: 30 }
+  - { id: 5, x: 29, y: 31 }
+  - { id: 6, x: 28, y: 33 }
+  - { id: 7, x: 27, y: 26 }
+  - { id: 8, x: 28, y: 27 }
+  - { id: 9, x: 29, y: 28 }
+  - { id: 10, x: 162, y: 158 }
+  - { id: 11, x: 160, y: 159 }
+  - { id: 12, x: 164, y: 158 }
+  - { id: 13, x: 165, y: 157 }
+  - { id: 14, x: 167, y: 156 }
+  - { id: 15, x: 169, y: 157 }
+  - { id: 16, x: 170, y: 158 }
+  - { id: 18, x: 171, y: 158 }
+  - { id: 19, x: 172, y: 159 }
+  - { id: 20, x: 173, y: 160 }
+  - { id: 21, x: 142, y: 92 }
+  - { id: 22, x: 141, y: 93 }
+  - { id: 23, x: 142, y: 91 }
+  - { id: 24, x: 141, y: 88 }
+  - { id: 25, x: 139, y: 88 }
+  - { id: 26, x: 166, y: 100 }
+  - { id: 27, x: 171, y: 102 }
+  - { id: 28, x: 172, y: 103 }
+  - { id: 29, x: 173, y: 104 }
+  - { id: 30, x: 170, y: 99 }
+  - { id: 31, x: 170, y: 96 }
+  - { id: 32, x: 170, y: 97 }
+  - { id: 33, x: 173, y: 107 }
+  - { id: 34, x: 173, y: 109 }
+  - { id: 35, x: 175, y: 113 }
+  - { id: 36, x: 176, y: 114 }
+  - { id: 37, x: 168, y: 129 }
+  - { id: 38, x: 169, y: 129 }
+  - { id: 39, x: 170, y: 130 }
+  - { id: 40, x: 171, y: 131 }
+  - { id: 41, x: 172, y: 131 }
+  - { id: 42, x: 173, y: 132 }
+  - { id: 43, x: 173, y: 133 }
+  - { id: 44, x: 171, y: 134 }
+  - { id: 45, x: 167, y: 125 }
+  - { id: 46, x: 161, y: 138 }
+  - { id: 47, x: 170, y: 139 }
+  - { id: 48, x: 169, y: 139 }
+  - { id: 49, x: 161, y: 52 }
+  - { id: 50, x: 162, y: 53 }
+  - { id: 51, x: 163, y: 54 }
+  - { id: 52, x: 164, y: 54 }
+  - { id: 53, x: 164, y: 57 }
+  - { id: 54, x: 165, y: 58 }
+  - { id: 55, x: 105, y: 36 }
+  - { id: 56, x: 106, y: 37 }
+  - { id: 57, x: 107, y: 37 }
+  - { id: 58, x: 108, y: 36 }
+  - { id: 59, x: 112, y: 35 }
+  - { id: 60, x: 101, y: 35 }
+  - { id: 61, x: 99, y: 34 }
+  - { id: 62, x: 98, y: 35 }
+waypoints:
+  - { id: 0, x: 107, y: 105 }
+  - { id: 1, x: 145, y: 116 }
+  - { id: 2, x: 200, y: 146 }
+  - { id: 3, x: 184, y: 176 }
+  - { id: 4, x: 151, y: 204 }
+  - { id: 5, x: 134, y: 137 }
+  - { id: 6, x: 37, y: 152 }
+  - { id: 7, x: 123, y: 188 }
+  - { id: 8, x: 129, y: 126 }
+  - { id: 9, x: 113, y: 153 }

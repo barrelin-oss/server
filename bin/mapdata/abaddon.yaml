@@ -1,0 +1,21 @@
+# Convertido de MapData/abaddon.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "abaddon"
+# location: abaddon
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 168, y: 170 }
+safe_zones:
+  - { left: 164, top: 166, right: 172, bottom: 174 }
+spawners:
+  - { id: 1, type: 0, x1: 74, y1: 23, x2: 138, y2: 52, npc_type: 52, npc_name: "Gagoyle", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 30, y1: 115, x2: 86, y2: 146, npc_type: 52, npc_name: "Gagoyle", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 141, y1: 68, x2: 173, y2: 118, npc_type: 52, npc_name: "Gagoyle", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 23, y1: 71, x2: 68, y2: 117, npc_type: 51, npc_name: "CP-Aresden", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 120, y1: 43, x2: 174, y2: 73, npc_type: 51, npc_name: "CP-Aresden", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 127, y1: 113, x2: 178, y2: 145, npc_type: 51, npc_name: "CP-Aresden", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 34, y1: 45, x2: 94, y2: 75, npc_type: 70, npc_name: "Barlog", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 8, type: 0, x1: 75, y1: 134, x2: 133, y2: 170, npc_type: 71, npc_name: "Centaurus", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 9, type: 0, x1: 71, y1: 64, x2: 143, y2: 112, npc_type: 72, npc_name: "Claw-Turtle", max_count: 40, respawn_time_ms: 15000 }
+  - { id: 10, type: 0, x1: 71, y1: 64, x2: 143, y2: 112, npc_type: 73, npc_name: "Fire-Wyvern", max_count: 40, respawn_time_ms: 15000 }
+  - { id: 11, type: 0, x1: 71, y1: 64, x2: 143, y2: 112, npc_type: 76, npc_name: "Giant-Plant", max_count: 40, respawn_time_ms: 15000 }

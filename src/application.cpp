@@ -1051,8 +1051,13 @@ void application::register_spawn_points()
                 if (!spawner.enabled || spawner.max_count <= 0)
                     continue;
 
-                // Map legacy npc_type to NPC name
-                auto npc_name = npc::spot_mob_type_to_name(spawner.npc_type);
+                // The mapdata may name the NPC directly (converted legacy MapData); the numeric
+                // legacy type table is the fallback and only knows a couple of dozen types.
+                std::optional<std::string_view> npc_name;
+                if (!spawner.npc_name.empty())
+                    npc_name = spawner.npc_name;
+                else
+                    npc_name = npc::spot_mob_type_to_name(spawner.npc_type);
                 if (!npc_name.has_value())
                 {
                     LOG_WARN(general, "Map '{}': Unknown spot-mob-generator npc_type {}", m.name(), spawner.npc_type);

@@ -1,0 +1,171 @@
+# Convertido de MapData/dglv2.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "dglv2"
+# location: dglv2
+level_limit: 40
+fixed_day_mode: true
+max_mineral: 39
+random_mob_generator:
+  enabled: true
+  level: 5
+  max_mobs: 999
+initial_points:
+  - { id: 1, x: 384, y: 143 }
+safe_zones:
+  - { left: 26, top: 32, right: 36, bottom: 42 }
+  - { left: 460, top: 453, right: 470, bottom: 463 }
+  - { left: 206, top: 255, right: 213, bottom: 261 }
+  - { left: 261, top: 254, right: 266, bottom: 260 }
+spawners:
+  - { id: 1, type: 0, x1: 348, y1: 329, x2: 396, y2: 357, npc_type: 13, npc_name: "Cyclops", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 159, y1: 21, x2: 200, y2: 55, npc_type: 13, npc_name: "Cyclops", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 82, y1: 361, x2: 132, y2: 407, npc_type: 13, npc_name: "Cyclops", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 162, y1: 237, x2: 204, y2: 316, npc_type: 9, max_count: 5, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 255, y1: 181, x2: 295, y2: 225, npc_type: 9, max_count: 5, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 391, y1: 223, x2: 448, y2: 241, npc_type: 9, max_count: 5, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 427, y1: 437, x2: 462, y2: 464, npc_type: 12, npc_name: "Stone-Golem", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 8, type: 0, x1: 37, y1: 30, x2: 80, y2: 77, npc_type: 12, npc_name: "Stone-Golem", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 9, type: 0, x1: 21, y1: 270, x2: 87, y2: 293, npc_type: 12, npc_name: "Stone-Golem", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 10, type: 0, x1: 323, y1: 32, x2: 357, y2: 72, npc_type: 12, npc_name: "Stone-Golem", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 11, type: 0, x1: 27, y1: 322, x2: 106, y2: 421, npc_type: 8, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 12, type: 0, x1: 257, y1: 311, x2: 322, y2: 365, npc_type: 8, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 13, type: 0, x1: 323, y1: 79, x2: 440, y2: 219, npc_type: 8, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 14, type: 0, x1: 209, y1: 230, x2: 268, y2: 275, npc_type: 8, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 15, type: 0, x1: 177, y1: 99, x2: 218, y2: 136, npc_type: 8, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 16, type: 0, x1: 33, y1: 178, x2: 68, y2: 201, npc_type: 11, npc_name: "Skeleton", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 17, type: 0, x1: 222, y1: 75, x2: 269, y2: 111, npc_type: 11, npc_name: "Skeleton", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 18, type: 0, x1: 144, y1: 384, x2: 162, y2: 424, npc_type: 11, npc_name: "Skeleton", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 19, type: 0, x1: 415, y1: 321, x2: 427, y2: 382, npc_type: 11, npc_name: "Skeleton", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 20, type: 0, x1: 33, y1: 187, x2: 53, y2: 235, npc_type: 14, npc_name: "Orc", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 21, type: 0, x1: 190, y1: 450, x2: 232, y2: 475, npc_type: 14, npc_name: "Orc", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 22, type: 0, x1: 86, y1: 418, x2: 138, y2: 457, npc_type: 14, npc_name: "Orc", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 23, type: 0, x1: 412, y1: 262, x2: 473, y2: 282, npc_type: 14, npc_name: "Orc", max_count: 5, respawn_time_ms: 15000 }
+  - { id: 24, type: 0, x1: 228, y1: 226, x2: 248, y2: 276, npc_type: 5, npc_name: "YW-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 25, type: 0, x1: 26, y1: 445, x2: 132, y2: 469, npc_type: 5, npc_name: "YW-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 26, type: 0, x1: 229, y1: 130, x2: 276, y2: 184, npc_type: 5, npc_name: "YW-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 27, type: 0, x1: 84, y1: 199, x2: 211, y2: 222, npc_type: 5, npc_name: "YW-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 28, type: 0, x1: 291, y1: 282, x2: 339, y2: 321, npc_type: 5, npc_name: "YW-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 29, type: 0, x1: 210, y1: 20, x2: 282, y2: 42, npc_type: 4, npc_name: "YB-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 30, type: 0, x1: 369, y1: 375, x2: 470, y2: 423, npc_type: 4, npc_name: "YB-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 31, type: 0, x1: 114, y1: 138, x2: 153, y2: 180, npc_type: 4, npc_name: "YB-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 32, type: 0, x1: 162, y1: 416, x2: 239, y2: 450, npc_type: 4, npc_name: "YB-Aresden", max_count: 8, respawn_time_ms: 15000 }
+  - { id: 33, type: 0, x1: 359, y1: 116, x2: 415, y2: 167, npc_type: 7, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 34, type: 0, x1: 221, y1: 307, x2: 292, y2: 335, npc_type: 7, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 35, type: 0, x1: 38, y1: 60, x2: 151, y2: 128, npc_type: 7, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 36, type: 0, x1: 85, y1: 257, x2: 121, y2: 272, npc_type: 7, max_count: 8, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 465, src_y: 458, dest_map: "aresdend1", dest_x: 39, dest_y: 35, direction: 5 }
+  - { src_x: 466, src_y: 458, dest_map: "aresdend1", dest_x: 39, dest_y: 35, direction: 5 }
+  - { src_x: 466, src_y: 459, dest_map: "aresdend1", dest_x: 39, dest_y: 35, direction: 5 }
+  - { src_x: 31, src_y: 37, dest_map: "elvined1", dest_x: 95, dest_y: 42, direction: 5 }
+  - { src_x: 32, src_y: 37, dest_map: "elvined1", dest_x: 95, dest_y: 42, direction: 5 }
+  - { src_x: 33, src_y: 37, dest_map: "elvined1", dest_x: 95, dest_y: 42, direction: 5 }
+  - { src_x: 31, src_y: 38, dest_map: "elvined1", dest_x: 95, dest_y: 42, direction: 5 }
+  - { src_x: 211, src_y: 286, dest_map: "dglv2", dest_x: 209, dest_y: 258, direction: 5 }
+  - { src_x: 211, src_y: 285, dest_map: "dglv2", dest_x: 209, dest_y: 258, direction: 5 }
+  - { src_x: 212, src_y: 285, dest_map: "dglv2", dest_x: 209, dest_y: 258, direction: 5 }
+  - { src_x: 213, src_y: 285, dest_map: "dglv2", dest_x: 209, dest_y: 258, direction: 5 }
+  - { src_x: 210, src_y: 256, dest_map: "dglv2", dest_x: 214, dest_y: 287, direction: 5 }
+  - { src_x: 211, src_y: 256, dest_map: "dglv2", dest_x: 214, dest_y: 287, direction: 5 }
+  - { src_x: 211, src_y: 257, dest_map: "dglv2", dest_x: 214, dest_y: 287, direction: 5 }
+  - { src_x: 264, src_y: 256, dest_map: "dglv2", dest_x: 273, dest_y: 227, direction: 5 }
+  - { src_x: 265, src_y: 256, dest_map: "dglv2", dest_x: 273, dest_y: 227, direction: 5 }
+  - { src_x: 265, src_y: 257, dest_map: "dglv2", dest_x: 273, dest_y: 227, direction: 5 }
+  - { src_x: 271, src_y: 226, dest_map: "dglv2", dest_x: 263, dest_y: 258, direction: 5 }
+  - { src_x: 271, src_y: 225, dest_map: "dglv2", dest_x: 263, dest_y: 258, direction: 5 }
+  - { src_x: 272, src_y: 225, dest_map: "dglv2", dest_x: 263, dest_y: 258, direction: 5 }
+  - { src_x: 273, src_y: 225, dest_map: "dglv2", dest_x: 263, dest_y: 258, direction: 5 }
+  - { src_x: 157, src_y: 85, dest_map: "dglv2", dest_x: 41, dest_y: 34, direction: 5 }
+  - { src_x: 157, src_y: 86, dest_map: "dglv2", dest_x: 41, dest_y: 34, direction: 5 }
+  - { src_x: 157, src_y: 87, dest_map: "dglv2", dest_x: 41, dest_y: 34, direction: 5 }
+  - { src_x: 157, src_y: 88, dest_map: "dglv2", dest_x: 41, dest_y: 34, direction: 5 }
+  - { src_x: 157, src_y: 89, dest_map: "dglv2", dest_x: 41, dest_y: 34, direction: 5 }
+  - { src_x: 80, src_y: 198, dest_map: "dglv2", dest_x: 56, dest_y: 212, direction: 5 }
+  - { src_x: 80, src_y: 197, dest_map: "dglv2", dest_x: 56, dest_y: 212, direction: 5 }
+  - { src_x: 80, src_y: 196, dest_map: "dglv2", dest_x: 56, dest_y: 212, direction: 5 }
+  - { src_x: 81, src_y: 196, dest_map: "dglv2", dest_x: 56, dest_y: 212, direction: 5 }
+  - { src_x: 81, src_y: 195, dest_map: "dglv2", dest_x: 56, dest_y: 212, direction: 5 }
+  - { src_x: 210, src_y: 108, dest_map: "dglv2", dest_x: 40, dest_y: 175, direction: 5 }
+  - { src_x: 211, src_y: 108, dest_map: "dglv2", dest_x: 40, dest_y: 175, direction: 5 }
+  - { src_x: 211, src_y: 109, dest_map: "dglv2", dest_x: 40, dest_y: 175, direction: 5 }
+  - { src_x: 122, src_y: 190, dest_map: "dglv2", dest_x: 83, dest_y: 179, direction: 5 }
+  - { src_x: 122, src_y: 191, dest_map: "dglv2", dest_x: 83, dest_y: 179, direction: 5 }
+  - { src_x: 122, src_y: 192, dest_map: "dglv2", dest_x: 83, dest_y: 179, direction: 5 }
+  - { src_x: 122, src_y: 193, dest_map: "dglv2", dest_x: 83, dest_y: 179, direction: 5 }
+  - { src_x: 122, src_y: 194, dest_map: "dglv2", dest_x: 83, dest_y: 179, direction: 5 }
+  - { src_x: 37, src_y: 173, dest_map: "dglv2", dest_x: 208, dest_y: 110, direction: 5 }
+  - { src_x: 38, src_y: 173, dest_map: "dglv2", dest_x: 208, dest_y: 110, direction: 5 }
+  - { src_x: 39, src_y: 173, dest_map: "dglv2", dest_x: 208, dest_y: 110, direction: 5 }
+  - { src_x: 37, src_y: 174, dest_map: "dglv2", dest_x: 208, dest_y: 110, direction: 5 }
+  - { src_x: 180, src_y: 39, dest_map: "dglv2", dest_x: 212, dest_y: 469, direction: 5 }
+  - { src_x: 181, src_y: 39, dest_map: "dglv2", dest_x: 212, dest_y: 469, direction: 5 }
+  - { src_x: 181, src_y: 38, dest_map: "dglv2", dest_x: 212, dest_y: 469, direction: 5 }
+  - { src_x: 364, src_y: 253, dest_map: "dglv2", dest_x: 437, dest_y: 339, direction: 5 }
+  - { src_x: 365, src_y: 253, dest_map: "dglv2", dest_x: 437, dest_y: 339, direction: 5 }
+  - { src_x: 366, src_y: 253, dest_map: "dglv2", dest_x: 437, dest_y: 339, direction: 5 }
+  - { src_x: 367, src_y: 253, dest_map: "dglv2", dest_x: 437, dest_y: 339, direction: 5 }
+  - { src_x: 368, src_y: 253, dest_map: "dglv2", dest_x: 437, dest_y: 339, direction: 5 }
+  - { src_x: 369, src_y: 253, dest_map: "dglv2", dest_x: 437, dest_y: 339, direction: 5 }
+  - { src_x: 370, src_y: 253, dest_map: "dglv2", dest_x: 437, dest_y: 339, direction: 5 }
+  - { src_x: 371, src_y: 253, dest_map: "dglv2", dest_x: 437, dest_y: 339, direction: 5 }
+  - { src_x: 438, src_y: 342, dest_map: "dglv2", dest_x: 359, dest_y: 267, direction: 5 }
+  - { src_x: 439, src_y: 342, dest_map: "dglv2", dest_x: 359, dest_y: 267, direction: 5 }
+  - { src_x: 438, src_y: 343, dest_map: "dglv2", dest_x: 359, dest_y: 267, direction: 5 }
+  - { src_x: 234, src_y: 399, dest_map: "dglv2", dest_x: 392, dest_y: 418, direction: 5 }
+  - { src_x: 234, src_y: 398, dest_map: "dglv2", dest_x: 392, dest_y: 418, direction: 5 }
+  - { src_x: 235, src_y: 398, dest_map: "dglv2", dest_x: 392, dest_y: 418, direction: 5 }
+  - { src_x: 228, src_y: 256, dest_map: "dglv3", dest_x: 187, dest_y: 212, direction: 5 }
+  - { src_x: 229, src_y: 256, dest_map: "dglv3", dest_x: 187, dest_y: 212, direction: 5 }
+  - { src_x: 229, src_y: 257, dest_map: "dglv3", dest_x: 187, dest_y: 212, direction: 5 }
+mineral_points:
+  - { id: 0, x: 24, y: 52 }
+  - { id: 1, x: 22, y: 53 }
+  - { id: 2, x: 27, y: 54 }
+  - { id: 3, x: 127, y: 47 }
+  - { id: 4, x: 129, y: 46 }
+  - { id: 5, x: 131, y: 48 }
+  - { id: 6, x: 472, y: 419 }
+  - { id: 7, x: 469, y: 417 }
+  - { id: 8, x: 467, y: 416 }
+  - { id: 9, x: 479, y: 220 }
+  - { id: 10, x: 477, y: 218 }
+  - { id: 11, x: 473, y: 216 }
+  - { id: 12, x: 289, y: 83 }
+  - { id: 13, x: 291, y: 82 }
+  - { id: 14, x: 295, y: 79 }
+  - { id: 15, x: 106, y: 265 }
+  - { id: 16, x: 108, y: 264 }
+  - { id: 17, x: 103, y: 267 }
+  - { id: 18, x: 101, y: 450 }
+  - { id: 19, x: 44, y: 452 }
+  - { id: 20, x: 47, y: 451 }
+  - { id: 21, x: 43, y: 455 }
+  - { id: 22, x: 130, y: 153 }
+  - { id: 23, x: 133, y: 151 }
+  - { id: 24, x: 136, y: 149 }
+  - { id: 25, x: 350, y: 338 }
+  - { id: 26, x: 351, y: 339 }
+  - { id: 27, x: 352, y: 340 }
+  - { id: 29, x: 371, y: 456 }
+  - { id: 30, x: 370, y: 455 }
+  - { id: 31, x: 369, y: 454 }
+  - { id: 32, x: 176, y: 394 }
+  - { id: 33, x: 175, y: 395 }
+  - { id: 34, x: 174, y: 396 }
+  - { id: 35, x: 404, y: 34 }
+  - { id: 36, x: 403, y: 35 }
+  - { id: 37, x: 402, y: 36 }
+  - { id: 38, x: 453, y: 54 }
+  - { id: 39, x: 454, y: 55 }
+  - { id: 40, x: 455, y: 56 }
+waypoints:
+  - { id: 0, x: 107, y: 105 }
+  - { id: 1, x: 145, y: 116 }
+  - { id: 2, x: 200, y: 146 }
+  - { id: 3, x: 184, y: 176 }
+  - { id: 4, x: 151, y: 204 }
+  - { id: 5, x: 134, y: 137 }
+  - { id: 6, x: 37, y: 152 }
+  - { id: 7, x: 123, y: 188 }
+  - { id: 8, x: 129, y: 126 }
+  - { id: 9, x: 113, y: 153 }

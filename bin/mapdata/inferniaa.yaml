@@ -1,0 +1,30 @@
+# Convertido de MapData/inferniaa.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "inferniaa"
+# location: interniaa
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 34, y: 28 }
+safe_zones:
+  - { left: 30, top: 24, right: 38, bottom: 32 }
+spawners:
+  - { id: 1, type: 0, x1: 22, y1: 21, x2: 64, y2: 44, npc_type: 18, npc_name: "Zombie", max_count: 50, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 74, y1: 23, x2: 125, y2: 52, npc_type: 13, npc_name: "Cyclops", max_count: 80, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 31, y1: 42, x2: 102, y2: 78, npc_type: 73, npc_name: "Fire-Wyvern", max_count: 40, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 24, y1: 82, x2: 73, y2: 123, npc_type: 73, npc_name: "Fire-Wyvern", max_count: 40, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 58, y1: 60, x2: 129, y2: 91, npc_type: 72, npc_name: "Claw-Turtle", max_count: 100, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 100, y1: 57, x2: 126, y2: 91, npc_type: 31, npc_name: "Demon", max_count: 60, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 93, y1: 99, x2: 127, y2: 123, npc_type: 71, npc_name: "Centaurus", max_count: 10, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 119, src_y: 29, dest_map: "inferniab", dest_x: -1, dest_y: -1, direction: 7 }
+waypoints:
+  - { id: 0, x: 49, y: 58 }
+  - { id: 1, x: 117, y: 35 }
+  - { id: 2, x: 241, y: 45 }
+  - { id: 3, x: 75, y: 117 }
+  - { id: 4, x: 185, y: 80 }
+  - { id: 5, x: 265, y: 178 }
+  - { id: 6, x: 163, y: 159 }
+  - { id: 7, x: 43, y: 250 }
+  - { id: 8, x: 149, y: 249 }
+  - { id: 9, x: 239, y: 243 }

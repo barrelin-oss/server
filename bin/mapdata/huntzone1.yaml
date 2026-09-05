@@ -1,0 +1,58 @@
+# Convertido de MapData/huntzone1.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "huntzone1"
+# location: elvine
+level_limit: 20
+random_mob_generator:
+  enabled: true
+  level: 16
+  max_mobs: 350
+initial_points:
+  - { id: 1, x: 50, y: 122 }
+  - { id: 2, x: 103, y: 75 }
+  - { id: 3, x: 138, y: 57 }
+teleports:
+  - { src_x: 44, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 45, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 46, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 47, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 48, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 49, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 50, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 51, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 52, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 53, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 54, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 55, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 56, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 57, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 58, src_y: 179, dest_map: "elvine", dest_x: 223, dest_y: 23, direction: 5 }
+  - { src_x: 115, src_y: 115, dest_map: "elvined1", dest_x: 87, dest_y: 95, direction: 5 }
+  - { src_x: 116, src_y: 115, dest_map: "elvined1", dest_x: 87, dest_y: 95, direction: 5 }
+  - { src_x: 116, src_y: 114, dest_map: "elvined1", dest_x: 87, dest_y: 95, direction: 5 }
+  - { src_x: 171, src_y: 20, dest_map: "huntzone3", dest_x: 50, dest_y: 166, direction: 5 }
+  - { src_x: 172, src_y: 20, dest_map: "huntzone3", dest_x: 50, dest_y: 166, direction: 5 }
+  - { src_x: 173, src_y: 20, dest_map: "huntzone3", dest_x: 50, dest_y: 166, direction: 5 }
+  - { src_x: 174, src_y: 20, dest_map: "huntzone3", dest_x: 50, dest_y: 166, direction: 5 }
+  - { src_x: 175, src_y: 20, dest_map: "huntzone3", dest_x: 50, dest_y: 166, direction: 5 }
+  - { src_x: 176, src_y: 20, dest_map: "huntzone3", dest_x: 50, dest_y: 166, direction: 5 }
+  - { src_x: 20, src_y: 48, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+  - { src_x: 20, src_y: 49, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+  - { src_x: 20, src_y: 50, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+  - { src_x: 20, src_y: 51, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+  - { src_x: 20, src_y: 52, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+  - { src_x: 20, src_y: 53, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+  - { src_x: 20, src_y: 54, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+  - { src_x: 20, src_y: 55, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+  - { src_x: 20, src_y: 56, dest_map: "elvuni", dest_x: 173, dest_y: 24, direction: 5 }
+waypoints:
+  - { id: 0, x: 55, y: 94 }
+  - { id: 1, x: 113, y: 76 }
+  - { id: 2, x: 156, y: 104 }
+  - { id: 3, x: 187, y: 140 }
+  - { id: 4, x: 161, y: 164 }
+  - { id: 5, x: 135, y: 169 }
+  - { id: 6, x: 109, y: 191 }
+  - { id: 7, x: 98, y: 162 }
+  - { id: 8, x: 64, y: 137 }
+  - { id: 9, x: 198, y: 105 }

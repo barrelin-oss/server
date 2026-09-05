@@ -22,7 +22,8 @@ namespace hb::world
 struct random_mob_generator_config
 {
     bool enabled{false};
-    int level{0}; // 1-7+ determines which NPC groups can spawn
+    int level{0};    // 1-7+ determines which NPC groups can spawn
+    int max_mobs{0}; // Roaming mobs the generator keeps alive on the map (legacy maximum-object); 0 = server default
 };
 
 // Mineral generator configuration (controls which mineral types can spawn)
@@ -113,7 +114,8 @@ struct spot_mob_generator
     int16_t id{0};
     int16_t type{0};      // 1 = rect area, 2 = waypoint path
     rect area;            // Spawn bounding box
-    int16_t npc_type{0};  // NPC template ID to spawn
+    int16_t npc_type{0};  // Legacy NPC type number (spot_mob_mapping.h knows only a few)
+    std::string npc_name; // NPC template name; when set it wins over npc_type (mapdata converted from legacy .txt)
     int16_t max_count{0}; // Maximum NPCs to spawn
     int32_t respawn_time_ms{60000}; // vem do mapdata; 60s se ausente
     bool enabled{true};
@@ -233,6 +235,7 @@ public:
     // Random mob generator
     [[nodiscard]] auto random_mob_generator_enabled() const -> bool { return config_.random_mob_generator.enabled; }
     [[nodiscard]] auto random_mob_generator_level() const -> int { return config_.random_mob_generator.level; }
+    [[nodiscard]] auto random_mob_generator_max() const -> int { return config_.random_mob_generator.max_mobs; }
 
     // Mineral points
     [[nodiscard]] auto get_mineral_points() const -> const std::vector<mineral_point>& { return mineral_points_; }

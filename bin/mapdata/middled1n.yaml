@@ -1,0 +1,48 @@
+# Convertido de MapData/middled1n.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "middled1n"
+# location: middled1n
+level_limit: 30
+upper_level_limit: 100
+fixed_day_mode: true
+max_mineral: 4
+random_mob_generator:
+  enabled: true
+  level: 12
+  max_mobs: 150
+initial_points:
+  - { id: 1, x: 34, y: 36 }
+  - { id: 2, x: 181, y: 124 }
+safe_zones:
+  - { left: 24, top: 29, right: 43, bottom: 45 }
+  - { left: 174, top: 116, right: 194, bottom: 136 }
+teleports:
+  - { src_x: 31, src_y: 34, dest_map: "elvine", dest_x: 56, dest_y: 118, direction: 5 }
+  - { src_x: 32, src_y: 34, dest_map: "elvine", dest_x: 56, dest_y: 118, direction: 5 }
+  - { src_x: 32, src_y: 33, dest_map: "elvine", dest_x: 56, dest_y: 118, direction: 5 }
+  - { src_x: 33, src_y: 33, dest_map: "elvine", dest_x: 56, dest_y: 118, direction: 5 }
+  - { src_x: 183, src_y: 122, dest_map: "aresden", dest_x: 257, dest_y: 168, direction: 5 }
+  - { src_x: 184, src_y: 122, dest_map: "aresden", dest_x: 257, dest_y: 168, direction: 5 }
+  - { src_x: 184, src_y: 123, dest_map: "aresden", dest_x: 257, dest_y: 168, direction: 5 }
+  - { src_x: 185, src_y: 123, dest_map: "aresden", dest_x: 257, dest_y: 168, direction: 5 }
+mineral_points:
+  - { id: 0, x: 129, y: 146 }
+  - { id: 1, x: 158, y: 42 }
+  - { id: 2, x: 130, y: 145 }
+  - { id: 3, x: 159, y: 47 }
+  - { id: 4, x: 135, y: 144 }
+  - { id: 5, x: 21, y: 107 }
+  - { id: 6, x: 36, y: 155 }
+  - { id: 7, x: 21, y: 106 }
+  - { id: 8, x: 37, y: 155 }
+waypoints:
+  - { id: 0, x: 107, y: 105 }
+  - { id: 1, x: 145, y: 116 }
+  - { id: 2, x: 200, y: 146 }
+  - { id: 3, x: 184, y: 176 }
+  - { id: 4, x: 151, y: 204 }
+  - { id: 5, x: 134, y: 137 }
+  - { id: 6, x: 37, y: 152 }
+  - { id: 7, x: 123, y: 188 }
+  - { id: 8, x: 129, y: 126 }
+  - { id: 9, x: 113, y: 153 }

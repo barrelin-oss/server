@@ -1,0 +1,12 @@
+# Convertido de MapData/godh.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "godh"
+# location: godh
+level_limit: 1
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 204, y: 172 }
+teleports:
+  - { src_x: 213, src_y: 179, dest_map: "hrampart", dest_x: 49, dest_y: 43, direction: 2 }
+  - { src_x: 214, src_y: 179, dest_map: "hrampart", dest_x: 49, dest_y: 43, direction: 2 }
+  - { src_x: 215, src_y: 179, dest_map: "hrampart", dest_x: 49, dest_y: 43, direction: 2 }

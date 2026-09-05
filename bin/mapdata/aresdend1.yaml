@@ -1,0 +1,73 @@
+# Convertido de MapData/aresdend1.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "aresdend1"
+# location: aresden
+level_limit: 20
+fixed_day_mode: true
+max_mineral: 26
+random_mob_generator:
+  enabled: true
+  level: 4
+  max_mobs: 180
+initial_points:
+  - { id: 1, x: 111, y: 91 }
+teleports:
+  - { src_x: 99, src_y: 38, dest_map: "aresden", dest_x: 108, dest_y: 213, direction: 1 }
+  - { src_x: 100, src_y: 38, dest_map: "aresden", dest_x: 108, dest_y: 213, direction: 1 }
+  - { src_x: 100, src_y: 39, dest_map: "aresden", dest_x: 108, dest_y: 213, direction: 1 }
+  - { src_x: 97, src_y: 85, dest_map: "huntzone2", dest_x: 102, dest_y: 105, direction: 1 }
+  - { src_x: 98, src_y: 85, dest_map: "huntzone2", dest_x: 102, dest_y: 105, direction: 1 }
+  - { src_x: 99, src_y: 85, dest_map: "huntzone2", dest_x: 102, dest_y: 105, direction: 1 }
+  - { src_x: 97, src_y: 86, dest_map: "huntzone2", dest_x: 102, dest_y: 105, direction: 1 }
+  - { src_x: 37, src_y: 33, dest_map: "dglv2", dest_x: 464, dest_y: 460, direction: 1 }
+  - { src_x: 38, src_y: 33, dest_map: "dglv2", dest_x: 464, dest_y: 460, direction: 1 }
+  - { src_x: 39, src_y: 33, dest_map: "dglv2", dest_x: 464, dest_y: 460, direction: 1 }
+  - { src_x: 37, src_y: 34, dest_map: "dglv2", dest_x: 464, dest_y: 460, direction: 1 }
+mineral_points:
+  - { id: 0, x: 24, y: 132 }
+  - { id: 1, x: 25, y: 131 }
+  - { id: 2, x: 26, y: 130 }
+  - { id: 3, x: 21, y: 118 }
+  - { id: 4, x: 24, y: 116 }
+  - { id: 5, x: 26, y: 114 }
+  - { id: 6, x: 136, y: 21 }
+  - { id: 7, x: 139, y: 21 }
+  - { id: 8, x: 142, y: 23 }
+  - { id: 9, x: 177, y: 50 }
+  - { id: 10, x: 179, y: 52 }
+  - { id: 11, x: 173, y: 48 }
+  - { id: 12, x: 28, y: 44 }
+  - { id: 13, x: 27, y: 43 }
+  - { id: 14, x: 27, y: 42 }
+  - { id: 15, x: 70, y: 63 }
+  - { id: 16, x: 71, y: 64 }
+  - { id: 17, x: 71, y: 65 }
+  - { id: 18, x: 31, y: 87 }
+  - { id: 19, x: 30, y: 88 }
+  - { id: 20, x: 30, y: 89 }
+  - { id: 21, x: 111, y: 75 }
+  - { id: 22, x: 112, y: 76 }
+  - { id: 23, x: 113, y: 76 }
+  - { id: 24, x: 146, y: 174 }
+  - { id: 25, x: 147, y: 175 }
+  - { id: 26, x: 148, y: 176 }
+  - { id: 27, x: 175, y: 161 }
+  - { id: 28, x: 176, y: 162 }
+  - { id: 29, x: 176, y: 163 }
+  - { id: 30, x: 62, y: 174 }
+  - { id: 31, x: 63, y: 174 }
+  - { id: 32, x: 65, y: 173 }
+  - { id: 33, x: 127, y: 111 }
+  - { id: 34, x: 128, y: 110 }
+  - { id: 35, x: 129, y: 110 }
+waypoints:
+  - { id: 0, x: 107, y: 105 }
+  - { id: 1, x: 145, y: 116 }
+  - { id: 2, x: 200, y: 146 }
+  - { id: 3, x: 184, y: 176 }
+  - { id: 4, x: 151, y: 204 }
+  - { id: 5, x: 134, y: 137 }
+  - { id: 6, x: 37, y: 152 }
+  - { id: 7, x: 123, y: 188 }
+  - { id: 8, x: 129, y: 126 }
+  - { id: 9, x: 113, y: 153 }

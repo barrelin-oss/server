@@ -1,0 +1,7 @@
+# Convertido de MapData/arejail.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "arejail"
+# location: arejail
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 105, y: 55 }

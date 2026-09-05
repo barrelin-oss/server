@@ -1,0 +1,29 @@
+# Convertido de MapData/cmdhall_1.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "cmdhall_1"
+# location: aresden
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 40, y: 52 }
+spawners:
+  - { id: 1000, type: 0, x1: 57, y1: 50, x2: 57, y2: 50, npc_type: 0, npc_name: "Gail", max_count: 1, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 38, src_y: 49, dest_map: "aresden", dest_x: 97, dest_y: 161, direction: 4 }
+  - { src_x: 39, src_y: 49, dest_map: "aresden", dest_x: 98, dest_y: 161, direction: 4 }
+  - { src_x: 39, src_y: 50, dest_map: "aresden", dest_x: 98, dest_y: 161, direction: 4 }
+  - { src_x: 40, src_y: 50, dest_map: "aresden", dest_x: 97, dest_y: 161, direction: 4 }
+  - { src_x: 49, src_y: 48, dest_map: "aresden", dest_x: 98, dest_y: 161, direction: 4 }
+  - { src_x: 50, src_y: 48, dest_map: "aresden", dest_x: 97, dest_y: 161, direction: 4 }
+  - { src_x: 50, src_y: 47, dest_map: "aresden", dest_x: 98, dest_y: 161, direction: 4 }
+  - { src_x: 51, src_y: 47, dest_map: "aresden", dest_x: 97, dest_y: 161, direction: 4 }
+waypoints:
+  - { id: 1, x: 57, y: 50 }
+  - { id: 2, x: 57, y: 50 }
+  - { id: 3, x: 57, y: 50 }
+  - { id: 4, x: 57, y: 50 }
+  - { id: 5, x: 57, y: 50 }
+  - { id: 6, x: 57, y: 50 }
+  - { id: 7, x: 57, y: 50 }
+  - { id: 8, x: 57, y: 50 }
+  - { id: 9, x: 57, y: 50 }
+  - { id: 10, x: 57, y: 50 }

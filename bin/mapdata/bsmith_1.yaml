@@ -1,0 +1,27 @@
+# Convertido de MapData/bsmith_1.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "bsmith_1"
+# location: aresden
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 41, y: 37 }
+spawners:
+  - { id: 1000, type: 0, x1: 49, y1: 33, x2: 49, y2: 33, npc_type: 0, npc_name: "Tom", max_count: 1, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 33, src_y: 34, dest_map: "aresden", dest_x: 168, dest_y: 197, direction: 4 }
+  - { src_x: 32, src_y: 35, dest_map: "aresden", dest_x: 168, dest_y: 197, direction: 4 }
+  - { src_x: 33, src_y: 35, dest_map: "aresden", dest_x: 168, dest_y: 197, direction: 4 }
+  - { src_x: 43, src_y: 30, dest_map: "aresden", dest_x: 156, dest_y: 202, direction: 6 }
+  - { src_x: 44, src_y: 29, dest_map: "aresden", dest_x: 156, dest_y: 202, direction: 6 }
+  - { src_x: 44, src_y: 30, dest_map: "aresden", dest_x: 156, dest_y: 202, direction: 6 }
+waypoints:
+  - { id: 1, x: 49, y: 33 }
+  - { id: 2, x: 49, y: 33 }
+  - { id: 3, x: 49, y: 33 }
+  - { id: 4, x: 49, y: 33 }
+  - { id: 5, x: 49, y: 33 }
+  - { id: 6, x: 49, y: 33 }
+  - { id: 7, x: 49, y: 33 }
+  - { id: 8, x: 49, y: 33 }
+  - { id: 9, x: 49, y: 33 }
+  - { id: 10, x: 49, y: 33 }

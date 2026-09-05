@@ -1,0 +1,32 @@
+# Convertido de MapData/procella.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "procella"
+# location: procella
+initial_points:
+  - { id: 1, x: 133, y: 23 }
+safe_zones:
+  - { left: 30, top: 24, right: 38, bottom: 32 }
+spawners:
+  - { id: 1, type: 0, x1: 24, y1: 20, x2: 221, y2: 48, npc_type: 48, npc_name: "Stalker", max_count: 60, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 30, y1: 202, x2: 228, y2: 226, npc_type: 48, npc_name: "Stalker", max_count: 40, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 44, y1: 82, x2: 107, y2: 124, npc_type: 81, npc_name: "Abaddon", max_count: 60, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 109, y1: 169, x2: 175, y2: 205, npc_type: 81, npc_name: "Abaddon", max_count: 80, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 179, y1: 29, x2: 212, y2: 109, npc_type: 80, npc_name: "Tentocle", max_count: 80, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 43, y1: 126, x2: 99, y2: 209, npc_type: 80, npc_name: "Tentocle", max_count: 80, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 149, y1: 115, x2: 212, y2: 161, npc_type: 60, npc_name: "Cannibal-Plant", max_count: 60, respawn_time_ms: 15000 }
+  - { id: 8, type: 0, x1: 29, y1: 49, x2: 123, y2: 193, npc_type: 74, npc_name: "Giant-Crayfish", max_count: 60, respawn_time_ms: 15000 }
+  - { id: 9, type: 0, x1: 133, y1: 49, x2: 221, y2: 190, npc_type: 76, npc_name: "Giant-Plant", max_count: 60, respawn_time_ms: 15000 }
+  - { id: 10, type: 0, x1: 173, y1: 76, x2: 177, y2: 165, npc_type: 75, npc_name: "Giant-Lizard", max_count: 80, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 119, src_y: 29, dest_map: "inferniab", dest_x: -1, dest_y: -1, direction: 7 }
+waypoints:
+  - { id: 0, x: 49, y: 58 }
+  - { id: 1, x: 117, y: 35 }
+  - { id: 2, x: 241, y: 45 }
+  - { id: 3, x: 75, y: 117 }
+  - { id: 4, x: 185, y: 80 }
+  - { id: 5, x: 265, y: 178 }
+  - { id: 6, x: 163, y: 159 }
+  - { id: 7, x: 43, y: 250 }
+  - { id: 8, x: 149, y: 249 }
+  - { id: 9, x: 239, y: 243 }

@@ -1,0 +1,37 @@
+# Convertido de MapData/bisle.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "bisle"
+# location: bisle
+max_fish: 10
+initial_points:
+  - { id: 1, x: 144, y: 117 }
+safe_zones:
+  - { left: 139, top: 112, right: 152, bottom: 123 }
+fish_points:
+  - { id: 0, x: 204, y: 104 }
+  - { id: 1, x: 206, y: 105 }
+  - { id: 2, x: 217, y: 102 }
+  - { id: 3, x: 224, y: 98 }
+  - { id: 4, x: 229, y: 102 }
+  - { id: 5, x: 210, y: 30 }
+  - { id: 6, x: 212, y: 29 }
+  - { id: 7, x: 148, y: 36 }
+  - { id: 8, x: 146, y: 36 }
+  - { id: 9, x: 103, y: 221 }
+  - { id: 10, x: 105, y: 222 }
+  - { id: 11, x: 102, y: 220 }
+  - { id: 12, x: 186, y: 200 }
+  - { id: 13, x: 187, y: 202 }
+  - { id: 14, x: 35, y: 40 }
+  - { id: 15, x: 34, y: 39 }
+waypoints:
+  - { id: 1, x: 55, y: 39 }
+  - { id: 2, x: 50, y: 40 }
+  - { id: 3, x: 60, y: 38 }
+  - { id: 4, x: 65, y: 40 }
+  - { id: 5, x: 63, y: 44 }
+  - { id: 6, x: 58, y: 47 }
+  - { id: 7, x: 52, y: 48 }
+  - { id: 8, x: 49, y: 44 }
+  - { id: 9, x: 47, y: 41 }
+  - { id: 10, x: 55, y: 41 }

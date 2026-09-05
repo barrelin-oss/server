@@ -1,0 +1,14 @@
+# Convertido de MapData/hrampart.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "hrampart"
+# location: hrampart
+level_limit: 1
+initial_points:
+  - { id: 1, x: 120, y: 120 }
+teleports:
+  - { src_x: 43, src_y: 39, dest_map: "godh", dest_x: 455, dest_y: 204, direction: 3 }
+  - { src_x: 44, src_y: 39, dest_map: "godh", dest_x: 455, dest_y: 204, direction: 3 }
+  - { src_x: 44, src_y: 38, dest_map: "godh", dest_x: 455, dest_y: 204, direction: 4 }
+  - { src_x: 45, src_y: 38, dest_map: "godh", dest_x: 455, dest_y: 204, direction: 5 }
+  - { src_x: 46, src_y: 38, dest_map: "godh", dest_x: 455, dest_y: 204, direction: 1 }
+  - { src_x: 46, src_y: 37, dest_map: "godh", dest_x: 455, dest_y: 204, direction: 2 }

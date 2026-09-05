@@ -434,6 +434,7 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
             const auto& rmg = root["random_mob_generator"];
             config_.random_mob_generator.enabled = rmg["enabled"].as<bool>(false);
             config_.random_mob_generator.level = rmg["level"].as<int>(0);
+            config_.random_mob_generator.max_mobs = rmg["max_mobs"].as<int>(0);
             LOG_DEBUG(general,
                       "Map {} random_mob_generator: enabled={}, level={}",
                       config_.name,
@@ -491,6 +492,7 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
                                                     static_cast<int16_t>(node["x2"].as<int>()),
                                                     static_cast<int16_t>(node["y2"].as<int>())},
                                        .npc_type = static_cast<int16_t>(node["npc_type"].as<int>()),
+                                       .npc_name = node["npc_name"] ? node["npc_name"].as<std::string>() : std::string{},
                                        .max_count = static_cast<int16_t>(node["max_count"].as<int>()),
                                        .respawn_time_ms = node["respawn_time_ms"] ? node["respawn_time_ms"].as<int>() : 60000,
                                        .enabled = true};

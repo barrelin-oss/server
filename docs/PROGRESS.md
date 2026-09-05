@@ -452,6 +452,12 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Legacy MapData for all 79 maps (spawners, teleports, safe zones) and the random mob generator
+- `tools/convert/mapdata-legacy.mjs` converts the legacy `MapData/*.txt` (here from `centuu/HelbreathServer`, Helbreath 3.82) into `bin/mapdata/<map>.yaml`: 233 spot-mob generators, 824 teleports, 48 safe zones, initial/fish/mineral/way points, level limits, `random_mob_generator` with the legacy `maximum-object` as `max_mobs`, and the interior maps' fixed NPCs (`npc =` lines: shopkeepers, city hall officers) as 1-tile generators. Installed for every map that has an `.amd`; `aresden`/`elvine` keep the bot test arenas and their legacy versions sit next to them as `*.legacy.yaml` (not loaded)
+- Spawners may name the NPC (`npc_name`); the server prefers it over the legacy numeric `npc_type`, whose mapping table (`spot_mob_mapping.h`) only knew 22 types. Boot now registers 209 spawn points; 24 are skipped for NPC templates missing from `npcs.yaml` (YW-Aresden, McGaffin, Perry, Devlin, Sor-Aresden, Giant-Crayfish, Giant-Lizard, Gail) and legacy types 7/8/9 with no name in NPC.cfg
+- `npc_system::update_random_mobs`: the legacy MobGenerator. Nothing called `spawn_random_mob()` periodically, so the 24 maps that rely on `random_mob_generator` (hunting zones, dungeons) stayed empty. Every `random_mob_check_interval_ms` each enabled map is topped up by `random_mob_batch` free-roaming mobs of its level, up to `min(map max_mobs, random_mob_cap)`
+- `tools/bot/map-peek.mjs`: teleports the admin character to a map/tile, takes one step and lists the NPCs in view
+
 ### 2026-09-05: Bot reconnect resets per-session state; lighter test arenas
 - A reconnect kept the previous session's `entities` and `groundItems`, so bots chased ghost mobs (58 "visible" with 60 in the whole map) and died to the real ones: deaths went from 7 to 19 in the 5 minutes after the first server restart under load. `resetSession()` now clears entities, ground items, target, loot and party state on close; inventory and equipment are resent by the server on enter
 - With NPCs kept inside their generator rect and roaming properly, the test arenas (`mapdata/aresden.yaml`, `elvine.yaml`) were too dense for 25 bots per city; Slimes were doing most of the killing (1758 hits in 10 minutes). Generators are now 30 Slimes, 20 Giant-Ants and 10 Orcs per city

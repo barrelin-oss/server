@@ -1,0 +1,30 @@
+# Convertido de MapData/maze.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "maze"
+# location: maze
+fixed_day_mode: true
+random_mob_generator:
+  enabled: true
+  level: 19
+  max_mobs: 100
+initial_points:
+  - { id: 1, x: 102, y: 30 }
+safe_zones:
+  - { left: 98, top: 26, right: 106, bottom: 34 }
+spawners:
+  - { id: 1, type: 0, x1: 30, y1: 39, x2: 169, y2: 92, npc_type: 55, npc_name: "Rabbit", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 75, y1: 94, x2: 131, y2: 132, npc_type: 74, npc_name: "Giant-Crayfish", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 24, y1: 147, x2: 68, y2: 176, npc_type: 76, npc_name: "Giant-Plant", max_count: 20, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 38, src_y: 164, dest_map: "procella", dest_x: -1, dest_y: -1, direction: 7 }
+waypoints:
+  - { id: 0, x: 49, y: 58 }
+  - { id: 1, x: 117, y: 35 }
+  - { id: 2, x: 241, y: 45 }
+  - { id: 3, x: 75, y: 117 }
+  - { id: 4, x: 185, y: 80 }
+  - { id: 5, x: 265, y: 178 }
+  - { id: 6, x: 163, y: 159 }
+  - { id: 7, x: 43, y: 250 }
+  - { id: 8, x: 149, y: 249 }
+  - { id: 9, x: 239, y: 243 }

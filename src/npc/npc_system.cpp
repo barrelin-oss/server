@@ -115,6 +115,7 @@ void npc_system::update(float delta_time)
     flush_pending_deaths();
 
     update_spawns(delta_time);
+    update_random_mobs(delta_time);
     update_corpses(delta_time);
     if (config_.enable_ai)
     {
@@ -917,6 +918,66 @@ void npc_system::update_spawns(float delta_time)
             spawn_npc_at(sp);
         }
     }
+}
+
+// Legacy MobGenerator: nothing called spawn_random_mob() periodically, so the 24 maps
+// that rely on random_mob_generator (huntzones, dungeons) stayed empty. Roaming mobs
+// are the ones without a spawn point; each check tops every enabled map up by a small
+// batch until it reaches its cap.
+void npc_system::update_random_mobs(float delta_time)
+{
+    random_mob_accumulator_ += delta_time * 1000.0f;
+    if (random_mob_accumulator_ < static_cast<float>(config_.random_mob_check_interval_ms))
+    {
+        return;
+    }
+    random_mob_accumulator_ -= static_cast<float>(config_.random_mob_check_interval_ms);
+
+    auto* world = subsystems().get<hb::world::world_subsystem>();
+    if (!world)
+    {
+        return;
+    }
+
+    std::unordered_map<map_id, int> roaming;
+    for (const auto& [eid, n] : npcs_)
+    {
+        if (n && n->spawn == nullptr && n->is_monster() && !n->is_dead())
+        {
+            ++roaming[n->current_map];
+        }
+    }
+
+    static thread_local std::mt19937 rng{std::random_device{}()};
+    world->for_each_map(
+        [&](map_id id, hb::world::map& m)
+        {
+            if (!m.random_mob_generator_enabled() || m.width() < 3 || m.height() < 3)
+            {
+                return;
+            }
+            const int map_cap = m.random_mob_generator_max() > 0 ? std::min(m.random_mob_generator_max(), config_.random_mob_cap)
+                                                                : config_.random_mob_cap;
+            const int missing = map_cap - roaming[id];
+            const int to_spawn = std::min(config_.random_mob_batch, missing);
+            std::uniform_int_distribution<int> dx(1, m.width() - 2);
+            std::uniform_int_distribution<int> dy(1, m.height() - 2);
+            for (int i = 0; i < to_spawn; ++i)
+            {
+                for (int attempt = 0; attempt < 10; ++attempt)
+                {
+                    hb::world::position pos{static_cast<int16_t>(dx(rng)), static_cast<int16_t>(dy(rng))};
+                    if (!m.can_move_to(pos))
+                    {
+                        continue;
+                    }
+                    if (spawn_random_mob(id, pos).is_ok())
+                    {
+                        break;
+                    }
+                }
+            }
+        });
 }
 
 void npc_system::update_corpses(float delta_time)

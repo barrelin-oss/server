@@ -1,0 +1,32 @@
+# Convertido de MapData/huntzone4.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "huntzone4"
+# location: aresden
+level_limit: 30
+random_mob_generator:
+  enabled: true
+  level: 6
+  max_mobs: 350
+initial_points:
+  - { id: 1, x: 23, y: 93 }
+teleports:
+  - { src_x: 20, src_y: 91, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+  - { src_x: 20, src_y: 92, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+  - { src_x: 20, src_y: 93, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+  - { src_x: 20, src_y: 94, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+  - { src_x: 20, src_y: 95, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+  - { src_x: 20, src_y: 96, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+  - { src_x: 20, src_y: 97, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+  - { src_x: 20, src_y: 98, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+  - { src_x: 20, src_y: 99, dest_map: "huntzone2", dest_x: 176, dest_y: 99, direction: 1 }
+waypoints:
+  - { id: 0, x: 55, y: 94 }
+  - { id: 1, x: 113, y: 76 }
+  - { id: 2, x: 156, y: 104 }
+  - { id: 3, x: 187, y: 140 }
+  - { id: 4, x: 161, y: 164 }
+  - { id: 5, x: 135, y: 169 }
+  - { id: 6, x: 109, y: 191 }
+  - { id: 7, x: 98, y: 162 }
+  - { id: 8, x: 64, y: 137 }
+  - { id: 9, x: 198, y: 105 }

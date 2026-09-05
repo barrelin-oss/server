@@ -1,0 +1,42 @@
+# Convertido de MapData/druncncity.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "druncncity"
+# location: druncncity
+fixed_day_mode: true
+random_mob_generator:
+  enabled: true
+  level: 18
+  max_mobs: 100
+initial_points:
+  - { id: 1, x: 108, y: 129 }
+safe_zones:
+  - { left: 104, top: 125, right: 112, bottom: 133 }
+spawners:
+  - { id: 1, type: 0, x1: 27, y1: 55, x2: 54, y2: 108, npc_type: 82, npc_name: "Sor-Aresden", max_count: 50, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 140, y1: 28, x2: 167, y2: 73, npc_type: 82, npc_name: "Sor-Aresden", max_count: 50, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 29, y1: 24, x2: 54, y2: 48, npc_type: 51, npc_name: "CP-Aresden", max_count: 50, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 152, y1: 138, x2: 172, y2: 163, npc_type: 51, npc_name: "CP-Aresden", max_count: 50, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 33, src_y: 82, dest_map: "inferniaa", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 34, src_y: 82, dest_map: "inferniaa", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 35, src_y: 82, dest_map: "inferniaa", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 35, src_y: 83, dest_map: "inferniaa", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 36, src_y: 83, dest_map: "inferniaa", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 36, src_y: 84, dest_map: "inferniaa", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 147, src_y: 62, dest_map: "inferniab", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 148, src_y: 62, dest_map: "inferniab", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 149, src_y: 62, dest_map: "inferniab", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 149, src_y: 63, dest_map: "inferniab", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 150, src_y: 63, dest_map: "inferniab", dest_x: -1, dest_y: -1, direction: 7 }
+  - { src_x: 150, src_y: 64, dest_map: "inferniab", dest_x: -1, dest_y: -1, direction: 7 }
+waypoints:
+  - { id: 0, x: 49, y: 58 }
+  - { id: 1, x: 117, y: 35 }
+  - { id: 2, x: 241, y: 45 }
+  - { id: 3, x: 75, y: 117 }
+  - { id: 4, x: 185, y: 80 }
+  - { id: 5, x: 265, y: 178 }
+  - { id: 6, x: 163, y: 159 }
+  - { id: 7, x: 43, y: 250 }
+  - { id: 8, x: 149, y: 249 }
+  - { id: 9, x: 239, y: 243 }

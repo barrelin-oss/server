@@ -1,0 +1,31 @@
+# Convertido de MapData/elvuni.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "elvuni"
+# location: elvine
+random_mob_generator:
+  enabled: true
+  level: 7
+  max_mobs: 350
+initial_points:
+  - { id: 1, x: 173, y: 24 }
+teleports:
+  - { src_x: 176, src_y: 20, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+  - { src_x: 176, src_y: 21, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+  - { src_x: 176, src_y: 22, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+  - { src_x: 176, src_y: 23, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+  - { src_x: 176, src_y: 24, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+  - { src_x: 176, src_y: 25, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+  - { src_x: 176, src_y: 26, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+  - { src_x: 176, src_y: 27, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+  - { src_x: 176, src_y: 28, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
+waypoints:
+  - { id: 0, x: 55, y: 94 }
+  - { id: 1, x: 113, y: 76 }
+  - { id: 2, x: 156, y: 104 }
+  - { id: 3, x: 187, y: 140 }
+  - { id: 4, x: 161, y: 164 }
+  - { id: 5, x: 135, y: 169 }
+  - { id: 6, x: 109, y: 191 }
+  - { id: 7, x: 98, y: 162 }
+  - { id: 8, x: 64, y: 137 }
+  - { id: 9, x: 198, y: 105 }

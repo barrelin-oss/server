@@ -1,17 +1,31 @@
-# Map config for 'default' — dev/bot testing map
-# npc_type uses legacy spot-mob codes (see src/npc/spot_mob_mapping.h):
-#   10 = Slime, 14 = Orc, 16 = Giant-Ant, 15 = ShopKeeper-W, 19 = Gandlf
-
-name: "Default"
-
+# Convertido de MapData/default.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "default"
+# location: default
+upper_level_limit: 20
 initial_points:
-  - { id: 0, x: 85, y: 85 }
-
+  - { id: 1, x: 134, y: 37 }
+safe_zones:
+  - { left: 131, top: 35, right: 138, bottom: 40 }
 spawners:
-  # Densidade para ~10 bots caçando simultaneamente (faixa 55-115 testada como andável)
-  - { id: 1, type: 0, x1: 60, y1: 60, x2: 110, y2: 110, npc_type: 10, max_count: 30 }
-  - { id: 2, type: 0, x1: 55, y1: 55, x2: 115, y2: 115, npc_type: 16, max_count: 15 }
-  - { id: 3, type: 0, x1: 60, y1: 60, x2: 110, y2: 110, npc_type: 14, max_count: 10 }
-  # Mercadores (fixos, 1 de cada): loja geral (poções) e ferreiro (armas/reparo)
-  - { id: 4, type: 0, x1: 82, y1: 80, x2: 82, y2: 80, npc_type: 15, max_count: 1 }
-  - { id: 5, type: 0, x1: 88, y1: 80, x2: 88, y2: 80, npc_type: 19, max_count: 1 }
+  - { id: 1, type: 0, x1: 81, y1: 72, x2: 82, y2: 73, npc_type: 26, npc_name: "Kennedy", max_count: 1, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 129, y1: 74, x2: 130, y2: 75, npc_type: 26, npc_name: "Kennedy", max_count: 1, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 100, y1: 80, x2: 109, y2: 87, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 105, y1: 119, x2: 119, y2: 127, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 118, y1: 114, x2: 130, y2: 127, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 86, y1: 89, x2: 97, y2: 96, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 61, y1: 86, x2: 71, y2: 93, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 8, type: 0, x1: 68, y1: 94, x2: 76, y2: 102, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 127, src_y: 78, dest_map: "elvfarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 128, src_y: 78, dest_map: "elvfarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 129, src_y: 78, dest_map: "elvfarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 127, src_y: 79, dest_map: "elvfarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 128, src_y: 79, dest_map: "elvfarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 129, src_y: 79, dest_map: "elvfarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 80, src_y: 75, dest_map: "arefarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 81, src_y: 75, dest_map: "arefarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 82, src_y: 75, dest_map: "arefarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 80, src_y: 76, dest_map: "arefarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 81, src_y: 76, dest_map: "arefarm", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 82, src_y: 76, dest_map: "arefarm", dest_x: -1, dest_y: -1, direction: 5 }

@@ -1,0 +1,99 @@
+# Convertido de MapData/arefarm.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "arefarm"
+# location: aresden
+max_fish: 14
+initial_points:
+  - { id: 1, x: 50, y: 95 }
+safe_zones:
+  - { left: 92, top: 49, right: 98, bottom: 55 }
+spawners:
+  - { id: 1, type: 0, x1: 116, y1: 80, x2: 138, y2: 102, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 193, y1: 102, x2: 217, y2: 119, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 68, y1: 22, x2: 195, y2: 71, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 65, y1: 173, x2: 84, y2: 214, npc_type: 17, npc_name: "Scorpion", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 137, y1: 203, x2: 163, y2: 215, npc_type: 17, npc_name: "Scorpion", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 146, y1: 88, x2: 182, y2: 116, npc_type: 16, npc_name: "Giant-Ant", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 84, y1: 149, x2: 108, y2: 175, npc_type: 16, npc_name: "Giant-Ant", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 8, type: 0, x1: 146, y1: 26, x2: 184, y2: 46, npc_type: 16, npc_name: "Giant-Ant", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 9, type: 0, x1: 206, y1: 56, x2: 218, y2: 76, npc_type: 22, npc_name: "Amphis", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 10, type: 0, x1: 173, y1: 199, x2: 193, y2: 217, npc_type: 22, npc_name: "Amphis", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 11, type: 0, x1: 185, y1: 80, x2: 220, y2: 115, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 20, src_y: 22, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 20, src_y: 23, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 20, src_y: 24, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 20, src_y: 25, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 20, src_y: 26, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 20, src_y: 27, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 20, src_y: 28, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 20, src_y: 29, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 20, src_y: 30, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
+  - { src_x: 44, src_y: 101, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 4 }
+  - { src_x: 44, src_y: 102, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 4 }
+  - { src_x: 45, src_y: 101, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 4 }
+  - { src_x: 45, src_y: 102, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 4 }
+  - { src_x: 73, src_y: 87, dest_map: "bsmith_1f", dest_x: 34, dest_y: 37, direction: 4 }
+  - { src_x: 74, src_y: 87, dest_map: "bsmith_1f", dest_x: 34, dest_y: 37, direction: 4 }
+  - { src_x: 75, src_y: 87, dest_map: "bsmith_1f", dest_x: 34, dest_y: 37, direction: 4 }
+  - { src_x: 75, src_y: 86, dest_map: "bsmith_1f", dest_x: 34, dest_y: 37, direction: 4 }
+  - { src_x: 63, src_y: 92, dest_map: "bsmith_1f", dest_x: 43, dest_y: 32, direction: 5 }
+  - { src_x: 63, src_y: 93, dest_map: "bsmith_1f", dest_x: 43, dest_y: 32, direction: 5 }
+  - { src_x: 64, src_y: 93, dest_map: "bsmith_1f", dest_x: 43, dest_y: 32, direction: 5 }
+  - { src_x: 34, src_y: 88, dest_map: "wrhus_1f", dest_x: 59, dest_y: 36, direction: 6 }
+  - { src_x: 35, src_y: 89, dest_map: "wrhus_1f", dest_x: 59, dest_y: 36, direction: 6 }
+  - { src_x: 36, src_y: 90, dest_map: "wrhus_1f", dest_x: 59, dest_y: 36, direction: 6 }
+  - { src_x: 40, src_y: 90, dest_map: "wrhus_1f", dest_x: 56, dest_y: 36, direction: 4 }
+  - { src_x: 59, src_y: 69, dest_map: "gshop_1f", dest_x: 50, dest_y: 39, direction: 4 }
+  - { src_x: 59, src_y: 70, dest_map: "gshop_1f", dest_x: 50, dest_y: 39, direction: 4 }
+  - { src_x: 60, src_y: 70, dest_map: "gshop_1f", dest_x: 50, dest_y: 39, direction: 4 }
+  - { src_x: 63, src_y: 70, dest_map: "gshop_1f", dest_x: 50, dest_y: 39, direction: 4 }
+  - { src_x: 64, src_y: 69, dest_map: "gshop_1f", dest_x: 50, dest_y: 39, direction: 4 }
+  - { src_x: 114, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 115, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 116, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 117, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 118, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 119, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 120, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 121, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 122, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 123, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 124, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 125, src_y: 23, dest_map: "2ndmiddle", dest_x: 140, dest_y: 225, direction: 1 }
+  - { src_x: 53, src_y: 133, dest_map: "arebrk11", dest_x: 28, dest_y: 43, direction: 5 }
+  - { src_x: 54, src_y: 133, dest_map: "arebrk11", dest_x: 28, dest_y: 43, direction: 5 }
+  - { src_x: 55, src_y: 133, dest_map: "arebrk11", dest_x: 28, dest_y: 43, direction: 5 }
+  - { src_x: 55, src_y: 132, dest_map: "arebrk11", dest_x: 28, dest_y: 43, direction: 5 }
+  - { src_x: 78, src_y: 71, dest_map: "middled1n", dest_x: 181, dest_y: 124, direction: 1 }
+  - { src_x: 79, src_y: 69, dest_map: "middled1n", dest_x: 181, dest_y: 124, direction: 1 }
+  - { src_x: 78, src_y: 70, dest_map: "middled1n", dest_x: 181, dest_y: 124, direction: 1 }
+  - { src_x: 80, src_y: 69, dest_map: "middled1n", dest_x: 181, dest_y: 124, direction: 1 }
+  - { src_x: 79, src_y: 70, dest_map: "middled1n", dest_x: 181, dest_y: 124, direction: 1 }
+fish_points:
+  - { id: 0, x: 222, y: 17 }
+  - { id: 1, x: 235, y: 30 }
+  - { id: 2, x: 236, y: 58 }
+  - { id: 3, x: 231, y: 78 }
+  - { id: 4, x: 234, y: 224 }
+  - { id: 5, x: 224, y: 234 }
+  - { id: 6, x: 196, y: 229 }
+  - { id: 7, x: 97, y: 228 }
+  - { id: 8, x: 60, y: 229 }
+  - { id: 9, x: 33, y: 236 }
+  - { id: 10, x: 11, y: 223 }
+  - { id: 11, x: 18, y: 190 }
+  - { id: 12, x: 21, y: 164 }
+  - { id: 13, x: 15, y: 149 }
+  - { id: 14, x: 15, y: 106 }
+waypoints:
+  - { id: 1, x: 36, y: 214 }
+  - { id: 2, x: 130, y: 207 }
+  - { id: 3, x: 208, y: 205 }
+  - { id: 4, x: 193, y: 151 }
+  - { id: 5, x: 121, y: 155 }
+  - { id: 6, x: 43, y: 113 }
+  - { id: 7, x: 133, y: 90 }
+  - { id: 8, x: 210, y: 73 }
+  - { id: 9, x: 134, y: 30 }
+  - { id: 10, x: 60, y: 40 }

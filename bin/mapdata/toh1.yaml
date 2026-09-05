@@ -1,0 +1,36 @@
+# Convertido de MapData/toh1.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "toh1"
+# location: toh1
+fixed_day_mode: true
+random_mob_generator:
+  enabled: true
+  level: 13
+  max_mobs: 300
+initial_points:
+  - { id: 1, x: 145, y: 32 }
+safe_zones:
+  - { left: 141, top: 27, right: 149, bottom: 35 }
+  - { left: 31, top: 216, right: 39, bottom: 224 }
+  - { left: 213, top: 211, right: 221, bottom: 219 }
+teleports:
+  - { src_x: 146, src_y: 29, dest_map: "middleland", dest_x: 382, dest_y: 286, direction: 5 }
+  - { src_x: 147, src_y: 29, dest_map: "middleland", dest_x: 382, dest_y: 286, direction: 5 }
+  - { src_x: 147, src_y: 30, dest_map: "middleland", dest_x: 382, dest_y: 286, direction: 5 }
+  - { src_x: 37, src_y: 218, dest_map: "toh2", dest_x: 39, dest_y: 38, direction: 5 }
+  - { src_x: 37, src_y: 219, dest_map: "toh2", dest_x: 39, dest_y: 38, direction: 5 }
+  - { src_x: 38, src_y: 219, dest_map: "toh2", dest_x: 39, dest_y: 38, direction: 5 }
+  - { src_x: 218, src_y: 213, dest_map: "toh2", dest_x: 272, dest_y: 28, direction: 5 }
+  - { src_x: 219, src_y: 213, dest_map: "toh2", dest_x: 272, dest_y: 28, direction: 5 }
+  - { src_x: 219, src_y: 214, dest_map: "toh2", dest_x: 272, dest_y: 28, direction: 5 }
+waypoints:
+  - { id: 0, x: 64, y: 54 }
+  - { id: 1, x: 126, y: 54 }
+  - { id: 2, x: 195, y: 49 }
+  - { id: 3, x: 75, y: 97 }
+  - { id: 4, x: 121, y: 109 }
+  - { id: 5, x: 197, y: 149 }
+  - { id: 6, x: 40, y: 153 }
+  - { id: 7, x: 45, y: 214 }
+  - { id: 8, x: 107, y: 179 }
+  - { id: 9, x: 215, y: 219 }

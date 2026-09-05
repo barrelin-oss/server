@@ -1,0 +1,29 @@
+# Convertido de MapData/huntzone3.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "huntzone3"
+# location: elvine
+level_limit: 30
+random_mob_generator:
+  enabled: true
+  level: 6
+  max_mobs: 350
+initial_points:
+  - { id: 1, x: 47, y: 165 }
+teleports:
+  - { src_x: 45, src_y: 168, dest_map: "huntzone1", dest_x: 174, dest_y: 23, direction: 5 }
+  - { src_x: 46, src_y: 168, dest_map: "huntzone1", dest_x: 174, dest_y: 23, direction: 5 }
+  - { src_x: 47, src_y: 168, dest_map: "huntzone1", dest_x: 174, dest_y: 23, direction: 5 }
+  - { src_x: 48, src_y: 168, dest_map: "huntzone1", dest_x: 174, dest_y: 23, direction: 5 }
+  - { src_x: 49, src_y: 168, dest_map: "huntzone1", dest_x: 174, dest_y: 23, direction: 5 }
+  - { src_x: 50, src_y: 168, dest_map: "huntzone1", dest_x: 174, dest_y: 23, direction: 5 }
+waypoints:
+  - { id: 0, x: 55, y: 94 }
+  - { id: 1, x: 113, y: 76 }
+  - { id: 2, x: 156, y: 104 }
+  - { id: 3, x: 187, y: 140 }
+  - { id: 4, x: 161, y: 164 }
+  - { id: 5, x: 135, y: 169 }
+  - { id: 6, x: 109, y: 191 }
+  - { id: 7, x: 98, y: 162 }
+  - { id: 8, x: 64, y: 137 }
+  - { id: 9, x: 198, y: 105 }

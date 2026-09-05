@@ -1,0 +1,27 @@
+# Convertido de MapData/wrhus_1f.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "wrhus_1f"
+# location: aresden
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 69, y: 43 }
+spawners:
+  - { id: 1000, type: 0, x1: 66, y1: 38, x2: 66, y2: 38, npc_type: 0, npc_name: "Howard", max_count: 1, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 54, src_y: 33, dest_map: "arefarm", dest_x: 38, dest_y: 92, direction: 6 }
+  - { src_x: 53, src_y: 34, dest_map: "arefarm", dest_x: 38, dest_y: 92, direction: 6 }
+  - { src_x: 54, src_y: 34, dest_map: "arefarm", dest_x: 38, dest_y: 92, direction: 6 }
+  - { src_x: 55, src_y: 34, dest_map: "arefarm", dest_x: 38, dest_y: 92, direction: 6 }
+  - { src_x: 61, src_y: 35, dest_map: "arefarm", dest_x: 34, dest_y: 90, direction: 6 }
+  - { src_x: 61, src_y: 34, dest_map: "arefarm", dest_x: 34, dest_y: 90, direction: 6 }
+waypoints:
+  - { id: 1, x: 66, y: 38 }
+  - { id: 2, x: 66, y: 38 }
+  - { id: 3, x: 66, y: 38 }
+  - { id: 4, x: 66, y: 38 }
+  - { id: 5, x: 66, y: 38 }
+  - { id: 6, x: 66, y: 38 }
+  - { id: 7, x: 66, y: 38 }
+  - { id: 8, x: 66, y: 38 }
+  - { id: 9, x: 66, y: 38 }
+  - { id: 10, x: 66, y: 38 }

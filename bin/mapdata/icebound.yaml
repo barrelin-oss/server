@@ -1,0 +1,54 @@
+# Convertido de MapData/icebound.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "icebound"
+# location: icebound
+level_limit: 20
+fixed_day_mode: false
+random_mob_generator:
+  enabled: true
+  level: 14
+  max_mobs: 500
+initial_points:
+  - { id: 1, x: 264, y: 260 }
+safe_zones:
+  - { left: 258, top: 259, right: 272, bottom: 263 }
+spawners:
+  - { id: 1, type: 0, x1: 28, y1: 23, x2: 81, y2: 59, npc_type: 13, npc_name: "Cyclops", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 51, y1: 85, x2: 105, y2: 136, npc_type: 30, npc_name: "Liche", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 225, y1: 63, x2: 269, y2: 109, npc_type: 30, npc_name: "Liche", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 4, type: 0, x1: 159, y1: 79, x2: 197, y2: 171, npc_type: 30, npc_name: "Liche", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 137, y1: 113, x2: 198, y2: 164, npc_type: 54, npc_name: "Dark-Elf", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 6, type: 0, x1: 179, y1: 67, x2: 237, y2: 103, npc_type: 54, npc_name: "Dark-Elf", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 45, y1: 202, x2: 83, y2: 233, npc_type: 54, npc_name: "Dark-Elf", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 8, type: 0, x1: 215, y1: 137, x2: 262, y2: 166, npc_type: 11, npc_name: "Skeleton", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 9, type: 0, x1: 108, y1: 240, x2: 165, y2: 261, npc_type: 11, npc_name: "Skeleton", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 10, type: 0, x1: 35, y1: 165, x2: 71, y2: 234, npc_type: 11, npc_name: "Skeleton", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 11, type: 0, x1: 174, y1: 26, x2: 236, y2: 83, npc_type: 53, npc_name: "Beholder", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 12, type: 0, x1: 102, y1: 219, x2: 164, y2: 277, npc_type: 53, npc_name: "Beholder", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 13, type: 0, x1: 179, y1: 217, x2: 226, y2: 260, npc_type: 55, npc_name: "Rabbit", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 14, type: 0, x1: 89, y1: 148, x2: 127, y2: 176, npc_type: 55, npc_name: "Rabbit", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 15, type: 0, x1: 198, y1: 170, x2: 243, y2: 206, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 16, type: 0, x1: 50, y1: 72, x2: 86, y2: 137, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 17, type: 0, x1: 94, y1: 54, x2: 152, y2: 98, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 260, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 261, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 262, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 263, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 264, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 265, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 266, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 267, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 268, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+  - { src_x: 269, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
+waypoints:
+  - { id: 0, x: 55, y: 94 }
+  - { id: 1, x: 113, y: 76 }
+  - { id: 2, x: 156, y: 104 }
+  - { id: 3, x: 187, y: 140 }
+  - { id: 4, x: 161, y: 164 }
+  - { id: 5, x: 135, y: 169 }
+  - { id: 6, x: 109, y: 191 }
+  - { id: 7, x: 98, y: 162 }
+  - { id: 8, x: 64, y: 137 }
+  - { id: 9, x: 198, y: 105 }

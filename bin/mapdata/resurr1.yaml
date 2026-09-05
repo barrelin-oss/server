@@ -1,0 +1,24 @@
+# Convertido de MapData/resurr1.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "resurr1"
+# location: aresden
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 98, y: 74 }
+teleports:
+  - { src_x: 38, src_y: 33, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 39, src_y: 33, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 38, src_y: 34, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 39, src_y: 34, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 158, src_y: 33, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 159, src_y: 33, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 158, src_y: 34, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 159, src_y: 34, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 38, src_y: 113, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 39, src_y: 113, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 38, src_y: 114, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 39, src_y: 114, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 158, src_y: 113, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 159, src_y: 113, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 158, src_y: 114, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }
+  - { src_x: 159, src_y: 114, dest_map: "aresden", dest_x: -1, dest_y: -1, direction: 5 }

@@ -1,0 +1,24 @@
+# Convertido de MapData/gldhall_1.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "gldhall_1"
+# location: aresden
+fixed_day_mode: true
+initial_points:
+  - { id: 1, x: 37, y: 48 }
+spawners:
+  - { id: 1000, type: 0, x1: 42, y1: 44, x2: 42, y2: 44, npc_type: 0, npc_name: "Kennedy", max_count: 1, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 59, src_y: 41, dest_map: "aresden", dest_x: 114, dest_y: 99, direction: 4 }
+  - { src_x: 60, src_y: 42, dest_map: "aresden", dest_x: 114, dest_y: 99, direction: 4 }
+  - { src_x: 60, src_y: 41, dest_map: "aresden", dest_x: 114, dest_y: 99, direction: 4 }
+waypoints:
+  - { id: 1, x: 42, y: 44 }
+  - { id: 2, x: 42, y: 44 }
+  - { id: 3, x: 42, y: 44 }
+  - { id: 4, x: 42, y: 44 }
+  - { id: 5, x: 42, y: 44 }
+  - { id: 6, x: 42, y: 44 }
+  - { id: 7, x: 42, y: 44 }
+  - { id: 8, x: 42, y: 44 }
+  - { id: 9, x: 42, y: 44 }
+  - { id: 10, x: 42, y: 44 }

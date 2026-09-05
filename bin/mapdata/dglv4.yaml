@@ -1,0 +1,37 @@
+# Convertido de MapData/dglv4.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
+# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+name: "dglv4"
+# location: dglv4
+level_limit: 60
+fixed_day_mode: true
+random_mob_generator:
+  enabled: true
+  level: 10
+  max_mobs: 600
+initial_points:
+  - { id: 1, x: 62, y: 241 }
+spawners:
+  - { id: 1, type: 0, x1: 180, y1: 180, x2: 220, y2: 220, npc_type: 11, npc_name: "Skeleton", max_count: 50, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 70, y1: 70, x2: 310, y2: 310, npc_type: 31, npc_name: "Demon", max_count: 50, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 170, y1: 170, x2: 230, y2: 230, npc_type: 31, npc_name: "Demon", max_count: 5, respawn_time_ms: 15000 }
+teleports:
+  - { src_x: 63, src_y: 238, dest_map: "dglv3", dest_x: 59, dest_y: 246, direction: 5 }
+  - { src_x: 64, src_y: 238, dest_map: "dglv3", dest_x: 59, dest_y: 246, direction: 5 }
+  - { src_x: 64, src_y: 237, dest_map: "dglv3", dest_x: 59, dest_y: 246, direction: 5 }
+  - { src_x: 208, src_y: 93, dest_map: "dglv3", dest_x: 190, dest_y: 90, direction: 5 }
+  - { src_x: 207, src_y: 94, dest_map: "dglv3", dest_x: 190, dest_y: 90, direction: 5 }
+  - { src_x: 208, src_y: 94, dest_map: "dglv3", dest_x: 190, dest_y: 90, direction: 5 }
+  - { src_x: 339, src_y: 230, dest_map: "dglv3", dest_x: 341, dest_y: 194, direction: 5 }
+  - { src_x: 340, src_y: 229, dest_map: "dglv3", dest_x: 341, dest_y: 194, direction: 5 }
+  - { src_x: 340, src_y: 230, dest_map: "dglv3", dest_x: 341, dest_y: 194, direction: 5 }
+waypoints:
+  - { id: 0, x: 107, y: 105 }
+  - { id: 1, x: 145, y: 116 }
+  - { id: 2, x: 200, y: 146 }
+  - { id: 3, x: 184, y: 176 }
+  - { id: 4, x: 151, y: 204 }
+  - { id: 5, x: 134, y: 137 }
+  - { id: 6, x: 37, y: 152 }
+  - { id: 7, x: 123, y: 188 }
+  - { id: 8, x: 129, y: 126 }
+  - { id: 9, x: 113, y: 153 }

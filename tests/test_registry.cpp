@@ -278,7 +278,7 @@ TEST_F(registry_test, npc_yaml_aggression_from_side_10)
                                  "side: 10, action_limit: 0, action_time: 1200, resist_magic: 25, magic_level: 0, "
                                  "day_of_week: 10, chat_msg: 0, detection_range: 5, regen_time: 5000, attribute: 1, "
                                  "abs_damage: 0, max_mana: 0, magic_hit_ratio: 0, attack_range: 1, area: 0 }\n"
-                                 // Side 0 = passive NPC (Rabbit)
+                                 // Side 0 + action_limit 0 = passive creature (Rabbit)
                                  "  - { name: Rabbit, sprite_id: 55, hit_dice: 4, defense: 20, hit_ratio: 35, "
                                  "min_bravery: 2, exp: 150, attack_dice: 1, attack_sides: 5, body_size: 0, "
                                  "side: 0, action_limit: 0, action_time: 1500, resist_magic: 5, magic_level: 0, "
@@ -297,7 +297,7 @@ TEST_F(registry_test, npc_yaml_aggression_from_side_10)
     auto* rabbit = registry.get(npc_id{2});
     ASSERT_NE(rabbit, nullptr);
     EXPECT_FALSE(rabbit->is_aggressive);
-    EXPECT_EQ(rabbit->type, npc_type::npc);
+    EXPECT_EQ(rabbit->type, npc_type::monster); // Passive creature: huntable, never starts a fight
 }
 
 TEST_F(registry_test, npc_yaml_dummy_not_aggressive)

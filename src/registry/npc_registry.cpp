@@ -354,10 +354,18 @@ auto npc_registry::load_from_yaml(const std::filesystem::path& path) -> result<s
                     npc.is_aggressive = true; // Faction war units
                 }
             }
+            else if (npc.name.starts_with("Guard-"))
+            {
+                // side == 0 - neutral guard (Guard-Neutral)
+                npc.type = npc_type::guard;
+                npc.is_aggressive = true;
+            }
             else
             {
-                // side == 0 - neutral NPC or passive creature
-                npc.type = npc_type::npc;
+                // side == 0 with action_limit 0 - passive creature (Rabbit, Cat, Unicorn): huntable
+                // and counted by the random mob generator, but it never starts a fight. Town NPCs
+                // are action_limit 2/6 and were handled above, so this never demotes a shopkeeper.
+                npc.type = npc_type::monster;
                 npc.is_aggressive = false;
             }
             break;

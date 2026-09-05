@@ -452,6 +452,9 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Passive creatures (Rabbit, Cat, Unicorn) are huntable monsters
+- `npc_registry` classified every side-0 template with action_limit 0 as a town NPC, so Rabbit, Cat and Unicorn were `is_friendly()`: attacks were refused and, since they are not `is_monster()`, the random mob generator never counted them. elvfarm (level 1) reached 305 roaming NPCs against a cap of 150 because 160 of them were rabbits and cats. They are now `npc_type::monster` with `is_aggressive = false` (they never start a fight); Guard-Neutral (side 0) is a guard. Town NPCs are action_limit 2/6 and are unaffected
+
 ### 2026-09-05: Legacy MapData for all 79 maps (spawners, teleports, safe zones) and the random mob generator
 - `tools/convert/mapdata-legacy.mjs` converts the legacy `MapData/*.txt` (here from `centuu/HelbreathServer`, Helbreath 3.82) into `bin/mapdata/<map>.yaml`: 233 spot-mob generators, 824 teleports, 48 safe zones, initial/fish/mineral/way points, level limits, `random_mob_generator` with the legacy `maximum-object` as `max_mobs`, and the interior maps' fixed NPCs (`npc =` lines: shopkeepers, city hall officers) as 1-tile generators. Installed for every map that has an `.amd`; `aresden`/`elvine` keep the bot test arenas and their legacy versions sit next to them as `*.legacy.yaml` (not loaded)
 - Spawners may name the NPC (`npc_name`); the server prefers it over the legacy numeric `npc_type`, whose mapping table (`spot_mob_mapping.h`) only knew 22 types. Boot now registers 209 spawn points; 24 are skipped for NPC templates missing from `npcs.yaml` (YW-Aresden, McGaffin, Perry, Devlin, Sor-Aresden, Giant-Crayfish, Giant-Lizard, Gail) and legacy types 7/8/9 with no name in NPC.cfg

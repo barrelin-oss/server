@@ -202,7 +202,7 @@ TEST_F(registry_test, npc_yaml_loads_correct_field_mapping)
 {
     auto path = create_test_file("npcs.yaml",
                                  "npcs:\n"
-                                 "  - { name: Slime, sprite_id: 10, hit_dice: 2, defense: 20, hit_ratio: 30, "
+                                 "  - { name: Slime, sprite_id: 10, hit_dice: 2, defense_ratio: 20, hit_ratio: 30, "
                                  "min_bravery: 1, exp: 4, attack_dice: 1, attack_sides: 4, body_size: 0, "
                                  "side: 10, action_limit: 0, action_time: 2100, resist_magic: 5, magic_level: 0, "
                                  "day_of_week: 10, chat_msg: 0, detection_range: 2, regen_time: 5000, attribute: 1, "
@@ -220,7 +220,10 @@ TEST_F(registry_test, npc_yaml_loads_correct_field_mapping)
     EXPECT_EQ(npc->name, "Slime");
     EXPECT_EQ(npc->sprite_id, 10);
     EXPECT_EQ(npc->hit_dice, 2);
-    EXPECT_EQ(npc->defense, 20);
+    // defense_ratio do .cfg legado e o denominador da chance de acerto (dodge_rate),
+    // nao absorcao; npc.defense fica 0 de proposito (ver npc_registry.cpp).
+    EXPECT_EQ(npc->dodge_rate, 20);
+    EXPECT_EQ(npc->defense, 0);
     EXPECT_EQ(npc->hit_ratio, 30);
     EXPECT_EQ(npc->min_bravery, 1);
     EXPECT_EQ(npc->exp_reward, 4);

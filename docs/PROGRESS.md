@@ -452,6 +452,10 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Bot reconnect resets per-session state; lighter test arenas
+- A reconnect kept the previous session's `entities` and `groundItems`, so bots chased ghost mobs (58 "visible" with 60 in the whole map) and died to the real ones: deaths went from 7 to 19 in the 5 minutes after the first server restart under load. `resetSession()` now clears entities, ground items, target, loot and party state on close; inventory and equipment are resent by the server on enter
+- With NPCs kept inside their generator rect and roaming properly, the test arenas (`mapdata/aresden.yaml`, `elvine.yaml`) were too dense for 25 bots per city; Slimes were doing most of the killing (1758 hits in 10 minutes). Generators are now 30 Slimes, 20 Giant-Ants and 10 Orcs per city
+
 ### 2026-09-05: NPCs no longer wander out of their generator rect
 - NPCs born near the edge of a spot-mob generator drifted `wander_range` tiles past it, into pockets behind walls (x < 200 in Aresden, y > 255 in Elvine) where nobody could reach them. They never died there, so the reachable population of the area shrank over every run and bots ended up chasing mobs through walls: run 10 went from 492 to 80 kills per 5 minutes in 20 minutes with zero deaths and two potions
 - `ai_runtime_state` carries the generator rect (`home_min`/`home_max`, set in `spawn_npc_at` from the spawn point half extents) and `process_wander_state` refuses steps outside it. Chasing still leaves the rect and `return_home` brings the NPC back

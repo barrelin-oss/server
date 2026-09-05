@@ -13,9 +13,9 @@ spawners:
   # Densidade para ~25 bots
   # Campo graduado (2026-09-04): Slime em toda a area; Giant-Ant e Orc so no lado oposto ao ponto
   # inicial. Com respawn de 5 s, 20 Orcs em cima do nascimento matavam bots de nivel 1 em ~12 s.
-  - { id: 1, type: 0, x1: 205, y1: 185, x2: 255, y2: 255, npc_type: 10, max_count: 60, respawn_time_ms: 5000 }
-  - { id: 2, type: 0, x1: 205, y1: 185, x2: 228, y2: 255, npc_type: 16, max_count: 30, respawn_time_ms: 5000 }
-  - { id: 3, type: 0, x1: 205, y1: 190, x2: 218, y2: 250, npc_type: 14, max_count: 20, respawn_time_ms: 5000 }
+  - { id: 1, type: 0, x1: 205, y1: 185, x2: 255, y2: 255, npc_type: 10, max_count: 30, respawn_time_ms: 5000 }
+  - { id: 2, type: 0, x1: 205, y1: 185, x2: 228, y2: 255, npc_type: 16, max_count: 20, respawn_time_ms: 5000 }
+  - { id: 3, type: 0, x1: 205, y1: 190, x2: 218, y2: 250, npc_type: 14, max_count: 10, respawn_time_ms: 5000 }
   # Mercadores fixos perto do ponto inicial
   - { id: 4, type: 0, x1: 236, y1: 216, x2: 236, y2: 216, npc_type: 15, max_count: 1 }
   - { id: 5, type: 0, x1: 244, y1: 216, x2: 244, y2: 216, npc_type: 19, max_count: 1 }

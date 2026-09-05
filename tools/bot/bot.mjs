@@ -214,6 +214,30 @@ class BotClient {
 
     // ---------- rede ----------
 
+    // Estado que so vale para a conexao atual. Sem limpar, uma reconexao deixava
+    // entidades e itens fantasmas da sessao anterior no mapa do bot (58 mobs visiveis
+    // com 60 no mapa inteiro): ele perseguia mobs que nao existiam e morria nos reais.
+    // Inventario e equipamento sao reenviados pelo servidor ao entrar no jogo.
+    resetSession() {
+        this.entities.clear();
+        this.groundItems.clear();
+        this.lootSkip.clear();
+        this.avoidTargets.clear();
+        this.targetId = 0;
+        this.pendingLoot = null;
+        this.pickupFails = 0;
+        this.detour = { dir: -1, steps: 0 };
+        this.stuck = 0;
+        this.fleeing = false;
+        this.resting = false;
+        this.busy = false;
+        this.combatMode = false;
+        this.partyId = 0;
+        this.partyMembers = [];
+        this.quest = null; // o servidor mantem; o bot ressincroniza na proxima visita ao oficial
+        this.shopTripStart = 0;
+    }
+
     connect() {
         this.ws = new WebSocket(this.serverUrl);
         this.ws.addEventListener("open", () => this.onOpen().catch((e) => this.fail(e)));
@@ -225,6 +249,7 @@ class BotClient {
             this.state = "closed";
             for (const w of this.pending.values()) clearTimeout(w.timeout);
             this.pending.clear();
+            this.resetSession();
             // Sem isto um handshake recusado (servidor cheio) ou uma queda do servidor
             // deixava o bot morto ate reiniciar o processo inteiro.
             if (!this.shuttingDown) {

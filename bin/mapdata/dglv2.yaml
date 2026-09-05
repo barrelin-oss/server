@@ -54,6 +54,8 @@ spawners:
   - { id: 34, type: 0, x1: 221, y1: 307, x2: 292, y2: 335, npc_type: 7, max_count: 8, respawn_time_ms: 15000 }
   - { id: 35, type: 0, x1: 38, y1: 60, x2: 151, y2: 128, npc_type: 7, max_count: 8, respawn_time_ms: 15000 }
   - { id: 36, type: 0, x1: 85, y1: 257, x2: 121, y2: 272, npc_type: 7, max_count: 8, respawn_time_ms: 15000 }
+  - { id: 37, type: 0, x1: 159, y1: 21, x2: 200, y2: 55, npc_type: 103, npc_name: "Bat", max_count: 6, respawn_time_ms: 15000 } # Olympia
+  - { id: 38, type: 0, x1: 82, y1: 361, x2: 132, y2: 407, npc_type: 101, npc_name: "Ghost", max_count: 4, respawn_time_ms: 20000 } # Olympia
 teleports:
   - { src_x: 465, src_y: 458, dest_map: "aresdend1", dest_x: 39, dest_y: 35, direction: 5 }
   - { src_x: 466, src_y: 458, dest_map: "aresdend1", dest_x: 39, dest_y: 35, direction: 5 }

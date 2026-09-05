@@ -192,7 +192,12 @@ Get list of characters on the account. Requires authentication.
         "experience": 125000,
         "hair_style": 2,
         "hair_color": 3,
-        "skin_color": 1
+        "skin_color": 1,
+        "equipment": {
+          "weapon": {"appr": 17, "color": 0},
+          "body": {"appr": 9, "color": 0},
+          "head": {"appr": 11, "color": 0}
+        }
       },
       {
         "id": 2,
@@ -213,6 +218,9 @@ Get list of characters on the account. Requires authentication.
 ```
 
 #### Character Summary Object
+
+`equipment` is present only when the character has something on that draws (weapon, shield, body, pants, head, arms, boots, cape): `{slot: {appr, color}}`, the same shape as the entity spawn, so the character list shows the figure dressed. `appr` is the item template's appearance value.
+
 
 | Field | Type | Description |
 |-------|------|-------------|

@@ -378,6 +378,23 @@ void auth_handlers::handle_create_account(connection_id conn_id, const network::
     conn->send(response);
 }
 
+auto auth_handlers::character_list_response(uint32_t seq, const std::vector<auth::character_summary>& characters) const
+    -> network::json_message
+{
+    network::template_appr_lookup lookup;
+    if (item_registry_)
+    {
+        lookup = [reg = item_registry_](int32_t template_id) -> std::optional<std::pair<int, int>>
+        {
+            const auto* tmpl = reg->get(item_id{static_cast<uint32_t>(template_id)});
+            if (!tmpl)
+                return std::nullopt;
+            return std::make_pair(static_cast<int>(tmpl->appr_value), static_cast<int>(tmpl->item_color));
+        };
+    }
+    return network::make_get_characters_response(seq, characters, lookup);
+}
+
 void auth_handlers::handle_get_characters(connection_id conn_id, const network::json_message& msg)
 {
     auto* conn = require_authenticated(conn_id, msg.seq);
@@ -401,7 +418,7 @@ void auth_handlers::handle_get_characters(connection_id conn_id, const network::
 
     LOG_DEBUG(bridge, "Sending {} characters for account {}", characters.size(), conn->account().value);
 
-    auto response = network::make_get_characters_response(msg.seq, characters);
+    auto response = character_list_response(msg.seq, characters);
     conn->send(response);
 }
 
@@ -452,7 +469,7 @@ void auth_handlers::handle_create_character(connection_id conn_id, const network
     auto chars_result = auth_->get_characters(conn->account());
     if (chars_result.is_ok())
     {
-        auto list_response = network::make_get_characters_response(0, chars_result.value());
+        auto list_response = character_list_response(0, chars_result.value());
         conn->send(list_response);
     }
 }
@@ -500,7 +517,7 @@ void auth_handlers::handle_delete_character(connection_id conn_id, const network
     auto chars_result = auth_->get_characters(conn->account());
     if (chars_result.is_ok())
     {
-        auto list_response = network::make_get_characters_response(0, chars_result.value());
+        auto list_response = character_list_response(0, chars_result.value());
         conn->send(list_response);
     }
 }

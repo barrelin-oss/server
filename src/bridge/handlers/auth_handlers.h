@@ -142,6 +142,10 @@ private:
     // Destroy all item instances owned by a player (inventory + bank) from item_system
     void destroy_player_items(entity_id owner);
 
+    // get_characters_response with the equipment visuals resolved through the item registry
+    [[nodiscard]] auto character_list_response(uint32_t seq, const std::vector<auth::character_summary>& characters) const
+        -> network::json_message;
+
     network::websocket_server* ws_server_{nullptr};
     auth::auth_system* auth_{nullptr};
     player::player_system* players_{nullptr};

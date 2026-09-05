@@ -117,6 +117,16 @@ struct character_summary
     int16_t skin_color{0};
 
     std::optional<std::chrono::system_clock::time_point> last_played;
+
+    // What the character has on (slot = player::equip_slot value): the character list
+    // draws the figure dressed, like the game does
+    struct equipped_entry
+    {
+        int16_t slot{0};
+        int32_t template_id{0};
+        int16_t color{0};
+    };
+    std::vector<equipped_entry> equipped;
 };
 
 // Character creation request

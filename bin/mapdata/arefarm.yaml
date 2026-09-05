@@ -20,6 +20,8 @@ spawners:
   - { id: 9, type: 0, x1: 206, y1: 56, x2: 218, y2: 76, npc_type: 22, npc_name: "Amphis", max_count: 10, respawn_time_ms: 15000 }
   - { id: 10, type: 0, x1: 173, y1: 199, x2: 193, y2: 217, npc_type: 22, npc_name: "Amphis", max_count: 10, respawn_time_ms: 15000 }
   - { id: 11, type: 0, x1: 185, y1: 80, x2: 220, y2: 115, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 12, type: 0, x1: 68, y1: 22, x2: 195, y2: 71, npc_type: 100, npc_name: "Scarecrow", max_count: 2, respawn_time_ms: 60000 } # Olympia
+  - { id: 13, type: 0, x1: 84, y1: 149, x2: 108, y2: 175, npc_type: 100, npc_name: "Scarecrow", max_count: 1, respawn_time_ms: 60000 } # Olympia
 teleports:
   - { src_x: 20, src_y: 22, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }
   - { src_x: 20, src_y: 23, dest_map: "aresden", dest_x: 275, dest_y: 205, direction: 4 }

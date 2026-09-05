@@ -1689,21 +1689,63 @@ auto make_logout_response(uint32_t seq, bool success) -> json_message
 
 auto make_get_characters_response(uint32_t seq, const std::vector<auth::character_summary>& characters) -> json_message
 {
+    return make_get_characters_response(seq, characters, {});
+}
+
+// Visual slots of the character list, keyed like the entity spawn (player::equip_slot values)
+static const char* character_list_slot_name(int16_t slot)
+{
+    switch (slot)
+    {
+    case 0: return "head";
+    case 1: return "body";
+    case 2: return "arms";
+    case 3: return "pants";
+    case 4: return "boots";
+    case 5: return "weapon";
+    case 6: return "shield";
+    case 7: return "weapon"; // two-handed weapons draw in the weapon slot
+    case 11: return "cape";
+    default: return nullptr; // rings, amulet, angel, full body: nothing to draw
+    }
+}
+
+auto make_get_characters_response(uint32_t seq,
+                                  const std::vector<auth::character_summary>& characters,
+                                  const template_appr_lookup& appr_lookup) -> json_message
+{
     nlohmann::json chars_json = nlohmann::json::array();
 
     for (const auto& ch : characters)
     {
-        chars_json.push_back({{"id", ch.id.value},
-                              {"name", ch.name},
-                              {"level", ch.level},
-                              {"class_type", ch.class_type},
-                              {"nation", ch.nation},
-                              {"gender", ch.gender},
-                              {"map_name", ch.map_name},
-                              {"experience", ch.experience},
-                              {"hair_style", ch.hair_style},
-                              {"hair_color", ch.hair_color},
-                              {"skin_color", ch.skin_color}});
+        nlohmann::json cj = {{"id", ch.id.value},
+                             {"name", ch.name},
+                             {"level", ch.level},
+                             {"class_type", ch.class_type},
+                             {"nation", ch.nation},
+                             {"gender", ch.gender},
+                             {"map_name", ch.map_name},
+                             {"experience", ch.experience},
+                             {"hair_style", ch.hair_style},
+                             {"hair_color", ch.hair_color},
+                             {"skin_color", ch.skin_color}};
+        if (appr_lookup && !ch.equipped.empty())
+        {
+            nlohmann::json eq = nlohmann::json::object();
+            for (const auto& e : ch.equipped)
+            {
+                const char* slot_name = character_list_slot_name(e.slot);
+                if (!slot_name)
+                    continue;
+                auto visual = appr_lookup(e.template_id);
+                if (!visual)
+                    continue;
+                eq[slot_name] = {{"appr", visual->first}, {"color", e.color != 0 ? e.color : visual->second}};
+            }
+            if (!eq.empty())
+                cj["equipment"] = std::move(eq);
+        }
+        chars_json.push_back(std::move(cj));
     }
 
     return json_message{.type = json_message_type::get_characters_response,

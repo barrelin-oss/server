@@ -452,6 +452,11 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Character list carries the equipment visuals; Olympia NPCs
+
+- `get_characters_response` gains `equipment: {slot: {appr, color}}`, the shape of the entity spawn, read from `character_equipment` + `items` in one query per account and resolved through the item registry (`auth_handlers::character_list_response`): the character select draws the figure dressed instead of naked. Documented in docs/protocol/auth.md; unit test in test_auth.cpp.
+- npcs.yaml: 19 Olympia templates on sprites 100-112 (our numbering; the packs come from the Helbreath Olympia client): Scarecrow, Ghost, Princess, Bat, Event/Battle-Officer, Guard-Archer/Axe/Sword for the three sides, the three chests, Black-Beholder. Scarecrows stand on arefarm and elvfarm, bats and ghosts live in dglv2.
+
 ### 2026-09-05: The bank is reachable; /setgold tells the client
 - No NPC ever got the `banker`/`warehouse` category (town templates all became `merchant`), so `player_interact_request` never opened the bank. Howard (Aresden) and Tom (Elvine), the warehouse keepers, are `warehouse` now and a click on them returns the bank contents
 - `/setgold` pushes `inventory_gold_update` to the target, so the client's gold matches without relogging

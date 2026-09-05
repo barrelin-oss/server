@@ -10,6 +10,7 @@
 
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <functional>
 #include <map>
 #include <string>
 #include <string_view>
@@ -2017,6 +2018,14 @@ make_error_response(uint32_t seq, std::string_view error_code, std::string_view 
 
 [[nodiscard]] auto make_get_characters_response(uint32_t seq,
                                                 const std::vector<auth::character_summary>& characters) -> json_message;
+
+// appr_lookup(template_id) -> {appr_value, item_color} of the item template. With it, every
+// character carries "equipment": {weapon|shield|body|pants|head|arms|boots|cape: {appr, color}}
+// so the character list can draw the figure dressed (same shape as the entity spawn).
+using template_appr_lookup = std::function<std::optional<std::pair<int, int>>(int32_t template_id)>;
+[[nodiscard]] auto make_get_characters_response(uint32_t seq,
+                                                const std::vector<auth::character_summary>& characters,
+                                                const template_appr_lookup& appr_lookup) -> json_message;
 
 [[nodiscard]] auto make_create_character_response(uint32_t seq,
                                                   bool success,

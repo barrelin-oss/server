@@ -718,6 +718,32 @@ auto auth_system::get_characters(account_id id) -> result<std::vector<character_
         characters.push_back(std::move(summary));
     }
 
+    // Equipped items of every character of the account, one query
+    auto eq_result = database_->execute_params(
+        R"(SELECT ce.character_id, ce.slot, i.template_id, i.color
+           FROM character_equipment ce
+           JOIN items i ON i.id = ce.item_id
+           JOIN characters c ON c.id = ce.character_id
+           WHERE c.account_id = $1)",
+        static_cast<int>(id.value));
+    if (eq_result.is_err())
+    {
+        LOG_WARN(auth, "Failed to get character equipment: {}", eq_result.error());
+    }
+    else
+    {
+        for (const auto& row : eq_result.value())
+        {
+            auto char_id = static_cast<uint32_t>(row["character_id"].as<int>());
+            auto it = std::find_if(characters.begin(), characters.end(), [&](const auto& c) { return c.id.value == char_id; });
+            if (it == characters.end())
+                continue;
+            it->equipped.push_back({static_cast<int16_t>(row["slot"].as<int>()),
+                                    row["template_id"].as<int>(),
+                                    static_cast<int16_t>(row["color"].as<int>())});
+        }
+    }
+
     return result<std::vector<character_summary>, auth_error>::ok(std::move(characters));
 }
 

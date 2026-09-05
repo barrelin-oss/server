@@ -296,6 +296,31 @@ TEST(JsonProtocol, MakeGetCharactersResponse)
     EXPECT_EQ(msg.data["characters"][1]["level"], 30);
 }
 
+TEST(JsonProtocol, MakeGetCharactersResponseCarriesEquipmentVisuals)
+{
+    character_summary hero{.id = player_id{1}, .name = "Hero", .level = 50};
+    hero.equipped = {{5, 925, 0}, {0, 137, 3}, {8, 500, 0}}; // weapon, head, a ring (not drawn)
+    character_summary bare{.id = player_id{2}, .name = "Bare", .level = 1};
+
+    auto lookup = [](int32_t template_id) -> std::optional<std::pair<int, int>>
+    {
+        if (template_id == 925) return std::make_pair(17, 0);
+        if (template_id == 137) return std::make_pair(11, 7);
+        return std::nullopt;
+    };
+    auto msg = make_get_characters_response(5, {hero, bare}, lookup);
+    const auto& eq = msg.data["characters"][0]["equipment"];
+    EXPECT_EQ(eq["weapon"]["appr"], 17);
+    EXPECT_EQ(eq["head"]["appr"], 11);
+    EXPECT_EQ(eq["head"]["color"], 3); // the item colour wins over the template colour
+    EXPECT_FALSE(eq.contains("ring_left"));
+    EXPECT_FALSE(msg.data["characters"][1].contains("equipment"));
+
+    // Without a lookup the list is the plain one
+    auto plain = make_get_characters_response(6, {hero});
+    EXPECT_FALSE(plain.data["characters"][0].contains("equipment"));
+}
+
 // Auth error conversion test
 TEST(AuthError, ToString)
 {

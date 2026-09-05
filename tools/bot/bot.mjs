@@ -1221,7 +1221,7 @@ class BotClient {
         } else {
             this.stuck++;
             if (this.stuck > 8) {
-                this.log(`preso em (${this.me.x},${this.me.y}) rumo a (${dest.x},${dest.y}): ${res.data.error ?? "movimento recusado"} 9x - desistindo do alvo`);
+                this.log(`preso em (${this.me.x},${this.me.y}) rumo a (${dest.x},${dest.y}): ${res.data.error ?? "movimento recusado"} 9x - desistindo do alvo${res.data.error ? "" : ` [resposta: ${JSON.stringify(res).slice(0, 160)}]`}`);
                 this.stuck = 0;
                 if (this.targetId) this.avoidTargets.set(this.targetId, Date.now() + AI.avoidTargetMs);
                 this.targetId = 0; // desiste do alvo atual

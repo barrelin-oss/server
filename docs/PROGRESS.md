@@ -452,6 +452,11 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Bots report their current action, detour around blocked tiles, drop unreachable targets
+- Status lines carry `acao=` (the aiTick branch in effect: engage, shop trip, resting, loot, wander...), `stepTowards` logs when it gives up after 9 refused moves, and a shop trip that does not reach the merchant in `shopTripMaxMs` is abandoned and logged. That is what finally showed why kill rates decayed: bots stood for minutes against `blocked_terrain` (mobs that wandered outside the walkable area) and `blocked_occupied` (crowds around the two merchant tiles) without a single log line
+- `stepTowards` now tries the neighbouring directions when the direct step is refused and keeps a successful detour for `detourSteps` steps instead of turning back into the same obstacle; a target abandoned for being unreachable is skipped for `avoidTargetMs`
+- 50-bot run after the change: 540 and 347 kills in the first two 5-minute blocks, 0 deaths, 0 protocol errors
+
 ### 2026-09-05: Bots read hunger from the wrong message (root of "starving bots" and "no weapon")
 - `hunger_update`, `skill_update` and `skill_progress` shared one `case` that did `this.hunger = d.level`, so every skill progress message (level 5, 8...) became "hunger 5". The bot then believed it was starving, ate constantly and spent its gold on food: run 4 had 187 Meat purchases against 5 swords, 10 of 30 warriors unarmed with about 20 gold each, while the server-side hunger actually drains 1 point per minute. HANDOFF items 6.2 (hunger 0) and 6.3 (rich bots without weapons) trace back to this
 - `hunger_update` now has its own case; the skill messages are silent

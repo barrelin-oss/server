@@ -55,6 +55,9 @@ const AI = {
     overweightMs: 120000, // depois de 2 pickups falhados seguidos, so pega ouro por este tempo
     lootWeightCap: 0.9, // acima desta fracao do peso maximo, so pega ouro
     sellWeightRatio: 0.8, // acima disto vai vender o que tiver, mesmo pouco
+    shopTripMaxMs: 90000, // viagem a loja que nao chega em 90 s e abandonada (e registrada)
+    detourSteps: 3, // depois de desviar de um bloqueio, segue na direcao do desvio por N passos
+    avoidTargetMs: 30000, // alvo abandonado por bloqueio fica fora da mira por este tempo
     repairThreshold: 0.5,
     shopCooldownMs: 30000,
     safeShoppingDist: 5,
@@ -197,6 +200,10 @@ class BotClient {
         this.pendingLoot = null; // id do item do ultimo pickup_request
         this.pickupFails = 0; // falhas seguidas de pickup
         this.overweightUntil = 0;
+        this.lastAction = "init"; // ultimo ramo do aiTick, para o status dizer o que o bot esta fazendo
+        this.detour = { dir: -1, steps: 0 }; // desvio em curso (stepTowards)
+        this.avoidTargets = new Map(); // entity id -> ignorar ate (ms)
+        this.shopTripStart = 0;
         this.lastPotionHp = -1;
         this.lastMpPotionAt = 0;
         this.lastMpPotionMp = -1;
@@ -644,6 +651,7 @@ class BotClient {
             await this.equipBestWeapon();
             await this.allocateStatPoints();
             if (!this.combatMode) {
+                this.lastAction = "ligando modo de combate";
                 const res = await this.request("combat_mode_change_request");
                 this.combatMode = !!res.data.combat_mode;
                 return;
@@ -655,6 +663,7 @@ class BotClient {
             if (this.hunger <= 0 && this.food().length === 0) {
                 if (await this.shoppingTick()) return;
                 if (!this.findMerchant(/shopkeeper/i)) {
+                    this.lastAction = "faminto: procurando mercador";
                     const town = this.townCenter();
                     if (town) await this.stepTowards(town);
                     else await this.wander();
@@ -662,20 +671,34 @@ class BotClient {
                 }
             }
             if (this.shouldFlee()) {
+                this.lastAction = "fugindo";
                 await this.fleeAndRecover();
                 return;
             }
-            if (this.restingTick()) return;
+            if (this.restingTick()) {
+                this.lastAction = "descansando";
+                return;
+            }
             await this.partyTick();
-            if (await this.questTick()) return;
-            if (await this.shoppingTick()) return;
-            if (await this.lootNearby(2)) return; // drop na porta: pega antes de continuar a luta
+            if (await this.questTick()) {
+                this.lastAction = "quest: indo ao oficial";
+                return;
+            }
+            if (await this.shoppingTick()) return; // lastAction vem de dentro
+            if (await this.lootNearby(2)) {
+                this.lastAction = "loot na porta";
+                return; // drop na porta: pega antes de continuar a luta
+            }
             const target = this.pickTarget();
             if (target) {
+                this.lastAction = `engage ${target.name} (dist ${target.dist})`;
                 await this.engage(target);
             } else if (await this.followLeader()) {
-                // reagrupando com o lider
-            } else if (!(await this.lootNearby(AI.lootRange))) {
+                this.lastAction = "seguindo lider";
+            } else if (await this.lootNearby(AI.lootRange)) {
+                this.lastAction = "loot longe";
+            } else {
+                this.lastAction = "wander (sem alvo)";
                 await this.wander();
             }
         } finally {
@@ -843,8 +866,14 @@ class BotClient {
         }
         // prefere o mob mais fraco (menor HP máximo); distância desempata
         let best = null;
+        const now = Date.now();
         for (const [id, e] of this.entities) {
             if (e.type !== "npc" || e.dead || e.category !== "monster") continue;
+            const avoidUntil = this.avoidTargets.get(id);
+            if (avoidUntil) {
+                if (now < avoidUntil) continue; // abandonado por bloqueio ha pouco
+                this.avoidTargets.delete(id);
+            }
             const dist = chebyshev(this.me, e);
             if (dist > 20) continue;
             // Alvo da quest ativa tem prioridade sobre o criterio de mob mais fraco.
@@ -1098,13 +1127,7 @@ class BotClient {
         return true;
     }
 
-    async stepTowards(dest) {
-        if (Date.now() - this.lastMove < AI.moveCooldownMs) return;
-        this.lastMove = Date.now();
-        let dir = dirTo(this.me, dest);
-        if (dir < 0) return;
-        // anti-stuck: alterna a direção quando bloqueado
-        if (this.stuck > 0) dir = (dir + (this.stuck % 2 === 0 ? this.stuck : -this.stuck) + 16) % 8;
+    async tryMove(dir) {
         const res = await this.request("player_move_request", {
             x: this.me.x, y: this.me.y, direction: dir, is_running: false, timestamp: Date.now(),
         });
@@ -1112,11 +1135,47 @@ class BotClient {
             this.me.x = res.data.x;
             this.me.y = res.data.y;
             this.me.dir = res.data.direction;
+        }
+        return res;
+    }
+
+    // Anda um passo na direcao de dest. Sem pathfinding: quando o passo direto e
+    // recusado (blocked_terrain/blocked_occupied), tenta os vizinhos da direcao e, se
+    // um deles passa, segue nele por detourSteps passos antes de voltar a mirar no
+    // destino. A versao anterior girava a direcao a cada recusa e, no passo seguinte,
+    // voltava a bater no mesmo obstaculo: bots ficavam presos por minutos numa parede
+    // a 6 tiles do alvo, sem log nenhum.
+    async stepTowards(dest) {
+        if (Date.now() - this.lastMove < AI.moveCooldownMs) return;
+        this.lastMove = Date.now();
+        const direct = dirTo(this.me, dest);
+        if (direct < 0) return;
+        // desvio em curso: continua nele
+        if (this.detour.steps > 0) {
+            this.detour.steps--;
+            const r = await this.tryMove(this.detour.dir);
+            if (r.data.success) return;
+            this.detour.steps = 0;
+        }
+        let res = await this.tryMove(direct);
+        if (!res.data.success) {
+            for (const off of [1, -1, 2, -2]) {
+                const alt = (direct + off + 8) % 8;
+                res = await this.tryMove(alt);
+                if (res.data.success) {
+                    this.detour = { dir: alt, steps: AI.detourSteps };
+                    break;
+                }
+            }
+        }
+        if (res.data.success) {
             this.stuck = 0;
         } else {
             this.stuck++;
             if (this.stuck > 8) {
+                this.log(`preso em (${this.me.x},${this.me.y}) rumo a (${dest.x},${dest.y}): ${res.data.error ?? "movimento recusado"} 9x - desistindo do alvo`);
                 this.stuck = 0;
+                if (this.targetId) this.avoidTargets.set(this.targetId, Date.now() + AI.avoidTargetMs);
                 this.targetId = 0; // desiste do alvo atual
             }
         }
@@ -1370,22 +1429,38 @@ class BotClient {
         // senao em area densa ele nunca acha a janela e fica desarmado para sempre.
         const potions = this.hpPotions().length;
         if (!need.essential && this.nearestMonsterDist() <= AI.safeShoppingDist && potions > 0) return false;
+        // Viagem que nao chega: sem teto o bot ficava parado (tile bloqueado, mercador
+        // fora do alcance) sem registrar nada, e o status so mostrava "drop no chao".
+        if (!this.shopTripStart) this.shopTripStart = Date.now();
+        if (Date.now() - this.shopTripStart > AI.shopTripMaxMs) {
+            this.log(`desisti da viagem a loja (${need.reason}) apos ${Math.round((Date.now() - this.shopTripStart) / 1000)}s em (${this.me.x},${this.me.y})`);
+            this.shopTripStart = 0;
+            this.shopCooldownUntil = Date.now() + AI.shopCooldownMs;
+            return false;
+        }
         const merchant = this.findMerchant(need.merchantRe);
         if (!merchant) {
             // Sem arma o bot bate ~1 de dano; vale a viagem ate o ferreiro. O mesmo
             // para comida. Antes ele so comprava se o mercador entrasse no campo de
             // visao por acaso, entao juntava ouro e seguia sem arma para sempre.
             const town = need.essential ? this.townCenter() : null;
-            if (!town) return false;
+            if (!town) {
+                this.shopTripStart = 0;
+                return false;
+            }
+            this.lastAction = `loja: ${need.reason} - procurando mercador rumo a (${town.x},${town.y})`;
             await this.stepTowards(town);
             return true;
         }
         if (merchant.dist > AI.shopRange) {
+            this.lastAction = `loja: ${need.reason} - indo a ${merchant.name} (dist ${merchant.dist})`;
             await this.stepTowards(merchant);
             return true;
         }
+        this.lastAction = `loja: ${need.reason}`;
         this.log(`na loja de ${merchant.name}: ${need.reason}`);
         await this.doShopping(merchant);
+        this.shopTripStart = 0;
         this.shopCooldownUntil = Date.now() + AI.shopCooldownMs;
         return true;
     }
@@ -1558,7 +1633,7 @@ class BotClient {
                 `ouro ${this.me.gold}, pots ${potions}, comida ${this.food().reduce((n, it) => n + (it.count ?? 1), 0)}, hunger ${this.hunger}, ` +
                 `arma ${eq ? `${eq.name} ${eq.durability}/${eq.max_durability}` : "nenhuma"}, ` +
                 `acerto ${this.swings ? Math.round((this.hits / this.swings) * 100) : 0}% (${this.hits}/${this.swings}), ` +
-                `pos (${this.me.x},${this.me.y}), ${mobs} mobs, ${this.inventory.size} itens`
+                `pos (${this.me.x},${this.me.y}), ${mobs} mobs, ${this.inventory.size} itens, acao=${this.lastAction}`
         );
     }
 

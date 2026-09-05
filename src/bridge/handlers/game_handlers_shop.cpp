@@ -2045,9 +2045,36 @@ void game_handlers::handle_dialog_choice(connection_id conn_id, const network::j
     }
 
     case npc::dialog_action::open_quests:
+    {
+        auto quests = quests_offered_by(*check.plr, check.target_npc->template_id);
+        const bool any = !quests.empty();
+        conn->send(network::make_dialog_choice_response(msg.seq,
+                                                        true,
+                                                        "open_quests",
+                                                        "",
+                                                        any ? "These are the tasks the city needs done."
+                                                            : "I have nothing for you at your level."));
+        conn->send(network::make_quest_list_response(0, true, data.npc_entity_id, std::move(quests), {}));
+        break;
+    }
+    case npc::dialog_action::claim_rewards:
+    {
+        nlohmann::json completed = nlohmann::json::array();
+        const int done = complete_quests_at_npc(*check.plr, check.target_npc->template_id, completed);
+        conn->send(network::make_dialog_choice_response(msg.seq,
+                                                        true,
+                                                        "claim_rewards",
+                                                        "",
+                                                        done > 0 ? "Well done. The city thanks you."
+                                                                 : "You have not finished any task yet."));
+        for (auto& c : completed)
+        {
+            conn->send(network::make_quest_complete_response(0, true, c["quest_id"].get<uint16_t>(), c["rewards"], {}));
+        }
+        break;
+    }
     case npc::dialog_action::offer_citizenship:
     case npc::dialog_action::select_crusade_job:
-    case npc::dialog_action::claim_rewards:
     {
         // Stub actions - infrastructure is in place for when backend systems are ready
         std::string action_name;

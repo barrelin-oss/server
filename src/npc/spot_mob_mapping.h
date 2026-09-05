@@ -44,6 +44,11 @@ inline auto spot_mob_type_to_name(int type) -> std::optional<std::string_view>
         return "ShopKeeper-W";
     case 19:
         return "Gandlf";
+    // HelbreathX-local ids (no legacy spot type): the city hall officers that hand out quests
+    case 20:
+        return "Kennedy";
+    case 21:
+        return "William";
     case 24:
         return "Guard-Aresden";
     case 25:

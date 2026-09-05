@@ -19,6 +19,7 @@
 #include "network/websocket_server.h"
 #include "player/player_system.h"
 #include "world/world_subsystem.h"
+#include "quest/quest_system.h"
 #include "world/dynamic_object_system.h"
 #include "social/social_system.h"
 #include "combat/combat_system.h"
@@ -221,12 +222,19 @@ void game_handlers::initialize(network::websocket_server* ws_server,
             {
                 broadcast_npc_move(n, old_pos); // Copies data immediately
             });
+        // Quest rewards are paid here because only the bridge holds player/inventory/item systems
+        if (quests_)
+        {
+            quests_->on_quest_completed([this](const quest::quest_completed_event& ev) { apply_quest_rewards(ev); });
+        }
+
         npc_->set_on_death_callback(
             [this](const npc::npc& n, entity::entity killer, int32_t killing_damage)
             {
                 broadcast_npc_death(n, killer, killing_damage); // Copies data immediately
                 handle_npc_loot_drop(n, killer);                // Generate and drop loot
                 distribute_npc_kill_exp(killer, n.exp_reward);  // Award XP
+                notify_quest_kill(n, killer);                   // Quest kill objectives
 
                 // Crusade NPC kill rewards
                 if (crusade_ && crusade_->is_active())
@@ -779,6 +787,22 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
 
     case network::json_message_type::stat_point_request:
         handle_stat_point(conn_id, msg);
+        return true;
+
+    case network::json_message_type::quest_list_request:
+        handle_quest_list(conn_id, msg);
+        return true;
+    case network::json_message_type::quest_accept_request:
+        handle_quest_accept(conn_id, msg);
+        return true;
+    case network::json_message_type::quest_abandon_request:
+        handle_quest_abandon(conn_id, msg);
+        return true;
+    case network::json_message_type::quest_complete_request:
+        handle_quest_complete(conn_id, msg);
+        return true;
+    case network::json_message_type::quest_journal_request:
+        handle_quest_journal(conn_id, msg);
         return true;
 
     // Combat mode

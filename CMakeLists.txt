@@ -168,6 +168,7 @@ set(SKILL_SOURCES
 
 set(QUEST_SOURCES
     src/quest/quest_system.cpp
+    src/quest/quest_loader.cpp
 )
 
 set(SOCIAL_SOURCES
@@ -233,6 +234,7 @@ set(BRIDGE_SOURCES
     src/bridge/handlers/game_handlers.cpp
     src/bridge/handlers/game_handlers_movement.cpp
     src/bridge/handlers/game_handlers_combat.cpp
+    src/bridge/handlers/game_handlers_quest.cpp
     src/bridge/handlers/game_handlers_npc.cpp
     src/bridge/handlers/game_handlers_shop.cpp
     src/bridge/handlers/game_handlers_chat.cpp
@@ -359,6 +361,7 @@ add_executable(hgserver_tests
     tests/test_item.cpp
     tests/test_combat.cpp
     tests/test_attack_timing.cpp
+    tests/test_quest_loader.cpp
     tests/test_magic.cpp
     tests/test_dynamic_objects.cpp
     tests/test_inventory.cpp

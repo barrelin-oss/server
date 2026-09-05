@@ -407,6 +407,17 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"learn_spell_response", json_message_type::learn_spell_response},
     {"stat_point_request", json_message_type::stat_point_request},
     {"stat_point_response", json_message_type::stat_point_response},
+    {"quest_list_request", json_message_type::quest_list_request},
+    {"quest_list_response", json_message_type::quest_list_response},
+    {"quest_accept_request", json_message_type::quest_accept_request},
+    {"quest_accept_response", json_message_type::quest_accept_response},
+    {"quest_abandon_request", json_message_type::quest_abandon_request},
+    {"quest_abandon_response", json_message_type::quest_abandon_response},
+    {"quest_complete_request", json_message_type::quest_complete_request},
+    {"quest_complete_response", json_message_type::quest_complete_response},
+    {"quest_journal_request", json_message_type::quest_journal_request},
+    {"quest_journal_response", json_message_type::quest_journal_response},
+    {"quest_update", json_message_type::quest_update},
     {"combat_mode_change_request", json_message_type::combat_mode_change_request},
     {"combat_mode_change_response", json_message_type::combat_mode_change_response},
     {"combat_mode_change_broadcast", json_message_type::combat_mode_change_broadcast},
@@ -1457,6 +1468,10 @@ auto attack_result_msg::to_json() const -> nlohmann::json
                             {"target_hp_max", target_hp_max},
                             {"attacker_x", attacker_x},
                             {"attacker_y", attacker_y}};
+    if (attack_interval_ms > 0)
+    {
+        j["attack_interval_ms"] = attack_interval_ms;
+    }
     if (is_ranged)
     {
         j["is_ranged"] = true;
@@ -1468,10 +1483,6 @@ auto attack_result_msg::to_json() const -> nlohmann::json
         {
             j["ammo_template_id"] = ammo_template_id;
         }
-    if (attack_interval_ms > 0)
-    {
-        j["attack_interval_ms"] = attack_interval_ms;
-    }
     }
     return j;
 }
@@ -1925,6 +1936,11 @@ auto make_player_attack_response(uint32_t seq,
     if (!success && error.has_value())
     {
         data["error"] = std::string(*error);
+        // A refused swing still tells the client how fast it may swing.
+        if (result != nullptr && result->attack_interval_ms > 0)
+        {
+            data["attack_interval_ms"] = result->attack_interval_ms;
+        }
     }
 
     return json_message{.type = json_message_type::player_attack_response, .seq = seq, .data = std::move(data)};
@@ -1936,11 +1952,6 @@ auto make_player_magic_response(uint32_t seq,
                                 std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
-        // A refused swing still tells the client how fast it may swing.
-        if (result != nullptr && result->attack_interval_ms > 0)
-        {
-            data["attack_interval_ms"] = result->attack_interval_ms;
-        }
     data["success"] = success;
 
     if (success && result != nullptr)
@@ -3124,6 +3135,75 @@ auto make_stat_point_response(
         data["error"] = std::string(error);
     }
     return json_message{.type = json_message_type::stat_point_response, .seq = seq, .data = std::move(data)};
+}
+
+// ========== Quests ==========
+
+auto quest_request_data::from_json(const nlohmann::json& j) -> result<quest_request_data, std::string>
+{
+    try
+    {
+        quest_request_data data;
+        if (j.contains("npc_entity_id"))
+        {
+            if (!j["npc_entity_id"].is_number_unsigned())
+                return result<quest_request_data, std::string>::err("Invalid 'npc_entity_id'");
+            data.npc_entity_id = j["npc_entity_id"].get<uint32_t>();
+        }
+        if (j.contains("quest_id"))
+        {
+            if (!j["quest_id"].is_number_unsigned())
+                return result<quest_request_data, std::string>::err("Invalid 'quest_id'");
+            data.quest_id = j["quest_id"].get<uint16_t>();
+        }
+        return result<quest_request_data, std::string>::ok(std::move(data));
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        return result<quest_request_data, std::string>::err(e.what());
+    }
+}
+
+auto make_quest_list_response(
+    uint32_t seq, bool success, uint32_t npc_entity_id, nlohmann::json quests, std::string_view error) -> json_message
+{
+    nlohmann::json data{{"success", success}, {"npc_entity_id", npc_entity_id}};
+    data["quests"] = quests.is_array() ? std::move(quests) : nlohmann::json::array();
+    if (!error.empty())
+        data["error"] = std::string(error);
+    return json_message{.type = json_message_type::quest_list_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_quest_action_response(
+    json_message_type type, uint32_t seq, bool success, uint16_t quest_id, std::string_view error) -> json_message
+{
+    nlohmann::json data{{"success", success}, {"quest_id", quest_id}};
+    if (!error.empty())
+        data["error"] = std::string(error);
+    return json_message{.type = type, .seq = seq, .data = std::move(data)};
+}
+
+auto make_quest_complete_response(
+    uint32_t seq, bool success, uint16_t quest_id, nlohmann::json rewards, std::string_view error) -> json_message
+{
+    nlohmann::json data{{"success", success}, {"quest_id", quest_id}};
+    if (success)
+        data["rewards"] = rewards.is_null() ? nlohmann::json::object() : std::move(rewards);
+    if (!error.empty())
+        data["error"] = std::string(error);
+    return json_message{.type = json_message_type::quest_complete_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_quest_journal_response(uint32_t seq, nlohmann::json quests) -> json_message
+{
+    nlohmann::json data;
+    data["quests"] = quests.is_array() ? std::move(quests) : nlohmann::json::array();
+    return json_message{.type = json_message_type::quest_journal_response, .seq = seq, .data = std::move(data)};
+}
+
+auto make_quest_update(nlohmann::json quest) -> json_message
+{
+    return json_message{.type = json_message_type::quest_update, .seq = 0, .data = std::move(quest)};
 }
 
 auto make_inventory_item_update(const inventory_item_msg& item) -> json_message

@@ -115,6 +115,9 @@ class skill_system;
 namespace hb::quest
 {
 class quest_system;
+struct quest_template;
+struct quest_state;
+struct quest_completed_event;
 }
 
 namespace hb::war
@@ -306,6 +309,19 @@ private:
     // Combat mode
     void handle_learn_spell(connection_id conn_id, const network::json_message& msg);
     void handle_stat_point(connection_id conn_id, const network::json_message& msg);
+
+    // Quests (game_handlers_quest.cpp, docs/protocol/quest.md)
+    void handle_quest_list(connection_id conn_id, const network::json_message& msg);
+    void handle_quest_accept(connection_id conn_id, const network::json_message& msg);
+    void handle_quest_abandon(connection_id conn_id, const network::json_message& msg);
+    void handle_quest_complete(connection_id conn_id, const network::json_message& msg);
+    void handle_quest_journal(connection_id conn_id, const network::json_message& msg);
+    void notify_quest_kill(const npc::npc& n, entity::entity killer);
+    void apply_quest_rewards(const quest::quest_completed_event& ev);
+    [[nodiscard]] auto quest_to_json(const quest::quest_template& t, const quest::quest_state* st) const -> nlohmann::json;
+    auto quests_offered_by(const player::player& plr, npc_id giver) -> nlohmann::json;
+    void send_quest_update(const player::player& plr, const quest::quest_template& t, const quest::quest_state& st);
+    auto complete_quests_at_npc(const player::player& plr, npc_id giver, nlohmann::json& completed) -> int;
     void handle_combat_mode_change(connection_id conn_id, const network::json_message& msg);
 
     // Item upgrade

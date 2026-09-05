@@ -383,6 +383,19 @@ class BotClient {
                 this.me.gold = d.gold;
                 if (d.change > 0) this.log(`+${d.change} de ouro (${d.reason ?? "?"}) — total ${d.gold}`);
                 break;
+            case "quest_update": {
+                const objs = (d.objectives ?? []).map((o) => `${o.description}: ${o.current}/${o.required}`).join("; ");
+                const complete = d.status === "complete" || (d.objectives ?? []).every((o) => o.complete);
+                this.quest = { id: d.quest_id, name: d.name, objectives: d.objectives ?? [], complete, targetName: d.objectives?.[0]?.target_name };
+                this.log(`quest '${d.name}': ${objs}${complete ? " - COMPLETA, voltar ao oficial" : ""}`);
+                break;
+            }
+            case "quest_complete_response":
+                if (d.success) {
+                    this.log(`quest ${d.quest_id} entregue: +${d.rewards?.experience ?? 0} XP, +${d.rewards?.gold ?? 0} ouro`);
+                    if (this.quest?.id === d.quest_id) this.quest = null;
+                }
+                break;
             case "experience_update":
                 this.me.exp = d.experience;
                 if (d.stat_points !== undefined) this.statPoints = d.stat_points;
@@ -621,6 +634,7 @@ class BotClient {
             }
             if (this.restingTick()) return;
             await this.partyTick();
+            if (await this.questTick()) return;
             if (await this.shoppingTick()) return;
             if (await this.lootNearby(2)) return; // drop na porta: pega antes de continuar a luta
             const target = this.pickTarget();
@@ -666,6 +680,17 @@ class BotClient {
         }
     }
 
+    // Trava contra spam de pocao (HANDOFF 6.1): sem isto, a cada tick de 200 ms saia outro
+    // use_item_request antes de o servidor devolver o HP novo - 5 pocoes para um dano so.
+    // Libera outro gole quando o cooldown passou E o valor mudou desde o ultimo (o servidor
+    // respondeu), ou quando ja passou tempo demais para ainda estar esperando a resposta.
+    potionReady(lastAt, lastValue, current) {
+        const elapsed = Date.now() - lastAt;
+        if (elapsed < AI.potionCooldownMs) return false;
+        if (current === lastValue && elapsed < AI.potionSettleMs) return false;
+        return true;
+    }
+
     inCombat() {
         return this.nearestMonsterDist() <= 2 || Date.now() - this.lastDamageAt < AI.combatMemoryMs;
     }
@@ -680,17 +705,6 @@ class BotClient {
             // Se o regen nao chega (fome, sync quebrado), desiste em vez de travar parado.
             const stalled = Date.now() - this.restStartedAt > AI.restMaxMs;
             if (done || stalled || this.inCombat()) {
-    // Trava contra spam de pocao (HANDOFF 6.1): sem isto, a cada tick de 200 ms saia outro
-    // use_item_request antes de o servidor devolver o HP novo - 5 pocoes para um dano so.
-    // Libera outro gole quando o cooldown passou E o valor mudou desde o ultimo (o servidor
-    // respondeu), ou quando ja passou tempo demais para ainda estar esperando a resposta.
-    potionReady(lastAt, lastValue, current) {
-        const elapsed = Date.now() - lastAt;
-        if (elapsed < AI.potionCooldownMs) return false;
-        if (current === lastValue && elapsed < AI.potionSettleMs) return false;
-        return true;
-    }
-
                 this.resting = false;
                 this.restBlockedUntil = stalled ? Date.now() + AI.restRetryMs : 0;
                 const motivo = done ? "recuperado" : stalled ? "sem regen, voltando a cacar" : "interrompido";
@@ -763,6 +777,11 @@ class BotClient {
         return null;
     }
 
+    weaponName() {
+        const eq = this.equippedWeapon();
+        return eq ? eq.name : "sem arma";
+    }
+
     mpPotions() {
         return [...this.inventory.values()].filter((it) => /blue.?potion/i.test(it.name));
     }
@@ -777,11 +796,6 @@ class BotClient {
         if (this.hunger > AI.eatHungerThreshold) return;
         if (Date.now() - this.lastEatAt < AI.eatCooldownMs) return;
         const meal = this.food()[0];
-    weaponName() {
-        const eq = this.equippedWeapon();
-        return eq ? eq.name : "sem arma";
-    }
-
         if (!meal) return;
         this.lastEatAt = Date.now();
         this.log(`comendo ${meal.name} (hunger ${this.hunger})`);
@@ -800,7 +814,11 @@ class BotClient {
             if (e.type !== "npc" || e.dead || e.category !== "monster") continue;
             const dist = chebyshev(this.me, e);
             if (dist > 20) continue;
-            if (!best || e.maxHp < best.maxHp || (e.maxHp === best.maxHp && dist < best.dist)) {
+            // Alvo da quest ativa tem prioridade sobre o criterio de mob mais fraco.
+            const questTarget = this.quest && !this.quest.complete ? this.quest.targetName : null;
+            const isQuest = !!(questTarget && e.name === questTarget);
+            const bestIsQuest = !!(best && questTarget && best.name === questTarget);
+            if (!best || (isQuest && !bestIsQuest) || (isQuest === bestIsQuest && (e.maxHp < best.maxHp || (e.maxHp === best.maxHp && dist < best.dist)))) {
                 best = { id, ...e, dist };
             }
         }
@@ -888,6 +906,12 @@ class BotClient {
                 timestamp: Date.now(),
             });
             const r = res.data.result;
+            const pace = r?.attack_interval_ms ?? res.data.attack_interval_ms;
+            if (pace && pace !== this.attackIntervalMs) {
+                this.log(`ritmo de ataque: ${pace} ms (${this.weaponName()}, STR ${this.stats.str})`);
+                this.attackIntervalMs = pace;
+            }
+            if (res.data.error === "attack_too_fast") return; // nao conta como golpe; o proximo tick respeita o ritmo
             // So conta quando o servidor rolou o ataque: hit=false tambem cobre
             // recusas (fora de alcance, alvo morto), que nao sao erro de mira.
             if (r?.resolved) {
@@ -904,14 +928,63 @@ class BotClient {
         }
     }
 
+    // ---------- quests ----------
+    // Quests de caca do oficial da prefeitura (Kennedy/William), so a partir do nivel 11
+    // (faixa mais baixa do Quest.cfg). Sem quest: pede a lista ao oficial e aceita a
+    // primeira. Quest completa: volta ao oficial e entrega.
+    findNpc(nameRe) {
+        for (const [id, e] of this.entities) {
+            if (e.type === "npc" && nameRe.test(e.name ?? "")) return { id, ...e, dist: chebyshev(this.me, e) };
+        }
+        return null;
+    }
+
+    async questTick() {
+        if (this.me.level < AI.questMinLevel) return false;
+        if (Date.now() - this.lastQuestTickAt < AI.questTickMs) return false;
+        const wantsTurnIn = !!this.quest?.complete;
+        const wantsNew = !this.quest;
+        if (!wantsTurnIn && !wantsNew) return false;
+        const officer = this.findNpc(/^(kennedy|william)$/i);
+        if (!officer) return false;
+        if (officer.dist > 2) {
+            if (officer.dist > AI.questWalkRange || this.inCombat()) return false;
+            await this.stepTowards(officer);
+            return true;
+        }
+        this.lastQuestTickAt = Date.now();
+        if (wantsTurnIn) {
+            const res = await this.request("quest_complete_request", { npc_entity_id: officer.id, quest_id: this.quest.id });
+            if (res.data.success) {
+                this.log(`quest '${this.quest.name}' entregue: +${res.data.rewards?.experience ?? 0} XP, +${res.data.rewards?.gold ?? 0} ouro`);
+                this.quest = null;
+            } else {
+                this.log(`entrega da quest recusada: ${res.data.error}`);
+                if (res.data.error === "not_active" || res.data.error === "quest_not_found") this.quest = null;
+            }
+            return true;
+        }
+        const list = await this.request("quest_list_request", { npc_entity_id: officer.id });
+        const quests = list.data.quests ?? [];
+        const active = quests.find((q) => q.status === "active" || q.status === "complete");
+        if (active) {
+            this.quest = { id: active.quest_id, name: active.name, objectives: active.objectives, complete: active.status === "complete", targetName: active.objectives?.[0]?.target_name };
+            return true;
+        }
+        const pick = quests.find((q) => q.status === "available");
+        if (!pick) return true;
+        const acc = await this.request("quest_accept_request", { npc_entity_id: officer.id, quest_id: pick.quest_id });
+        if (acc.data.success) {
+            this.log(`quest aceita: '${pick.name}' (${pick.description})`);
+            this.quest = { id: pick.quest_id, name: pick.name, objectives: pick.objectives, complete: false, targetName: pick.objectives?.[0]?.target_name };
+        } else {
+            this.log(`quest '${pick.name}' recusada: ${acc.data.error}`);
+        }
+        return true;
+    }
+
     // ---------- magia ----------
 
-            const pace = r?.attack_interval_ms ?? res.data.attack_interval_ms;
-            if (pace && pace !== this.attackIntervalMs) {
-                this.log(`ritmo de ataque: ${pace} ms (${this.weaponName()}, STR ${this.stats.str})`);
-                this.attackIntervalMs = pace;
-            }
-            if (res.data.error === "attack_too_fast") return; // nao conta como golpe; o proximo tick respeita o ritmo
     isMage() {
         return this.cfg.role === "mage";
     }

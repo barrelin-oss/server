@@ -47,6 +47,7 @@
 #include "inventory/inventory_system.h"
 #include "skill/skill_system.h"
 #include "quest/quest_system.h"
+#include "quest/quest_loader.h"
 #include "social/social_system.h"
 #include "war/war_system.h"
 #include "war/crusade/crusade_system.h"
@@ -1297,6 +1298,37 @@ void application::load_game_configs()
         auto spawn_tables = config_dir / "spawn_tables.yaml";
         if (std::filesystem::exists(spawn_tables))
         {
+    // Load legacy quests (city hall hunting quests; needs the NPC registry and maps)
+    if (auto* quests = subsystems().get<quest::quest_system>(); quests)
+    {
+        auto* npcs = subsystems().get<npc_registry>();
+        auto* world = subsystems().get<world::world_subsystem>();
+        auto quests_yaml = config_dir / "quests.yaml";
+        if (npcs && world && std::filesystem::exists(quests_yaml))
+        {
+            auto result = quest::load_legacy_quests(*quests,
+                                                    quests_yaml,
+                                                    *npcs,
+                                                    [world](std::string_view name) -> map_id
+                                                    {
+                                                        const auto* m = world->get_map_by_name(name);
+                                                        return m ? m->id() : map_id{};
+                                                    });
+            if (result.is_ok())
+            {
+                LOG_INFO(general, "Loaded {} quests from quests.yaml", result.value());
+            }
+            else
+            {
+                LOG_ERROR(general, "Failed to load quests.yaml: {}", result.error());
+            }
+        }
+        else if (!std::filesystem::exists(quests_yaml))
+        {
+            LOG_WARN(general, "No quests.yaml found (city hall quests disabled)");
+        }
+    }
+
             auto result = spawn_engine->load_from_file(spawn_tables);
             if (result.is_ok())
             {

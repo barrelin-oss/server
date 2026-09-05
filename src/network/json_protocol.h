@@ -490,6 +490,19 @@ enum class json_message_type
     stat_point_request,  // C->S: Spend one stat point on a stat
     stat_point_response, // S->C: Result plus remaining points
 
+    // Quests: city hall officers (Kennedy/William) hand out legacy hunting quests
+    quest_list_request,      // C->S: Quests an officer offers (npc_entity_id)
+    quest_list_response,     // S->C: Available + in-progress quests from that officer
+    quest_accept_request,    // C->S: Accept a quest at the officer
+    quest_accept_response,   // S->C: Result
+    quest_abandon_request,   // C->S: Drop an active quest
+    quest_abandon_response,  // S->C: Result
+    quest_complete_request,  // C->S: Turn in a finished quest at the officer
+    quest_complete_response, // S->C: Result plus rewards granted
+    quest_journal_request,   // C->S: All active quests with progress
+    quest_journal_response,  // S->C: Journal
+    quest_update,            // S->C: Push when a quest is accepted or progresses
+
     // Combat mode
     combat_mode_change_request,   // C->S: Toggle combat mode
     combat_mode_change_response,  // S->C: Confirm combat mode change
@@ -1283,6 +1296,28 @@ enum class json_message_type
         return "stat_point_request";
     case json_message_type::stat_point_response:
         return "stat_point_response";
+    case json_message_type::quest_list_request:
+        return "quest_list_request";
+    case json_message_type::quest_list_response:
+        return "quest_list_response";
+    case json_message_type::quest_accept_request:
+        return "quest_accept_request";
+    case json_message_type::quest_accept_response:
+        return "quest_accept_response";
+    case json_message_type::quest_abandon_request:
+        return "quest_abandon_request";
+    case json_message_type::quest_abandon_response:
+        return "quest_abandon_response";
+    case json_message_type::quest_complete_request:
+        return "quest_complete_request";
+    case json_message_type::quest_complete_response:
+        return "quest_complete_response";
+    case json_message_type::quest_journal_request:
+        return "quest_journal_request";
+    case json_message_type::quest_journal_response:
+        return "quest_journal_response";
+    case json_message_type::quest_update:
+        return "quest_update";
     case json_message_type::combat_mode_change_request:
         return "combat_mode_change_request";
     case json_message_type::combat_mode_change_response:
@@ -1851,6 +1886,7 @@ struct attack_result_msg
     int16_t target_hp_max{0}; // Target's max HP
     int16_t attacker_x{0};    // Confirmed attacker position
     int16_t attacker_y{0};
+    int32_t attack_interval_ms{0}; // Pace the server enforces for this attacker (0 = not reported)
 
     // Ranged combat fields (optional)
     bool is_ranged{false};
@@ -1886,7 +1922,6 @@ struct skill_result_msg
 };
 
 // Skill entry for skills_data message
-    int32_t attack_interval_ms{0}; // Pace the server enforces for this attacker (0 = not reported)
 struct skill_entry_msg
 {
     uint8_t skill_id{0};
@@ -2519,6 +2554,26 @@ struct stat_point_request_data
 
 [[nodiscard]] auto make_stat_point_response(
     uint32_t seq, bool success, int16_t stat, int16_t remaining, std::string_view error) -> json_message;
+
+// Quests (docs/protocol/quest.md). Every request names the officer being talked to
+// (npc_entity_id) and, where it applies, the quest; both are optional on the wire so
+// one struct serves list/accept/abandon/complete/journal.
+struct quest_request_data
+{
+    uint32_t npc_entity_id{0};
+    uint16_t quest_id{0};
+
+    [[nodiscard]] static auto from_json(const nlohmann::json& j) -> result<quest_request_data, std::string>;
+};
+
+[[nodiscard]] auto make_quest_list_response(
+    uint32_t seq, bool success, uint32_t npc_entity_id, nlohmann::json quests, std::string_view error) -> json_message;
+[[nodiscard]] auto make_quest_action_response(
+    json_message_type type, uint32_t seq, bool success, uint16_t quest_id, std::string_view error) -> json_message;
+[[nodiscard]] auto make_quest_complete_response(
+    uint32_t seq, bool success, uint16_t quest_id, nlohmann::json rewards, std::string_view error) -> json_message;
+[[nodiscard]] auto make_quest_journal_response(uint32_t seq, nlohmann::json quests) -> json_message;
+[[nodiscard]] auto make_quest_update(nlohmann::json quest) -> json_message;
 [[nodiscard]] auto make_inventory_item_removed(uint32_t item_id) -> json_message;
 [[nodiscard]] auto make_inventory_weight_update(int32_t current_weight, int32_t max_weight) -> json_message;
 [[nodiscard]] auto make_bank_slot_update(int16_t page, int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;

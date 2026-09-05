@@ -19,3 +19,5 @@ spawners:
   # Mercadores fixos perto do ponto inicial
   - { id: 4, type: 0, x1: 56, y1: 196, x2: 56, y2: 196, npc_type: 15, max_count: 1 }
   - { id: 5, type: 0, x1: 64, y1: 196, x2: 64, y2: 196, npc_type: 19, max_count: 1 }
+  # Oficial da prefeitura (quests de caca), ver docs/protocol/quest.md
+  - { id: 6, type: 0, x1: 60, y1: 194, x2: 60, y2: 194, npc_type: 21, max_count: 1 }

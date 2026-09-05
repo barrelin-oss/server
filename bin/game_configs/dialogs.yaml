@@ -5,10 +5,10 @@
 #   close - end dialog
 #   open_shop - open the NPC's shop interface
 #   open_bank - open bank deposit/withdraw interface
-#   open_quests - open quest interface (stub)
+#   open_quests - list the quests this officer offers (quest_list_response push)
 #   offer_citizenship - faction enrollment (stub)
 #   select_crusade_job - crusade role selection (stub)
-#   claim_rewards - claim quest/kill rewards (stub)
+#   claim_rewards - turn in every finished quest from this officer
 #
 # Options with 'next' navigate to another node (goto_node action).
 # Options with 'action' trigger the specified action.
@@ -21,6 +21,7 @@ dialogs:
       start:
         text: "I am the city hall officer. How may I help you?"
         options:
+          - { label: "What tasks does the city have?", action: open_quests }
           - { label: "I want to become a citizen", action: offer_citizenship }
           - { label: "Crusade duties", next: crusade }
           - { label: "I have completed a quest", action: claim_rewards }
@@ -39,6 +40,7 @@ dialogs:
       start:
         text: "I am the city hall officer of Elvine. What do you need?"
         options:
+          - { label: "What tasks does the city have?", action: open_quests }
           - { label: "I want to become a citizen", action: offer_citizenship }
           - { label: "Crusade duties", next: crusade }
           - { label: "I have completed a quest", action: claim_rewards }

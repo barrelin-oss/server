@@ -46,6 +46,11 @@ const AI = {
     foodBuyCount: 6,
     eatHungerThreshold: 60,
     eatCooldownMs: 8000,
+    potionCooldownMs: 1000, // minimo entre dois use_item_request de pocao
+    potionSettleMs: 3000, // se HP/MP nao mudou desde o ultimo gole, espera ate isto antes de repetir
+    questMinLevel: 11, // faixa mais baixa do Quest.cfg
+    questTickMs: 20000,
+    questWalkRange: 25, // so anda ate o oficial se ele estiver a esta distancia
     repairThreshold: 0.5,
     shopCooldownMs: 30000,
     safeShoppingDist: 5,
@@ -179,6 +184,12 @@ class BotClient {
         // fome (bloqueia 100% do regen no servidor quando chega a 0)
         this.hunger = 100;
         this.lastEatAt = 0;
+        this.lastPotionAt = 0;
+        this.quest = null; // quest ativa {id, name, objectives, complete, targetName}
+        this.lastQuestTickAt = 0;
+        this.lastPotionHp = -1;
+        this.lastMpPotionAt = 0;
+        this.lastMpPotionMp = -1;
     }
 
     // ---------- rede ----------
@@ -631,7 +642,9 @@ class BotClient {
         const fighting = this.inCombat();
         if (this.me.hp / this.me.maxHp < AI.potionHpThreshold && fighting) {
             const potion = [...this.inventory.values()].find((it) => /red.?potion/i.test(it.name));
-            if (potion) {
+            if (potion && this.potionReady(this.lastPotionAt, this.lastPotionHp, this.me.hp)) {
+                this.lastPotionAt = Date.now();
+                this.lastPotionHp = this.me.hp;
                 this.log(`HP baixo em combate (${this.me.hp}/${this.me.maxHp}) - usando ${potion.name}`);
                 this.send("use_item_request", { item_id: potion.item_id });
                 return;
@@ -644,7 +657,9 @@ class BotClient {
             // Fora de combate: so bebe com estoque folgado; senao descansa.
             const inCombatNeed = fighting && this.me.mp < SPELLS.magicMissile.mana;
             const idleTopUp = !fighting && this.me.mp / this.me.maxMp < 0.25 && total > 3;
-            if ((inCombatNeed || idleTopUp) && blues.length > 0) {
+            if ((inCombatNeed || idleTopUp) && blues.length > 0 && this.potionReady(this.lastMpPotionAt, this.lastMpPotionMp, this.me.mp)) {
+                this.lastMpPotionAt = Date.now();
+                this.lastMpPotionMp = this.me.mp;
                 this.log(`MP baixo (${this.me.mp}/${this.me.maxMp}${fighting ? ", em combate" : ""}) - usando ${blues[0].name}`);
                 this.send("use_item_request", { item_id: blues[0].item_id });
             }
@@ -665,6 +680,17 @@ class BotClient {
             // Se o regen nao chega (fome, sync quebrado), desiste em vez de travar parado.
             const stalled = Date.now() - this.restStartedAt > AI.restMaxMs;
             if (done || stalled || this.inCombat()) {
+    // Trava contra spam de pocao (HANDOFF 6.1): sem isto, a cada tick de 200 ms saia outro
+    // use_item_request antes de o servidor devolver o HP novo - 5 pocoes para um dano so.
+    // Libera outro gole quando o cooldown passou E o valor mudou desde o ultimo (o servidor
+    // respondeu), ou quando ja passou tempo demais para ainda estar esperando a resposta.
+    potionReady(lastAt, lastValue, current) {
+        const elapsed = Date.now() - lastAt;
+        if (elapsed < AI.potionCooldownMs) return false;
+        if (current === lastValue && elapsed < AI.potionSettleMs) return false;
+        return true;
+    }
+
                 this.resting = false;
                 this.restBlockedUntil = stalled ? Date.now() + AI.restRetryMs : 0;
                 const motivo = done ? "recuperado" : stalled ? "sem regen, voltando a cacar" : "interrompido";

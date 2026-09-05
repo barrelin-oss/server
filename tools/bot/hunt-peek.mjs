@@ -33,7 +33,10 @@ ws.onopen = async () => {
         if (!ch) throw new Error("personagem GmSmoke nao existe");
         res = await request("enter_game_request", { character_id: ch.id, force_disconnect: true, screen_width: 800, screen_height: 600 });
         if (!res.data.success) throw new Error("enter_game: " + res.data.error);
-        console.log("teleport:", (await say(`/teleport ${map} ${xs} ${ys}`)).message);
+        await say("/heal"); // GmSmoke pode ter morrido na espiada anterior
+        const tp = (await say(`/teleport ${map} ${xs} ${ys}`)).message;
+        console.log("teleport:", tp);
+        if (!/^Teleported/.test(tp ?? "")) { ws.close(); process.exit(3); }
         await sleep(500);
         let me = { x: Number(xs), y: Number(ys) };
         await request("player_move_request", { x: me.x, y: me.y, direction: 4, is_running: false, timestamp: Date.now() });

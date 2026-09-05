@@ -452,6 +452,12 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: The 8 NPC templates the converted MapData needed
+- `npcs.yaml` gains Giant-Crayfish, Giant-Lizard, McGaffin, Perry, Devlin, Gail, YW-Aresden and Sor-Aresden, mapped column by column from the legacy `NPC.cfg` (centuu, 3.82); exp scaled to this file (comparable monsters run about 1.4x the legacy average, faction units about 0.8x). Boot now registers 221 spawn points, 12 skipped (legacy types 7/8/9 that have no name in NPC.cfg). Verified in game: YW-Aresden in dglv2, Sor-Aresden in druncncity, Gail in cmdhall_1, Giant-Crayfish and Giant-Lizard in procella
+- `dialogs.yaml`: McGaffin, Perry and Devlin (legacy quest NPCs) offer `open_quests`/`claim_rewards`; Gail (command hall) offers the crusade job selection
+- `map-peek`/`hunt-peek` heal GmSmoke first (a previous peek may have killed it) and stop when the teleport is refused (unwalkable tile), instead of reporting the origin map
+- Open question: the Korean comments in the legacy MapData use an older numbering for generator types 70+ (74 = Centaurus, 76 = Minotaurs, 80 = Giant-Plant, 81 = MasterMage-Orc, 82 = Nizie) while the 3.x server code and `NPC.cfg` number them alphabetically (74 = Giant-Crayfish, 81 = Abaddon). The converter follows the 3.x numbering, so `procella` gets 140 Abaddons where the map author meant MasterMage-Orcs; decide per map before opening these zones
+
 ### 2026-09-05: GM teleports sync the client
 - `/teleport`, `/goto`, `/summonplayer`, the admin web tool teleport and the apocalypse teleports called `player_system::execute_teleport` directly, which moves the player server-side only: the client got no `player_teleport`, no destination entities, teleporters, ground items or environment, so a GM using `/teleport` kept looking at the old map (and `map-peek` counted the origin map). They now route through `game_handlers::execute_player_teleport` (public, returns the error string) via `gm_command_context::teleport_player`, `admin_web_handlers::set_teleport_fn` and `application::teleport_player_synced`; without a bridge (unit tests) the GM commands fall back to the bare move
 - `tools/bot/hunt-peek.mjs`: teleports next to the first NPC with a given name in view and sends one attack, to check a creature is attackable

@@ -95,3 +95,44 @@ dialogs:
         options:
           - { label: "Show me your wares", action: open_shop }
           - { label: "Goodbye", action: close }
+
+  # Quest NPCs (legacy action_limit 6) - added 2026-09-05 with the converted MapData
+  McGaffin:
+    greeting: "Greetings. Aresden needs capable hands."
+    nodes:
+      start:
+        text: "I keep the task board for Aresden. Anything you finish, report back to me."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a task", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+
+  Perry:
+    greeting: "Ah, a volunteer."
+    nodes:
+      start:
+        text: "There is always work for those willing to leave the city walls."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a task", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+
+  Devlin:
+    greeting: "Speak quickly, I have little time."
+    nodes:
+      start:
+        text: "Elvine rewards those who serve it. Do you have something to report?"
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a task", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+
+  # Command hall officer (cmdhall_1 / cmdhall_2)
+  Gail:
+    greeting: "Welcome to the command hall."
+    nodes:
+      start:
+        text: "The crusade is organised from here. What is your business?"
+        options:
+          - { label: "Select my crusade job", action: select_crusade_job }
+          - { label: "Goodbye", action: close }

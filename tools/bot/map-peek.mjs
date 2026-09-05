@@ -34,8 +34,10 @@ ws.onopen = async () => {
         if (!res.data.success) throw new Error("enter_game: " + res.data.error);
         for (const e of res.data.world?.entities ?? []) if (e.type === "npc") entities.set(e.entity_id, { name: e.name, x: e.x, y: e.y, category: e.category });
         console.log(`no jogo em ${res.data.character.map_name} (${res.data.character.pos_x},${res.data.character.pos_y}): ${entities.size} NPCs visiveis`);
+        await request("chat_message", { content: "/heal", timestamp: Date.now() }); // GmSmoke pode ter morrido na espiada anterior
         res = await request("chat_message", { content: `/teleport ${map} ${xs} ${ys}`, timestamp: Date.now() });
         console.log("teleport:", res.data.message ?? JSON.stringify(res.data).slice(0, 120));
+        if (!/^Teleported/.test(res.data.message ?? "")) { ws.close(); process.exit(3); }
         // o servidor manda player_teleport (limpa a lista) e as entidades do destino antes da resposta
         await sleep(500);
         const mv = await request("player_move_request", { x: Number(xs), y: Number(ys), direction: 4, is_running: false, timestamp: Date.now() });

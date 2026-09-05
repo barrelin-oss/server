@@ -184,7 +184,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Corpse cleanup | ✅ | 15s linger timer, despawn callback fires body part/rare/boss drops |
 | NPC dialog | ✅ | YAML-driven dialog trees with action routing |
 | Shop NPCs | ✅ | Buy/sell/repair with charisma pricing |
-| Quest NPCs | ❌ | Quest givers |
+| Quest NPCs | ✅ | City hall officers (Kennedy/William) offer the legacy hunting quests via dialog and the quest_* protocol |
 | Guard NPCs | ✅ | Guards target criminal/murderer players (PK >= 30), 15d20 damage, 10-tile detection |
 
 **Documentation:** `docs/RANDOM_MOB_GENERATOR.md`
@@ -241,7 +241,7 @@ This document tracks implementation progress for the modernized Helbreath server
 |-----------|--------|-------|
 | Interact handler | ✅ | Request parsing and NPC routing |
 | NPC interaction | ✅ | Dialog trees, shop, bank |
-| Object interaction | ❌ | Doors, chests, etc. |
+| Object interaction | - | Dropped 2026-09-04: the original has no doors or chests (only Heldenian gate doors, owned by the war system); loot is always a ground drop |
 | Shop interface | ✅ | Buy/sell/repair with charisma discount, territory restrictions |
 | Bank interface | ✅ | Deposit/withdraw via NPC dialog action |
 
@@ -336,7 +336,7 @@ This document tracks implementation progress for the modernized Helbreath server
 | Command logging | ✅ | Audit trail |
 | GM commands | 🔄 | Framework done, specific commands partially implemented |
 | Player management | 🔄 | Kick/ban via auth, mute via admin, more TODO |
-| Server management | ❌ | Reload, shutdown commands |
+| Server management | ✅ | `/reloadconfig` and `/shutdown [seconds] [reason] | cancel` GM commands (same paths as the admin web API) |
 | Admin web tool API | ✅ | WebSocket API for admin dashboard and spectator modes, ~100 protocol messages |
 | Admin API expansion | ✅ | Broadcast, mute, template browsing, war status, parties, player search, effects |
 | Admin API phase 3 | ✅ | Audit log, config management, scheduler control, DB queries, NPC/ground item inspection, guild mutations, messaging, environment, shutdown |
@@ -451,6 +451,36 @@ Priority order for remaining work toward a playable game:
 ---
 
 ## Recent Changes
+
+### 2026-09-04: GM server management commands (`/reloadconfig`, `/shutdown`)
+- `gm_command_context` gains `config`, `broadcast_all` and `request_shutdown` hooks (injected from `application.cpp`, so the admin module still does not depend on `application.h`)
+- `/reloadconfig` re-reads `server.yaml` from the boot path and reports which sections apply live; `/shutdown [seconds] [reason]` broadcasts warnings at 5 min/60 s/30 s/10 s on the `shutdown_countdown` scheduler tag shared with the admin web API, `/shutdown cancel` aborts, `/shutdown` alone stops at once
+- Docs: `docs/GM_COMMANDS.md` section "Server Management Commands"; tests in `test_gm_commands.cpp`
+
+### 2026-09-04: Spawn points reschedule per death (respawn throughput no longer capped)
+- `spawn_point` keeps one due time per death (`respawn_due`) instead of a single timer. The original single timer was reset by every death and never fired under 50 bots; the first fix (serial queue, one respawn per `respawn_time_ms`) capped each spawner at 12 respawns/min, which became the kill-rate ceiling in the bot runs (285 kills in the first 5 minutes from the initial stock, then 105-110 per 5 minutes). Now N deaths come back N at once when their own delay elapses, as the legacy spot-mob-generator did
+- `respawn_time_ms` is read from `mapdata/*.yaml` (`spot_mob_generator.respawn_time_ms`, default 60000); `activate_spawns` clears pending due times
+- Tests: `spawn_point_respawn_test` (initial stock, burst deaths return together, late death does not delay an earlier one, clear_pending)
+
+### 2026-09-04: City hall quests wired end to end (loader, protocol, rewards, bots)
+- `quest/quest_loader`: converts the legacy `quests.yaml` rows (Quest.cfg: type 1 hunt, type 7 go-place) into `quest_template`s. Giver is the city hall officer of the quest's side (Kennedy/Aresden, William/Elvine), targets resolve through `spot_mob_type_to_name` + the NPC registry, rewards map `-1` to XP, `-2` to XP scaled by the quest minimum level, item 90 to gold, other ids to items; hunting quests are repeatable
+- Protocol: `quest_list/accept/abandon/complete/journal` request+response and the `quest_update` push (docs/protocol/quest.md). Dialog actions `open_quests` and `claim_rewards` on the officers are no longer stubs
+- Rewards are paid from the bridge on the quest system's completion callback (XP via `add_experience`, gold via inventory + `gold_update`, items into the inventory); the NPC death callback now feeds `quest_system::on_kill` and pushes progress to the killer
+- Officers spawn from `mapdata/*.yaml` with local spot types 20/21; bots take the first offered quest at level 11+, prefer its target and turn it in at the officer
+- `tools/bot/quest-smoke.mjs`: end-to-end smoke of the flow against a running server (GM account, /teleport to Kennedy, list at level 1 vs 11, accept, push, journal, wrong NPC, premature turn-in, both dialog actions, abandon); 18 checks
+
+### 2026-09-04: Party kills paid zero XP to everyone (`distribute_npc_kill_exp`)
+- `party_member::current_map` was never set: `party::add_member` takes no map and `social_system::update_party_member_map` has no callers. `members_in_map()` therefore never matched the killer's map, `eligible` came back empty, and the function returned silently — every kill by a partied player awarded nothing. Found by the 50-bot run: 595 kills, 2 level-ups, 46/50 bots still level 1 and unarmed
+- Fix: eligibility now resolves each member through the live player record (`players_->get_player(member.player)->current_map`), and an empty eligible set logs a warning and pays the killer instead of dropping the XP
+- Bot harness (`autoPotion`): one `use_item_request` per cooldown (`potionCooldownMs`) and only after HP/MP changed since the last one (`potionSettleMs`), separate timers for red/blue. Before: 481 of 3159 potion uses were repeats of the same HP; after: 1 of 16 in a 25-minute run
+
+### 2026-09-04: Per-weapon attack pace (weapon speed + STR), replacing the flat 100 ms cooldown
+- `combat/attack_timing.h` (header-only): `attack_interval_ms()` = `base_ms + weapon.speed * speed_step_ms`, plus `str_penalty_ms` per STR point the attacker is short of the weapon's `str_speed_req` (derived as `speed * str_per_speed` when the item declares none), clamped to `[min_ms, max_ms]`. Item.cfg field 19 ("Speed", 0..15) was loaded into `item_template::speed` but never used by the server; the legacy client paced swings from it and the server only policed speed hacks
+- `str_speed_req` is a new optional `items.yaml` field and is deliberately separate from `str_requirement`: low STR slows the swing, it never blocks equipping
+- `server.yaml` gains an `attack_speed:` section (`enabled`, `base_ms`, `speed_step_ms`, `str_penalty_ms`, `min_ms`, `max_ms`, `tolerance_ms`, `str_per_speed`) parsed into `server_config::attack_speed`
+- `game_handlers_combat.cpp`: the equipped weapon is resolved before the pace check; swings faster than `interval - tolerance_ms` are refused with `attack_too_fast`. Every `player_attack_response` (accepted or refused) now carries `attack_interval_ms` so clients can pace themselves without knowing the formula
+- Bot harness: `engage()` adopts the server-reported interval (`this.attackIntervalMs`), logs pace changes with the weapon and STR, and no longer counts `attack_too_fast` refusals as swings
+- Tests: `tests/test_attack_timing.cpp` (unarmed, speed term, STR penalty, explicit vs derived requirement, clamps, disabled)
 
 ### 2026-08-30: Sweep of ECS-entity vs player_id confusion (`get_player(player_id{entity.id})`)
 - Full `src/` sweep for the recurring bug class where an ECS entity id (from the shared `entity_manager`) was cast to `player_id` (or vice versa). Entity ids and player ids are NOT interchangeable — the lookup returns nullptr (or the wrong player) and `if (auto* p = ...)`-guarded blocks are silently skipped. Standard fix: `player_system::get_player_by_entity(entity)` (O(1), const overload available)

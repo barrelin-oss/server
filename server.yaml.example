@@ -46,6 +46,21 @@ regen:
   mp_interval_ms: 20000
   sp_interval_ms: 10000
 
+# Attack pacing per weapon (combat/attack_timing.h). Interval in ms between swings:
+#   base_ms + weapon.speed * speed_step_ms   (Item.cfg "Speed" 0..15, 0 = fastest)
+#   + str_penalty_ms per STR point below the weapon's str_speed_req
+#     (items without str_speed_req use speed * str_per_speed)
+# clamped to [min_ms, max_ms]. tolerance_ms is latency slack before "attack_too_fast".
+attack_speed:
+  enabled: true
+  base_ms: 1000
+  speed_step_ms: 60
+  str_penalty_ms: 25
+  min_ms: 300
+  max_ms: 3000
+  tolerance_ms: 100
+  str_per_speed: 6
+
 # Logging Configuration
 # Levels: trace, debug, info, warn, error, critical, off
 logging:

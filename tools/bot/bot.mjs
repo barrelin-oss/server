@@ -777,6 +777,11 @@ class BotClient {
         if (this.hunger > AI.eatHungerThreshold) return;
         if (Date.now() - this.lastEatAt < AI.eatCooldownMs) return;
         const meal = this.food()[0];
+    weaponName() {
+        const eq = this.equippedWeapon();
+        return eq ? eq.name : "sem arma";
+    }
+
         if (!meal) return;
         this.lastEatAt = Date.now();
         this.log(`comendo ${meal.name} (hunger ${this.hunger})`);
@@ -869,7 +874,9 @@ class BotClient {
             return;
         }
         if (target.dist <= 1) {
-            if (Date.now() - this.lastAttack < AI.attackCooldownMs) return;
+            // O servidor dita o ritmo (attack_interval_ms na resposta): arma lenta ou STR
+            // abaixo do que a arma pede = golpe mais espacado. Antes disso, o default local.
+            if (Date.now() - this.lastAttack < (this.attackIntervalMs ?? AI.attackCooldownMs)) return;
             this.lastAttack = Date.now();
             const dir = dirTo(this.me, target);
             const res = await this.request("player_attack_request", {
@@ -899,6 +906,12 @@ class BotClient {
 
     // ---------- magia ----------
 
+            const pace = r?.attack_interval_ms ?? res.data.attack_interval_ms;
+            if (pace && pace !== this.attackIntervalMs) {
+                this.log(`ritmo de ataque: ${pace} ms (${this.weaponName()}, STR ${this.stats.str})`);
+                this.attackIntervalMs = pace;
+            }
+            if (res.data.error === "attack_too_fast") return; // nao conta como golpe; o proximo tick respeita o ritmo
     isMage() {
         return this.cfg.role === "mage";
     }

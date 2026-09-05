@@ -220,6 +220,20 @@ auto config_system::load_yaml_config(const std::filesystem::path& path) -> resul
             server_config_.regen.sp_interval_ms = yaml_get<int>(regen, "sp_interval_ms", 10000);
         }
 
+        // Attack speed section
+        if (auto atk = config["attack_speed"])
+        {
+            auto& a = server_config_.attack_speed;
+            a.enabled = yaml_get<bool>(atk, "enabled", true);
+            a.base_ms = yaml_get<int>(atk, "base_ms", 1000);
+            a.speed_step_ms = yaml_get<int>(atk, "speed_step_ms", 60);
+            a.str_penalty_ms = yaml_get<int>(atk, "str_penalty_ms", 25);
+            a.min_ms = yaml_get<int>(atk, "min_ms", 300);
+            a.max_ms = yaml_get<int>(atk, "max_ms", 3000);
+            a.tolerance_ms = yaml_get<int>(atk, "tolerance_ms", 100);
+            a.str_per_speed = yaml_get<int>(atk, "str_per_speed", 6);
+        }
+
         // Forum auth section
         if (auto forum = config["forum_auth"])
         {

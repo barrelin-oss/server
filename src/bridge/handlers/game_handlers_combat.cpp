@@ -6,6 +6,8 @@
 #include "player/player_system.h"
 #include "world/world_subsystem.h"
 #include "combat/combat_system.h"
+#include "combat/attack_timing.h"
+#include "config/config_system.h"
 #include "combat/combat_events.h"
 #include "magic/magic_system.h"
 #include "magic/spell.h"
@@ -90,13 +92,32 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         return;
     }
 
-    // Enforce attack cooldown (100ms minimum between attacks)
+    // Resolve the equipped weapon first: it sets both the pace and the range.
+    const item_template* weapon_tmpl = nullptr;
+    auto* item_reg = subsystems().get<item_registry>();
+    if (item_reg && attacker->equipment.has_equipped(player::equip_slot::weapon))
+    {
+        auto atk_weapon_id = attacker->equipment.get_equipped(player::equip_slot::weapon);
+        weapon_tmpl = atk_weapon_id ? item_reg->get(*atk_weapon_id) : nullptr;
+    }
+
+    // Enforce the per-weapon attack pace (combat/attack_timing.h): weapon speed plus
+    // a penalty when STR is below what the weapon needs for full speed.
+    const attack_speed_config pace_cfg = config_ ? config_->server().attack_speed : attack_speed_config{};
+    const int32_t attacker_str = attacker->base.strength + attacker->modifiers.strength;
+    const int32_t attack_interval = combat::attack_interval_ms(weapon_tmpl ? weapon_tmpl->speed : int8_t{0},
+                                                               weapon_tmpl ? weapon_tmpl->str_speed_req : int16_t{0},
+                                                               attacker_str,
+                                                               pace_cfg);
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - attacker->last_attack_time);
-    if (elapsed.count() < 100)
+    if (elapsed.count() < attack_interval - pace_cfg.tolerance_ms)
     {
-        network::attack_result_msg result{
-            .hit = false, .target_id = data.target_id, .attacker_x = attacker->pos.x, .attacker_y = attacker->pos.y};
+        network::attack_result_msg result{.hit = false,
+                                          .target_id = data.target_id,
+                                          .attacker_x = attacker->pos.x,
+                                          .attacker_y = attacker->pos.y,
+                                          .attack_interval_ms = attack_interval};
         conn->send(network::make_player_attack_response(msg.seq, false, &result, "attack_too_fast"));
         return;
     }
@@ -250,18 +271,10 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     // Determine if this is a ranged attack (bow equipped)
     bool is_ranged = false;
     network::projectile_type projectile = network::projectile_type::none;
-    const item_template* weapon_tmpl = nullptr;
-
-    auto* item_reg = subsystems().get<item_registry>();
-    if (item_reg && attacker->equipment.has_equipped(player::equip_slot::weapon))
+    // Legacy bow detection: two-hand equip + sprite == 2 (bow sprite ID)
+    if (weapon_tmpl && weapon_tmpl->equip_pos == item_equip_pos::two_hand && weapon_tmpl->sprite == 2)
     {
-        auto atk_weapon_id = attacker->equipment.get_equipped(player::equip_slot::weapon);
-        weapon_tmpl = atk_weapon_id ? item_reg->get(*atk_weapon_id) : nullptr;
-        // Legacy bow detection: two-hand equip + sprite == 2 (bow sprite ID)
-        if (weapon_tmpl && weapon_tmpl->equip_pos == item_equip_pos::two_hand && weapon_tmpl->sprite == 2)
-        {
-            is_ranged = true;
-        }
+        is_ranged = true;
     }
 
     // For ranged attacks: check arrows and determine projectile type
@@ -387,6 +400,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
                                       .target_hp_max = target_hp_max,
                                       .attacker_x = attacker->pos.x,
                                       .attacker_y = attacker->pos.y,
+                                      .attack_interval_ms = attack_interval,
                                       .is_ranged = is_ranged,
                                       .ammo_count = ammo_remaining,
                                       .ammo_template_id = arrow_template_id};

@@ -1468,6 +1468,10 @@ auto attack_result_msg::to_json() const -> nlohmann::json
         {
             j["ammo_template_id"] = ammo_template_id;
         }
+    if (attack_interval_ms > 0)
+    {
+        j["attack_interval_ms"] = attack_interval_ms;
+    }
     }
     return j;
 }
@@ -1932,6 +1936,11 @@ auto make_player_magic_response(uint32_t seq,
                                 std::optional<std::string_view> error) -> json_message
 {
     nlohmann::json data;
+        // A refused swing still tells the client how fast it may swing.
+        if (result != nullptr && result->attack_interval_ms > 0)
+        {
+            data["attack_interval_ms"] = result->attack_interval_ms;
+        }
     data["success"] = success;
 
     if (success && result != nullptr)

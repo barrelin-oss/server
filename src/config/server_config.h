@@ -62,6 +62,22 @@ struct regen_config
     int32_t sp_interval_ms = 10000; // Full SP roll (1d(VIT/3)) per this interval
 };
 
+// Attack pacing (see combat/attack_timing.h). interval = base_ms + weapon.speed *
+// speed_step_ms, plus str_penalty_ms per STR point the attacker is short of the
+// weapon's str_speed_req (defaults to speed * str_per_speed). Clamped to
+// [min_ms, max_ms]; tolerance_ms is latency slack before a swing is refused.
+struct attack_speed_config
+{
+    bool enabled = true;
+    int32_t base_ms = 1000;
+    int32_t speed_step_ms = 60;
+    int32_t str_penalty_ms = 25;
+    int32_t min_ms = 300;
+    int32_t max_ms = 3000;
+    int32_t tolerance_ms = 100;
+    int32_t str_per_speed = 6;
+};
+
 // Forum authentication configuration (external PHP auth)
 struct forum_auth_config
 {
@@ -127,6 +143,9 @@ struct server_config
 
     // Player regeneration configuration
     regen_config regen;
+
+    // Attack pacing per weapon speed and STR
+    attack_speed_config attack_speed;
 
     // Auto-save configuration
     auto_save_config auto_save;

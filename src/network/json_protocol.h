@@ -1886,6 +1886,7 @@ struct skill_result_msg
 };
 
 // Skill entry for skills_data message
+    int32_t attack_interval_ms{0}; // Pace the server enforces for this attacker (0 = not reported)
 struct skill_entry_msg
 {
     uint8_t skill_id{0};

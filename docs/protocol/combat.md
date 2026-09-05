@@ -82,6 +82,19 @@ Server confirms or rejects attack.
 }
 ```
 
+A swing refused as `attack_too_fast` also carries the pace at top level, so the client can wait exactly that long:
+```json
+{
+  "type": "player_attack_response",
+  "seq": 151,
+  "data": {
+    "success": false,
+    "error": "attack_too_fast",
+    "attack_interval_ms": 1360
+  }
+}
+```
+
 #### Attack Result Object
 
 | Field | Type | Required | Description |
@@ -97,6 +110,7 @@ Server confirms or rejects attack.
 | `is_ranged` | bool | No | Present and `true` for bow/crossbow attacks |
 | `ammo_count` | int32 | No | Remaining arrows after this attack (only when `is_ranged`) |
 | `ammo_template_id` | uint32 | No | Template ID of consumed arrow (only when `is_ranged`) |
+| `attack_interval_ms` | int32 | No | Pace the server enforces for this attacker: ms between swings, from weapon speed and STR (see `attack_speed` in server.yaml). Swings faster than this minus `tolerance_ms` are refused with `attack_too_fast` |
 
 **Ranged attack example:**
 ```json

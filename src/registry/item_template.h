@@ -52,6 +52,7 @@ struct item_template
     int8_t appr_value{0};
     int8_t item_color{0};
     int8_t speed{0};
+    int16_t str_speed_req{0}; // STR to swing at full speed; 0 = derive from speed (attack_timing.h)
 
     // Misc
     int8_t gender_limit{0};

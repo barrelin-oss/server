@@ -358,6 +358,7 @@ add_executable(hgserver_tests
     tests/test_npc.cpp
     tests/test_item.cpp
     tests/test_combat.cpp
+    tests/test_attack_timing.cpp
     tests/test_magic.cpp
     tests/test_dynamic_objects.cpp
     tests/test_inventory.cpp

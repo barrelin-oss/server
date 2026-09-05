@@ -178,6 +178,8 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
                 item.item_color = static_cast<int8_t>(node["item_color"].as<int>());
             if (node["speed"])
                 item.speed = static_cast<int8_t>(node["speed"].as<int>());
+            if (node["str_speed_req"])
+                item.str_speed_req = static_cast<int16_t>(node["str_speed_req"].as<int>());
 
             // Misc
             if (node["gender_limit"])

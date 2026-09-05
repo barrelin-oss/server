@@ -1536,22 +1536,30 @@ void game_handlers::distribute_npc_kill_exp(entity::entity killer, int32_t base_
         return;
     }
 
-    // Get eligible party members: same map, alive (hp > 0)
-    auto same_map_ids = pt->members_in_map(killer_player->current_map);
+    // Get eligible party members: same map, alive (hp > 0). Resolve each member
+    // through the live player record: party_member::current_map is never updated
+    // by the game (update_party_member_map has no callers), so members_in_map()
+    // returned nobody and every party kill silently paid zero XP to everyone.
     std::vector<std::pair<player_id, int16_t>> eligible; // pid, level
     int32_t total_levels = 0;
-    for (auto pid : same_map_ids)
+    for (const auto& member : pt->members)
     {
-        auto* p = players_->get_player(pid);
-        if (p && !p->is_dead())
+        auto* p = players_->get_player(member.player);
+        if (p && !p->is_dead() && p->current_map == killer_player->current_map)
         {
-            eligible.emplace_back(pid, p->experience.level);
+            eligible.emplace_back(member.player, p->experience.level);
             total_levels += p->experience.level;
         }
     }
 
     if (eligible.empty())
+    {
+        // Should be impossible (the killer is alive and on their own map); never let
+        // a kill pay nothing without saying so.
+        LOG_WARN(bridge, "Party XP: no eligible member for kill by '{}' — paying the killer", killer_player->name);
+        players_->add_experience(killer_pid, base_exp);
         return;
+    }
 
     // Single eligible member gets full XP (no bonus)
     if (eligible.size() == 1)

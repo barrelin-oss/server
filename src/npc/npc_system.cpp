@@ -413,6 +413,15 @@ auto npc_system::spawn_npc_at(spawn_point& spawn) -> result<entity::entity, std:
             // With the rect center as home, an NPC born near the edge of a 70-tile
             // generator was already past wander_range and never moved again.
             npc_ptr->ai_state.spawn_point = pos;
+            {
+                const int16_t rx = spawn.radius_x > 0 ? spawn.radius_x : spawn.radius;
+                const int16_t ry = spawn.radius_y > 0 ? spawn.radius_y : spawn.radius;
+                npc_ptr->ai_state.home_min = {static_cast<int16_t>(spawn.center.x - rx),
+                                              static_cast<int16_t>(spawn.center.y - ry)};
+                npc_ptr->ai_state.home_max = {static_cast<int16_t>(spawn.center.x + rx),
+                                              static_cast<int16_t>(spawn.center.y + ry)};
+                npc_ptr->ai_state.has_home_bounds = true;
+            }
         }
     }
 
@@ -1173,9 +1182,9 @@ void npc_system::process_wander_state(npc& npc_ref)
     auto dir = random_direction();
     auto new_pos = hb::world::move_in_direction(npc_ref.pos, dir);
 
-    // Check wander range from spawn
+    // Check wander range from spawn, and never wander out of the generator rect
     int spawn_dist = new_pos.chebyshev_distance(state.spawn_point);
-    if (spawn_dist <= npc_ref.ai.wander_range)
+    if (spawn_dist <= npc_ref.ai.wander_range && state.inside_home(new_pos))
     {
         try_move_npc(npc_ref, new_pos);
     }

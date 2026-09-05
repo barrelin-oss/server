@@ -80,6 +80,21 @@ struct ai_runtime_state
     hb::world::position spawn_point{};
     hb::world::position target_position{};
 
+    // Generator rect the NPC belongs to (set for spot-mob spawns). Wandering never
+    // leaves it: NPCs born near the edge drifted wander_range tiles outside, into
+    // pockets behind walls where nobody could reach them, and the reachable
+    // population of the area shrank run after run.
+    hb::world::position home_min{};
+    hb::world::position home_max{};
+    bool has_home_bounds{false};
+
+    [[nodiscard]] auto inside_home(hb::world::position p) const -> bool
+    {
+        if (!has_home_bounds)
+            return true;
+        return p.x >= home_min.x && p.x <= home_max.x && p.y >= home_min.y && p.y <= home_max.y;
+    }
+
     // Pack behavior
     entity::entity pack_leader{}; // Leader we're following (if social/pack member)
 

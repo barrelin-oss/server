@@ -452,6 +452,11 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: NPCs no longer wander out of their generator rect
+- NPCs born near the edge of a spot-mob generator drifted `wander_range` tiles past it, into pockets behind walls (x < 200 in Aresden, y > 255 in Elvine) where nobody could reach them. They never died there, so the reachable population of the area shrank over every run and bots ended up chasing mobs through walls: run 10 went from 492 to 80 kills per 5 minutes in 20 minutes with zero deaths and two potions
+- `ai_runtime_state` carries the generator rect (`home_min`/`home_max`, set in `spawn_npc_at` from the spawn point half extents) and `process_wander_state` refuses steps outside it. Chasing still leaves the rect and `return_home` brings the NPC back
+- Test: `spawn_point_respawn_test.home_bounds_keep_wander_inside_the_generator_rect`
+
 ### 2026-09-05: Bots retreat from swarms instead of tanking on potions
 - With every spawn now inside the generator rect the test arena got denser, and warriors stood in pockets of 3-4 mobs drinking a potion every 7 s until they died: 470 potions and 14 deaths in 25 minutes of run 9. `shouldFlee()` now also triggers below `swarmFleeHp` (60% HP) when `swarmFleeCount` (3) monsters are adjacent, reusing the existing flee/recover flow. Run 10, same arena: 1142 kills in 15 minutes, 2 potions, 0 deaths (run 9 at 15 minutes: 933 kills, 182 potions, 7 deaths)
 

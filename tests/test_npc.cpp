@@ -888,3 +888,16 @@ TEST(spawn_point_respawn_test, square_radius_still_applies_when_half_extents_uns
         EXPECT_LE(std::abs(p.y - 100), 3);
     }
 }
+
+TEST(spawn_point_respawn_test, home_bounds_keep_wander_inside_the_generator_rect)
+{
+    hb::npc::ai_runtime_state st;
+    EXPECT_TRUE(st.inside_home({0, 0})); // no bounds = anywhere
+    st.home_min = {205, 185};
+    st.home_max = {255, 255};
+    st.has_home_bounds = true;
+    EXPECT_TRUE(st.inside_home({205, 185}));
+    EXPECT_TRUE(st.inside_home({255, 255}));
+    EXPECT_FALSE(st.inside_home({204, 200}));
+    EXPECT_FALSE(st.inside_home({230, 256}));
+}

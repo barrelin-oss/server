@@ -125,7 +125,15 @@ auto websocket_server::start() -> hb::result<void, std::string>
 
     try
     {
-        server_ = std::make_unique<ix::WebSocketServer>(config_.port, config_.bind_address);
+        // ixwebsocket defaults to maxConnections = 128 (SocketServer::kDefaultMaxConnections)
+        // and a TCP backlog of 5; without passing our limits the 129th client was dropped
+        // during the handshake (close 1006) no matter what server.yaml said.
+        constexpr int tcp_backlog = 256;
+        server_ = std::make_unique<ix::WebSocketServer>(config_.port,
+                                                        config_.bind_address,
+                                                        tcp_backlog,
+                                                        static_cast<size_t>(config_.max_connections));
+        LOG_INFO(network, "WebSocket server limits: max_connections={} backlog={}", config_.max_connections, tcp_backlog);
 
         // Configure server
         server_->setOnClientMessageCallback(

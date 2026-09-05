@@ -58,6 +58,7 @@ const AI = {
     shopTripMaxMs: 90000, // viagem a loja que nao chega em 90 s e abandonada (e registrada)
     detourSteps: 3, // depois de desviar de um bloqueio, segue na direcao do desvio por N passos
     avoidTargetMs: 30000, // alvo abandonado por bloqueio fica fora da mira por este tempo
+    reconnectMs: 15000, // conexao fechada sem shutdown: tenta de novo depois deste tempo
     repairThreshold: 0.5,
     shopCooldownMs: 30000,
     safeShoppingDist: 5,
@@ -220,6 +221,14 @@ class BotClient {
             clearInterval(this.aiTimer);
             clearInterval(this.statusTimer);
             this.state = "closed";
+            for (const w of this.pending.values()) clearTimeout(w.timeout);
+            this.pending.clear();
+            // Sem isto um handshake recusado (servidor cheio) ou uma queda do servidor
+            // deixava o bot morto ate reiniciar o processo inteiro.
+            if (!this.shuttingDown) {
+                this.log(`reconectando em ${AI.reconnectMs / 1000}s`);
+                setTimeout(() => this.connect(), AI.reconnectMs);
+            }
         });
         this.ws.addEventListener("error", () => this.fail(new Error("erro de WebSocket")));
     }
@@ -1638,6 +1647,7 @@ class BotClient {
     }
 
     async shutdown() {
+        this.shuttingDown = true;
         clearInterval(this.aiTimer);
         clearInterval(this.statusTimer);
         try {

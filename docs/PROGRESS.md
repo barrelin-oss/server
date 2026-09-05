@@ -452,6 +452,11 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: WebSocket server capped at 128 clients (ixwebsocket default), found by the 200-bot run
+- `ix::WebSocketServer` was built with port and host only, so it kept the library defaults: `maxConnections = 128` and a TCP backlog of 5. `websocket.max_connections: 2000` in server.yaml never reached it, and the 129th client was dropped during the handshake (close 1006) with nothing in the server log. Bots 129-200 of the scale test all died that way
+- The server now passes `config_.max_connections` and a backlog of 256 to the library and logs both at startup
+- Bots reconnect after `reconnectMs` when the socket closes outside a shutdown, instead of staying dead until the process restarts
+
 ### 2026-09-05: Bots report their current action, detour around blocked tiles, drop unreachable targets
 - Status lines carry `acao=` (the aiTick branch in effect: engage, shop trip, resting, loot, wander...), `stepTowards` logs when it gives up after 9 refused moves, and a shop trip that does not reach the merchant in `shopTripMaxMs` is abandoned and logged. That is what finally showed why kill rates decayed: bots stood for minutes against `blocked_terrain` (mobs that wandered outside the walkable area) and `blocked_occupied` (crowds around the two merchant tiles) without a single log line
 - `stepTowards` now tries the neighbouring directions when the direct step is refused and keeps a successful detour for `detourSteps` steps instead of turning back into the same obstacle; a target abandoned for being unreachable is skipped for `avoidTargetMs`

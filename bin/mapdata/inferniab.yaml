@@ -1,5 +1,6 @@
 # Convertido de MapData/inferniab.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
 # Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+# Tipos de NPC 70+ lidos com a numeracao coreana original (comentarios do MapData), nao a alfabetica do 3.51 internacional.
 name: "inferniab"
 # location: interniab
 fixed_day_mode: true
@@ -10,11 +11,11 @@ safe_zones:
 spawners:
   - { id: 1, type: 0, x1: 22, y1: 20, x2: 49, y2: 60, npc_type: 18, npc_name: "Zombie", max_count: 50, respawn_time_ms: 15000 }
   - { id: 2, type: 0, x1: 69, y1: 38, x2: 115, y2: 73, npc_type: 13, npc_name: "Cyclops", max_count: 80, respawn_time_ms: 15000 }
-  - { id: 3, type: 0, x1: 40, y1: 20, x2: 128, y2: 46, npc_type: 73, npc_name: "Fire-Wyvern", max_count: 40, respawn_time_ms: 15000 }
+  - { id: 3, type: 0, x1: 40, y1: 20, x2: 128, y2: 46, npc_type: 73, npc_name: "Tentocle", max_count: 40, respawn_time_ms: 15000 }
   - { id: 4, type: 0, x1: 24, y1: 92, x2: 86, y2: 126, npc_type: 30, npc_name: "Liche", max_count: 40, respawn_time_ms: 15000 }
-  - { id: 5, type: 0, x1: 22, y1: 48, x2: 84, y2: 88, npc_type: 72, npc_name: "Claw-Turtle", max_count: 100, respawn_time_ms: 15000 }
+  - { id: 5, type: 0, x1: 22, y1: 48, x2: 84, y2: 88, npc_type: 72, npc_name: "Barlog", max_count: 100, respawn_time_ms: 15000 }
   - { id: 6, type: 0, x1: 86, y1: 54, x2: 125, y2: 102, npc_type: 31, npc_name: "Demon", max_count: 60, respawn_time_ms: 15000 }
-  - { id: 7, type: 0, x1: 36, y1: 101, x2: 74, y2: 119, npc_type: 71, npc_name: "Centaurus", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 7, type: 0, x1: 36, y1: 101, x2: 74, y2: 119, npc_type: 71, npc_name: "Fire-Wyvern", max_count: 10, respawn_time_ms: 15000 }
 teleports:
   - { src_x: 31, src_y: 28, dest_map: "inferniaa", dest_x: -1, dest_y: -1, direction: 7 }
 waypoints:

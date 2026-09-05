@@ -1,7 +1,7 @@
 // mapdata-legacy.mjs - converte os MapData/*.txt do servidor legado (Helbreath 3.x)
 // para o formato bin/mapdata/<mapa>.yaml que o servidor moderno carrega.
 //
-// Uso: node mapdata-legacy.mjs <dir dos .txt> <NPC.cfg legado> <dir de saida> [--only-amd <dir com .amd>]
+// Uso: node mapdata-legacy.mjs <dir dos .txt> <NPC.cfg legado> <dir de saida> [--only-amd <dir com .amd>] [--intl-types]
 //
 // Tokens legados tratados (formato "token = valores"):
 //   map-location = <nome>
@@ -12,8 +12,16 @@
 //   fish-point = <id> <x> <y>        waypoint = <id> <x> <y>       mineral-point = <id> <x> <y>
 //   random-mob-generator = <ativo> <nivel>      level-limit = <n>     upper-level-limit = <n>
 //   fixed-dayornight-mode = <1|0>   max-fish = <n>   max-mineral = <n>
-// O tipo de NPC do gerador vira tambem npc_name (via NPC.cfg), que o servidor prefere ao
-// numero: a tabela numerica spot_mob_mapping.h so conhece 22 tipos.
+// O tipo de NPC do gerador vira tambem npc_name, que o servidor prefere ao numero: a tabela
+// numerica spot_mob_mapping.h so conhece 22 tipos.
+//
+// Numeracao dos tipos 70+: os MapData coreanos originais (os do centuu/HelbreathServer) numeram
+// os monstros do 3.x na ordem em que foram adicionados, e os comentarios em coreano de cada
+// gerador dizem qual e qual (procella: 81 = 마스터메이지오크 = MasterMage-Orc). O cliente e o
+// servidor internacionais 3.51 (e o NPC.cfg do centuu) renumeraram esses monstros em ordem
+// alfabetica (81 = Abaddon). Ler os mapas coreanos com a tabela alfabetica poe 140 Abaddons em
+// procella; por isso o padrao aqui e a tabela coreana (KOREAN_TYPES) e --intl-types desliga isso
+// para MapData que ja nasceu com a numeracao internacional (comentarios em ingles).
 
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from "node:fs";
 import { join, basename } from "node:path";
@@ -24,6 +32,26 @@ if (!srcDir || !npcCfg || !outDir) {
     process.exit(1);
 }
 const onlyAmdIdx = rest.indexOf("--only-amd");
+const intlTypes = rest.includes("--intl-types");
+
+// Numeracao coreana dos tipos 70+ (dos comentarios dos MapData; ver cabecalho). 77/78/79 nao
+// aparecem em mapa nenhum. 70 so aparece em abaddon.txt, sem comentario: dos monstros que sobram
+// (Claw-Turtle, Giant-Crayfish, Abaddon) o chefe nao vem de gerador, e Claw-Turtle e o mais forte
+// dos dois restantes para um mapa com limite de nivel 140 -- e uma suposicao, marcada no YAML.
+const KOREAN_TYPES = new Map([
+    [70, "Claw-Turtle"], [71, "Fire-Wyvern"], [72, "Barlog"], [73, "Tentocle"], [74, "Centaurus"],
+    [75, "Giant-Lizard"], [76, "Minotaurs"], [80, "Giant-Plant"], [81, "MasterMage-Orc"], [82, "Nizie"],
+]);
+const KOREAN_ASSUMED = new Set([70]);
+// Nomes do NPC.cfg legado que o npcs.yaml desta distribuicao grafa de outro jeito.
+const NAME_ALIASES = new Map([
+    ["Giant-Crayfish", "Giant-Cray-Fish"], ["Giant-Lizard", "Lizard"], ["Minotaurs", "Minotaurus"],
+    ["MasterMage-Orc", "Master-Mage-Orc"],
+]);
+const resolveName = (type) => {
+    const raw = (!intlTypes && KOREAN_TYPES.has(type)) ? KOREAN_TYPES.get(type) : typeToName.get(type);
+    return raw ? (NAME_ALIASES.get(raw) ?? raw) : undefined;
+};
 const amdDir = onlyAmdIdx >= 0 ? rest[onlyAmdIdx + 1] : null;
 const amdNames = amdDir
     ? new Set(readdirSync(amdDir).filter((f) => /\.amd$/i.test(f)).map((f) => f.replace(/\.amd$/i, "").toLowerCase()))
@@ -82,6 +110,7 @@ for (const file of readdirSync(srcDir).filter((f) => /\.txt$/i.test(f)).sort()) 
     const out = [];
     out.push(`# Convertido de MapData/${file} (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs`);
     out.push(`# Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.`);
+    if (!intlTypes) out.push(`# Tipos de NPC 70+ lidos com a numeracao coreana original (comentarios do MapData), nao a alfabetica do 3.51 internacional.`);
     out.push(`name: ${q(m.name)}`);
     if (m.extra.location) out.push(`# location: ${m.extra.location}`);
     if (m.extra.level_limit != null) out.push(`level_limit: ${m.extra.level_limit}`);
@@ -103,9 +132,10 @@ for (const file of readdirSync(srcDir).filter((f) => /\.txt$/i.test(f)).sort()) 
     if (m.spawners.length) {
         out.push(`spawners:`);
         for (const s of m.spawners) {
-            const name = s.fixedName ?? typeToName.get(s.npcType);
+            const name = s.fixedName ?? resolveName(s.npcType);
+            const assumed = !s.fixedName && !intlTypes && KOREAN_ASSUMED.has(s.npcType);
             if (!name) unknownTypes.set(s.npcType, (unknownTypes.get(s.npcType) ?? 0) + 1);
-            out.push(`  - { id: ${s.id}, type: 0, x1: ${Math.min(s.x1, s.x2)}, y1: ${Math.min(s.y1, s.y2)}, x2: ${Math.max(s.x1, s.x2)}, y2: ${Math.max(s.y1, s.y2)}, npc_type: ${s.npcType}${name ? `, npc_name: ${q(name)}` : ""}, max_count: ${s.max}, respawn_time_ms: ${RESPAWN_MS} }`);
+            out.push(`  - { id: ${s.id}, type: 0, x1: ${Math.min(s.x1, s.x2)}, y1: ${Math.min(s.y1, s.y2)}, x2: ${Math.max(s.x1, s.x2)}, y2: ${Math.max(s.y1, s.y2)}, npc_type: ${s.npcType}${name ? `, npc_name: ${q(name)}` : ""}, max_count: ${s.max}, respawn_time_ms: ${RESPAWN_MS} }${assumed ? " # tipo 70 sem comentario no MapData; Claw-Turtle e suposicao" : ""}`);
         }
     }
     if (m.teleports.length) { out.push(`teleports:`); for (const t of m.teleports) out.push(`  - { src_x: ${t.src_x}, src_y: ${t.src_y}, dest_map: ${q(t.dest_map)}, dest_x: ${t.dest_x}, dest_y: ${t.dest_y}, direction: ${t.direction} }`); }

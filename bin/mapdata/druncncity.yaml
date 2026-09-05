@@ -1,5 +1,6 @@
 # Convertido de MapData/druncncity.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
 # Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+# Tipos de NPC 70+ lidos com a numeracao coreana original (comentarios do MapData), nao a alfabetica do 3.51 internacional.
 name: "druncncity"
 # location: druncncity
 fixed_day_mode: true
@@ -12,8 +13,8 @@ initial_points:
 safe_zones:
   - { left: 104, top: 125, right: 112, bottom: 133 }
 spawners:
-  - { id: 1, type: 0, x1: 27, y1: 55, x2: 54, y2: 108, npc_type: 82, npc_name: "Sor-Aresden", max_count: 50, respawn_time_ms: 15000 }
-  - { id: 2, type: 0, x1: 140, y1: 28, x2: 167, y2: 73, npc_type: 82, npc_name: "Sor-Aresden", max_count: 50, respawn_time_ms: 15000 }
+  - { id: 1, type: 0, x1: 27, y1: 55, x2: 54, y2: 108, npc_type: 82, npc_name: "Nizie", max_count: 50, respawn_time_ms: 15000 }
+  - { id: 2, type: 0, x1: 140, y1: 28, x2: 167, y2: 73, npc_type: 82, npc_name: "Nizie", max_count: 50, respawn_time_ms: 15000 }
   - { id: 3, type: 0, x1: 29, y1: 24, x2: 54, y2: 48, npc_type: 51, npc_name: "CP-Aresden", max_count: 50, respawn_time_ms: 15000 }
   - { id: 4, type: 0, x1: 152, y1: 138, x2: 172, y2: 163, npc_type: 51, npc_name: "CP-Aresden", max_count: 50, respawn_time_ms: 15000 }
 teleports:

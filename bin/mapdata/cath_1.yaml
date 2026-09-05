@@ -1,5 +1,6 @@
 # Convertido de MapData/cath_1.txt (Helbreath 3.82, centuu/HelbreathServer) por tools/convert/mapdata-legacy.mjs
 # Geradores de tipo 2 (caminho de waypoints) nao tem equivalente e foram omitidos.
+# Tipos de NPC 70+ lidos com a numeracao coreana original (comentarios do MapData), nao a alfabetica do 3.51 internacional.
 name: "cath_1"
 # location: aresden
 fixed_day_mode: true

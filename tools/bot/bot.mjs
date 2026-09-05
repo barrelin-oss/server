@@ -51,6 +51,10 @@ const AI = {
     questMinLevel: 11, // faixa mais baixa do Quest.cfg
     questTickMs: 20000,
     questWalkRange: 25, // so anda ate o oficial se ele estiver a esta distancia
+    lootSkipMs: 60000, // ignora um item do chao por este tempo depois de um pickup falhar
+    overweightMs: 120000, // depois de 2 pickups falhados seguidos, so pega ouro por este tempo
+    lootWeightCap: 0.9, // acima desta fracao do peso maximo, so pega ouro
+    sellWeightRatio: 0.8, // acima disto vai vender o que tiver, mesmo pouco
     repairThreshold: 0.5,
     shopCooldownMs: 30000,
     safeShoppingDist: 5,
@@ -187,6 +191,12 @@ class BotClient {
         this.lastPotionAt = 0;
         this.quest = null; // quest ativa {id, name, objectives, complete, targetName}
         this.lastQuestTickAt = 0;
+        this.weight = 0;
+        this.maxWeight = 0;
+        this.lootSkip = new Map(); // ground item id -> ignora ate (ms)
+        this.pendingLoot = null; // id do item do ultimo pickup_request
+        this.pickupFails = 0; // falhas seguidas de pickup
+        this.overweightUntil = 0;
         this.lastPotionHp = -1;
         this.lastMpPotionAt = 0;
         this.lastMpPotionMp = -1;
@@ -405,7 +415,9 @@ class BotClient {
                 }
                 break;
             case "inventory_weight_update":
-                break; // silencioso
+                this.weight = d.weight ?? d.current_weight ?? this.weight;
+                if (d.max_weight) this.maxWeight = d.max_weight;
+                break;
             case "mp_update":
                 this.me.mp = d.mp ?? d.value ?? this.me.mp;
                 if (d.mp_max) this.me.maxMp = d.mp_max;
@@ -474,8 +486,24 @@ class BotClient {
                 this.partyMembers = d.members ?? [];
                 this.log(`party #${d.party_id}: lider ${d.leader_name}, membros: ${this.partyMembers.join(", ")}`);
                 break;
+            case "pickup_result": {
+                if (d.success === false) {
+                    // O servidor devolveu o item ao chao (peso ou inventario cheio). Sem isto o
+                    // bot apagava o item da lista, o broadcast o repunha e ele tentava de novo a
+                    // cada tick, sem nunca voltar a cacar - foi o que travou a corrida 3.
+                    this.pickupFails++;
+                    if (this.pendingLoot !== null) this.lootSkip.set(this.pendingLoot, Date.now() + AI.lootSkipMs);
+                    if (this.pickupFails >= 2) {
+                        this.overweightUntil = Date.now() + AI.overweightMs;
+                        this.log(`pickup falhou ${this.pickupFails}x (peso ${this.weight}/${this.maxWeight}) - so ouro por ${AI.overweightMs / 1000}s`);
+                    }
+                } else {
+                    this.pickupFails = 0;
+                }
+                this.pendingLoot = null;
+                break;
+            }
             case "use_item_result":
-            case "pickup_result":
             case "skill_update":
             case "skill_progress":
             case "hunger_update":
@@ -1036,9 +1064,18 @@ class BotClient {
     }
 
     async lootNearby(maxDist) {
+        const now = Date.now();
+        // Pesado demais (pelo peso reportado ou por pickups falhados): so vale a pena ouro.
+        const overweight = now < this.overweightUntil || (this.maxWeight > 0 && this.weight / this.maxWeight >= AI.lootWeightCap);
         let best = null;
         let bestDist = Infinity;
         for (const g of this.groundItems.values()) {
+            const skipUntil = this.lootSkip.get(g.id);
+            if (skipUntil) {
+                if (now < skipUntil) continue;
+                this.lootSkip.delete(g.id);
+            }
+            if (overweight && !/gold/i.test(g.name ?? "")) continue;
             const dist = chebyshev(this.me, g);
             if (dist < bestDist && dist <= maxDist) {
                 bestDist = dist;
@@ -1047,6 +1084,7 @@ class BotClient {
         }
         if (!best) return false;
         if (bestDist === 0) {
+            this.pendingLoot = best.id;
             this.send("pickup_request", { map: this.me.map, x: this.me.x, y: this.me.y });
             this.groundItems.delete(best.id); // otimista; broadcast corrige se falhar
         } else {
@@ -1247,12 +1285,13 @@ class BotClient {
             return { merchantRe: /gandlf|william|blacksmith/i, reason: `reparar ${eq.name} (${eq.durability}/${eq.max_durability})` };
         }
         const junk = this.sellableJunk();
-        if (junk.length >= AI.minJunkToSell) {
+        const heavy = this.maxWeight > 0 && this.weight / this.maxWeight >= AI.sellWeightRatio;
+        if (junk.length >= AI.minJunkToSell || (heavy && junk.length > 0)) {
             const smith = junk.filter((it) => this.sellsAtBlacksmith(it)).length;
             const atSmith = smith * 2 >= junk.length; // maioria simples vai ao ferreiro
             return {
                 merchantRe: atSmith ? /gandlf|william|blacksmith/i : /shopkeeper/i,
-                reason: `vender ${junk.length} itens (${smith} no ferreiro)`,
+                reason: `vender ${junk.length} itens (${smith} no ferreiro)${heavy ? `, peso ${this.weight}/${this.maxWeight}` : ""}`,
             };
         }
         return null;

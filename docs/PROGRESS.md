@@ -452,6 +452,10 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-04: Bots stop looping on loot they cannot carry
+- Once a bot hit its carry limit the server put the item back ("Too heavy to carry", `pickup_result` success=false) but the bot ignored that reply, deleted the ground item optimistically, saw it re-broadcast and tried again every 200 ms tick without ever fighting again. With respawn working, drops piled up and bots froze one by one: run 3 went 281 -> 151 -> 42 kills per 5 minutes with bots sitting at full HP next to 84 mobs
+- `pickup_result` failures now blacklist that ground item for `lootSkipMs`; two consecutive failures switch the bot to gold-only looting for `overweightMs`. `inventory_weight_update` is tracked: above `lootWeightCap` of max weight only gold is picked up, above `sellWeightRatio` the bot goes to sell whatever junk it has
+
 ### 2026-09-04: GM server management commands (`/reloadconfig`, `/shutdown`)
 - `gm_command_context` gains `config`, `broadcast_all` and `request_shutdown` hooks (injected from `application.cpp`, so the admin module still does not depend on `application.h`)
 - `/reloadconfig` re-reads `server.yaml` from the boot path and reports which sections apply live; `/shutdown [seconds] [reason]` broadcasts warnings at 5 min/60 s/30 s/10 s on the `shutdown_countdown` scheduler tag shared with the admin web API, `/shutdown cancel` aborts, `/shutdown` alone stops at once

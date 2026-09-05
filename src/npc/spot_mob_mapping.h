@@ -57,6 +57,8 @@ inline auto spot_mob_type_to_name(int type) -> std::optional<std::string_view>
         return "Guard-Neutral";
     case 27:
         return "Hellbound";
+    case 28:
+        return "Troll";
     case 29:
         return "Orge";
     case 30:

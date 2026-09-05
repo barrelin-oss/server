@@ -296,6 +296,14 @@ class BotClient {
         } catch {
             return;
         }
+        // Recusas chegam como { type: "error", data: { error_code, message } }: espelha o
+        // codigo em data.error, que e onde todo mundo aqui procura o motivo. "dead" e o
+        // servidor dizendo que estamos mortos sem que nenhum aviso de morte tenha chegado
+        // (o personagem ja entrou morto, ou o aviso se perdeu): pede respawn.
+        if (msg.type === "error" && msg.data && msg.data.error === undefined) {
+            msg.data.error = msg.data.error_code ?? msg.data.message ?? "error";
+            if (msg.data.error_code === "dead") this.onDeadError();
+        }
         const waiter = this.pending.get(msg.seq);
         if (waiter) {
             this.pending.delete(msg.seq);
@@ -647,6 +655,12 @@ class BotClient {
             level: c.level, gold: c.gold, exp: c.experience, map: c.map_name,
         };
         if (c.hunger_level !== undefined) this.hunger = c.hunger_level;
+        // Entrou morto (morreu na sessao anterior e o servidor salvou assim): nenhum
+        // entity_death vai chegar, entao o respawn e pedido daqui.
+        if ((c.hp ?? 1) <= 0) {
+            this.log("entrei no jogo morto - pedindo respawn");
+            setTimeout(() => this.respawn().catch((e) => this.log("erro no respawn:", e.message)), 1500);
+        }
         if (c.stat_points !== undefined) this.statPoints = c.stat_points;
         this.stats = { str: c.str ?? 0, dex: c.dex ?? 0, int: c.int ?? 0, mag: c.mag ?? 0 };
         this.spells = new Set((res.data.spells ?? []).map((s) => s.spell_id));
@@ -661,6 +675,16 @@ class BotClient {
             `ENTROU NO JOGO: '${c.name}' level ${c.level} em ${c.map_name} (${c.pos_x},${c.pos_y}) ` +
                 `HP ${c.hp}/${c.hp_max} - ${this.entities.size} entidades visíveis`
         );
+    }
+
+    onDeadError() {
+        if (this.deadRespawnPending) return;
+        this.deadRespawnPending = true;
+        this.log("servidor diz que estou morto e nenhum aviso de morte chegou - pedindo respawn");
+        setTimeout(() => {
+            this.deadRespawnPending = false;
+            this.respawn().catch((e) => this.log("erro no respawn:", e.message));
+        }, 1500);
     }
 
     async respawn() {

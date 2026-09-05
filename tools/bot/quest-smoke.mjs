@@ -69,6 +69,13 @@ ws.onopen = async () => {
         const me = res.data.character;
         for (const e of res.data.world?.entities ?? []) entities.set(e.entity_id, { name: e.name, x: e.x, y: e.y });
         await sleep(1500);
+        // A posicao salva do GmSmoke pode estar longe do oficial (outro teste ou o cliente
+        // mexeram nele): vai ate a prefeitura da arena antes de procurar o Kennedy.
+        if (![...entities.values()].some((e) => /^kennedy$/i.test(e.name ?? ""))) {
+            entities.clear();
+            await request("chat_message", { content: "/teleport aresden 240 214", timestamp: Date.now() });
+            await sleep(1500);
+        }
 
         let officer = [...entities.entries()].find(([, e]) => /^kennedy$/i.test(e.name ?? ""));
         check(!!officer, "oficial Kennedy visivel", officer ? `entity ${officer[0]} em (${officer[1].x},${officer[1].y})` : `${entities.size} entidades: ${[...entities.values()].map((e) => e.name).slice(0, 12).join(", ")}`);

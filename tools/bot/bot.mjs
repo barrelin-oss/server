@@ -59,6 +59,8 @@ const AI = {
     detourSteps: 3, // depois de desviar de um bloqueio, segue na direcao do desvio por N passos
     avoidTargetMs: 30000, // alvo abandonado por bloqueio fica fora da mira por este tempo
     reconnectMs: 15000, // conexao fechada sem shutdown: tenta de novo depois deste tempo
+    swarmFleeCount: 3, // com este numero de mobs colados (dist <= 1) e HP abaixo de swarmFleeHp, recua
+    swarmFleeHp: 0.6,
     repairThreshold: 0.5,
     shopCooldownMs: 30000,
     safeShoppingDist: 5,
@@ -898,10 +900,22 @@ class BotClient {
 
     // Nao reentra na fuga durante a carencia: sem isso o teto abaixo nao teria efeito,
     // porque o HP baixo re-dispararia a fuga ja no tick seguinte.
+    adjacentMonsters() {
+        let n = 0;
+        for (const e of this.entities.values()) {
+            if (e.type === "npc" && !e.dead && e.category === "monster" && chebyshev(this.me, e) <= 1) n++;
+        }
+        return n;
+    }
+
     shouldFlee() {
         if (this.fleeing) return true;
         if (Date.now() < this.fleeBlockedUntil) return false;
-        return this.me.hp / this.me.maxHp < AI.fleeHpThreshold;
+        const hpPct = this.me.hp / this.me.maxHp;
+        if (hpPct < AI.fleeHpThreshold) return true;
+        // Enxame: parado com 3+ mobs colados o guerreiro so bebe pocao ate morrer (corrida 9:
+        // 470 pocoes e 14 mortes em 25 min). Recua cedo em vez de tanquear.
+        return hpPct < AI.swarmFleeHp && this.adjacentMonsters() >= AI.swarmFleeCount;
     }
 
     async fleeAndRecover() {

@@ -452,6 +452,9 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Bots retreat from swarms instead of tanking on potions
+- With every spawn now inside the generator rect the test arena got denser, and warriors stood in pockets of 3-4 mobs drinking a potion every 7 s until they died: 470 potions and 14 deaths in 25 minutes of run 9. `shouldFlee()` now also triggers below `swarmFleeHp` (60% HP) when `swarmFleeCount` (3) monsters are adjacent, reusing the existing flee/recover flow. Run 10, same arena: 1142 kills in 15 minutes, 2 potions, 0 deaths (run 9 at 15 minutes: 933 kills, 182 potions, 7 deaths)
+
 ### 2026-09-05: Rectangular spawners spawned NPCs outside their rect; NPC home is now the spawn tile
 - `application.cpp` turned a mapdata spawner rect into center + `radius = max(w, h) / 2`, and `spawn_point::get_spawn_position` sampled a square of that radius: a 50x70 rect spawned NPCs up to 10 tiles past its narrow sides, behind walls. Bots piled up at x=195-199 in Aresden (the walkable area starts at 200) trying to reach mobs that had been born there; with 200 bots that alone took the kill rate from 686 to 43 per 5 minutes. `spawn_point` now carries `radius_x`/`radius_y` and samples inside the rect (the square radius still applies when they are unset)
 - `npc_system::spawn_npc_at` set the NPC home (`ai_state.spawn_point`) to the rect center, so with `wander_range` 5 an NPC born near the edge of a 70-tile generator was already out of range and never wandered again. Home is now the tile it spawned on

@@ -36,6 +36,7 @@ ws.onopen = async () => {
         console.log(`no jogo em ${res.data.character.map_name} (${res.data.character.pos_x},${res.data.character.pos_y}): ${entities.size} NPCs visiveis`);
         res = await request("chat_message", { content: `/teleport ${map} ${xs} ${ys}`, timestamp: Date.now() });
         console.log("teleport:", res.data.message ?? JSON.stringify(res.data).slice(0, 120));
+        entities.clear(); // o teleporte GM nao manda player_teleport; o que estava em vista era do mapa de origem
         // um passo para o servidor recalcular a visao (o teleporte GM nao reenvia as entidades)
         await sleep(500);
         const mv = await request("player_move_request", { x: Number(xs), y: Number(ys), direction: 4, is_running: false, timestamp: Date.now() });

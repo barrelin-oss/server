@@ -656,13 +656,19 @@ void application::initialize()
                     if (ws)
                         ws->broadcast_to_authenticated(msg);
                 },
-                .request_shutdown = [this](std::string_view reason) { request_shutdown(reason); }};
+                .request_shutdown = [this](std::string_view reason) { request_shutdown(reason); },
+                .teleport_player = [this](player_id pid, const std::string& map, world::position pos, world::direction dir)
+                { return teleport_player_synced(pid, map, pos, dir); }};
             admin::register_gm_commands(*admin_sys, gm_ctx);
         }
 
         // Wire admin web tool push notifications
         if (admin_web_handlers_)
         {
+            admin_web_handlers_->set_teleport_fn(
+                [this](player_id pid, const std::string& map, world::position pos, world::direction dir)
+                { return teleport_player_synced(pid, map, pos, dir); });
+
             // Player enter game notification
             auth_handlers_->set_enter_game_callback(
                 [this](const std::string& name, int16_t level, const std::string& map_name)
@@ -1639,7 +1645,7 @@ void application::load_game_configs()
             });
 
         apocalypse_sys->set_teleport_home_fn(
-            [player_sys_a](player_id pid)
+            [this, player_sys_a](player_id pid)
             {
                 if (!player_sys_a)
                     return;
@@ -1647,16 +1653,12 @@ void application::load_game_configs()
                 if (!plr)
                     return;
                 std::string town = (plr->faction == hb::faction::elvine) ? "elvine" : "aresden";
-                (void)player_sys_a->execute_teleport(pid, town, {30, 30}, world::direction::south);
+                (void)teleport_player_synced(pid, town, {30, 30}, world::direction::south);
             });
 
         apocalypse_sys->set_teleport_to_fn(
-            [player_sys_a](player_id pid, const std::string& dest_map, world::position dest_pos)
-            {
-                if (!player_sys_a)
-                    return;
-                (void)player_sys_a->execute_teleport(pid, dest_map, dest_pos, world::direction::south);
-            });
+            [this](player_id pid, const std::string& dest_map, world::position dest_pos)
+            { (void)teleport_player_synced(pid, dest_map, dest_pos, world::direction::south); });
 
         apocalypse_sys->set_get_players_on_map_fn(
             [player_sys_a,
@@ -2020,6 +2022,24 @@ void application::on_tick()
 
     // Publish game tick event
     subsystems().event_bus().publish(events::game_tick_event{.tick_count = tick_count_, .delta_time = delta_time});
+}
+
+auto application::teleport_player_synced(player_id pid,
+                                         const std::string& dest_map,
+                                         world::position dest,
+                                         world::direction dir) -> std::string
+{
+    auto* player_sys = subsystems().get<player::player_system>();
+    if (!game_handlers_ || !player_sys)
+    {
+        return "System not available";
+    }
+    auto* plr = player_sys->get_player(pid);
+    if (!plr)
+    {
+        return "Player not found";
+    }
+    return game_handlers_->execute_player_teleport(pid, plr->connection, 0, dest_map, dest, dir);
 }
 
 void application::request_shutdown(std::string_view reason)

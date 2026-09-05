@@ -216,6 +216,17 @@ public:
     // Main message handler - routes to specific handlers. Returns true if handled.
     bool handle_message(connection_id conn_id, const network::json_message& msg);
 
+    // Full teleport: moves the player and syncs their client (player_teleport, destination
+    // entities, teleporters, ground items, environment). GM commands, the admin web tool and
+    // the apocalypse system route through here; player_system::execute_teleport alone leaves
+    // the client looking at the old map. Returns an error message, empty on success.
+    auto execute_player_teleport(player_id pid,
+                                 connection_id conn_id,
+                                 uint32_t seq,
+                                 const std::string& dest_map,
+                                 const world::position& dest_pos,
+                                 world::direction dest_dir) -> std::string;
+
 private:
     // Individual message handlers - Movement
     void handle_player_move(connection_id conn_id, const network::json_message& msg);
@@ -420,13 +431,6 @@ private:
     // Send chat to players in range
     void send_chat_to_nearby(player_id sender, int16_t range, const network::chat_message_broadcast_data& data);
 
-    // Teleportation helpers
-    void execute_player_teleport(player_id pid,
-                                 connection_id conn_id,
-                                 uint32_t seq,
-                                 const std::string& dest_map,
-                                 const world::position& dest_pos,
-                                 world::direction dest_dir);
 
     void broadcast_teleporter_update(map_id map,
                                      const std::string& action,

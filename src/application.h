@@ -5,6 +5,7 @@
 // Replaces Windows GUI (WinMain/WndProc) with cross-platform console app
 
 #include "core/types.h"
+#include "world/position.h"
 #include "platform/timer.h"
 #include "scheduler/scheduled_task.h"
 
@@ -53,6 +54,11 @@ public:
 
     // Request shutdown
     void request_shutdown(std::string_view reason = "");
+
+    // Teleport a player through the bridge so their client is synced (see
+    // game_handlers::execute_player_teleport). Returns an error message, empty on success.
+    auto teleport_player_synced(player_id pid, const std::string& dest_map, world::position dest, world::direction dir)
+        -> std::string;
 
     // Check if shutdown was requested
     [[nodiscard]] auto is_shutdown_requested() const -> bool;

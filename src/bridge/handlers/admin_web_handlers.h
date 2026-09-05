@@ -5,6 +5,9 @@
 
 #include "core/types.h"
 #include "network/json_protocol.h"
+#include "world/position.h"
+
+#include <functional>
 
 namespace hb::network
 {
@@ -112,6 +115,12 @@ namespace hb::bridge
 class admin_web_handlers
 {
 public:
+    // Teleport through the bridge so the moved player's client is synced (see
+    // game_handlers::execute_player_teleport). Returns an error message, empty on success.
+    using teleport_fn =
+        std::function<std::string(player_id, const std::string& dest_map, world::position dest, world::direction dir)>;
+    void set_teleport_fn(teleport_fn fn) { teleport_fn_ = std::move(fn); }
+
     admin_web_handlers();
     ~admin_web_handlers();
 
@@ -149,6 +158,8 @@ public:
     void notify_chat_message(const std::string& channel, const std::string& sender, const std::string& content);
 
 private:
+    teleport_fn teleport_fn_;
+
     // Server stats
     void handle_server_stats(connection_id conn_id, const network::json_message& msg);
 

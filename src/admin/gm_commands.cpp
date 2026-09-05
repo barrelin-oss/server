@@ -46,6 +46,20 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
 {
     LOG_INFO(admin, "Registering GM commands");
 
+    // Every GM move goes through the bridge when it is wired, so the client is synced; the
+    // unit tests register without one and fall back to the bare player_system move.
+    teleport_fn teleport = [bridge = ctx.teleport_player, players = ctx.players](
+                               player_id pid, const std::string& map, world::position pos, world::direction dir)
+        -> std::string
+    {
+        if (bridge)
+        {
+            return bridge(pid, map, pos, dir);
+        }
+        auto result = players->execute_teleport(pid, map, pos, dir);
+        return result.success ? std::string{} : result.error;
+    };
+
     // /goto <player> - Teleport to a player
     {
         command_info info;
@@ -61,7 +75,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
 
         admin.register_command(
             info,
-            [players, world](const command_context& cmd_ctx) -> command_result
+            [players, world, teleport](const command_context& cmd_ctx) -> command_result
             {
                 if (!players || !world)
                 {
@@ -98,11 +112,11 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
                 }
 
                 // Teleport executor to target's position
-                auto result = players->execute_teleport(cmd_ctx.executor, map_name, target->pos, target->facing);
+                auto error = teleport(cmd_ctx.executor, map_name, target->pos, target->facing);
 
-                if (!result.success)
+                if (!error.empty())
                 {
-                    return command_result::error("Teleport failed: " + result.error);
+                    return command_result::error("Teleport failed: " + error);
                 }
 
                 return command_result::ok("Teleported to " + target_name + " at " + map_name + " (" +
@@ -124,7 +138,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
         auto* world = ctx.world;
 
         admin.register_command(info,
-                               [players, world](const command_context& cmd_ctx) -> command_result
+                               [players, world, teleport](const command_context& cmd_ctx) -> command_result
                                {
                                    if (!players || !world)
                                    {
@@ -161,12 +175,11 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
                                    }
 
                                    // Teleport target to executor's position
-                                   auto result =
-                                       players->execute_teleport(target->id, map_name, executor->pos, executor->facing);
+                                   auto error = teleport(target->id, map_name, executor->pos, executor->facing);
 
-                                   if (!result.success)
+                                   if (!error.empty())
                                    {
-                                       return command_result::error("Teleport failed: " + result.error);
+                                       return command_result::error("Teleport failed: " + error);
                                    }
 
                                    return command_result::ok("Summoned " + target_name + " to your location");
@@ -189,7 +202,7 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
         auto* world = ctx.world;
 
         admin.register_command(info,
-                               [players, world](const command_context& cmd_ctx) -> command_result
+                               [players, world, teleport](const command_context& cmd_ctx) -> command_result
                                {
                                    if (!players || !world)
                                    {
@@ -214,12 +227,12 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
 
                                    // Teleport executor
                                    world::position dest{x, y};
-                                   auto result = players->execute_teleport(
+                                   auto error = teleport(
                                        cmd_ctx.executor, map_name, dest, world::direction::south);
 
-                                   if (!result.success)
+                                   if (!error.empty())
                                    {
-                                       return command_result::error("Teleport failed: " + result.error);
+                                       return command_result::error("Teleport failed: " + error);
                                    }
 
                                    return command_result::ok("Teleported to " + map_name + " (" + std::to_string(x) +

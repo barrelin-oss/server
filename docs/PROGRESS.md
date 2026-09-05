@@ -452,6 +452,10 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: GM teleports sync the client
+- `/teleport`, `/goto`, `/summonplayer`, the admin web tool teleport and the apocalypse teleports called `player_system::execute_teleport` directly, which moves the player server-side only: the client got no `player_teleport`, no destination entities, teleporters, ground items or environment, so a GM using `/teleport` kept looking at the old map (and `map-peek` counted the origin map). They now route through `game_handlers::execute_player_teleport` (public, returns the error string) via `gm_command_context::teleport_player`, `admin_web_handlers::set_teleport_fn` and `application::teleport_player_synced`; without a bridge (unit tests) the GM commands fall back to the bare move
+- `tools/bot/hunt-peek.mjs`: teleports next to the first NPC with a given name in view and sends one attack, to check a creature is attackable
+
 ### 2026-09-05: Passive creatures (Rabbit, Cat, Unicorn) are huntable monsters
 - `npc_registry` classified every side-0 template with action_limit 0 as a town NPC, so Rabbit, Cat and Unicorn were `is_friendly()`: attacks were refused and, since they are not `is_monster()`, the random mob generator never counted them. elvfarm (level 1) reached 305 roaming NPCs against a cap of 150 because 160 of them were rabbits and cats. They are now `npc_type::monster` with `is_aggressive = false` (they never start a fight); Guard-Neutral (side 0) is a guard. Town NPCs are action_limit 2/6 and are unaffected
 

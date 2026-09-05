@@ -457,12 +457,12 @@ void game_handlers::handle_set_view_range(connection_id conn_id, const network::
 
 // ========== Teleportation Handling ==========
 
-void game_handlers::execute_player_teleport(player_id pid,
+auto game_handlers::execute_player_teleport(player_id pid,
                                             connection_id conn_id,
                                             uint32_t seq,
                                             const std::string& dest_map,
                                             const world::position& dest_pos,
-                                            world::direction dest_dir)
+                                            world::direction dest_dir) -> std::string
 {
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::visibility_update);
@@ -470,14 +470,14 @@ void game_handlers::execute_player_teleport(player_id pid,
     if (!players_ || !ws_server_ || !world_)
     {
         send_error(conn_id, seq, "internal_error", "System unavailable");
-        return;
+        return "System unavailable";
     }
 
     auto* player = players_->get_player(pid);
     if (!player)
     {
         send_error(conn_id, seq, "invalid_player", "Player not found");
-        return;
+        return "Player not found";
     }
 
     // Store old position for despawn notifications
@@ -489,7 +489,7 @@ void game_handlers::execute_player_teleport(player_id pid,
     if (!teleport_result.success)
     {
         send_error(conn_id, seq, "teleport_failed", teleport_result.error);
-        return;
+        return teleport_result.error;
     }
 
     // Use the resolved position from the teleport result (handles -1,-1 -> initial point)
@@ -595,6 +595,7 @@ void game_handlers::execute_player_teleport(player_id pid,
     }
 
     LOG_INFO(bridge, "Player {} teleported to {} ({}, {})", pid.value, dest_map, resolved_pos.x, resolved_pos.y);
+    return {};
 }
 
 void game_handlers::broadcast_teleporter_update(map_id map,

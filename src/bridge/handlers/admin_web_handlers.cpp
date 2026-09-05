@@ -902,15 +902,24 @@ void admin_web_handlers::handle_teleport_player(connection_id conn_id, const net
         return;
     }
 
-    auto result = players_->execute_teleport(
-        plr->id, req.dest_map, world::position{req.dest_x, req.dest_y}, world::direction::south);
-
-    if (!result.success)
+    // Through the bridge when wired so the player's client is synced; bare move otherwise.
+    std::string error;
+    if (teleport_fn_)
     {
-        ws_server_->send(
-            conn_id,
-            network::make_admin_response(
-                network::json_message_type::admin_teleport_player_response, msg.seq, false, {}, result.error));
+        error = teleport_fn_(plr->id, req.dest_map, world::position{req.dest_x, req.dest_y}, world::direction::south);
+    }
+    else
+    {
+        auto result = players_->execute_teleport(
+            plr->id, req.dest_map, world::position{req.dest_x, req.dest_y}, world::direction::south);
+        error = result.success ? std::string{} : result.error;
+    }
+
+    if (!error.empty())
+    {
+        ws_server_->send(conn_id,
+                         network::make_admin_response(
+                             network::json_message_type::admin_teleport_player_response, msg.seq, false, {}, error));
         return;
     }
 

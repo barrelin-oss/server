@@ -84,6 +84,8 @@ List online administrators.
 
 ## Teleportation Commands
 
+All teleports (these commands, the admin web tool and system teleports such as the apocalypse) go through the bridge: the moved player receives `player_teleport`, the destination entities, teleporters, ground items and environment, exactly as a map portal does.
+
 ### /goto
 Teleport yourself to another player's location.
 

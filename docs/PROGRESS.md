@@ -460,6 +460,7 @@ Priority order for remaining work toward a playable game:
 - `gm_command_context` gains `config`, `broadcast_all` and `request_shutdown` hooks (injected from `application.cpp`, so the admin module still does not depend on `application.h`)
 - `/reloadconfig` re-reads `server.yaml` from the boot path and reports which sections apply live; `/shutdown [seconds] [reason]` broadcasts warnings at 5 min/60 s/30 s/10 s on the `shutdown_countdown` scheduler tag shared with the admin web API, `/shutdown cancel` aborts, `/shutdown` alone stops at once
 - Docs: `docs/GM_COMMANDS.md` section "Server Management Commands"; tests in `test_gm_commands.cpp`
+- `tools/bot/gm-smoke.mjs`: live check against a running server with an admin account (/reloadconfig and alias, /shutdown 20 with the 20 s and 10 s system-chat warnings, cancel, usage errors, then /shutdown 0 and a clean server exit); 16 checks. It stops the server at the end unless run with --no-final-shutdown
 
 ### 2026-09-04: Spawn points reschedule per death (respawn throughput no longer capped)
 - `spawn_point` keeps one due time per death (`respawn_due`) instead of a single timer. The original single timer was reset by every death and never fired under 50 bots; the first fix (serial queue, one respawn per `respawn_time_ms`) capped each spawner at 12 respawns/min, which became the kill-rate ceiling in the bot runs (285 kills in the first 5 minutes from the initial stock, then 105-110 per 5 minutes). Now N deaths come back N at once when their own delay elapses, as the legacy spot-mob-generator did

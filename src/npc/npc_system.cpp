@@ -624,7 +624,7 @@ void npc_system::activate_spawns(map_id map)
     {
         if (sp.map == map)
         {
-            sp.next_spawn_time = std::chrono::steady_clock::time_point{};
+            sp.clear_pending();
         }
     }
 }

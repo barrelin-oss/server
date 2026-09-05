@@ -2,6 +2,8 @@
 // Unit tests for NPC system
 
 #include <gtest/gtest.h>
+#include <chrono>
+#include <thread>
 #include "core/types.h"
 #include "entity/entity.h"
 #include "network/json_protocol.h"
@@ -66,7 +68,7 @@ TEST(spawn_point_test, can_spawn)
     spawn.npc_type = npc_id{1};
     spawn.max_count = 3;
     spawn.current_count = 0;
-    spawn.next_spawn_time = std::chrono::steady_clock::time_point{};
+    spawn.clear_pending();
 
     EXPECT_TRUE(spawn.can_spawn());
 
@@ -787,4 +789,72 @@ TEST(visible_entity_msg_test, is_dead_omitted_when_false)
 
     auto j = msg.to_json();
     EXPECT_FALSE(j.contains("is_dead"));
+}
+
+// ---- respawn scheduling: one due time per death (spawn_point.h) ----
+
+TEST(spawn_point_respawn_test, initial_stock_spawns_immediately_up_to_max)
+{
+    hb::npc::spawn_point sp;
+    sp.max_count = 3;
+    sp.respawn_time_ms = 60000;
+    EXPECT_TRUE(sp.can_spawn());
+    sp.on_spawn();
+    sp.on_spawn();
+    sp.on_spawn();
+    EXPECT_EQ(sp.current_count, 3);
+    EXPECT_FALSE(sp.can_spawn()); // full
+}
+
+TEST(spawn_point_respawn_test, deaths_wait_their_own_delay_and_come_back_together)
+{
+    hb::npc::spawn_point sp;
+    sp.max_count = 5;
+    sp.respawn_time_ms = 50;
+    for (int i = 0; i < 5; ++i)
+        sp.on_spawn();
+    // Three deaths in a burst: nothing may come back before the delay...
+    sp.on_death();
+    sp.on_death();
+    sp.on_death();
+    EXPECT_EQ(sp.pending_respawns(), 3);
+    EXPECT_FALSE(sp.can_spawn());
+    std::this_thread::sleep_for(std::chrono::milliseconds(70));
+    // ...and after it all three are due at once, not one per delay.
+    EXPECT_TRUE(sp.can_spawn());
+    sp.on_spawn();
+    EXPECT_TRUE(sp.can_spawn());
+    sp.on_spawn();
+    EXPECT_TRUE(sp.can_spawn());
+    sp.on_spawn();
+    EXPECT_EQ(sp.pending_respawns(), 0);
+    EXPECT_FALSE(sp.can_spawn()); // full again
+}
+
+TEST(spawn_point_respawn_test, a_late_death_does_not_delay_an_earlier_one)
+{
+    hb::npc::spawn_point sp;
+    sp.max_count = 2;
+    sp.respawn_time_ms = 60;
+    sp.on_spawn();
+    sp.on_spawn();
+    sp.on_death();
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
+    sp.on_death(); // the old single-timer code would push the first respawn to now+60
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    EXPECT_TRUE(sp.can_spawn()); // first death is due (70 ms > 60 ms)
+    sp.on_spawn();
+    EXPECT_FALSE(sp.can_spawn()); // second death is not (30 ms < 60 ms)
+}
+
+TEST(spawn_point_respawn_test, clear_pending_returns_to_initial_stock_behaviour)
+{
+    hb::npc::spawn_point sp;
+    sp.max_count = 1;
+    sp.respawn_time_ms = 60000;
+    sp.on_spawn();
+    sp.on_death();
+    EXPECT_FALSE(sp.can_spawn());
+    sp.clear_pending();
+    EXPECT_TRUE(sp.can_spawn());
 }

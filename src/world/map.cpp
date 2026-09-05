@@ -492,6 +492,7 @@ auto map::load_config_yaml(const std::filesystem::path& path) -> result<void, st
                                                     static_cast<int16_t>(node["y2"].as<int>())},
                                        .npc_type = static_cast<int16_t>(node["npc_type"].as<int>()),
                                        .max_count = static_cast<int16_t>(node["max_count"].as<int>()),
+                                       .respawn_time_ms = node["respawn_time_ms"] ? node["respawn_time_ms"].as<int>() : 60000,
                                        .enabled = true};
                 mob_spawners_.push_back(smg);
             }

@@ -115,6 +115,7 @@ struct spot_mob_generator
     rect area;            // Spawn bounding box
     int16_t npc_type{0};  // NPC template ID to spawn
     int16_t max_count{0}; // Maximum NPCs to spawn
+    int32_t respawn_time_ms{60000}; // vem do mapdata; 60s se ausente
     bool enabled{true};
 };
 

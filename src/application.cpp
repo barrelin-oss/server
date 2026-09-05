@@ -1072,7 +1072,9 @@ void application::register_spawn_points()
                              static_cast<int16_t>((spawner.area.min_y + spawner.area.max_y) / 2)};
                 sp.radius = static_cast<int16_t>(std::max(spawner.area.width(), spawner.area.height()) / 2);
                 sp.max_count = spawner.max_count;
-                sp.respawn_time_ms = 60000; // 1 minute default
+                // Vinha cravado em 60s e nunca era configuravel. Lento demais para uma
+                // area com 25 bots cacando: a populacao drenava e nao voltava.
+                sp.respawn_time_ms = spawner.respawn_time_ms;
 
                 npc_sys->add_spawn_point(std::move(sp));
                 ++spawner_count;

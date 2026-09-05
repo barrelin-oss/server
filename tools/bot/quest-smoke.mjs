@@ -85,6 +85,11 @@ ws.onopen = async () => {
         await request("chat_message", { content: `/teleport aresden ${officer[1].x + 1} ${officer[1].y + 1}`, timestamp: Date.now() });
         await sleep(700);
 
+        // Quests deixadas por outra sessao (o cliente aceita por aqui tambem) mudam a lista:
+        // abandona tudo antes de medir.
+        res = await request("quest_journal_request", {});
+        for (const q of res.data.quests ?? []) await request("quest_abandon_request", { quest_id: q.quest_id });
+
         // 1. Nivel 1: nada disponivel
         if (me.level > 10) {
             await request("chat_message", { content: `/setlevel ${character.name} 1`, timestamp: Date.now() });

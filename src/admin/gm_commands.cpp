@@ -483,9 +483,10 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
 
         auto* players = ctx.players;
         auto* inventory = ctx.inventory;
+        auto send = ctx.send_to_player;
 
         admin.register_command(info,
-                               [players, inventory](const command_context& cmd_ctx) -> command_result
+                               [players, inventory, send](const command_context& cmd_ctx) -> command_result
                                {
                                    if (!players)
                                    {
@@ -524,6 +525,15 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
                                        else if (diff < 0)
                                        {
                                            inventory->remove_gold(entity, -diff);
+                                       }
+                                       // The inventory system does not push gold changes made from here;
+                                       // without this the client shows the old amount until it relogs
+                                       if (send)
+                                       {
+                                           network::json_message msg;
+                                           msg.type = network::json_message_type::inventory_gold_update;
+                                           msg.data = {{"gold", amount}};
+                                           send(target->id, msg);
                                        }
                                    }
 

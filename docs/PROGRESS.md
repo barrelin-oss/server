@@ -452,6 +452,10 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: The bank is reachable; /setgold tells the client
+- No NPC ever got the `banker`/`warehouse` category (town templates all became `merchant`), so `player_interact_request` never opened the bank. Howard (Aresden) and Tom (Elvine), the warehouse keepers, are `warehouse` now and a click on them returns the bank contents
+- `/setgold` pushes `inventory_gold_update` to the target, so the client's gold matches without relogging
+
 ### 2026-09-05: Dialog option actions are names on the wire
 - `player_interact_response` for an NPC dialog wrote each option's `action` as the raw enum number while `dialog_choice_response` and docs/protocol/npc.md use names (`goto_node`, `open_quests`, ...); the modern client parsed the documented shape and threw. `npc::dialog_action_name()` is now the one place that spells an action, used by both responses
 

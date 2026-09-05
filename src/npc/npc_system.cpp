@@ -260,7 +260,10 @@ auto npc_system::spawn_npc(npc_id template_id,
             new_npc->category = npc_category::guard;
             break;
         case npc_type::npc:
-            new_npc->category = npc_category::merchant; // Default NPCs to merchant
+            // Town NPCs are merchants unless they keep the warehouse: Howard (Aresden) and
+            // Tom (Elvine) are the bank, and the interact handler only opens it for that category
+            new_npc->category = (tmpl->name == "Howard" || tmpl->name == "Tom") ? npc_category::warehouse
+                                                                            : npc_category::merchant;
             break;
         default:
             new_npc->category = npc_category::monster;

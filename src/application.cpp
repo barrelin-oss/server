@@ -649,7 +649,14 @@ void application::initialize()
                     if (!conn || !conn->is_open())
                         return;
                     conn->send(msg);
-                }};
+                },
+                .config = subsystems().get<config_system>(),
+                .broadcast_all = [ws](const network::json_message& msg)
+                {
+                    if (ws)
+                        ws->broadcast_to_authenticated(msg);
+                },
+                .request_shutdown = [this](std::string_view reason) { request_shutdown(reason); }};
             admin::register_gm_commands(*admin_sys, gm_ctx);
         }
 
@@ -1291,13 +1298,6 @@ void application::load_game_configs()
         }
     }
 
-    // Load spawn tables
-    auto* spawn_engine = subsystems().get<npc::spawn_rule_engine>();
-    if (spawn_engine)
-    {
-        auto spawn_tables = config_dir / "spawn_tables.yaml";
-        if (std::filesystem::exists(spawn_tables))
-        {
     // Load legacy quests (city hall hunting quests; needs the NPC registry and maps)
     if (auto* quests = subsystems().get<quest::quest_system>(); quests)
     {
@@ -1329,6 +1329,13 @@ void application::load_game_configs()
         }
     }
 
+    // Load spawn tables
+    auto* spawn_engine = subsystems().get<npc::spawn_rule_engine>();
+    if (spawn_engine)
+    {
+        auto spawn_tables = config_dir / "spawn_tables.yaml";
+        if (std::filesystem::exists(spawn_tables))
+        {
             auto result = spawn_engine->load_from_file(spawn_tables);
             if (result.is_ok())
             {

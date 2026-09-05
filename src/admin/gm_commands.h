@@ -37,6 +37,7 @@ namespace hb
 {
 class magic_registry;
 class scheduler;
+class config_system;
 } // namespace hb
 
 namespace hb::admin
@@ -46,6 +47,8 @@ class admin_system;
 
 // Callback to send a protocol message to a specific player
 using send_to_player_fn = std::function<void(player_id, const network::json_message&)>;
+using broadcast_fn = std::function<void(const network::json_message&)>;
+using shutdown_fn = std::function<void(std::string_view reason)>;
 
 // Context for GM commands - provides access to game subsystems
 struct gm_command_context
@@ -58,6 +61,12 @@ struct gm_command_context
     skill::skill_system* skills{nullptr};
     scheduler* sched{nullptr};
     send_to_player_fn send_to_player;
+
+    // Server management (/reloadconfig, /shutdown). Injected so the admin module does
+    // not depend on application.h.
+    config_system* config{nullptr};
+    broadcast_fn broadcast_all;   // system chat to every authenticated connection
+    shutdown_fn request_shutdown; // application::request_shutdown
 };
 
 // Register GM commands with the admin system

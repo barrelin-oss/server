@@ -477,3 +477,38 @@ TEST(arg_type_test, distinct_values)
     EXPECT_NE(static_cast<int>(arg_type::player_name), static_cast<int>(arg_type::map_name));
     EXPECT_NE(static_cast<int>(arg_type::item_id), static_cast<int>(arg_type::npc_id));
 }
+
+// ========== Server management commands ==========
+
+TEST_F(gm_commands_test, server_management_commands_registered)
+{
+    EXPECT_TRUE(admin_.has_command("reloadconfig"));
+    EXPECT_TRUE(admin_.has_command("reload")); // alias
+    EXPECT_TRUE(admin_.has_command("shutdown"));
+    EXPECT_TRUE(admin_.has_command("stopserver")); // alias
+}
+
+TEST_F(gm_commands_test, server_management_requires_admin_level)
+{
+    player_id senior{1};
+    player_id admin{2};
+    admin_.register_admin(senior, "SeniorGM", admin_level::senior_gm);
+    admin_.register_admin(admin, "Admin", admin_level::admin);
+    EXPECT_FALSE(admin_.can_execute(senior, "reloadconfig"));
+    EXPECT_FALSE(admin_.can_execute(senior, "shutdown"));
+    EXPECT_TRUE(admin_.can_execute(admin, "reloadconfig"));
+    EXPECT_TRUE(admin_.can_execute(admin, "shutdown"));
+}
+
+TEST_F(gm_commands_test, server_management_reports_missing_hooks)
+{
+    // The fixture registers with null subsystems: the commands must fail cleanly, not crash.
+    player_id admin{2};
+    admin_.register_admin(admin, "Admin", admin_level::admin);
+    auto reload = admin_.execute(admin, "/reloadconfig");
+    EXPECT_FALSE(reload.success);
+    EXPECT_NE(reload.message.find("Config system"), std::string::npos) << reload.message;
+    auto stop = admin_.execute(admin, "/shutdown cancel");
+    EXPECT_FALSE(stop.success);
+    EXPECT_NE(stop.message.find("Shutdown hook"), std::string::npos) << stop.message;
+}

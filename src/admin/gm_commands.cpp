@@ -12,6 +12,7 @@
 #include "skill/skill_system.h"
 #include "skill/skill.h"
 #include "scheduler/scheduler.h"
+#include "config/config_system.h"
 #include "network/json_protocol.h"
 #include "core/logger.h"
 
@@ -1301,8 +1302,153 @@ void register_gm_commands(admin_system& admin, const gm_command_context& ctx)
                                });
     }
 
+    // ========== Server management ==========
+
+    // /reloadconfig - Re-read server.yaml from the path the server booted with
+    {
+        command_info info;
+        info.name = "reloadconfig";
+        info.aliases = {"reload"};
+        info.description = "Reload server.yaml from disk";
+        info.usage = "/reloadconfig";
+        info.required_level = admin_level::admin;
+
+        auto* config = ctx.config;
+
+        admin.register_command(info,
+                               [config](const command_context& cmd_ctx) -> command_result
+                               {
+                                   if (!config)
+                                   {
+                                       return command_result::error("Config system not available");
+                                   }
+                                   const auto& path = config->server_config_path();
+                                   if (path.empty())
+                                   {
+                                       return command_result::error("No config file path set");
+                                   }
+                                   auto load = config->load_server_config(path);
+                                   if (load.is_err())
+                                   {
+                                       return command_result::error("Failed to reload: " + load.error());
+                                   }
+                                   LOG_INFO(admin, "GM {} reloaded config from {}", cmd_ctx.executor_name, path.string());
+                                   // Same split the admin web API reports: sections read live vs at boot.
+                                   return command_result::ok(
+                                       "Reloaded " + path.string() +
+                                       ". Applied now: logging, auto_save, tick_interval_ms, attack_speed. "
+                                       "Restart needed for: database, websocket, legacy protocol.");
+                               });
+    }
+
+    // /shutdown [seconds] [reason] | /shutdown cancel - Stop the server, optionally after a countdown
+    {
+        command_info info;
+        info.name = "shutdown";
+        info.aliases = {"stopserver"};
+        info.description = "Shut the server down now or after a countdown with player warnings";
+        info.usage = "/shutdown [seconds] [reason] | /shutdown cancel";
+        info.required_level = admin_level::admin;
+        info.arguments = {make_arg("seconds", arg_type::string, false, "0", "Countdown in seconds, or 'cancel'"),
+                          make_arg("reason", arg_type::string, false, "", "Reason shown to players")};
+
+        auto* sched = ctx.sched;
+        auto broadcast = ctx.broadcast_all;
+        auto shutdown = ctx.request_shutdown;
+
+        admin.register_command(
+            info,
+            [sched, broadcast, shutdown](const command_context& cmd_ctx) -> command_result
+            {
+                if (!shutdown)
+                {
+                    return command_result::error("Shutdown hook not available");
+                }
+
+                auto notify = [broadcast](const std::string& text)
+                {
+                    if (!broadcast)
+                        return;
+                    broadcast(network::make_chat_message_broadcast({.channel = "system",
+                                                                    .sender_id = 0,
+                                                                    .sender_name = "SYSTEM",
+                                                                    .content = text,
+                                                                    .flags = {"system"},
+                                                                    .timestamp = ""}));
+                };
+
+                const std::string first = cmd_ctx.args.empty() ? "0" : cmd_ctx.args[0].string_value;
+                if (first == "cancel")
+                {
+                    if (sched)
+                        sched->cancel_tagged("shutdown_countdown");
+                    notify("Server shutdown cancelled");
+                    LOG_INFO(admin, "GM {} cancelled the shutdown countdown", cmd_ctx.executor_name);
+                    return command_result::ok("Shutdown countdown cancelled");
+                }
+
+                int seconds = 0;
+                try
+                {
+                    seconds = std::stoi(first);
+                }
+                catch (...)
+                {
+                    return command_result::error("Usage: /shutdown [seconds] [reason] | /shutdown cancel");
+                }
+
+                std::string reason;
+                for (size_t i = 1; i < cmd_ctx.args.size(); ++i)
+                {
+                    if (!reason.empty())
+                        reason += ' ';
+                    reason += cmd_ctx.args[i].string_value;
+                }
+                if (reason.empty())
+                    reason = "Server shutdown by " + cmd_ctx.executor_name;
+
+                if (seconds <= 0)
+                {
+                    LOG_INFO(admin, "GM {} initiated immediate shutdown: {}", cmd_ctx.executor_name, reason);
+                    notify("Server is shutting down: " + reason);
+                    shutdown(reason);
+                    return command_result::ok("Shutting down: " + reason);
+                }
+
+                if (!sched)
+                {
+                    return command_result::error("Scheduler not available (use /shutdown 0 for an immediate stop)");
+                }
+
+                sched->cancel_tagged("shutdown_countdown");
+                for (int warn : {300, 60, 30, 10})
+                {
+                    if (warn >= seconds)
+                        continue;
+                    sched->schedule_tagged(duration_ms{(seconds - warn) * 1000},
+                                           "shutdown_countdown",
+                                           [notify, warn, reason]()
+                                           {
+                                               notify("Server shutting down in " + std::to_string(warn) +
+                                                      " seconds: " + reason);
+                                           });
+                }
+                sched->schedule_tagged(duration_ms{seconds * 1000},
+                                       "shutdown_countdown",
+                                       [notify, shutdown, reason]()
+                                       {
+                                           notify("Server is shutting down: " + reason);
+                                           shutdown(reason);
+                                       });
+                LOG_INFO(admin, "GM {} scheduled shutdown in {}s: {}", cmd_ctx.executor_name, seconds, reason);
+                notify("Server will shut down in " + std::to_string(seconds) + " seconds: " + reason);
+                return command_result::ok("Shutdown in " + std::to_string(seconds) + "s: " + reason +
+                                          " (/shutdown cancel to abort)");
+            });
+    }
+
     LOG_INFO(admin, "Registered {} GM commands",
-             16); // Update this count when adding more commands
+             18); // Update this count when adding more commands
 }
 
 } // namespace hb::admin

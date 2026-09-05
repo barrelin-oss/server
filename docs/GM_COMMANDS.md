@@ -464,6 +464,54 @@ View recent command log entries.
 
 ---
 
+## Server Management Commands
+
+### /reloadconfig
+Re-read `server.yaml` from the path the server booted with. Sections read live
+(logging, auto_save, tick_interval_ms, attack_speed) take effect at once; database,
+websocket and legacy protocol settings need a restart.
+
+| Property | Value |
+|----------|-------|
+| **Aliases** | `/reload` |
+| **Level** | Admin |
+| **Usage** | `/reloadconfig` |
+
+**Example:**
+```
+/reloadconfig
+> Reloaded D:\HelbreathX\server\bin\server.yaml. Applied now: logging, auto_save, tick_interval_ms, attack_speed. Restart needed for: database, websocket, legacy protocol.
+```
+
+### /shutdown
+Stop the server immediately, or after a countdown with system-chat warnings at 5 min,
+60 s, 30 s and 10 s. The countdown shares the `shutdown_countdown` scheduler tag with
+the admin web API, so either side can cancel it.
+
+| Property | Value |
+|----------|-------|
+| **Aliases** | `/stopserver` |
+| **Level** | Admin |
+| **Usage** | `/shutdown [seconds] [reason]` or `/shutdown cancel` |
+
+**Parameters:**
+- `seconds` (optional) - Countdown; `0` or omitted stops at once; `cancel` aborts a running countdown
+- `reason` (optional) - Shown to players; defaults to "Server shutdown by <GM>"
+
+**Examples:**
+```
+/shutdown
+> Shutting down: Server shutdown by Admin
+
+/shutdown 120 Maintenance window
+> Shutdown in 120s: Maintenance window (/shutdown cancel to abort)
+
+/shutdown cancel
+> Shutdown countdown cancelled
+```
+
+---
+
 ## Built-in Player Commands
 
 These commands are available to all players (no admin level required):

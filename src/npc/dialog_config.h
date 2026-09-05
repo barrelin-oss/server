@@ -4,6 +4,7 @@
 // Dialog tree data structures for NPC conversations
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
@@ -25,6 +26,36 @@ enum class dialog_action : uint8_t
     open_manufacturing = 8,
     open_alchemy = 9,
 };
+
+// Wire name of an action (docs/protocol/npc.md): the same string in player_interact_response
+// and dialog_choice_response, so a client never sees the raw enum value.
+[[nodiscard]] constexpr auto dialog_action_name(dialog_action action) -> std::string_view
+{
+    switch (action)
+    {
+    case dialog_action::goto_node:
+        return "goto_node";
+    case dialog_action::close:
+        return "close";
+    case dialog_action::open_shop:
+        return "open_shop";
+    case dialog_action::open_bank:
+        return "open_bank";
+    case dialog_action::open_quests:
+        return "open_quests";
+    case dialog_action::offer_citizenship:
+        return "offer_citizenship";
+    case dialog_action::select_crusade_job:
+        return "select_crusade_job";
+    case dialog_action::claim_rewards:
+        return "claim_rewards";
+    case dialog_action::open_manufacturing:
+        return "open_manufacturing";
+    case dialog_action::open_alchemy:
+        return "open_alchemy";
+    }
+    return "close";
+}
 
 // A single selectable option in a dialog node
 struct dialog_option

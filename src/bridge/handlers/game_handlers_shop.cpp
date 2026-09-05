@@ -544,7 +544,7 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
                 {
                     nlohmann::json opt_json;
                     opt_json["label"] = opt.label;
-                    opt_json["action"] = static_cast<int>(opt.action);
+                    opt_json["action"] = std::string(npc::dialog_action_name(opt.action));
                     if (!opt.next_node.empty())
                     {
                         opt_json["next_node"] = opt.next_node;
@@ -1936,41 +1936,7 @@ void game_handlers::handle_dialog_choice(connection_id conn_id, const network::j
         std::vector<network::dialog_option_msg> opts;
         for (const auto& opt : next->options)
         {
-            std::string action_str;
-            switch (opt.action)
-            {
-            case npc::dialog_action::goto_node:
-                action_str = "goto_node";
-                break;
-            case npc::dialog_action::close:
-                action_str = "close";
-                break;
-            case npc::dialog_action::open_shop:
-                action_str = "open_shop";
-                break;
-            case npc::dialog_action::open_bank:
-                action_str = "open_bank";
-                break;
-            case npc::dialog_action::open_quests:
-                action_str = "open_quests";
-                break;
-            case npc::dialog_action::offer_citizenship:
-                action_str = "offer_citizenship";
-                break;
-            case npc::dialog_action::select_crusade_job:
-                action_str = "select_crusade_job";
-                break;
-            case npc::dialog_action::claim_rewards:
-                action_str = "claim_rewards";
-                break;
-            case npc::dialog_action::open_manufacturing:
-                action_str = "open_manufacturing";
-                break;
-            case npc::dialog_action::open_alchemy:
-                action_str = "open_alchemy";
-                break;
-            }
-            opts.push_back({opt.label, action_str, opt.next_node});
+            opts.push_back({opt.label, std::string(npc::dialog_action_name(opt.action)), opt.next_node});
         }
         conn->send(network::make_dialog_choice_response(msg.seq, true, "goto_node", next->id, next->text, opts));
         break;

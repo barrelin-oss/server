@@ -452,6 +452,9 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-05: Dialog option actions are names on the wire
+- `player_interact_response` for an NPC dialog wrote each option's `action` as the raw enum number while `dialog_choice_response` and docs/protocol/npc.md use names (`goto_node`, `open_quests`, ...); the modern client parsed the documented shape and threw. `npc::dialog_action_name()` is now the one place that spells an action, used by both responses
+
 ### 2026-09-05: Legacy items and NPCs merged, spot type 28, bots that enter dead
 - `tools/convert/merge-legacy-items.ts` adds to `items.yaml` the items of a 3.x `Item*.cfg` that have no equivalent here: a legacy record whose id exists with the same type/equip_pos/sprite/sprite_frame is the same item under another label (HBX renamed many: 706 MasterHauberk(M) is DarkKnightHauberk there), and long names within two edits are spelling variants. From the centuu 3.82 files that left 103 new items (Hero and SangAh armour sets, dyes and armour dyes, gold pockets, seed bags and crops, super potions, manuals, necklaces, summon scrolls, ancient tablets, gem wares, angelic pendants); legacy ids kept when free, 13 renumbered from 1001. Existing ids never change: loot_tables.yaml and shops.yaml use them. `items.yaml` has 587 items
 - `tools/convert/merge-legacy-npcs.mjs` adds the missing NPC templates by name with this distribution's aliases (Giant-Cray-Fish, Lizard, Minotaurus, Master-Mage-Orc): Ice-Golem, gate-a/gate-e and 24 faction war units (XB/XW/XY/YY/YW-Elvine, Sor-Elvine, ATK/Elf/DSK/HBT/CT/Bar/AGC for both cities). `npcs.yaml` has 118 templates

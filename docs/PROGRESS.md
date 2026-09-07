@@ -452,6 +452,13 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-06: The Olympia quest line, item descriptions, and a reference of Olympia's mechanics
+
+- docs/olympia-reference.md catalogues what the Helbreath Olympia client folder holds (data files in `contents/`, 36 patch notes, client strings) and describes its mechanics: specialties, talents, rebirth, enchanting with shards, sockets, achievements, guild ranks, events, elites, market. Ordered by what to port next.
+- Quest loader takes `giver`/`giver_map` (a named NPC instead of the city hall officer), `name`/`description`, a second kill target (`target_type2`/`max_count2`), gathered items (`gather_item[_2,_3]`/`gather_count[_2,_3]`) and a gather-only row type 2. Test in test_quest_loader.cpp.
+- quests.yaml ids 200-231: the 33 Olympia quests (31 ported; the two elite-kill ones wait for elites), given by 10 named persons from persons.json (Enzu, Daara, Oxyia, Lagus, Lysio, Lisyo, Irenicus, Litzy, Fooldya, Moeru) added to npcs.yaml and dialogs.yaml and placed on their maps (bin/mapdata; the three maps without a spawners section got one). Exp scaled /50, gold /5.
+- items.yaml: `description` on 69 items, the Olympia tooltip texts whose item exists here (`{1}` marks a value the item fills in). Nothing reads the field yet.
+
 ### 2026-09-05: Character list carries the equipment visuals; Olympia NPCs
 
 - `get_characters_response` gains `equipment: {slot: {appr, color}}`, the shape of the entity spawn, read from `character_equipment` + `items` in one query per account and resolved through the item registry (`auth_handlers::character_list_response`): the character select draws the figure dressed instead of naked. Documented in docs/protocol/auth.md; unit test in test_auth.cpp.

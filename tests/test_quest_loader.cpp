@@ -25,7 +25,8 @@ protected:
                                "npcs:\n"
                                "  - {name: Giant-Ant, sprite_id: 16, hit_dice: 3, defense_ratio: 30, hit_ratio: 40, exp: 74}\n"
                                "  - {name: Kennedy, sprite_id: 34, hit_dice: 100, defense_ratio: 100, hit_ratio: 100, exp: 0}\n"
-                               "  - {name: William, sprite_id: 34, hit_dice: 100, defense_ratio: 100, hit_ratio: 100, exp: 0}\n");
+                               "  - {name: William, sprite_id: 34, hit_dice: 100, defense_ratio: 100, hit_ratio: 100, exp: 0}\n"
+                               "  - {name: Enzu, sprite_id: 106, hit_dice: 10, defense_ratio: 10, hit_ratio: 20, exp: 1, side: 0, action_limit: 2}\n");
         npcs_.initialize();
         ASSERT_TRUE(npcs_.load_from_file(npcs_yaml).is_ok());
         quests_.initialize();
@@ -118,6 +119,45 @@ TEST_F(quest_loader_test, goplace_row_becomes_visit_location_for_elvine)
     EXPECT_EQ(loc->radius, 3);
     // scaled exp (-2) three times with amount 1, scaled by min_level 50
     EXPECT_EQ(t->rewards.experience, 150);
+}
+
+TEST_F(quest_loader_test, named_giver_texts_second_target_and_gather)
+{
+    auto path = write("quests.yaml",
+                      std::string("quests:\n") +
+                          "  - {id: 200, side: 0, type: 1, giver: Enzu, giver_map: elvine, name: \"Humble Beginning\", "
+                          "description: \"Slay a few Slimes south of here.\", target_type: 16, max_count: 50, "
+                          "target_type2: 16, max_count2: 5, gather_item: 190, gather_count: 3, gather_item_2: 189, "
+                          "min_level: 1, max_level: 20, reward_type1: -1, reward_amount1: 400, reward_type2: 90, "
+                          "reward_amount2: 100, contribution: 10}\n"
+                          "  - {id: 201, side: 0, type: 2, giver: Enzu, name: Epidemy, gather_item: 191, gather_count: 3, "
+                          "min_level: 10, max_level: 300, reward_type1: -1, reward_amount1: 100}\n");
+    auto loaded = load_legacy_quests(quests_, path, npcs_, &quest_loader_test::maps);
+    ASSERT_TRUE(loaded.is_ok()) << loaded.error();
+    EXPECT_EQ(loaded.value(), 2u);
+
+    const auto* q = quests_.get_quest_template(quest_id{200});
+    ASSERT_NE(q, nullptr);
+    EXPECT_EQ(q->name, "Humble Beginning");
+    EXPECT_EQ(q->description, "Slay a few Slimes south of here.");
+    EXPECT_EQ(q->required_faction, 0);
+    EXPECT_EQ(q->quest_giver, npcs_.find_by_name("Enzu")->id);
+    EXPECT_EQ(q->quest_giver_map, map_id{2});
+    ASSERT_EQ(q->objectives.size(), 4u);
+    EXPECT_EQ(q->objectives[0].type, objective_type::kill_monster);
+    EXPECT_EQ(q->objectives[1].type, objective_type::kill_monster);
+    EXPECT_EQ(std::get<kill_objective_data>(q->objectives[1].data).required_count, 5);
+    EXPECT_EQ(q->objectives[2].type, objective_type::collect_item);
+    EXPECT_EQ(std::get<collect_objective_data>(q->objectives[2].data).item_type, item_id{190});
+    EXPECT_EQ(std::get<collect_objective_data>(q->objectives[3].data).required_count, 1); // default count
+    EXPECT_EQ(q->rewards.experience, 400);
+    EXPECT_EQ(q->rewards.gold, 100);
+
+    const auto* g = quests_.get_quest_template(quest_id{201});
+    ASSERT_NE(g, nullptr);
+    EXPECT_EQ(g->name, "Epidemy");
+    ASSERT_EQ(g->objectives.size(), 1u);
+    EXPECT_EQ(g->objectives[0].type, objective_type::collect_item);
 }
 
 TEST_F(quest_loader_test, unknown_target_is_skipped_not_fatal)

@@ -45,6 +45,7 @@ spawners:
   - { id: 31, type: 0, x1: 1, y1: 1, x2: 500, y2: 500, npc_type: 52, npc_name: "Gagoyle", max_count: 1, respawn_time_ms: 15000 }
   - { id: 32, type: 0, x1: 420, y1: 293, x2: 435, y2: 320, npc_type: 31, npc_name: "Demon", max_count: 3, respawn_time_ms: 15000 }
   - { id: 33, type: 0, x1: 143, y1: 208, x2: 225, y2: 248, npc_type: 59, npc_name: "Ettin", max_count: 6, respawn_time_ms: 15000 }
+  - { id: 900, type: 0, x1: 179, y1: 225, x2: 179, y2: 225, npc_type: 0, npc_name: "Irenicus", max_count: 1, respawn_time_ms: 15000 } # Olympia person
 teleports:
   - { src_x: 147, src_y: 503, dest_map: "aresden", dest_x: 31, dest_y: 28, direction: 5 }
   - { src_x: 148, src_y: 503, dest_map: "aresden", dest_x: 31, dest_y: 28, direction: 5 }

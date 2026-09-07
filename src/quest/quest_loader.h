@@ -36,6 +36,8 @@ using map_resolver = std::function<map_id(std::string_view)>;
 // Legacy quest_type values that appear in Quest.cfg
 inline constexpr int legacy_quest_type_hunt = 1;
 inline constexpr int legacy_quest_type_goplace = 7;
+// Not legacy: a gather-only row (Olympia "Epidemy"): gather_item/gather_count, no target
+inline constexpr int legacy_quest_type_gather = 2;
 
 // Legacy reward_type sentinels (positive values are item ids; Gold is item 90)
 inline constexpr int legacy_reward_exp = -1;

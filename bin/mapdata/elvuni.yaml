@@ -9,6 +9,8 @@ random_mob_generator:
   max_mobs: 350
 initial_points:
   - { id: 1, x: 173, y: 24 }
+spawners:
+  - { id: 900, type: 0, x1: 33, y1: 34, x2: 33, y2: 34, npc_type: 0, npc_name: "Lisyo", max_count: 1, respawn_time_ms: 15000 } # Olympia person
 teleports:
   - { src_x: 176, src_y: 20, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }
   - { src_x: 176, src_y: 21, dest_map: "huntzone1", dest_x: 23, dest_y: 53, direction: 1 }

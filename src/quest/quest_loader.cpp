@@ -65,6 +65,29 @@ void add_legacy_reward(quest_rewards& rewards, int type, int amount, int16_t min
     }
 }
 
+// gather_item/gather_count (and _2, _3): items the player must bring back. Returns an error text.
+auto add_gather_objectives(const YAML::Node& row, quest_template& t) -> std::string
+{
+    for (const char* suffix : {"", "_2", "_3"})
+    {
+        const auto item_key = std::string("gather_item") + suffix;
+        const auto count_key = std::string("gather_count") + suffix;
+        const int item = field<int>(row, item_key.c_str(), 0);
+        if (item <= 0)
+            continue;
+        const int count = field<int>(row, count_key.c_str(), 1);
+        if (count <= 0)
+            return std::format("{} needs a positive {}", item_key, count_key);
+        objective_template obj;
+        obj.id = static_cast<uint8_t>(t.objectives.size());
+        obj.type = objective_type::collect_item;
+        obj.description = std::format("Bring {} x item {}", count, item);
+        obj.data = collect_objective_data{
+            .item_type = item_id{static_cast<uint16_t>(item)}, .required_count = count, .deliver_to = npc_id{}};
+        t.objectives.push_back(std::move(obj));
+    }
+    return {};
+}
 } // namespace
 
 auto legacy_row_to_template(const YAML::Node& row,
@@ -97,6 +120,17 @@ auto legacy_row_to_template(const YAML::Node& row,
             std::format("quest {}: city hall officer {} not in npc registry", id, city_hall_officer_for_side(side)));
     t.quest_giver = giver->id;
     t.quest_giver_map = resolve_map(home_map_for_side(side));
+    // Optional: a named quest giver (the Olympia persons) instead of the city hall officer,
+    // standing on giver_map (defaults to the nation's home map)
+    if (const auto giver_name = field<std::string>(row, "giver", ""); !giver_name.empty())
+    {
+        const auto* named = npcs.find_by_name(giver_name);
+        if (!named)
+            return R::err(std::format("quest {}: giver {} not in npc registry", id, giver_name));
+        t.quest_giver = named->id;
+        if (const auto giver_map = field<std::string>(row, "giver_map", ""); !giver_map.empty())
+            t.quest_giver_map = resolve_map(giver_map);
+    }
 
     const std::string map_name = field<std::string>(row, "map", "");
 
@@ -128,6 +162,31 @@ auto legacy_row_to_template(const YAML::Node& row,
         obj.description = std::format("Kill {} {}", count, target->name);
         obj.data = kill_objective_data{.target_type = target->id, .required_count = count, .player_kills = false};
         t.objectives.push_back(std::move(obj));
+        if (const int target2 = field<int>(row, "target_type2", 0); target2 > 0)
+        {
+            const int count2 = field<int>(row, "max_count2", 0);
+            auto name2 = npc::spot_mob_type_to_name(target2);
+            const auto* second = name2 ? npcs.find_by_name(*name2) : nullptr;
+            if (!second || count2 <= 0)
+                return R::err(std::format("quest {}: bad second target {} x{}", id, target2, count2));
+            objective_template obj2;
+            obj2.id = static_cast<uint8_t>(t.objectives.size());
+            obj2.type = objective_type::kill_monster;
+            obj2.description = std::format("Kill {} {}", count2, second->name);
+            obj2.data = kill_objective_data{.target_type = second->id, .required_count = count2, .player_kills = false};
+            t.objectives.push_back(std::move(obj2));
+        }
+        if (auto err = add_gather_objectives(row, t); !err.empty())
+            return R::err(std::format("quest {}: {}", id, err));
+    }
+    else if (type == legacy_quest_type_gather)
+    {
+        t.name = "Gather";
+        t.description = std::format("Gather what is asked for {} (level {}-{})", side_name(side), min_level, max_level);
+        if (auto err = add_gather_objectives(row, t); !err.empty())
+            return R::err(std::format("quest {}: {}", id, err));
+        if (t.objectives.empty())
+            return R::err(std::format("quest {}: gather row without gather_item", id));
     }
     else if (type == legacy_quest_type_goplace)
     {
@@ -157,6 +216,10 @@ auto legacy_row_to_template(const YAML::Node& row,
         return R::err(std::format("quest {}: unsupported legacy type {}", id, type));
     }
 
+    if (const auto name = field<std::string>(row, "name", ""); !name.empty())
+        t.name = name;
+    if (const auto description = field<std::string>(row, "description", ""); !description.empty())
+        t.description = description;
     for (int i = 1; i <= 3; ++i)
     {
         const auto type_key = std::format("reward_type{}", i);

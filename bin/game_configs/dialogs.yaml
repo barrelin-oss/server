@@ -136,3 +136,95 @@ dialogs:
         options:
           - { label: "Select my crusade job", action: select_crusade_job }
           - { label: "Goodbye", action: close }
+
+  # ---- Olympia persons: named quest givers (contents/persons.json + quests.json) ----
+  Enzu:
+    greeting: "Greetings, traveller."
+    nodes:
+      start:
+        text: "New around here? The lands south of the farms are a good place to learn to survive."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Daara:
+    greeting: "Keep your voice down, the Orcs hear everything."
+    nodes:
+      start:
+        text: "This cave is crawling with Orcs. I could use a blade or two."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Oxyia:
+    greeting: "Another one who wandered in."
+    nodes:
+      start:
+        text: "I keep watch here. The elite Orcs are not ready for hunting yet; come back later."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Lagus:
+    greeting: "Hungry?"
+    nodes:
+      start:
+        text: "Scorpion is not bad once you get the skin off. Help me stock the pot."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Lysio:
+    greeting: "The garden was beautiful once."
+    nodes:
+      start:
+        text: "Trolls and Unicorns have taken the garden. Aresden pays well for clearing it."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Lisyo:
+    greeting: "The garden was beautiful once."
+    nodes:
+      start:
+        text: "Trolls and Unicorns have taken the garden. Elvine pays well for clearing it."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Irenicus:
+    greeting: "Middleland answers to nobody. Good."
+    nodes:
+      start:
+        text: "Trolls, Cyclops, Ogres, Werewolves. Pick your enemy, I pay for all of them."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Litzy:
+    greeting: "Hsss."
+    nodes:
+      start:
+        text: "The lizard eyes you, then the Cyclops behind you. It seems to want them gone."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Fooldya:
+    greeting: "Cold enough for you?"
+    nodes:
+      start:
+        text: "Golems, Beholders and Frosts. Icebound has them all, and I want fewer of each."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }
+  Moeru:
+    greeting: "You climbed this far. Impressive."
+    nodes:
+      start:
+        text: "The third floor is mine. Demons, Gargoyles and Dark Elves disagree; convince them."
+        options:
+          - { label: "What tasks are there?", action: open_quests }
+          - { label: "I have completed a quest", action: claim_rewards }
+          - { label: "Goodbye", action: close }

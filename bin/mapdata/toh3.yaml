@@ -28,6 +28,7 @@ spawners:
   - { id: 10, type: 0, x1: 225, y1: 248, x2: 235, y2: 257, npc_type: 53, npc_name: "Beholder", max_count: 8, respawn_time_ms: 15000 }
   - { id: 11, type: 0, x1: 225, y1: 248, x2: 235, y2: 257, npc_type: 55, npc_name: "Rabbit", max_count: 4, respawn_time_ms: 15000 }
   - { id: 12, type: 0, x1: 225, y1: 248, x2: 235, y2: 257, npc_type: 54, npc_name: "Dark-Elf", max_count: 1, respawn_time_ms: 15000 }
+  - { id: 900, type: 0, x1: 234, y1: 252, x2: 234, y2: 252, npc_type: 0, npc_name: "Moeru", max_count: 1, respawn_time_ms: 15000 } # Olympia person
 teleports:
   - { src_x: 93, src_y: 38, dest_map: "toh2", dest_x: 101, dest_y: 270, direction: 5 }
   - { src_x: 94, src_y: 38, dest_map: "toh2", dest_x: 101, dest_y: 270, direction: 5 }

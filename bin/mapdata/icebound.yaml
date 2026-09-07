@@ -31,6 +31,7 @@ spawners:
   - { id: 15, type: 0, x1: 198, y1: 170, x2: 243, y2: 206, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
   - { id: 16, type: 0, x1: 50, y1: 72, x2: 86, y2: 137, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
   - { id: 17, type: 0, x1: 94, y1: 54, x2: 152, y2: 98, npc_type: 12, npc_name: "Stone-Golem", max_count: 10, respawn_time_ms: 15000 }
+  - { id: 900, type: 0, x1: 212, y1: 42, x2: 212, y2: 42, npc_type: 0, npc_name: "Fooldya", max_count: 1, respawn_time_ms: 15000 } # Olympia person
 teleports:
   - { src_x: 260, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }
   - { src_x: 261, src_y: 264, dest_map: "middleland", dest_x: 455, dest_y: 279, direction: 5 }

@@ -24,6 +24,7 @@ spawners:
   - { id: 9, type: 0, x1: 211, y1: 194, x2: 227, y2: 227, npc_type: 22, npc_name: "Amphis", max_count: 15, respawn_time_ms: 15000 }
   - { id: 10, type: 0, x1: 71, y1: 34, x2: 97, y2: 53, npc_type: 22, npc_name: "Amphis", max_count: 15, respawn_time_ms: 15000 }
   - { id: 11, type: 0, x1: 124, y1: 39, x2: 162, y2: 105, npc_type: 100, npc_name: "Scarecrow", max_count: 2, respawn_time_ms: 60000 } # Olympia
+  - { id: 900, type: 0, x1: 118, y1: 150, x2: 118, y2: 150, npc_type: 0, npc_name: "Enzu", max_count: 1, respawn_time_ms: 15000 } # Olympia person
 teleports:
   - { src_x: 20, src_y: 147, dest_map: "elvine", dest_x: 274, dest_y: 196, direction: 4 }
   - { src_x: 20, src_y: 148, dest_map: "elvine", dest_x: 274, dest_y: 196, direction: 4 }

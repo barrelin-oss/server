@@ -17,6 +17,10 @@ initial_points:
 safe_zones:
   - { left: 24, top: 29, right: 43, bottom: 45 }
   - { left: 174, top: 116, right: 194, bottom: 136 }
+spawners:
+  - { id: 900, type: 0, x1: 37, y1: 169, x2: 37, y2: 169, npc_type: 0, npc_name: "Daara", max_count: 1, respawn_time_ms: 15000 } # Olympia person
+  - { id: 901, type: 0, x1: 150, y1: 30, x2: 150, y2: 30, npc_type: 0, npc_name: "Oxyia", max_count: 1, respawn_time_ms: 15000 } # Olympia person
+  - { id: 902, type: 0, x1: 99, y1: 77, x2: 99, y2: 77, npc_type: 0, npc_name: "Lagus", max_count: 1, respawn_time_ms: 15000 } # Olympia person
 teleports:
   - { src_x: 31, src_y: 34, dest_map: "elvine", dest_x: 56, dest_y: 118, direction: 5 }
   - { src_x: 32, src_y: 34, dest_map: "elvine", dest_x: 56, dest_y: 118, direction: 5 }

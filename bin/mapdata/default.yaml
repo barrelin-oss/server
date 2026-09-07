@@ -17,6 +17,7 @@ spawners:
   - { id: 6, type: 0, x1: 86, y1: 89, x2: 97, y2: 96, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
   - { id: 7, type: 0, x1: 61, y1: 86, x2: 71, y2: 93, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
   - { id: 8, type: 0, x1: 68, y1: 94, x2: 76, y2: 102, npc_type: 10, npc_name: "Slime", max_count: 20, respawn_time_ms: 15000 }
+  - { id: 900, type: 0, x1: 119, y1: 46, x2: 119, y2: 46, npc_type: 0, npc_name: "Enzu", max_count: 1, respawn_time_ms: 15000 } # Olympia person
 teleports:
   - { src_x: 127, src_y: 78, dest_map: "elvfarm", dest_x: -1, dest_y: -1, direction: 5 }
   - { src_x: 128, src_y: 78, dest_map: "elvfarm", dest_x: -1, dest_y: -1, direction: 5 }

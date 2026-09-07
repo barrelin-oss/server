@@ -5,6 +5,8 @@
 #include "core/logger.h"
 #include "perf/perf_stats.h"
 
+#include <random>
+
 namespace hb::inventory
 {
 
@@ -107,6 +109,17 @@ auto inventory_system::add_item(entity_id owner, item_id item, int16_t count, in
     if (inv->is_full())
     {
         return inventory_result::inventory_full;
+    }
+
+    // No position asked for (loot, rewards, admin gifts): a random spot in the bag so new items do not
+    // pile up in the corner. The chest the client draws is about 198x122 inside.
+    if (pos_x == 0 && pos_y == 0)
+    {
+        static thread_local std::mt19937 rng{std::random_device{}()};
+        std::uniform_int_distribution<int> dx(4, 166);
+        std::uniform_int_distribution<int> dy(4, 90);
+        pos_x = static_cast<int16_t>(dx(rng));
+        pos_y = static_cast<int16_t>(dy(rng));
     }
 
     if (inv->add_item(item, count, pos_x, pos_y))

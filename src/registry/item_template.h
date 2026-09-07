@@ -20,6 +20,7 @@ struct item_template
     // Identity
     item_id id{0};
     std::string name;
+    std::string description; // tooltip text (the Olympia item texts; "{1}" marks a value the item fills in)
 
     // Classification (keep as enums, cast from raw int in YAML loader)
     item_type type{item_type::none};

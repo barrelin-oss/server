@@ -97,6 +97,10 @@ auto item_registry::load_from_yaml(const std::filesystem::path& path) -> result<
                 continue;
             }
 
+            if (node["description"])
+            {
+                item.description = node["description"].as<std::string>();
+            }
             if (node["name"])
             {
                 item.name = node["name"].as<std::string>();

@@ -121,6 +121,7 @@ struct item
     item_id id{};          // Unique instance ID
     item_id template_id{}; // Template this is based on
     std::string name;
+    std::string description; // from the template; shown by the client as a tooltip
 
     // Type
     item_type type{item_type::none};

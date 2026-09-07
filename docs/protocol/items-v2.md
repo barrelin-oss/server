@@ -8,6 +8,8 @@ This document defines the exact JSON wire format for all item-related client-ser
 
 ---
 
+> `description` (optional string on every serialized item, 2026-09-06): the tooltip text of the template, when it has one. Values written as `{1}`, `{2}` stand for the item's own numbers.
+
 ## Table of Contents
 
 1. [Universal Item Object](#1-universal-item-object)

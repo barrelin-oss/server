@@ -235,6 +235,8 @@ auto serialize_item(const item& itm) -> nlohmann::json
     {
         j["name"] = itm.name;
     }
+    if (!itm.description.empty())
+        j["description"] = itm.description;
 
     // Type classification
     j["type"] = item_type_to_string(itm.type);

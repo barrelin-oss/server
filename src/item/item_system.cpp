@@ -308,6 +308,7 @@ auto item_system::populate_from_template(item& itm, item_id template_id) -> bool
 
     // Copy template data to item instance
     itm.name = tmpl->name;
+    itm.description = tmpl->description;
 
     // Map template type to item type using numeric comparison
     auto tmpl_type_val = static_cast<int8_t>(tmpl->type);

@@ -174,6 +174,7 @@ struct item
     int16_t dex_requirement{0};
     int16_t int_requirement{0};
     int16_t mag_requirement{0};
+    int8_t gender_requirement{0}; // legacy gender_limit: 0 = any, 1 = male, 2 = female
 
     // Durability
     int16_t durability{0};

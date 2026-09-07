@@ -192,6 +192,23 @@ TEST(requirement_check_test, meets_requirements)
     EXPECT_FALSE(check.can_use());
 }
 
+TEST(requirement_check_test, gendered_armor)
+{
+    item any;
+    EXPECT_TRUE(fits_gender(any, 1));
+    EXPECT_TRUE(fits_gender(any, 2));
+
+    item womens;
+    womens.gender_requirement = 2; // aHeroOfArmor(W)
+    EXPECT_FALSE(fits_gender(womens, 1));
+    EXPECT_TRUE(fits_gender(womens, 2));
+
+    item mens;
+    mens.gender_requirement = 1; // aHeroOfArmor(M)
+    EXPECT_TRUE(fits_gender(mens, 1));
+    EXPECT_FALSE(fits_gender(mens, 2));
+}
+
 // Item system tests
 
 class item_system_test : public ::testing::Test

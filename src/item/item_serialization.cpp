@@ -273,6 +273,7 @@ auto serialize_item(const item& itm) -> nlohmann::json
     j["dex_req"] = itm.dex_requirement;
     j["int_req"] = itm.int_requirement;
     j["mag_req"] = itm.mag_requirement;
+    j["gender_req"] = itm.gender_requirement;
 
     // Effects: only include non-empty entries
     nlohmann::json effects_arr = nlohmann::json::array();

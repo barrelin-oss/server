@@ -52,6 +52,7 @@ Every item the client receives uses this exact shape, regardless of context (inv
   "durability": 85,
   "max_durability": 100,
   "level_req": 30,
+  "gender_req": 0,
   "str_req": 50,
   "dex_req": 20,
   "int_req": 0,
@@ -97,6 +98,7 @@ Every item the client receives uses this exact shape, regardless of context (inv
 | `durability` | integer | yes | Current durability. |
 | `max_durability` | integer | yes | Maximum durability. 0 = indestructible. |
 | `level_req` | integer | yes | Level required to equip. 0 = no requirement. |
+| `gender_req` | integer | yes | Gender required to equip (2026-09-07): 0 = any, 1 = male, 2 = female. The (M)/(W) armor sets. |
 | `str_req` | integer | yes | Strength required to equip. |
 | `dex_req` | integer | yes | Dexterity required to equip. |
 | `int_req` | integer | yes | Intelligence required to equip. |
@@ -513,6 +515,8 @@ If the slot was already occupied (swap), the server sends:
 2. `equipment_change` broadcast for the new item
 
 The previously equipped item remains in inventory — only its equipment slot reference is cleared.
+
+`success: false` is sent (with the slot name) when the item is not equipment, the slot does not fit it, the level or stat requirements are not met, the item's `gender_req` does not match the character (a (W) piece on a male character), or a shield is requested while a two-handed weapon is held.
 
 ### `unequip_request` (client → server)
 

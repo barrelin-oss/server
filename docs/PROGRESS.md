@@ -452,6 +452,11 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-07: Gendered armor
+
+- Equip now enforces the template's `gender_limit` (legacy (M)/(W) sets): items carry `gender_requirement` (serialized as `gender_req`), and `player_equip_request` answers `success: false` when it does not match the character's gender. Before, a female Elvine set could be worn by a male character (it rendered in the wrong colors).
+- Test: `requirement_check_test.gendered_armor`.
+
 ### 2026-09-06: Super attacks (Alt) over the JSON protocol
 
 - `weapon_type` on serialized items was always `"none"` (the instance field was never filled). It is now derived from the template's legacy appearance value (`weapon_type_from_appearance`), so the client knows the weapon skill of what it holds.

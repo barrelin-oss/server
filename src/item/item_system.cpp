@@ -429,6 +429,7 @@ auto item_system::populate_from_template(item& itm, item_id template_id) -> bool
     itm.weight = tmpl->weight;
     itm.price = tmpl->price;
     itm.level_requirement = tmpl->level_limit;
+    itm.gender_requirement = tmpl->gender_limit;
     itm.max_durability = tmpl->durability;
     itm.durability = tmpl->durability;
     itm.indestructible = (tmpl->durability <= 0);

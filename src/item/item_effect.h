@@ -281,4 +281,11 @@ inline auto check_requirements(const item& itm, int level, int str, int dex, int
     return result;
 }
 
+// Gendered armor (the (M)/(W) sets): 0 on the item means anyone may wear it; otherwise the wearer's
+// gender must match (legacy: 1 = male, 2 = female, same numbering as the player).
+[[nodiscard]] inline auto fits_gender(const item& itm, uint8_t wearer_gender) -> bool
+{
+    return itm.gender_requirement <= 0 || static_cast<uint8_t>(itm.gender_requirement) == wearer_gender;
+}
+
 } // namespace hb::item

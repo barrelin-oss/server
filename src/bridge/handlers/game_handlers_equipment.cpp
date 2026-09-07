@@ -216,6 +216,15 @@ void game_handlers::handle_player_equip(connection_id conn_id, const network::js
         return;
     }
 
+    // Gendered armor: a (W) piece on a male character (or the other way round) is refused, as in legacy
+    if (!item::fits_gender(*itm, static_cast<uint8_t>(plr->sex)))
+    {
+        LOG_WARN(bridge, "Player {} equip rejected for item {}: gender requirement {} vs {}",
+                 pid.value, target_item_id.value, itm->gender_requirement, static_cast<int>(plr->sex));
+        conn->send_raw(network::make_equip_result(false, slot_name).dump());
+        return;
+    }
+
     // Two-handed weapon logic: if equipping a 2H weapon and shield is occupied, auto-unequip shield
     if (itm->two_handed && plr->equipment.has_equipped(player::equip_slot::shield))
     {

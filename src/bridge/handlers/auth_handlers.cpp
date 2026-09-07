@@ -21,6 +21,8 @@
 #include "social/social_system.h"
 #include "magic/magic_system.h"
 #include "quest/quest_system.h"
+#include "specialty/specialty_system.h"
+#include "achievement/achievement_system.h"
 #include "skill/skill_system.h"
 #include "scheduler/scheduler.h"
 #include "core/logger.h"
@@ -283,6 +285,10 @@ void auth_handlers::handle_logout(connection_id conn_id, const network::json_mes
                 social_->disconnect_guild_member(pid, player->character_id);
             }
             social_->unregister_player(pid);
+            if (auto* spec = subsystems().get<specialty::specialty_system>(); spec)
+                spec->unregister_player(pid);
+            if (auto* ach = subsystems().get<achievement::achievement_system>(); ach)
+                ach->unregister_player(pid);
         }
 
         // Notify nearby players of despawn
@@ -896,6 +902,23 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
                         LOG_DEBUG(bridge, "Loaded quest data for player {}", live_player_id.value);
                     }
                 }
+            }
+
+            // Monster specialties (kills per monster type)
+            if (auto* spec = subsystems().get<specialty::specialty_system>(); spec)
+            {
+                spec->register_player(live_player_id);
+                if (!char_data.specialty_data.empty())
+                    spec->deserialize(live_player_id, char_data.specialty_data);
+            }
+
+            // Achievements
+            if (auto* ach = subsystems().get<achievement::achievement_system>(); ach)
+            {
+                ach->register_player(live_player_id);
+                if (!char_data.achievement_data.empty())
+                    ach->deserialize(live_player_id, char_data.achievement_data);
+                ach->set_level(live_player_id, char_data.level);
             }
 
             // Recalculate computed stats
@@ -1765,6 +1788,14 @@ void auth_handlers::save_player_state(player_id pid)
         }
     }
 
+    // Monster specialties
+    std::string specialty_json = "[]";
+    if (auto* spec = subsystems().get<specialty::specialty_system>(); spec)
+        specialty_json = spec->serialize(pid);
+    std::string achievement_json = "{}";
+    if (auto* ach = subsystems().get<achievement::achievement_system>(); ach)
+        achievement_json = ach->serialize(pid);
+
     // Serialize quest data
     std::string quest_json = "[]";
     {
@@ -1825,7 +1856,9 @@ void auth_handlers::save_player_state(player_id pid)
                                        0, // TODO: add reward_gold to player struct when bounty system is implemented
                                    .skills_data = skills_json,
                                    .magic_data = magic_json,
-                                   .quest_data = quest_json};
+                                   .quest_data = quest_json,
+                                   .specialty_data = specialty_json,
+                                   .achievement_data = achievement_json};
 
     // Get map name
     if (world_ && player->current_map.value != 0)
@@ -1932,6 +1965,10 @@ void auth_handlers::handle_player_disconnect(connection_id conn_id)
             social_->disconnect_guild_member(pid, player->character_id);
         }
         social_->unregister_player(pid);
+        if (auto* spec = subsystems().get<specialty::specialty_system>(); spec)
+            spec->unregister_player(pid);
+        if (auto* ach = subsystems().get<achievement::achievement_system>(); ach)
+            ach->unregister_player(pid);
     }
 
     // Notify nearby players of despawn

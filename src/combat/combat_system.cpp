@@ -10,6 +10,7 @@
 #include "item/item_system.h"
 #include "item/special_ability.h"
 #include "effect/effect_system.h"
+#include "specialty/specialty_system.h"
 #include "world/world_subsystem.h"
 #include "perf/perf_stats.h"
 
@@ -368,6 +369,42 @@ auto combat_system::build_combat_context(hb::entity::entity attacker,
     // Apply PvP modifier
     bool is_pvp = attacker_is_player && defender_is_player;
     ctx.damage_multiplier = is_pvp ? config_.pvp_damage_modifier : config_.pve_damage_modifier;
+
+    // Monster specialties: bonuses of the player against this monster type, or less damage from it
+    if (auto* spec = subsystems().get<specialty::specialty_system>(); spec && player_sys && npc_sys)
+    {
+        if (attacker_is_player && !defender_is_player)
+        {
+            auto* p = player_sys->get_player_by_entity(attacker);
+            auto* n = npc_sys->get_npc(defender);
+            if (p && n)
+            {
+                const auto b = spec->bonuses(p->id, n->sprite_id);
+                if (b.any())
+                {
+                    ctx.damage_min += b.damage;
+                    ctx.damage_max += b.damage;
+                    ctx.attack_power += b.damage;
+                    ctx.damage_multiplier *= b.damage_mult;
+                    ctx.hit_rate = static_cast<int32_t>((ctx.hit_rate + b.hit_ratio) * b.hit_mult);
+                }
+            }
+        }
+        else if (!attacker_is_player && defender_is_player)
+        {
+            auto* p = player_sys->get_player_by_entity(defender);
+            auto* n = npc_sys->get_npc(attacker);
+            if (p && n)
+            {
+                const auto b = spec->bonuses(p->id, n->sprite_id);
+                if (b.any())
+                {
+                    ctx.damage_reduction += b.reduction_pct;
+                    ctx.damage_multiplier /= b.reduction_mult;
+                }
+            }
+        }
+    }
 
     return ctx;
 }

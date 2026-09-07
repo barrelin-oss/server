@@ -9,9 +9,9 @@ initial_points:
 safe_zones:
   - { left: 92, top: 49, right: 98, bottom: 55 }
 spawners:
-  - { id: 1, type: 0, x1: 116, y1: 80, x2: 138, y2: 102, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000 }
-  - { id: 2, type: 0, x1: 193, y1: 102, x2: 217, y2: 119, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000 }
-  - { id: 3, type: 0, x1: 68, y1: 22, x2: 195, y2: 71, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000 }
+  - { id: 1, type: 0, x1: 116, y1: 80, x2: 138, y2: 102, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000, elite_chance: 8 }
+  - { id: 2, type: 0, x1: 193, y1: 102, x2: 217, y2: 119, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000, elite_chance: 8 }
+  - { id: 3, type: 0, x1: 68, y1: 22, x2: 195, y2: 71, npc_type: 10, npc_name: "Slime", max_count: 15, respawn_time_ms: 15000, elite_chance: 8 }
   - { id: 4, type: 0, x1: 65, y1: 173, x2: 84, y2: 214, npc_type: 17, npc_name: "Scorpion", max_count: 15, respawn_time_ms: 15000 }
   - { id: 5, type: 0, x1: 137, y1: 203, x2: 163, y2: 215, npc_type: 17, npc_name: "Scorpion", max_count: 15, respawn_time_ms: 15000 }
   - { id: 6, type: 0, x1: 146, y1: 88, x2: 182, y2: 116, npc_type: 16, npc_name: "Giant-Ant", max_count: 15, respawn_time_ms: 15000 }

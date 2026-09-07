@@ -9,6 +9,7 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <cstdint>
 #include <chrono>
 
@@ -80,6 +81,7 @@ struct quest_template
 
     // Repeatable settings
     bool repeatable{false};
+    int32_t repeat_after_seconds{0}; // repeatable: seconds after a turn-in before it can be taken again (daily quests)
     int32_t cooldown_hours{0}; // Hours before can repeat
 
     // Flags
@@ -256,6 +258,7 @@ struct quest_journal
 
     std::vector<quest_state> active_quests;
     std::vector<quest_id> completed_quests; // History of turned-in quest IDs
+    std::unordered_map<uint16_t, int64_t> last_completed; // template id -> unix seconds of the last turn-in
 
     [[nodiscard]] auto active_count() const -> size_t { return active_quests.size(); }
 

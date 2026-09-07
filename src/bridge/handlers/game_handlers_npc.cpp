@@ -16,6 +16,8 @@
 #include "core/subsystem.h"
 #include "core/logger.h"
 #include "perf/perf_stats.h"
+#include "specialty/specialty_system.h"
+#include "achievement/achievement_system.h"
 
 namespace hb::bridge
 {
@@ -53,7 +55,8 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n)
                                          .category = cat_str,
                                          .hostility = std::string(npc::npc_hostility_for_player(
                                              n, p.faction, p.pk.is_criminal(), p.pk.is_murderer())),
-                                         .attributes = attr_strs};
+                                         .attributes = attr_strs,
+                                         .is_elite = n.is_elite};
             conn.send(network::make_npc_spawn_message(data));
         });
 
@@ -70,7 +73,8 @@ void game_handlers::broadcast_npc_spawn(const npc::npc& n)
                                        .level = n.level,
                                        .category = cat_str,
                                        .hostility = "neutral",
-                                       .attributes = std::move(attr_strs)};
+                                       .attributes = std::move(attr_strs),
+                                       .is_elite = n.is_elite};
     auto admin_msg = network::make_npc_spawn_message(admin_data);
     for (auto admin_conn : ws_server_->get_admin_subscribers(n.current_map))
     {
@@ -129,7 +133,8 @@ void game_handlers::broadcast_npc_move(const npc::npc& n, const world::position&
                                               .category = cat_str,
                                               .hostility = std::string(npc::npc_hostility_for_player(
                                                   n, p.faction, p.pk.is_criminal(), p.pk.is_murderer())),
-                                              .attributes = attr_strs};
+                                              .attributes = attr_strs,
+                                         .is_elite = n.is_elite};
                 conn.send(network::make_npc_spawn_message(spawn));
             }
         });
@@ -339,7 +344,13 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
     auto npc_name = n.name;
 
     // Generate on_kill loot using config-driven system
-    auto drop = npc::generate_kill_loot(*loot_registry_, n.sprite_id, n.gold_min, n.gold_max, n.has_owner());
+    float drop_rate_mult = n.is_elite ? 3.0f : 1.0f; // elites: three times every drop chance
+    if (specialties_ && players_)
+    {
+        if (auto kp = players_->get_player_id_by_entity(killer))
+            drop_rate_mult = specialties_->bonuses(*kp, n.sprite_id).drop_mult;
+    }
+    auto drop = npc::generate_kill_loot(*loot_registry_, n.sprite_id, n.gold_min, n.gold_max, n.has_owner(), drop_rate_mult);
 
     // Award gold directly to killer
     // killer is an ECS entity — resolve to player_id first (inventory buckets and
@@ -351,6 +362,11 @@ void game_handlers::handle_npc_loot_drop(const npc::npc& n, entity::entity kille
     {
         auto killer_entity = entity_id{killer_pid->value};
         inventory_->add_gold(killer_entity, drop.gold);
+        if (achievements_)
+        {
+            if (auto* looter = players_->get_player(*killer_pid))
+                grant_achievements(*looter, achievements_->add(*killer_pid, achievement::counter_kind::gold_looted, 0, drop.gold));
+        }
 
         // Send gold_update to killer
         if (ws_server_)

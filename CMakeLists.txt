@@ -171,6 +171,14 @@ set(QUEST_SOURCES
     src/quest/quest_loader.cpp
 )
 
+set(SPECIALTY_SOURCES
+    src/specialty/specialty_system.cpp
+)
+
+set(ACHIEVEMENT_SOURCES
+    src/achievement/achievement_system.cpp
+)
+
 set(SOCIAL_SOURCES
     src/social/social_system.cpp
 )
@@ -236,6 +244,7 @@ set(BRIDGE_SOURCES
     src/bridge/handlers/game_handlers_combat.cpp
     src/bridge/handlers/game_handlers_quest.cpp
     src/bridge/handlers/game_handlers_npc.cpp
+    src/bridge/handlers/game_handlers_treasure.cpp
     src/bridge/handlers/game_handlers_shop.cpp
     src/bridge/handlers/game_handlers_chat.cpp
     src/bridge/handlers/game_handlers_social.cpp
@@ -273,6 +282,8 @@ add_library(hgserver_core STATIC
     ${INVENTORY_SOURCES}
     ${SKILL_SOURCES}
     ${QUEST_SOURCES}
+    ${SPECIALTY_SOURCES}
+    ${ACHIEVEMENT_SOURCES}
     ${SOCIAL_SOURCES}
     ${WAR_SOURCES}
     ${PERSISTENCE_SOURCES}
@@ -362,6 +373,8 @@ add_executable(hgserver_tests
     tests/test_combat.cpp
     tests/test_attack_timing.cpp
     tests/test_quest_loader.cpp
+    tests/test_specialty.cpp
+    tests/test_achievement.cpp
     tests/test_magic.cpp
     tests/test_dynamic_objects.cpp
     tests/test_inventory.cpp

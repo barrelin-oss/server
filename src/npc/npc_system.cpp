@@ -413,6 +413,8 @@ auto npc_system::spawn_npc_at(spawn_point& spawn) -> result<entity::entity, std:
         if (npc_ptr)
         {
             npc_ptr->spawn = &spawn;
+            if (spawn.elite_chance > 0 && random_int(1, 100) <= spawn.elite_chance)
+                make_elite(*npc_ptr);
             // Home is where it spawned: wander_range/chase_range are measured from here.
             // With the rect center as home, an NPC born near the edge of a 70-tile
             // generator was already past wander_range and never moved again.

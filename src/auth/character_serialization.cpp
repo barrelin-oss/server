@@ -177,6 +177,12 @@ auto serialize_quests(const quest::quest_journal& journal) -> std::string
     }
     j["completed"] = completed;
 
+    // Last turn-in per template (daily quests wait repeat_after_seconds from here)
+    nlohmann::json last = nlohmann::json::object();
+    for (const auto& [id, at] : journal.last_completed)
+        last[std::to_string(id)] = at;
+    j["last_completed"] = last;
+
     return j.dump();
 }
 
@@ -250,6 +256,14 @@ auto deserialize_quests(const std::string& json_str) -> quest::quest_journal
             for (const auto& qid : j["completed"])
             {
                 journal.completed_quests.push_back(quest_id{qid.get<uint16_t>()});
+            }
+        }
+        if (j.contains("last_completed") && j["last_completed"].is_object())
+        {
+            for (const auto& [key, at] : j["last_completed"].items())
+            {
+                if (at.is_number_integer())
+                    journal.last_completed[static_cast<uint16_t>(std::stoul(key))] = at.get<int64_t>();
             }
         }
     }

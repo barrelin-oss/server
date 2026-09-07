@@ -14,6 +14,11 @@
 #include "inventory/inventory_system.h"
 #include "item/item_system.h"
 #include "quest/quest_system.h"
+#include "specialty/specialty_system.h"
+#include "achievement/achievement_system.h"
+
+#include <format>
+#include <chrono>
 #include "core/subsystem.h"
 #include "core/logger.h"
 
@@ -185,7 +190,39 @@ void game_handlers::notify_quest_kill(const npc::npc& n, entity::entity killer)
     if (!plr)
         return;
 
-    quests_->on_kill(quest::kill_event{.killer = pid, .killed_npc = n.template_id, .was_player = false});
+    quests_->on_kill(quest::kill_event{.killer = pid, .killed_npc = n.template_id, .was_player = false, .was_elite = n.is_elite});
+
+    // Achievements: every kill, the type, elites, and the level as it stands
+    if (achievements_)
+    {
+        grant_achievements(*plr, achievements_->add(pid, achievement::counter_kind::kills_total, 0, 1));
+        grant_achievements(*plr, achievements_->add(pid, achievement::counter_kind::kills_type, n.sprite_id, 1));
+        if (n.is_elite)
+            grant_achievements(*plr, achievements_->add(pid, achievement::counter_kind::elites_killed, 0, 1));
+        grant_achievements(*plr, achievements_->set_level(pid, plr->experience.level));
+    }
+
+    // Monster specialties: the kill counts, a new level is announced
+    if (specialties_)
+    {
+        if (auto gained = specialties_->record_kill(pid, n.sprite_id))
+        {
+            if (achievements_)
+                grant_achievements(*plr, achievements_->add(pid, achievement::counter_kind::specialties_leveled, 0, 1));
+            if (auto* conn = ws_server_ ? ws_server_->get_connection(plr->connection) : nullptr)
+            {
+                conn->send(network::make_specialty_update(specialty_to_json(*gained, specialties_->bonuses(pid, n.sprite_id))));
+                conn->send(network::make_chat_message_broadcast({
+                    .channel = "system",
+                    .sender_id = 0,
+                    .sender_name = "",
+                    .content = std::format("{} specialty level {}: {}", gained->npc_name, gained->level,
+                                           specialty::describe_step(gained->unlocked.back())),
+                    .flags = {"system"},
+                }));
+            }
+        }
+    }
 
     const auto* journal = quests_->get_journal(pid);
     if (!journal)
@@ -210,6 +247,104 @@ void game_handlers::notify_quest_kill(const npc::npc& n, entity::entity killer)
     }
 }
 
+// ---- Achievements ----
+
+auto game_handlers::achievement_to_json(const achievement::achievement_progress& p) -> nlohmann::json
+{
+    const auto& d = *p.def;
+    return nlohmann::json{{"id", d.id},
+                          {"name", d.name},
+                          {"description", d.description},
+                          {"category", d.category},
+                          {"title", d.title},
+                          {"kind", std::string(achievement::to_string(d.kind))},
+                          {"param", d.param},
+                          {"target", d.target},
+                          {"points", d.points},
+                          {"current", p.current},
+                          {"unlocked_at", p.unlocked_at}};
+}
+
+void game_handlers::grant_achievements(player::player& plr, const std::vector<const achievement::achievement_def*>& unlocked)
+{
+    if (unlocked.empty() || !ws_server_ || !achievements_)
+        return;
+    auto* conn = ws_server_->get_connection(plr.connection);
+    if (!conn)
+        return;
+    for (const auto* def : unlocked)
+    {
+        achievement::achievement_progress p;
+        p.def = def;
+        p.current = def->target;
+        p.unlocked_at = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+        conn->send(network::make_achievement_unlocked(achievement_to_json(p)));
+        conn->send(network::make_chat_message_broadcast({
+            .channel = "system",
+            .sender_id = 0,
+            .sender_name = "",
+            .content = std::format("Achievement unlocked: {} (+{} points){}", def->name, def->points,
+                                   def->title.empty() ? std::string{} : std::format(" - title: {}", def->title)),
+            .flags = {"system"},
+        }));
+    }
+}
+
+void game_handlers::handle_achievement_list(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+    nlohmann::json list = nlohmann::json::array();
+    int32_t points = 0;
+    if (achievements_)
+    {
+        for (const auto& p : achievements_->progress(conn->player()))
+            list.push_back(achievement_to_json(p));
+        points = achievements_->points(conn->player());
+    }
+    conn->send(network::make_achievement_list_response(msg.seq, points, std::move(list)));
+}
+
+// ---- Specialties (monster mastery) ----
+
+auto game_handlers::specialty_to_json(const specialty::specialty_progress& p, const specialty::specialty_bonuses& b)
+    -> nlohmann::json
+{
+    nlohmann::json unlocked = nlohmann::json::array();
+    for (auto k : p.unlocked)
+        unlocked.push_back(std::string(specialty::to_string(k)));
+    return nlohmann::json{{"npc_type", p.npc_type},
+                          {"npc_name", p.npc_name},
+                          {"kills", p.kills},
+                          {"level", p.level},
+                          {"max_level", p.max_level},
+                          {"next_level_kills", p.next_level_kills},
+                          {"unlocked", std::move(unlocked)},
+                          {"bonuses",
+                           {{"damage", b.damage},
+                            {"damage_pct", (b.damage_mult - 1.0f) * 100.0f},
+                            {"damage_reduction_pct", b.reduction_pct},
+                            {"damage_reduction_mult_pct", (b.reduction_mult - 1.0f) * 100.0f},
+                            {"hit_ratio", b.hit_ratio},
+                            {"hit_ratio_pct", (b.hit_mult - 1.0f) * 100.0f},
+                            {"drop_rate_pct", (b.drop_mult - 1.0f) * 100.0f}}}};
+}
+
+void game_handlers::handle_specialty_list(connection_id conn_id, const network::json_message& msg)
+{
+    auto* conn = require_in_game(conn_id, msg.seq);
+    if (!conn)
+        return;
+    nlohmann::json list = nlohmann::json::array();
+    if (specialties_)
+    {
+        for (const auto& p : specialties_->progress(conn->player()))
+            list.push_back(specialty_to_json(p, specialties_->bonuses(conn->player(), p.npc_type)));
+    }
+    conn->send(network::make_specialty_list_response(msg.seq, std::move(list)));
+}
+
 // quest_system fires this from complete_quest(); rewards are applied here because
 // only the bridge has the player, inventory and item systems at hand.
 void game_handlers::apply_quest_rewards(const quest::quest_completed_event& ev)
@@ -219,6 +354,8 @@ void game_handlers::apply_quest_rewards(const quest::quest_completed_event& ev)
     auto* plr = players_->get_player(ev.player);
     if (!plr)
         return;
+    if (achievements_)
+        grant_achievements(*plr, achievements_->add(ev.player, achievement::counter_kind::quests_completed, 0, 1));
     const auto owner = entity_id(ev.player.value);
 
     if (ev.rewards.experience > 0)
@@ -392,6 +529,9 @@ void game_handlers::handle_quest_accept(connection_id conn_id, const network::js
         break;
     case quest::accept_result::already_active:
         respond(false, "already_active");
+        break;
+    case quest::accept_result::on_cooldown:
+        respond(false, std::format("on_cooldown:{}", quests_->cooldown_remaining(check.plr->id, qid)));
         break;
     case quest::accept_result::quest_log_full:
         respond(false, "quest_log_full");

@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <chrono>
 
 using namespace hb;
 using namespace hb::quest;
@@ -158,6 +159,48 @@ TEST_F(quest_loader_test, named_giver_texts_second_target_and_gather)
     EXPECT_EQ(g->name, "Epidemy");
     ASSERT_EQ(g->objectives.size(), 1u);
     EXPECT_EQ(g->objectives[0].type, objective_type::collect_item);
+}
+
+TEST_F(quest_loader_test, elite_flags_make_elite_only_kill_objectives)
+{
+    auto path = write("quests.yaml",
+                      std::string("quests:\n") +
+                          "  - {id: 300, side: 0, type: 1, giver: Enzu, target_type: 16, max_count: 10, elite: true, "
+                          "target_type2: 16, max_count2: 2, elite2: true, min_level: 1, max_level: 300}\n");
+    auto loaded = load_legacy_quests(quests_, path, npcs_, &quest_loader_test::maps);
+    ASSERT_TRUE(loaded.is_ok()) << loaded.error();
+    const auto* q = quests_.get_quest_template(quest_id{300});
+    ASSERT_NE(q, nullptr);
+    ASSERT_EQ(q->objectives.size(), 2u);
+    EXPECT_TRUE(std::get<kill_objective_data>(q->objectives[0].data).elite_only);
+    EXPECT_EQ(q->objectives[0].description, "Kill 10 Elite Giant-Ant");
+    EXPECT_TRUE(std::get<kill_objective_data>(q->objectives[1].data).elite_only);
+}
+
+TEST_F(quest_loader_test, period_hours_makes_a_daily_with_a_cooldown)
+{
+    auto path = write("quests.yaml",
+                      std::string("quests:\n") +
+                          "  - {id: 301, side: 0, type: 1, giver: Enzu, period_hours: 20, target_type: 16, max_count: 10, "
+                          "min_level: 1, max_level: 300}\n");
+    ASSERT_TRUE(load_legacy_quests(quests_, path, npcs_, &quest_loader_test::maps).is_ok());
+    const auto* q = quests_.get_quest_template(quest_id{301});
+    ASSERT_NE(q, nullptr);
+    EXPECT_EQ(q->repeat_after_seconds, 20 * 3600);
+    EXPECT_EQ(q->type, hb::quest::quest_type::daily);
+    EXPECT_TRUE(q->repeatable);
+
+    const player_id me{9};
+    quests_.register_player(me);
+    EXPECT_EQ(quests_.cooldown_remaining(me, quest_id{301}), 0);
+    auto* journal = quests_.get_journal(me);
+    ASSERT_NE(journal, nullptr);
+    journal->last_completed[301] =
+        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    EXPECT_GT(quests_.cooldown_remaining(me, quest_id{301}), 19 * 3600);
+    EXPECT_EQ(quests_.accept_quest(me, quest_id{301}), accept_result::on_cooldown);
+    journal->last_completed[301] -= 21 * 3600;
+    EXPECT_EQ(quests_.cooldown_remaining(me, quest_id{301}), 0);
 }
 
 TEST_F(quest_loader_test, unknown_target_is_skipped_not_fatal)

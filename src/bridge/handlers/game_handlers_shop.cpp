@@ -359,6 +359,13 @@ void game_handlers::handle_player_interact(connection_id conn_id, const network:
     auto* player = check.plr;
     auto* target = check.target_npc;
 
+    // Treasure chests: opened on click, gone after
+    if (target->name.rfind("Chest-", 0) == 0)
+    {
+        open_treasure_chest(*conn, msg.seq, *player, *target);
+        return;
+    }
+
     // Route based on NPC type and available registries
 
     // 1. Check if NPC has a shop

@@ -305,6 +305,8 @@ Server responds with detailed entity information.
 
 ### `player_interact_request`
 
+> `interaction_type: "treasure"` (treasure chests, docs/PROGRESS.md 2026-09-06): the chest was opened; `interaction_data` = `{"tier": "gold", "gold": 12000, "items": 3}`. The gold is already in the bag, the items lie around where the chest stood.
+
 Request to interact with an NPC or object.
 
 **Request:**

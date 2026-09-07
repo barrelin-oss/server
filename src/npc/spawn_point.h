@@ -27,6 +27,7 @@ struct spawn_point
     int16_t radius_y{0};
     int16_t max_count{1};           // Max spawned at once
     int32_t respawn_time_ms{60000}; // Respawn delay
+    int16_t elite_chance{0};        // Percent of spawns born elite
 
     int16_t current_count{0}; // Currently alive
 

@@ -113,8 +113,13 @@ struct loot_npc_info
 };
 
 // Generate loot for on_kill phase
-inline auto generate_kill_loot(
-    const loot_registry& reg, int16_t sprite_id, int32_t gold_min, int32_t gold_max, bool is_summoned) -> loot_result
+// drop_rate_mult scales every item drop chance (specialties); 1.0 = the table as written
+inline auto generate_kill_loot(const loot_registry& reg,
+                               int16_t sprite_id,
+                               int32_t gold_min,
+                               int32_t gold_max,
+                               bool is_summoned,
+                               float drop_rate_mult = 1.0f) -> loot_result
 {
     loot_result result;
 
@@ -144,7 +149,7 @@ inline auto generate_kill_loot(
     // Item drops (each pool rolls independently)
     for (const auto& drop : phase.drops)
     {
-        if (detail::roll(1, 10000) <= drop.chance)
+        if (detail::roll(1, 10000) <= static_cast<int>(drop.chance * drop_rate_mult))
         {
             auto* pool = reg.get_pool(drop.pool_name);
             if (pool)

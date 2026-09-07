@@ -166,6 +166,8 @@ auto quest_system::complete_quest(player_id player, quest_id quest) -> complete_
 
     // Add to completed quests history
     journal->completed_quests.push_back(quest);
+    journal->last_completed[quest.value] =
+        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
     // Calculate rewards with modifiers
     quest_rewards final_rewards = tmpl->rewards;
@@ -261,6 +263,10 @@ auto quest_system::can_accept_quest(player_id player, quest_id quest) const -> a
     {
         return accept_result::already_active;
     }
+    if (cooldown_remaining(player, quest) > 0)
+    {
+        return accept_result::on_cooldown;
+    }
 
     // Check prerequisites
     for (const auto& prereq : tmpl->prerequisite_quests)
@@ -293,6 +299,8 @@ auto quest_system::get_available_quests(player_id player,
         if (journal->has_active_quest(id))
             continue;
         if (!tmpl.repeatable && journal->has_completed_quest(id))
+            continue;
+        if (cooldown_remaining(player, id) > 0)
             continue;
 
         // Check level requirements
@@ -337,9 +345,26 @@ auto quest_system::get_quests_from_npc(npc_id npc) const -> std::vector<quest_id
     return result;
 }
 
+auto quest_system::cooldown_remaining(player_id player, quest_id quest) const -> int32_t
+{
+    const auto* tmpl = get_quest_template(quest);
+    if (!tmpl || tmpl->repeat_after_seconds <= 0)
+        return 0;
+    const auto* journal = get_journal(player);
+    if (!journal)
+        return 0;
+    auto it = journal->last_completed.find(quest.value);
+    if (it == journal->last_completed.end())
+        return 0;
+    const auto now =
+        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    const auto ready_at = it->second + tmpl->repeat_after_seconds;
+    return ready_at > now ? static_cast<int32_t>(ready_at - now) : 0;
+}
+
 void quest_system::on_kill(const kill_event& event)
 {
-    update_kill_objectives(event.killer, event.killed_npc, event.was_player);
+    update_kill_objectives(event.killer, event.killed_npc, event.was_player, event.was_elite);
 }
 
 void quest_system::on_item_collected(const item_collected_event& event)
@@ -408,7 +433,7 @@ void quest_system::check_quest_completion(player_id player, quest_state& state)
     }
 }
 
-void quest_system::update_kill_objectives(player_id player, npc_id killed, bool was_player)
+void quest_system::update_kill_objectives(player_id player, npc_id killed, bool was_player, bool was_elite)
 {
     auto* perf = subsystems().get<perf::perf_stats_system>();
     PERF_TIMER(perf, perf::metric_category::quest_update);
@@ -444,6 +469,8 @@ void quest_system::update_kill_objectives(player_id player, npc_id killed, bool 
             if (kill_data->player_kills != was_player)
                 continue;
             if (!was_player && kill_data->target_type.value != 0 && kill_data->target_type != killed)
+                continue;
+            if (kill_data->elite_only && !was_elite)
                 continue;
 
             obj.add_progress(1);

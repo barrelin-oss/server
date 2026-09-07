@@ -20,6 +20,8 @@
 #include "player/player_system.h"
 #include "world/world_subsystem.h"
 #include "quest/quest_system.h"
+#include "specialty/specialty_system.h"
+#include "achievement/achievement_system.h"
 #include "world/dynamic_object_system.h"
 #include "social/social_system.h"
 #include "combat/combat_system.h"
@@ -79,9 +81,13 @@ void game_handlers::initialize(network::websocket_server* ws_server,
                                effect::effect_system* effects,
                                item_registry* item_reg,
                                audit::item_audit_system* audit,
-                               config_system* config)
+                               config_system* config,
+                               specialty::specialty_system* specialties,
+                               achievement::achievement_system* achievements)
 {
     ws_server_ = ws_server;
+    specialties_ = specialties;
+    achievements_ = achievements;
     players_ = players;
     world_ = world;
     social_ = social;
@@ -803,6 +809,12 @@ bool game_handlers::handle_message(connection_id conn_id, const network::json_me
         return true;
     case network::json_message_type::quest_journal_request:
         handle_quest_journal(conn_id, msg);
+        return true;
+    case network::json_message_type::specialty_list_request:
+        handle_specialty_list(conn_id, msg);
+        return true;
+    case network::json_message_type::achievement_list_request:
+        handle_achievement_list(conn_id, msg);
         return true;
 
     // Combat mode

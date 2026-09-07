@@ -953,3 +953,33 @@ loot:
       multi_drop: { min: 12, max: 20 }
       drops:
         - { pool: abaddon_multi, chance: 5000 }
+
+  # --- Treasure chests (Olympia): gold always (amounts from treasure_chests.yaml), drops per tier ---
+  109:  # Chest-Bronze
+    on_kill:
+      gold_chance: 10000
+      drops:
+        - { pool: potions, chance: 10000 }
+        - { pool: potions, chance: 5000 }
+        - { pool: melee_tier5, chance: 800 }
+        - { pool: armor_tier5, chance: 800 }
+        - { pool: wand_tier4, chance: 400 }
+  110:  # Chest-Silver
+    on_kill:
+      gold_chance: 10000
+      drops:
+        - { pool: potions, chance: 10000 }
+        - { pool: potions, chance: 10000 }
+        - { pool: melee_tier6, chance: 2500 }
+        - { pool: armor_tier6, chance: 2500 }
+        - { pool: wand_tier7, chance: 1200 }
+  111:  # Chest-Gold
+    on_kill:
+      gold_chance: 10000
+      drops:
+        - { pool: potions, chance: 10000 }
+        - { pool: potions, chance: 10000 }
+        - { pool: melee_tier8, chance: 5000 }
+        - { pool: armor_tier8, chance: 5000 }
+        - { pool: wand_tier7, chance: 3000 }
+        - { pool: melee_tier7, chance: 3000 }

@@ -969,7 +969,7 @@ auto auth_system::load_character_full(player_id char_id, account_id owner) -> re
                   COALESCE(mp_max, 50) as mp_max,
                   COALESCE(sp_max, 50) as sp_max,
                   skills_data,
-                  magic_data, quest_data
+                  magic_data, quest_data, specialty_data, achievement_data
            FROM characters WHERE id = $1)",
         static_cast<int>(char_id.value));
 
@@ -1038,7 +1038,9 @@ auto auth_system::load_character_full(player_id char_id, account_id owner) -> re
         .reward_gold = row["reward_gold"].as<int>(),
         .skills_data = row["skills_data"].is_null() ? "" : row["skills_data"].as<std::string>(),
         .magic_data = row["magic_data"].is_null() ? "" : row["magic_data"].as<std::string>(),
-        .quest_data = row["quest_data"].is_null() ? "" : row["quest_data"].as<std::string>()};
+        .quest_data = row["quest_data"].is_null() ? "" : row["quest_data"].as<std::string>(),
+        .specialty_data = row["specialty_data"].is_null() ? "" : row["specialty_data"].as<std::string>(),
+        .achievement_data = row["achievement_data"].is_null() ? "" : row["achievement_data"].as<std::string>()};
 
     LOG_DEBUG(auth, "Loaded full character data for '{}' (id: {})", data.name, data.id.value);
 
@@ -1056,6 +1058,8 @@ auto auth_system::save_character(const character_full_data& data) -> result<void
     auto skills_json = data.skills_data.empty() ? "[]" : data.skills_data;
     auto magic_json = data.magic_data.empty() ? "[]" : data.magic_data;
     auto quest_json = data.quest_data.empty() ? "[]" : data.quest_data;
+    auto specialty_json = data.specialty_data.empty() ? "[]" : data.specialty_data;
+    auto achievement_json = data.achievement_data.empty() ? "{}" : data.achievement_data;
 
     auto db_result = database_->execute_params(
         R"(UPDATE characters SET
@@ -1092,8 +1096,10 @@ auto auth_system::save_character(const character_full_data& data) -> result<void
                stat_points_available = $31,
                luck = $32,
                reward_gold = $33,
+               specialty_data = $34,
+               achievement_data = $35,
                last_played = NOW()
-           WHERE id = $34)",
+           WHERE id = $36)",
         data.map_name,
         static_cast<int>(data.pos_x),
         static_cast<int>(data.pos_y),
@@ -1127,6 +1133,8 @@ auto auth_system::save_character(const character_full_data& data) -> result<void
         static_cast<int>(data.stat_points_available),
         static_cast<int>(data.luck),
         data.reward_gold,
+        specialty_json,
+        achievement_json,
         static_cast<int>(data.id.value));
 
     if (db_result.is_err())

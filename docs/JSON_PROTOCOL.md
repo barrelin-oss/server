@@ -72,6 +72,8 @@ All messages follow a common envelope structure:
 | Movement | [protocol/movement.md](protocol/movement.md) | Movement, teleportation |
 | Combat | [protocol/combat.md](protocol/combat.md) | Attacks, damage, death, magic, skills, combat mode, action broadcasts, ground-field dynamic objects |
 | Quests | [protocol/quest.md](protocol/quest.md) | City hall hunting quests: list, accept, abandon, turn in, journal, progress push |
+| Specialties | [protocol/specialty.md](protocol/specialty.md) | Monster mastery: list, level-up push |
+| Achievements | [protocol/achievement.md](protocol/achievement.md) | Achievement list with progress, unlock push |
 | Items (v2) | [protocol/items-v2.md](protocol/items-v2.md) | Inventory, equipment, ground items, trade, shop, bank, loot |
 | Items (v1, deprecated) | [protocol/items.md](protocol/items.md) | Legacy item protocol (superseded by v2) |
 | NPCs | [protocol/npc.md](protocol/npc.md) | NPC spawn/movement/death, interaction, shops, banking, dialog |

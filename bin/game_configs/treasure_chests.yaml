@@ -1,0 +1,14 @@
+# treasure_chests.yaml - treasure chests (after the Helbreath Olympia ones).
+# Every interval a chest NPC (Chest-Bronze / Chest-Silver / Chest-Gold in npcs.yaml, loot in
+# loot_tables.yaml under sprites 109-111) appears on a random walkable tile of one of the maps
+# below and stays for lifetime_minutes. Whoever opens it (click on it, within 3 tiles) takes the
+# gold and the drops fall around the chest. announce: none | map | world.
+treasure_chests:
+  enabled: true
+  interval_minutes: 10
+  lifetime_minutes: 15
+  maps: [arefarm, elvfarm, huntzone1, huntzone2, huntzone3, huntzone4, dglv2, dglv3, middleland, icebound, toh1, toh2, toh3, procella, maze]
+  tiers:
+    - {name: Chest-Bronze, weight: 60, announce: none,  gold_min: 200,  gold_max: 800}
+    - {name: Chest-Silver, weight: 30, announce: map,   gold_min: 1000, gold_max: 4000}
+    - {name: Chest-Gold,   weight: 10, announce: world, gold_min: 5000, gold_max: 20000}

@@ -452,6 +452,15 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-06: Olympia mechanics: specialties, elites, daily quests, treasure chests, achievements
+
+- **Specialties (monster mastery)**: `specialty_system` (src/specialty), data in `specialties.yaml` (29 monsters from the Olympia client). Level L of a monster's specialty needs `base_kills * L * (L + 1) / 2` kills; each level unlocks the next bonus of the ladder against that monster: +2 damage, +3% damage, +1% / -3% damage taken, +5 / +3% hit ratio, +5% drop rate (multiplicative). Applied in `build_combat_context` and in the kill loot roll. Saved in `characters.specialty_data` (migration 20260906_120000). Protocol: `specialty_list_request/response`, `specialty_update` push and a system chat line on each level (docs/protocol/specialty.md). Tests: test_specialty.cpp.
+- **Elites**: `elite_chance` on a map spawner (percent) makes some spawns elite: "Elite " name, 5x HP, double dice, 5x exp, 3x gold, 3x every drop chance. `"elite": true` on `npc_spawn`; the client paints the name gold. Kill objectives take `elite: true` / `elite2: true` (only elites count); quests 201 (two elite Orcs) and 232 (Oxyia's Strife) complete the Olympia line. Farms, dglv2, middleland and 2ndmiddle have elite spawners.
+- **Daily quests**: `period_hours` on a row = a cooldown after the turn-in (`repeat_after_seconds`, `quest_type::daily`); the journal keeps `last_completed` per template (persisted); `accept_quest` answers `on_cooldown` (the client gets `on_cooldown:<seconds>`), the list hides them until ready. The 12 Olympia dailies wait 20 hours.
+- **Treasure chests**: `treasure_chests.yaml`: every interval a Chest-Bronze/Silver/Gold NPC appears on a random walkable tile of one of the listed maps and stays for lifetime_minutes; opening it (click within reach) gives the gold of its tier and drops from `loot_tables.yaml` (sprites 109-111) around the chest; silver chests are announced to the map, gold ones to everyone. `game_handlers_treasure.cpp`.
+- **Achievements**: `achievement_system` (src/achievement), `achievements.yaml` (34 to start: levels, quests, gold, chests, kills, per-type kills, elites, specialties) in the Olympia categories general/pvm; counters bumped on kills, quest turn-ins, gold looted, chests opened, specialty levels and level; points and optional titles (nothing wears the title yet). Saved in `characters.achievement_data` (migration 20260906_130000). Protocol: `achievement_list_request/response`, `achievement_unlocked` push + system chat (docs/protocol/achievement.md). Tests: test_achievement.cpp.
+- The dev database got both columns by hand (no `migrations` table there); fresh installs get them from schema.sql.
+
 ### 2026-09-06: The Olympia quest line, item descriptions, and a reference of Olympia's mechanics
 
 - docs/olympia-reference.md catalogues what the Helbreath Olympia client folder holds (data files in `contents/`, 36 patch notes, client strings) and describes its mechanics: specialties, talents, rebirth, enchanting with shards, sockets, achievements, guild ranks, events, elites, market. Ordered by what to port next.

@@ -444,6 +444,9 @@ class BotClient {
                 this.me.gold = d.gold;
                 if (d.change > 0) this.log(`+${d.change} de ouro (${d.reason ?? "?"}) — total ${d.gold}`);
                 break;
+            case "specialty_update":
+                this.log(`specialty ${d.npc_name} nivel ${d.level} (${d.kills} kills; proximo em ${d.next_level_kills}): ${(d.unlocked ?? []).join(",")}`);
+                break;
             case "quest_update": {
                 const objs = (d.objectives ?? []).map((o) => `${o.description}: ${o.current}/${o.required}`).join("; ");
                 const complete = d.status === "complete" || (d.objectives ?? []).every((o) => o.complete);

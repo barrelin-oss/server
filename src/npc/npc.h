@@ -70,6 +70,7 @@ struct npc
     int16_t magic_level{0};     // Spellcasting level
     int16_t abs_damage{0};      // Damage absorption (%)
     int16_t body_size{0};       // 0=small, 1=medium, 2=large
+    bool is_elite{false};       // Elite variant (Olympia): stronger, richer, own quests
     int16_t attribute{0};       // NPC attribute flags
     int16_t magic_hit_ratio{0}; // Magic accuracy
     int16_t area{0};            // AoE attack range
@@ -149,6 +150,22 @@ struct npc
         return total + attack_bonus;
     }
 };
+
+// Elite variant (after the Olympia elites): five times the HP, twice the dice, five times the
+// exp, three times the gold, and "Elite " in front of the name so every client shows it.
+inline void make_elite(npc& n)
+{
+    if (n.is_elite)
+        return;
+    n.is_elite = true;
+    n.name = "Elite " + n.name;
+    n.max_hp *= 5;
+    n.hp = n.max_hp;
+    n.attack_dice = static_cast<int16_t>(n.attack_dice * 2);
+    n.exp_reward *= 5;
+    n.gold_min *= 3;
+    n.gold_max *= 3;
+}
 
 [[nodiscard]] inline auto npc_category_to_string(npc_category cat) -> std::string_view
 {

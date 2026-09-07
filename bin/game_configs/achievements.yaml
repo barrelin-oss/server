@@ -1,0 +1,37 @@
+# achievements.yaml - achievements (after the Helbreath Olympia client: General / PvM / PvP / Challenges).
+# kind: kills_total | kills_type (param = npc sprite type) | elites_killed | quests_completed | gold_looted |
+#       chests_opened | level | specialties_leveled. target = value that unlocks it. title = optional title.
+achievements:
+  # --- General ---
+  - {id: 1, category: general, kind: level, target: 20, points: 5, name: "Apprentice", description: "Reach level 20"}
+  - {id: 2, category: general, kind: level, target: 50, points: 10, name: "Veteran", description: "Reach level 50", title: "Veteran"}
+  - {id: 3, category: general, kind: level, target: 100, points: 20, name: "Champion", description: "Reach level 100", title: "Champion"}
+  - {id: 4, category: general, kind: level, target: 140, points: 30, name: "Hero of the Land", description: "Reach level 140", title: "Hero"}
+  - {id: 5, category: general, kind: level, target: 180, points: 50, name: "Max Level", description: "Reach level 180", title: "Legend"}
+  - {id: 10, category: general, kind: quests_completed, target: 1, points: 5, name: "Errand", description: "Complete a quest"}
+  - {id: 11, category: general, kind: quests_completed, target: 10, points: 10, name: "Diplomacy I", description: "Complete 10 quests"}
+  - {id: 12, category: general, kind: quests_completed, target: 50, points: 20, name: "Diplomacy II", description: "Complete 50 quests", title: "Diplomat"}
+  - {id: 13, category: general, kind: quests_completed, target: 200, points: 40, name: "Diplomacy III", description: "Complete 200 quests", title: "Envoy"}
+  - {id: 20, category: general, kind: gold_looted, target: 10000, points: 5, name: "Gold Loot I", description: "Loot 10,000 gold from monsters and chests"}
+  - {id: 21, category: general, kind: gold_looted, target: 100000, points: 10, name: "Gold Loot II", description: "Loot 100,000 gold"}
+  - {id: 22, category: general, kind: gold_looted, target: 1000000, points: 25, name: "Gold Loot III", description: "Loot 1,000,000 gold", title: "Wealthy"}
+  - {id: 30, category: general, kind: chests_opened, target: 1, points: 5, name: "Finders Keepers", description: "Open a treasure chest"}
+  - {id: 31, category: general, kind: chests_opened, target: 25, points: 15, name: "Treasure Hunter", description: "Open 25 treasure chests", title: "Treasure Hunter"}
+  - {id: 32, category: general, kind: chests_opened, target: 100, points: 30, name: "Chest Whisperer", description: "Open 100 treasure chests"}
+  # --- PvM ---
+  - {id: 100, category: pvm, kind: kills_total, target: 1, points: 5, name: "First Blood", description: "Kill your first monster"}
+  - {id: 101, category: pvm, kind: kills_total, target: 1000, points: 10, name: "Hunter", description: "Kill 1,000 monsters"}
+  - {id: 102, category: pvm, kind: kills_total, target: 10000, points: 20, name: "Slayer", description: "Kill 10,000 monsters", title: "Slayer"}
+  - {id: 103, category: pvm, kind: kills_total, target: 100000, points: 40, name: "Exterminator", description: "Kill 100,000 monsters", title: "Exterminator"}
+  - {id: 110, category: pvm, kind: elites_killed, target: 1, points: 10, name: "Elite Hunter", description: "Kill an elite monster"}
+  - {id: 111, category: pvm, kind: elites_killed, target: 50, points: 25, name: "Elite Bane", description: "Kill 50 elite monsters", title: "Elite Bane"}
+  - {id: 120, category: pvm, kind: specialties_leveled, target: 1, points: 5, name: "Specialist", description: "Gain a specialty level"}
+  - {id: 121, category: pvm, kind: specialties_leveled, target: 25, points: 25, name: "Master of Beasts", description: "Gain 25 specialty levels", title: "Beastmaster"}
+  - {id: 130, category: pvm, kind: kills_type, param: 10, target: 5000, points: 15, name: "Slime Slayer", description: "Kill 5,000 Slimes", title: "Slime Slayer"}
+  - {id: 131, category: pvm, kind: kills_type, param: 14, target: 5000, points: 15, name: "Orc Slayer", description: "Kill 5,000 Orcs", title: "Orc Slayer"}
+  - {id: 132, category: pvm, kind: kills_type, param: 28, target: 3000, points: 20, name: "Troll Slayer", description: "Kill 3,000 Trolls", title: "Troll Slayer"}
+  - {id: 133, category: pvm, kind: kills_type, param: 13, target: 3000, points: 20, name: "Cyclops Slayer", description: "Kill 3,000 Cyclops", title: "Cyclops Slayer"}
+  - {id: 134, category: pvm, kind: kills_type, param: 57, target: 5000, points: 20, name: "Frog Catcher", description: "Kill 5,000 Giant Frogs"}
+  - {id: 135, category: pvm, kind: kills_type, param: 31, target: 2000, points: 25, name: "Demon Slayer", description: "Kill 2,000 Demons", title: "Demon Slayer"}
+  - {id: 136, category: pvm, kind: kills_type, param: 52, target: 1000, points: 25, name: "Gargoyle Breaker", description: "Kill 1,000 Gargoyles"}
+  - {id: 137, category: pvm, kind: kills_type, param: 65, target: 2000, points: 25, name: "Ice Breaker", description: "Kill 2,000 Ice Golems"}

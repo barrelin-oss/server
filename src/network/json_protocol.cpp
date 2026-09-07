@@ -418,6 +418,12 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"quest_journal_request", json_message_type::quest_journal_request},
     {"quest_journal_response", json_message_type::quest_journal_response},
     {"quest_update", json_message_type::quest_update},
+    {"specialty_list_request", json_message_type::specialty_list_request},
+    {"specialty_list_response", json_message_type::specialty_list_response},
+    {"specialty_update", json_message_type::specialty_update},
+    {"achievement_list_request", json_message_type::achievement_list_request},
+    {"achievement_list_response", json_message_type::achievement_list_response},
+    {"achievement_unlocked", json_message_type::achievement_unlocked},
     {"combat_mode_change_request", json_message_type::combat_mode_change_request},
     {"combat_mode_change_response", json_message_type::combat_mode_change_response},
     {"combat_mode_change_broadcast", json_message_type::combat_mode_change_broadcast},
@@ -2252,6 +2258,10 @@ auto npc_spawn_data::to_json() const -> nlohmann::json
     {
         j["is_dead"] = true;
     }
+    if (is_elite)
+    {
+        j["elite"] = true;
+    }
     return j;
 }
 
@@ -3246,6 +3256,30 @@ auto make_quest_journal_response(uint32_t seq, nlohmann::json quests) -> json_me
 auto make_quest_update(nlohmann::json quest) -> json_message
 {
     return json_message{.type = json_message_type::quest_update, .seq = 0, .data = std::move(quest)};
+}
+
+auto make_specialty_list_response(uint32_t seq, nlohmann::json specialties) -> json_message
+{
+    return json_message{.type = json_message_type::specialty_list_response,
+                        .seq = seq,
+                        .data = nlohmann::json{{"success", true}, {"specialties", std::move(specialties)}}};
+}
+
+auto make_specialty_update(nlohmann::json specialty) -> json_message
+{
+    return json_message{.type = json_message_type::specialty_update, .seq = 0, .data = std::move(specialty)};
+}
+
+auto make_achievement_list_response(uint32_t seq, int32_t points, nlohmann::json achievements) -> json_message
+{
+    return json_message{.type = json_message_type::achievement_list_response,
+                        .seq = seq,
+                        .data = nlohmann::json{{"success", true}, {"points", points}, {"achievements", std::move(achievements)}}};
+}
+
+auto make_achievement_unlocked(nlohmann::json achievement) -> json_message
+{
+    return json_message{.type = json_message_type::achievement_unlocked, .seq = 0, .data = std::move(achievement)};
 }
 
 auto make_inventory_item_update(const inventory_item_msg& item) -> json_message

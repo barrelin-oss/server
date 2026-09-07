@@ -113,6 +113,10 @@ auto legacy_row_to_template(const YAML::Node& row,
     t.required_faction = static_cast<uint8_t>(side);
     t.repeatable = true; // legacy hunting quests could be taken again after turn-in
     t.time_limit_seconds = std::max(0, field<int>(row, "time_limit", -1));
+    // period_hours: a daily quest waits that long after a turn-in (Olympia's period)
+    t.repeat_after_seconds = std::max(0, field<int>(row, "period_hours", 0)) * 3600;
+    if (t.repeat_after_seconds > 0)
+        t.type = quest_type::daily;
 
     const auto* giver = npcs.find_by_name(city_hall_officer_for_side(side));
     if (!giver)
@@ -156,11 +160,13 @@ auto legacy_row_to_template(const YAML::Node& row,
                                     max_level,
                                     map_name.empty() ? std::string{} : std::format(", around {}", map_name));
 
+        const bool elite = field<bool>(row, "elite", false);
         objective_template obj;
         obj.id = 0;
         obj.type = objective_type::kill_monster;
-        obj.description = std::format("Kill {} {}", count, target->name);
-        obj.data = kill_objective_data{.target_type = target->id, .required_count = count, .player_kills = false};
+        obj.description = std::format("Kill {} {}{}", count, elite ? "Elite " : "", target->name);
+        obj.data = kill_objective_data{
+            .target_type = target->id, .required_count = count, .player_kills = false, .elite_only = elite};
         t.objectives.push_back(std::move(obj));
         if (const int target2 = field<int>(row, "target_type2", 0); target2 > 0)
         {
@@ -172,8 +178,10 @@ auto legacy_row_to_template(const YAML::Node& row,
             objective_template obj2;
             obj2.id = static_cast<uint8_t>(t.objectives.size());
             obj2.type = objective_type::kill_monster;
-            obj2.description = std::format("Kill {} {}", count2, second->name);
-            obj2.data = kill_objective_data{.target_type = second->id, .required_count = count2, .player_kills = false};
+            const bool elite2 = field<bool>(row, "elite2", false);
+            obj2.description = std::format("Kill {} {}{}", count2, elite2 ? "Elite " : "", second->name);
+            obj2.data = kill_objective_data{
+                .target_type = second->id, .required_count = count2, .player_kills = false, .elite_only = elite2};
             t.objectives.push_back(std::move(obj2));
         }
         if (auto err = add_gather_objectives(row, t); !err.empty())

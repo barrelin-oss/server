@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <filesystem>
 
 namespace hb
 {
@@ -112,6 +113,18 @@ namespace hb::skill
 class skill_system;
 }
 
+namespace hb::achievement
+{
+class achievement_system;
+struct achievement_def;
+struct achievement_progress;
+}
+namespace hb::specialty
+{
+class specialty_system;
+struct specialty_progress;
+struct specialty_bonuses;
+}
 namespace hb::quest
 {
 class quest_system;
@@ -184,7 +197,9 @@ public:
                     effect::effect_system* effects = nullptr,
                     item_registry* item_reg = nullptr,
                     audit::item_audit_system* audit = nullptr,
-                    config_system* config = nullptr);
+                    config_system* config = nullptr,
+                    specialty::specialty_system* specialties = nullptr,
+                    achievement::achievement_system* achievements = nullptr);
 
     // Set callback for saving player state (used after death penalties)
     void set_save_callback(save_player_callback cb);
@@ -327,6 +342,39 @@ private:
     void handle_quest_abandon(connection_id conn_id, const network::json_message& msg);
     void handle_quest_complete(connection_id conn_id, const network::json_message& msg);
     void handle_quest_journal(connection_id conn_id, const network::json_message& msg);
+    // Treasure chests (game_handlers_treasure.cpp)
+    struct treasure_tier
+    {
+        std::string npc_name;
+        int weight{1};
+        std::string announce; // none | map | world
+        int gold_min{0};
+        int gold_max{0};
+    };
+    struct treasure_config
+    {
+        bool enabled{false};
+        int interval_seconds{600};
+        int lifetime_seconds{900};
+        std::vector<std::string> maps;
+        std::vector<treasure_tier> tiers;
+    };
+public:
+    void setup_treasure_chests(const std::filesystem::path& config_path);
+
+private:
+    void spawn_treasure_chest();
+    void open_treasure_chest(network::ws_connection& conn, uint32_t seq, player::player& player, npc::npc& chest);
+    void announce_treasure(std::string_view scope, map_id map, const std::string& text);
+    treasure_config treasure_;
+
+    void handle_specialty_list(connection_id conn_id, const network::json_message& msg);
+    void handle_achievement_list(connection_id conn_id, const network::json_message& msg);
+    // Announces what just unlocked (push + system chat)
+    void grant_achievements(player::player& plr, const std::vector<const achievement::achievement_def*>& unlocked);
+    static auto achievement_to_json(const achievement::achievement_progress& p) -> nlohmann::json;
+    static auto specialty_to_json(const specialty::specialty_progress& p, const specialty::specialty_bonuses& b)
+        -> nlohmann::json;
     void notify_quest_kill(const npc::npc& n, entity::entity killer);
     void apply_quest_rewards(const quest::quest_completed_event& ev);
     [[nodiscard]] auto quest_to_json(const quest::quest_template& t, const quest::quest_state* st) const -> nlohmann::json;
@@ -512,6 +560,8 @@ private:
     crafting::alchemy_system* alchemy_{nullptr};
     skill::skill_system* skills_{nullptr};
     quest::quest_system* quests_{nullptr};
+    specialty::specialty_system* specialties_{nullptr};
+    achievement::achievement_system* achievements_{nullptr};
     crafting::mining_system* mining_{nullptr};
     crafting::fishing_system* fishing_{nullptr};
     war::crusade_system* crusade_{nullptr};

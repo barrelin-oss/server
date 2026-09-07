@@ -1,0 +1,35 @@
+# specialties.yaml - monster mastery, from the Helbreath Olympia client (contents/specialties.json).
+# npc_type is the NPC sprite type. Level L of a specialty needs base_kills * L * (L + 1) / 2 kills of that
+# monster (our reading of Olympia's "base kills scaling"); each level unlocks the next bonus of the ladder
+# against that monster. Bonus steps (ours): damage +2, damage_pct +3%, damage_reduction +1%,
+# damage_reduction_pct +3%, hit_ratio +5, hit_ratio_pct +3%, drop_rate +5%. Percentages multiply.
+specialties:
+  - {npc_type: 10, npc_name: Slime, base_kills: 150, ladder: [damage, drop_rate, drop_rate, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 16, npc_name: Giant-Ant, base_kills: 150, ladder: [damage, drop_rate, drop_rate, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 22, npc_name: Amphis, base_kills: 150, ladder: [damage, drop_rate, drop_rate, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 14, npc_name: Orc, base_kills: 150, ladder: [damage, damage_reduction, drop_rate, drop_rate, drop_rate, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 17, npc_name: Scorpion, base_kills: 100, ladder: [damage, damage_reduction, hit_ratio, drop_rate, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 11, npc_name: Skeleton, base_kills: 100, ladder: [damage, damage_reduction, hit_ratio, drop_rate, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 18, npc_name: Zombie, base_kills: 100, ladder: [damage, damage_reduction, hit_ratio, drop_rate, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 12, npc_name: Stone-Golem, base_kills: 50, ladder: [damage, drop_rate, damage_reduction, drop_rate, hit_ratio, drop_rate, drop_rate]}
+  - {npc_type: 23, npc_name: Clay-Golem, base_kills: 50, ladder: [damage, drop_rate, damage_reduction, drop_rate, hit_ratio, drop_rate, drop_rate]}
+  - {npc_type: 27, npc_name: Hellbound, base_kills: 50, ladder: [damage_reduction, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate, drop_rate]}
+  - {npc_type: 57, npc_name: Giant-Frog, base_kills: 50, ladder: [damage_reduction, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate, drop_rate]}
+  - {npc_type: 61, npc_name: Rudolph, base_kills: 50, ladder: [damage_reduction, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate, drop_rate]}
+  - {npc_type: 28, npc_name: Troll, base_kills: 50, ladder: [damage_reduction, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate, drop_rate]}
+  - {npc_type: 13, npc_name: Cyclops, base_kills: 100, ladder: [damage_reduction, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 65, npc_name: Ice, base_kills: 100, ladder: [damage_reduction, drop_rate, damage_pct, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 58, npc_name: Mountain-Giant, base_kills: 25, ladder: [damage_reduction, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate]}
+  - {npc_type: 53, npc_name: Beholder, base_kills: 100, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 63, npc_name: Frost, base_kills: 50, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate, drop_rate]}
+  - {npc_type: 62, npc_name: DireBoar, base_kills: 50, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 29, npc_name: Orge, base_kills: 50, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 30, npc_name: Liche, base_kills: 50, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate]}
+  - {npc_type: 48, npc_name: Stalker, base_kills: 50, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate]}
+  - {npc_type: 76, npc_name: Giant-Plant, base_kills: 50, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, drop_rate, drop_rate]}
+  - {npc_type: 54, npc_name: Dark-Elf, base_kills: 100, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate]}
+  - {npc_type: 33, npc_name: WereWolf, base_kills: 75, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio, drop_rate]}
+  - {npc_type: 59, npc_name: Ettin, base_kills: 20, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio_pct, drop_rate]}
+  - {npc_type: 32, npc_name: Unicorn, base_kills: 20, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio_pct, drop_rate]}
+  - {npc_type: 31, npc_name: Demon, base_kills: 20, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio_pct, drop_rate]}
+  - {npc_type: 52, npc_name: Gagoyle, base_kills: 20, ladder: [damage_reduction_pct, drop_rate, damage_pct, drop_rate, hit_ratio_pct, drop_rate]}

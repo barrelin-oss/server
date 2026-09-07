@@ -393,7 +393,8 @@ void game_handlers::update_entity_visibility(player_id moved_player,
                             .hostility = std::string(npc::npc_hostility_for_player(
                                 n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
                             .attributes = npc::npc_special_ability_strings(n.special_ability),
-                            .is_dead = n.is_dead()};
+                            .is_dead = n.is_dead(),
+                    .is_elite = n.is_elite};
                         my_conn->send(network::make_npc_spawn_message(spawn));
                     }
                     else if (was_visible && !is_visible)

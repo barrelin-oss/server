@@ -44,6 +44,7 @@ struct kill_objective_data
     npc_id target_type{}; // NPC template ID to kill (0 = any)
     int32_t required_count{1};
     bool player_kills{false}; // Kill players instead of NPCs
+    bool elite_only{false};   // Only elite variants count (Olympia elites)
 };
 
 // Collect/Deliver objective data

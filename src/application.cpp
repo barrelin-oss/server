@@ -47,6 +47,8 @@
 #include "inventory/inventory_system.h"
 #include "skill/skill_system.h"
 #include "quest/quest_system.h"
+#include "specialty/specialty_system.h"
+#include "achievement/achievement_system.h"
 #include "quest/quest_loader.h"
 #include "social/social_system.h"
 #include "war/war_system.h"
@@ -252,6 +254,8 @@ void application::initialize()
     subsystems().create_subsystem<inventory::inventory_system>();
     subsystems().create_subsystem<skill::skill_system>();
     subsystems().create_subsystem<quest::quest_system>();
+    subsystems().create_subsystem<specialty::specialty_system>();
+    subsystems().create_subsystem<achievement::achievement_system>();
     subsystems().create_subsystem<social::social_system>();
     subsystems().create_subsystem<war::war_system>();
     subsystems().create_subsystem<war::crusade_system>();
@@ -511,7 +515,12 @@ void application::initialize()
                                    subsystems().get<effect::effect_system>(),
                                    subsystems().get<item_registry>(),
                                    subsystems().get<audit::item_audit_system>(),
-                                   subsystems().get<config_system>());
+                                   subsystems().get<config_system>(),
+                                   subsystems().get<specialty::specialty_system>(),
+                                   subsystems().get<achievement::achievement_system>());
+
+        // Treasure chests (needs the handlers and the scheduler)
+        game_handlers_->setup_treasure_chests(std::filesystem::path("game_configs") / "treasure_chests.yaml");
 
         // Wire crusade system broadcast callbacks
         if (auto* crusade = subsystems().get<war::crusade_system>())
@@ -1096,6 +1105,7 @@ void application::register_spawn_points()
                 // Vinha cravado em 60s e nunca era configuravel. Lento demais para uma
                 // area com 25 bots cacando: a populacao drenava e nao voltava.
                 sp.respawn_time_ms = spawner.respawn_time_ms;
+                sp.elite_chance = spawner.elite_chance;
 
                 npc_sys->add_spawn_point(std::move(sp));
                 ++spawner_count;
@@ -1339,6 +1349,38 @@ void application::load_game_configs()
         else if (!std::filesystem::exists(quests_yaml))
         {
             LOG_WARN(general, "No quests.yaml found (city hall quests disabled)");
+        }
+    }
+
+    // Monster specialties
+    if (auto* spec = subsystems().get<specialty::specialty_system>(); spec)
+    {
+        auto path = config_dir / "specialties.yaml";
+        if (std::filesystem::exists(path))
+        {
+            auto result = spec->load_from_file(path.string());
+            if (result.is_err())
+                LOG_ERROR(general, "Failed to load specialties.yaml: {}", result.error());
+        }
+        else
+        {
+            LOG_WARN(general, "No specialties.yaml found (monster specialties disabled)");
+        }
+    }
+
+    // Achievements
+    if (auto* ach = subsystems().get<achievement::achievement_system>(); ach)
+    {
+        auto path = config_dir / "achievements.yaml";
+        if (std::filesystem::exists(path))
+        {
+            auto result = ach->load_from_file(path.string());
+            if (result.is_err())
+                LOG_ERROR(general, "Failed to load achievements.yaml: {}", result.error());
+        }
+        else
+        {
+            LOG_WARN(general, "No achievements.yaml found (achievements disabled)");
         }
     }
 

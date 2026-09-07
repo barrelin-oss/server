@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS characters (
     -- skills_data: [{"type":5,"level":45,"total_uses":15000,"uses":200}, ...]
     skills_data     JSONB DEFAULT '[]'::jsonb,
     quest_data      JSONB DEFAULT '[]'::jsonb,
+    specialty_data  JSONB DEFAULT '[]'::jsonb,  -- monster specialties: [{"type":14,"kills":320}, ...]
+    achievement_data JSONB DEFAULT '{}'::jsonb, -- achievements: {"counters": {...}, "unlocked": [{"id", "at"}]}
     magic_data      JSONB DEFAULT '[]'::jsonb,
 
     -- Timestamps

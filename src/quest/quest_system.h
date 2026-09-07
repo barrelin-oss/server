@@ -59,6 +59,7 @@ struct kill_event
     player_id killer{};
     npc_id killed_npc{};
     bool was_player{false};
+    bool was_elite{false};
 };
 
 struct item_collected_event
@@ -198,7 +199,13 @@ public:
 
 private:
     void check_quest_completion(player_id player, quest_state& state);
-    void update_kill_objectives(player_id player, npc_id killed, bool was_player);
+    void update_kill_objectives(player_id player, npc_id killed, bool was_player, bool was_elite = false);
+
+public:
+    // Seconds before a repeatable quest with a cooldown can be taken again (0 = now)
+    [[nodiscard]] auto cooldown_remaining(player_id player, quest_id quest) const -> int32_t;
+
+private:
     void update_collect_objectives(player_id player, item_id item, int32_t count);
     void update_location_objectives(player_id player, map_id map, int16_t x, int16_t y);
     void update_npc_objectives(player_id player, npc_id npc);

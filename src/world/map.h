@@ -118,6 +118,7 @@ struct spot_mob_generator
     std::string npc_name; // NPC template name; when set it wins over npc_type (mapdata converted from legacy .txt)
     int16_t max_count{0}; // Maximum NPCs to spawn
     int32_t respawn_time_ms{60000}; // vem do mapdata; 60s se ausente
+    int16_t elite_chance{0};        // percent of spawns born elite (Olympia elites)
     bool enabled{true};
 };
 

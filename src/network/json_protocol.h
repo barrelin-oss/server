@@ -504,6 +504,16 @@ enum class json_message_type
     quest_journal_response,  // S->C: Journal
     quest_update,            // S->C: Push when a quest is accepted or progresses
 
+    // Specialties (monster mastery)
+    specialty_list_request,  // C->S: the player's specialties
+    specialty_list_response, // S->C: list
+    specialty_update,        // S->C: push when a specialty gains a level
+
+    // Achievements
+    achievement_list_request,  // C->S: every achievement with the player's progress
+    achievement_list_response, // S->C: list + points
+    achievement_unlocked,      // S->C: push when one unlocks
+
     // Combat mode
     combat_mode_change_request,   // C->S: Toggle combat mode
     combat_mode_change_response,  // S->C: Confirm combat mode change
@@ -1319,6 +1329,18 @@ enum class json_message_type
         return "quest_journal_response";
     case json_message_type::quest_update:
         return "quest_update";
+    case json_message_type::specialty_list_request:
+        return "specialty_list_request";
+    case json_message_type::specialty_list_response:
+        return "specialty_list_response";
+    case json_message_type::specialty_update:
+        return "specialty_update";
+    case json_message_type::achievement_list_request:
+        return "achievement_list_request";
+    case json_message_type::achievement_list_response:
+        return "achievement_list_response";
+    case json_message_type::achievement_unlocked:
+        return "achievement_unlocked";
     case json_message_type::combat_mode_change_request:
         return "combat_mode_change_request";
     case json_message_type::combat_mode_change_response:
@@ -2238,6 +2260,7 @@ struct npc_spawn_data
     std::string hostility;                 // "enemy", "friendly", "neutral" (relative to viewing player)
     std::vector<std::string> attributes;   // NPC attributes: "Poisonous", "Anti-Magic", etc.
     bool is_dead{false};                   // True for dead NPC corpses
+    bool is_elite{false};                  // Elite variant ("elite": true on the wire)
 
     [[nodiscard]] auto to_json() const -> nlohmann::json;
 };
@@ -2583,6 +2606,10 @@ struct quest_request_data
     uint32_t seq, bool success, uint16_t quest_id, nlohmann::json rewards, std::string_view error) -> json_message;
 [[nodiscard]] auto make_quest_journal_response(uint32_t seq, nlohmann::json quests) -> json_message;
 [[nodiscard]] auto make_quest_update(nlohmann::json quest) -> json_message;
+[[nodiscard]] auto make_specialty_list_response(uint32_t seq, nlohmann::json specialties) -> json_message;
+[[nodiscard]] auto make_specialty_update(nlohmann::json specialty) -> json_message;
+[[nodiscard]] auto make_achievement_list_response(uint32_t seq, int32_t points, nlohmann::json achievements) -> json_message;
+[[nodiscard]] auto make_achievement_unlocked(nlohmann::json achievement) -> json_message;
 [[nodiscard]] auto make_inventory_item_removed(uint32_t item_id) -> json_message;
 [[nodiscard]] auto make_inventory_weight_update(int32_t current_weight, int32_t max_weight) -> json_message;
 [[nodiscard]] auto make_bank_slot_update(int16_t page, int16_t slot, const inventory_item_msg* item = nullptr) -> json_message;

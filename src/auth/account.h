@@ -204,6 +204,8 @@ struct character_full_data
     std::string skills_data;    // JSON: [{type, level, exp}, ...]
     std::string magic_data;     // JSON: [{spell_id, level, total_casts}, ...]
     std::string quest_data;     // JSON: {active: [...], completed: [...]}
+    std::string specialty_data; // JSON: [{type, kills}, ...] monster specialties
+    std::string achievement_data; // JSON: {counters, unlocked} achievements
 };
 
 // Authentication errors

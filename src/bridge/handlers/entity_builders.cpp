@@ -417,7 +417,8 @@ void send_visible_entity_spawns(network::ws_connection* conn,
                     .category = std::string(npc::npc_category_to_string(n.category)),
                     .hostility = std::string(npc::npc_hostility_for_player(
                         n, player->faction, player->pk.is_criminal(), player->pk.is_murderer())),
-                    .attributes = npc::npc_special_ability_strings(n.special_ability)};
+                    .attributes = npc::npc_special_ability_strings(n.special_ability),
+                    .is_elite = n.is_elite};
                 conn->send(network::make_npc_spawn_message(data));
             });
 

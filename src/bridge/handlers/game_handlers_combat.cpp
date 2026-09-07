@@ -360,6 +360,9 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
         ammo_remaining = inventory_->count_item(entity_id{pid.value}, item_id{arrow_template_id});
     }
 
+    // Super attack (Alt held on the client): only with a charge left, otherwise it lands as a regular hit
+    const bool is_super = (data.type == network::attack_type::super) && attacker->super_attack_charges > 0;
+
     // Build attack event - defender entity depends on target type
     combat::attack_event attack;
     attack.attacker = attacker->ecs_entity;
@@ -369,6 +372,7 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     attack.is_skill = false;
     attack.is_ranged = is_ranged;
     attack.is_dash = (data.type == network::attack_type::dash);
+    attack.is_super = is_super;
     attack.distance = distance;
 
     // Process the attack through combat system
@@ -376,6 +380,12 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
 
     // Update last attack time
     attacker->last_attack_time = now;
+
+    if (is_super)
+    {
+        attacker->super_attack_charges--;
+        conn->send(network::make_super_attack_update(attacker->super_attack_charges));
+    }
 
     // Re-read NPC HP after damage application (may have changed)
     if (target_is_npc && target_npc)
@@ -409,7 +419,9 @@ void game_handlers::handle_player_attack(connection_id conn_id, const network::j
     conn->send(network::make_player_attack_response(msg.seq, true, &result));
 
     // Broadcast action animation to nearby players
-    std::string action_type = (data.type == network::attack_type::dash) ? "dash_attack" : "attack";
+    std::string action_type = (data.type == network::attack_type::dash) ? "dash_attack"
+                              : is_super                                  ? "super_attack"
+                                                                          : "attack";
     broadcast_player_action(*attacker,
                             {.entity_id = attacker->ecs_entity.id,
                              .action = std::move(action_type),

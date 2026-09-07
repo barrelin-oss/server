@@ -279,6 +279,12 @@ auto npc_system::spawn_npc(npc_id template_id,
             new_npc->ai.flags = new_npc->ai.flags | ai_flags::aggressive;
         }
 
+        // Legacy action_limit 3 (training dummy), 4 (energy sphere) and 8 (gate/structure) never move
+        if (tmpl->action_limit == 3 || tmpl->action_limit == 4 || tmpl->action_limit == 8)
+        {
+            new_npc->ai.flags = new_npc->ai.flags | ai_flags::stationary;
+        }
+
         // Wire min_bravery to flee behavior
         if (tmpl->min_bravery > 0 && tmpl->min_bravery < 100)
         {

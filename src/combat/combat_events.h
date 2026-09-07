@@ -86,6 +86,7 @@ struct attack_event
     uint16_t skill_id{0};
     bool is_ranged{false};
     bool is_dash{false};
+    bool is_super{false}; // Super attack: guaranteed critical hit
     int32_t distance{0}; // Attacker-defender distance at time of attack
 };
 

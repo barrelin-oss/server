@@ -262,7 +262,7 @@ struct player
     entity::entity target{};
     std::chrono::steady_clock::time_point last_attack_time{};
     std::chrono::steady_clock::time_point last_hit_time{};
-    int32_t super_attack_charges{0}; // From charge_critical enchantment
+    int32_t super_attack_charges{0}; // Super attacks left: level/10 on login and level-up, plus charge_critical
 
     // Special ability (SPECABLTY items)
     item::special_ability_state special_ability{};

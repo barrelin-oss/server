@@ -32,7 +32,8 @@ enum class attack_type : uint8_t
 {
     regular = 0, // Normal melee attack
     dash = 1,    // Dash attack (requires 100% skill, 1 tile gap)
-    ranged = 2   // Ranged attack (bow/crossbow)
+    ranged = 2,  // Ranged attack (bow/crossbow)
+    super = 3    // Super attack (Alt held on the client; spends one super attack charge, lands as a critical)
 };
 
 // Projectile type for ranged attack broadcasts
@@ -508,6 +509,9 @@ enum class json_message_type
     specialty_list_request,  // C->S: the player's specialties
     specialty_list_response, // S->C: list
     specialty_update,        // S->C: push when a specialty gains a level
+
+    // Super attacks
+    super_attack_update,     // S->C: the player's remaining super attack charges
 
     // Achievements
     achievement_list_request,  // C->S: every achievement with the player's progress
@@ -1335,6 +1339,8 @@ enum class json_message_type
         return "specialty_list_response";
     case json_message_type::specialty_update:
         return "specialty_update";
+    case json_message_type::super_attack_update:
+        return "super_attack_update";
     case json_message_type::achievement_list_request:
         return "achievement_list_request";
     case json_message_type::achievement_list_response:
@@ -2608,6 +2614,7 @@ struct quest_request_data
 [[nodiscard]] auto make_quest_update(nlohmann::json quest) -> json_message;
 [[nodiscard]] auto make_specialty_list_response(uint32_t seq, nlohmann::json specialties) -> json_message;
 [[nodiscard]] auto make_specialty_update(nlohmann::json specialty) -> json_message;
+[[nodiscard]] auto make_super_attack_update(int32_t charges) -> json_message;
 [[nodiscard]] auto make_achievement_list_response(uint32_t seq, int32_t points, nlohmann::json achievements) -> json_message;
 [[nodiscard]] auto make_achievement_unlocked(nlohmann::json achievement) -> json_message;
 [[nodiscard]] auto make_inventory_item_removed(uint32_t item_id) -> json_message;

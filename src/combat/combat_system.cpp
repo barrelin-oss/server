@@ -75,6 +75,11 @@ auto combat_system::process_attack(const attack_event& attack) -> combat_result
 
     // Build combat context from entity stats
     combat_context ctx = build_combat_context(attack.attacker, attack.defender, attack.type);
+    if (attack.is_super)
+    {
+        // A super attack always lands as a critical hit (the charge was spent by the handler)
+        ctx.guaranteed_critical = true;
+    }
 
     // Override with base damage if provided (e.g. spell damage, test scenarios)
     if (attack.base_damage > 0)

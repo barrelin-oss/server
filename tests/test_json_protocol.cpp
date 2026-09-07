@@ -44,6 +44,7 @@ TEST(attack_type_test, enum_values)
     EXPECT_EQ(static_cast<uint8_t>(attack_type::regular), 0);
     EXPECT_EQ(static_cast<uint8_t>(attack_type::dash), 1);
     EXPECT_EQ(static_cast<uint8_t>(attack_type::ranged), 2);
+    EXPECT_EQ(static_cast<uint8_t>(attack_type::super), 3);
 }
 
 // ========== Target Type Tests ==========
@@ -301,6 +302,31 @@ TEST(player_attack_request_data_test, from_json_dash_attack)
     auto data = result.value();
     EXPECT_EQ(data.type, attack_type::dash);
     EXPECT_EQ(data.tgt_type, target_type::player);
+}
+
+TEST(player_attack_request_data_test, from_json_super_attack)
+{
+    // The string form, and the client's own per-weapon codes (20-27)
+    nlohmann::json by_name = {{"x", 50}, {"y", 50}, {"attack_type", "super"}, {"target_type", 2}, {"target_id", 7}};
+    auto r1 = player_attack_request_data::from_json(by_name);
+    ASSERT_TRUE(r1.is_ok());
+    EXPECT_EQ(r1.value().type, attack_type::super);
+
+    nlohmann::json by_code = {{"x", 50}, {"y", 50}, {"attack_type", 23}, {"target_type", 2}, {"target_id", 7}};
+    auto r2 = player_attack_request_data::from_json(by_code);
+    ASSERT_TRUE(r2.is_ok());
+    EXPECT_EQ(r2.value().type, attack_type::super);
+
+    nlohmann::json unknown = {{"x", 50}, {"y", 50}, {"attack_type", 99}};
+    EXPECT_EQ(player_attack_request_data::from_json(unknown).value().type, attack_type::regular);
+}
+
+TEST(super_attack_update_test, carries_the_charges)
+{
+    auto msg = make_super_attack_update(4);
+    EXPECT_EQ(msg.type, json_message_type::super_attack_update);
+    EXPECT_EQ(msg.data["charges"], 4);
+    EXPECT_EQ(std::string(to_string(msg.type)), "super_attack_update");
 }
 
 // ========== Player Magic Request Data Tests ==========

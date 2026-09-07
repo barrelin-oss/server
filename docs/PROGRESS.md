@@ -452,6 +452,14 @@ Priority order for remaining work toward a playable game:
 
 ## Recent Changes
 
+### 2026-09-06: Super attacks (Alt) over the JSON protocol
+
+- `weapon_type` on serialized items was always `"none"` (the instance field was never filled). It is now derived from the template's legacy appearance value (`weapon_type_from_appearance`), so the client knows the weapon skill of what it holds.
+- NPC templates with legacy `action_limit` 3, 4 or 8 (training dummies, energy spheres, gates) now get the `stationary` AI flag, which was never set. The Olympia Scarecrow is now `action_limit: 3`: a target that stands still and hits back with nothing.
+- `player_attack_request` accepts `attack_type` `"super"` / 3 (and the client's per-weapon codes 20-27). With a charge left the hit is a guaranteed critical, the charge is spent, and the action broadcast says `super_attack`; without a charge it is a regular attack.
+- New push `super_attack_update {charges}` after `enter_game_response`, after each super attack and on level-up. Charges follow legacy: level / 10 on login and on level-up (plus the `charge_critical` enchantment).
+- Tests: `attack_type` parsing (name, code, unknown) and the update message.
+
 ### 2026-09-06: Olympia mechanics: specialties, elites, daily quests, treasure chests, achievements
 
 - **Specialties (monster mastery)**: `specialty_system` (src/specialty), data in `specialties.yaml` (29 monsters from the Olympia client). Level L of a monster's specialty needs `base_kills * L * (L + 1) / 2` kills; each level unlocks the next bonus of the ladder against that monster: +2 damage, +3% damage, +1% / -3% damage taken, +5 / +3% hit ratio, +5% drop rate (multiplicative). Applied in `build_combat_context` and in the kill loot roll. Saved in `characters.specialty_data` (migration 20260906_120000). Protocol: `specialty_list_request/response`, `specialty_update` push and a system chat line on each level (docs/protocol/specialty.md). Tests: test_specialty.cpp.

@@ -421,6 +421,7 @@ const std::unordered_map<std::string, json_message_type> type_map = {
     {"specialty_list_request", json_message_type::specialty_list_request},
     {"specialty_list_response", json_message_type::specialty_list_response},
     {"specialty_update", json_message_type::specialty_update},
+    {"super_attack_update", json_message_type::super_attack_update},
     {"achievement_list_request", json_message_type::achievement_list_request},
     {"achievement_list_response", json_message_type::achievement_list_response},
     {"achievement_unlocked", json_message_type::achievement_unlocked},
@@ -863,9 +864,14 @@ auto parse_attack_type(const nlohmann::json& j) -> attack_type
     if (j.is_number())
     {
         auto val = j.get<int>();
-        if (val >= 0 && val <= 2)
+        if (val >= 0 && val <= 3)
         {
             return static_cast<attack_type>(val);
+        }
+        // The client's own attack codes: 20-27 are the per-weapon super attacks (legacy wType >= 20)
+        if (val >= 20 && val <= 27)
+        {
+            return attack_type::super;
         }
     }
     else if (j.is_string())
@@ -875,8 +881,10 @@ auto parse_attack_type(const nlohmann::json& j) -> attack_type
             return attack_type::regular;
         if (str == "dash")
             return attack_type::dash;
-        if (str == "ranged" || str == "super")
+        if (str == "ranged")
             return attack_type::ranged;
+        if (str == "super")
+            return attack_type::super;
     }
     return attack_type::regular;
 }
@@ -3268,6 +3276,12 @@ auto make_specialty_list_response(uint32_t seq, nlohmann::json specialties) -> j
 auto make_specialty_update(nlohmann::json specialty) -> json_message
 {
     return json_message{.type = json_message_type::specialty_update, .seq = 0, .data = std::move(specialty)};
+}
+
+auto make_super_attack_update(int32_t charges) -> json_message
+{
+    return json_message{
+        .type = json_message_type::super_attack_update, .seq = 0, .data = nlohmann::json{{"charges", charges}}};
 }
 
 auto make_achievement_list_response(uint32_t seq, int32_t points, nlohmann::json achievements) -> json_message

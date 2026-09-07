@@ -1403,6 +1403,17 @@ void auth_handlers::handle_enter_game(connection_id conn_id, const network::json
     auto response = network::make_enter_game_response(msg.seq, true, &game_state);
     conn->send(response);
 
+    // Super attack charges: legacy gives level / 10 on login (an enchantment may have added more)
+    if (players_)
+    {
+        if (auto* player = players_->get_player(live_player_id))
+        {
+            player->super_attack_charges =
+                std::max(player->super_attack_charges, static_cast<int32_t>(player->experience.level) / 10);
+            conn->send(network::make_super_attack_update(player->super_attack_charges));
+        }
+    }
+
     // Send v2 inventory data with items, equipment slots, gold, and weight
     {
         auto inv_msg = network::make_inventory_data_v2(

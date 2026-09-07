@@ -30,7 +30,7 @@ Request to attack a target.
 | `x` | int16 | Yes | Current X coordinate (for validation) |
 | `y` | int16 | Yes | Current Y coordinate (for validation) |
 | `direction` | int16 | No | Direction facing (0-7) |
-| `attack_type` | string/int | No | Attack type: `"regular"` (0), `"dash"` (1), or `"super"` (2) |
+| `attack_type` | string/int | No | Attack type: `"regular"` (0), `"dash"` (1), `"ranged"` (2) or `"super"` (3; the client's per-weapon codes 20-27 are accepted too) |
 | `target_type` | string/int | No | Target type: `"none"` (0), `"player"` (1), `"npc"` (2), `"ground"` (3), `"item"` (4) |
 | `target_id` | uint32 | No | Target entity ID |
 | `timestamp` | uint64 | No | Client timestamp in milliseconds |
@@ -42,6 +42,20 @@ Request to attack a target.
 | 0 / `"regular"` | Regular | Normal melee attack |
 | 1 / `"dash"` | Dash | Dash attack (requires 100% skill, 1 tile gap) |
 | 2 / `"ranged"` | Ranged | Ranged attack (bow/crossbow, 2-10 tile range) |
+| 3 / `"super"` (or 20-27) | Super | Super attack (Alt held). Needs a super attack charge; spends one and lands as a guaranteed critical hit. Without a charge it is processed as a regular attack. The action broadcast says `"super_attack"` so nearby clients play the shout. |
+
+### `super_attack_update`
+
+**Direction:** Server -> Client (push, `seq` 0)
+
+```json
+{
+  "type": "super_attack_update",
+  "data": { "charges": 18 }
+}
+```
+
+The player's remaining super attack charges. Sent right after `enter_game_response`, after every super attack, and on level-up. Charges follow the legacy rule: level / 10 on login and refilled to that on each level-up (the `charge_critical` weapon enchantment adds more). Charges are not persisted.
 
 ---
 
@@ -445,6 +459,7 @@ Broadcast to nearby players when a player performs a visible action. This replac
 |--------|-------------|-----------------|
 | `"attack"` | Melee attack swing | `target_id` |
 | `"dash_attack"` | Dash attack | `target_id` |
+| `"super_attack"` | Super attack (critical, with the character's shout) | `target_id` |
 | `"magic"` | Spell casting animation | `target_id`, `spell_id` |
 | `"pickup"` | Item pickup animation | — |
 

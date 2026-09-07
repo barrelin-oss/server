@@ -85,7 +85,7 @@ Every item the client receives uses this exact shape, regardless of context (inv
 | `name` | string | yes | Display name. May include "+N" suffix for upgraded items. |
 | `type` | string | yes | Item type enum. See [Enums](#14-enums). |
 | `equip_pos` | string | yes | Equipment slot this item fits. `"none"` if not equippable. |
-| `weapon_type` | string | no | Present only when `type` is `"weapon"`. See [Enums](#14-enums). |
+| `weapon_type` | string | no | Present only when `type` is `"weapon"`. See [Enums](#14-enums). Derived from the template's legacy appearance value (2026-09-06): 1-2 dagger, 3-19/29/33 sword, 20-28 axe, 30-32 hammer, 34-40 staff, 41+ bow. |
 | `count` | integer | yes | Stack count. Always 1 for non-stackable items. |
 | `weight` | integer | yes | Item weight (per unit if stacked). |
 | `price` | integer | yes | Base sell price to NPC shops. |

@@ -464,3 +464,20 @@ TEST(item_serialization_test, serialize_damage_min_max_zero_for_non_weapon)
     EXPECT_EQ(j["damage_min"], 0);
     EXPECT_EQ(j["damage_max"], 0);
 }
+
+// ========== Weapon class from the legacy appearance value ==========
+
+TEST(weapon_type_from_appearance_test, legacy_ranges)
+{
+    EXPECT_EQ(weapon_type_from_appearance(0), weapon_type::none);
+    EXPECT_EQ(weapon_type_from_appearance(1), weapon_type::dagger);  // Dagger
+    EXPECT_EQ(weapon_type_from_appearance(3), weapon_type::sword);   // LongSword
+    EXPECT_EQ(weapon_type_from_appearance(17), weapon_type::sword);  // KlonessBlade
+    EXPECT_EQ(weapon_type_from_appearance(26), weapon_type::axe);    // BattleAxe
+    EXPECT_EQ(weapon_type_from_appearance(29), weapon_type::sword);
+    EXPECT_EQ(weapon_type_from_appearance(31), weapon_type::hammer);
+    EXPECT_EQ(weapon_type_from_appearance(33), weapon_type::sword);
+    EXPECT_EQ(weapon_type_from_appearance(36), weapon_type::staff);  // MagicWand
+    EXPECT_EQ(weapon_type_from_appearance(41), weapon_type::bow);    // LongBow
+    EXPECT_EQ(weapon_type_from_appearance(45), weapon_type::bow);
+}

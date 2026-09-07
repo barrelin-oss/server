@@ -310,6 +310,16 @@ auto item_system::populate_from_template(item& itm, item_id template_id) -> bool
     itm.name = tmpl->name;
     itm.description = tmpl->description;
 
+    // Weapon class (sword, axe, bow...) from the legacy appearance value, for hand-equipped templates
+    {
+        auto hand = static_cast<uint8_t>(tmpl->equip_pos);
+        if (hand == static_cast<uint8_t>(hb::item_equip_pos::right_hand) ||
+            hand == static_cast<uint8_t>(hb::item_equip_pos::two_hand))
+        {
+            itm.weapon = weapon_type_from_appearance(tmpl->appr_value);
+        }
+    }
+
     // Map template type to item type using numeric comparison
     auto tmpl_type_val = static_cast<int8_t>(tmpl->type);
     if (tmpl_type_val == static_cast<int8_t>(hb::item_type::weapon))

@@ -61,6 +61,28 @@ enum class weapon_type : uint8_t
     fist = 8,
 };
 
+// Legacy weapon class from the item's appearance value (the client's (appr2 & 0x0FF0) >> 4):
+// 1-2 daggers and short swords, 3-19 long swords (7/18 esterks, 15 storm blade), 20-28 axes,
+// 29 and 33 long swords, 30-32 hammers, 34-40 wands and staves, 41 and up bows. 0 = bare hands.
+[[nodiscard]] inline auto weapon_type_from_appearance(int32_t appr) -> weapon_type
+{
+    if (appr <= 0)
+        return weapon_type::none;
+    if (appr <= 2)
+        return weapon_type::dagger;
+    if (appr <= 19)
+        return weapon_type::sword;
+    if (appr <= 28)
+        return weapon_type::axe;
+    if (appr == 29 || appr == 33)
+        return weapon_type::sword;
+    if (appr <= 32)
+        return weapon_type::hammer;
+    if (appr <= 40)
+        return weapon_type::staff;
+    return weapon_type::bow;
+}
+
 // Item rarity
 enum class item_rarity : uint8_t
 {

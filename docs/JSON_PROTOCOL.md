@@ -70,7 +70,7 @@ All messages follow a common envelope structure:
 | Authentication | [protocol/auth.md](protocol/auth.md) | Login, accounts, characters, game entry |
 | Player State | [protocol/player.md](protocol/player.md) | Game state objects, entity visibility, stat updates, experience/level-up updates, view mode |
 | Movement | [protocol/movement.md](protocol/movement.md) | Movement, teleportation |
-| Combat | [protocol/combat.md](protocol/combat.md) | Attacks, damage, death, magic, skills, combat mode, action broadcasts, ground-field dynamic objects |
+| Combat | [protocol/combat.md](protocol/combat.md) | Attacks (regular, dash, ranged, super), super attack charges, damage, death, magic, skills, combat mode, action broadcasts, ground-field dynamic objects |
 | Quests | [protocol/quest.md](protocol/quest.md) | City hall hunting quests: list, accept, abandon, turn in, journal, progress push |
 | Specialties | [protocol/specialty.md](protocol/specialty.md) | Monster mastery: list, level-up push |
 | Achievements | [protocol/achievement.md](protocol/achievement.md) | Achievement list with progress, unlock push |

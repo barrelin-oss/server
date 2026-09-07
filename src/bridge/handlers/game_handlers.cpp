@@ -1132,6 +1132,10 @@ void game_handlers::send_experience_update(player_id pid, int64_t exp_gained, in
     if (levels_gained > 0)
     {
         data.levels_gained = levels_gained;
+        // Legacy: a level-up refills the super attack charges to level / 10
+        player->super_attack_charges =
+            std::max(player->super_attack_charges, static_cast<int32_t>(player->experience.level) / 10);
+        conn->send(network::make_super_attack_update(player->super_attack_charges));
         data.max_hp = player->computed.max_hp;
         data.max_mp = player->computed.max_mp;
         data.max_sp = player->computed.max_sp;
@@ -1324,7 +1328,11 @@ void game_handlers::send_stat_update(connection_id conn_id, const player::player
                                    .hit_rate = plr.computed.hit_rate,
                                    .dodge_rate = plr.computed.dodge_rate,
                                    .critical_rate = plr.computed.critical_rate,
-                                   .max_weight = plr.computed.strength * 500 + plr.experience.level * 500};
+                                   .max_weight = plr.computed.strength * 500 + plr.experience.level * 500,
+                                   // Current vitals too: a potion (use_item_request) heals and only sends this
+                                   .hp = plr.hp,
+                                   .mp = plr.mp,
+                                   .sp = plr.sp};
     conn->send(network::make_stat_update(data));
 }
 
